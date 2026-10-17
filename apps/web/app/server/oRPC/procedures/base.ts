@@ -27,6 +27,7 @@ import {
   formatUserDescriptor,
   formatProcedurePath,
 } from './logging/helpers';
+import { assertCurrentBuild } from './shared/currentBuild';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
 type ApiKeyActor = {
@@ -51,6 +52,8 @@ const base = os.$context<
     resHeaders?: Headers;
     // Set only by the REST API route, never by /rpc
     apiKeyRequired?: boolean;
+    /** The build a call through /rpc came from; null when it sent none. */
+    clientBuild?: string | null;
   } & VerifiedApiKeyContext
 >();
 
@@ -860,6 +863,19 @@ export const withMaintenanceWindowGuard = base.middleware(
   }
 );
 
-export const adminMutationProcedure = protectedProcedure.use(
+// A page from another release sends input shaped by its own code
+export const withCurrentBuildGuard = base.middleware(
+  async ({ context, next }) => {
+    assertCurrentBuild(context.clientBuild);
+    return next();
+  }
+);
+
+/** A signed-in user's write, refused from a page of another release. */
+export const protectedMutationProcedure = protectedProcedure.use(
+  withCurrentBuildGuard
+);
+
+export const adminMutationProcedure = protectedMutationProcedure.use(
   withMaintenanceWindowGuard
 );

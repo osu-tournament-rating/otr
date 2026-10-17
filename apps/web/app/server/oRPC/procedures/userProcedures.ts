@@ -7,7 +7,7 @@ import { CurrentUserSchema, PublicUserSchema } from '@/lib/orpc/schema/user';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 
-import { protectedProcedure } from './base';
+import { protectedMutationProcedure, protectedProcedure } from './base';
 
 export const getUser = protectedProcedure
   .input(
@@ -85,7 +85,7 @@ export const getCurrentUser = protectedProcedure
     });
   });
 
-export const deleteMyAccount = protectedProcedure
+export const deleteMyAccount = protectedMutationProcedure
   .route({
     summary: 'Permanently delete user account data',
     tags: ['authenticated'],
@@ -115,7 +115,7 @@ export const deleteMyAccount = protectedProcedure
     return { success: true };
   });
 
-export const deleteMyFriends = protectedProcedure
+export const deleteMyFriends = protectedMutationProcedure
   .route({
     summary: 'Delete all friends for the current user',
     tags: ['authenticated'],

@@ -1,6 +1,7 @@
 import { ResponseHeadersPlugin } from '@orpc/server/plugins';
 import { RPCHandler } from '@orpc/server/fetch';
 import { router } from '@/app/server/oRPC/router';
+import { BUILD_ID, BUILD_ID_HEADER } from '@/lib/build-id';
 import { rpcAccessInterceptor } from '@/lib/rpc/access';
 
 const handler = new RPCHandler(router, {
@@ -14,10 +15,15 @@ async function handleRequest(request: Request) {
     context: {
       headers: request.headers,
       requestUrl: request.url,
+      clientBuild: request.headers.get(BUILD_ID_HEADER),
     },
   });
 
-  return response ?? new Response('Not found', { status: 404 });
+  const result = response ?? new Response('Not found', { status: 404 });
+  // The browser compares this with its own build to notice a new release, and
+  // takes a gateway error without it as one from in front of the site.
+  result.headers.set(BUILD_ID_HEADER, BUILD_ID);
+  return result;
 }
 
 export const HEAD = handleRequest;
