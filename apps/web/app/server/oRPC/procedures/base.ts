@@ -13,6 +13,7 @@ import { SpanKind } from '@opentelemetry/api';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { orpcProcedureCalls, orpcProcedureDuration } from '@/lib/metrics';
+import type { RpcCaller } from '@/lib/rpc/access';
 
 import type { RequestLoggingContext } from './logging/types';
 import {
@@ -38,6 +39,10 @@ const base = os.$context<
   {
     headers: Headers;
     requestUrl?: string;
+    /** Set by the `/rpc` gate; absent on the public API. */
+    rpc?: RpcCaller;
+    /** Headers to add to the response, where the handler supports them. */
+    resHeaders?: Headers;
   } & VerifiedApiKeyContext
 >();
 
@@ -577,6 +582,7 @@ const withLoggingContext = base.middleware(async ({ context, path, next }) => {
     'otr.access_method': actor.accessMethod,
     'otr.player_id': actor.playerId ?? undefined,
     'otr.request_path': requestPath ?? undefined,
+    'otr.rpc_caller': context.rpc?.kind,
   });
 
   const logger = rootLogger.child({

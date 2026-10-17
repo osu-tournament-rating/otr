@@ -1,7 +1,12 @@
+import { ResponseHeadersPlugin } from '@orpc/server/plugins';
 import { RPCHandler } from '@orpc/server/fetch';
 import { router } from '@/app/server/oRPC/router';
+import { rpcAccessInterceptor } from '@/lib/rpc/access';
 
-const handler = new RPCHandler(router);
+const handler = new RPCHandler(router, {
+  plugins: [new ResponseHeadersPlugin()],
+  interceptors: [rpcAccessInterceptor],
+});
 
 async function handleRequest(request: Request) {
   const { response } = await handler.handle(request, {

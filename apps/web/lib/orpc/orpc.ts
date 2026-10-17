@@ -14,7 +14,10 @@ const link = new RPCLink({
     }
 
     const { headers } = await import('next/headers');
-    return await headers();
+    // Read first: it opts the page into dynamic rendering
+    const incoming = await headers();
+    const { buildServerRpcHeaders } = await import('./server-headers');
+    return buildServerRpcHeaders(incoming);
   },
 });
 
