@@ -306,6 +306,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Identify the web build
+        id: web-build
+        run: echo "id=$(bash .github/scripts/web-build-id.sh)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push web image
         uses: docker/build-push-action@v6
         with:
@@ -313,7 +317,7 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           tags: stagecodes/otr-web:pr-${{ env.PR_NUMBER }}
-          build-args: OTR_BUILD_ID=${{ needs.authorize.outputs.head_sha }}
+          build-args: OTR_BUILD_ID=${{ steps.web-build.outputs.id }}
           # Shared read cache plus a per-PR layer; the GHA cache budget is 10 GB.
           cache-from: |
             type=gha,scope=web

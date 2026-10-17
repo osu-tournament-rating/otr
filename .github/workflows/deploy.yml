@@ -233,6 +233,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Identify the web build
+        id: web-build
+        run: echo "id=$(bash .github/scripts/web-build-id.sh)" >> "$GITHUB_OUTPUT"
+
       # The provenance records the commit, which the deploy checks against the
       # release tag.
       - name: Build and push web image
@@ -244,7 +248,7 @@ jobs:
           push: true
           provenance: mode=max
           tags: stagecodes/otr-web:sha-${{ needs.resolve.outputs.ref }}
-          build-args: OTR_BUILD_ID=${{ needs.resolve.outputs.ref }}
+          build-args: OTR_BUILD_ID=${{ steps.web-build.outputs.id }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max,ignore-error=true
 
