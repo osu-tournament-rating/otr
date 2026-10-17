@@ -15,6 +15,7 @@ Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its lig
 - [Tier colours](#tier-colours): `TIER_PALETTE`, `TIER_TEXT_CLASS`
 - [Grade colours](#grade-colours): `GRADE_PALETTE`, `getGradeColor`
 - [Mod colours](#mod-colours): `MOD_PALETTE`, `getModPaletteColor`
+- [Mod badges](#mod-badges): `ModIconset`, `MOD_TYPE_COLORS`
 - [Star rating colours](#star-rating-colours): `getStarRatingMarkColor`
 - [Contrast helpers](#contrast-helpers): `contrastRatio`, `colorDistance`
 - [Tick rule](#tick-rule): `getNiceTicks`, `getCategoryTicks`, `getTimeTicks`
@@ -365,6 +366,29 @@ Don't:
 - Don't swap a mod to a new hue to fix contrast or a clash. Players know these colours; move the lightness, or the chroma for a rare mod, as `mods.ts` does.
 
 Gallery anchor: `/admin/design#color-mods`
+
+## Mod badges
+
+`ModIconset` draws osu-web's lazer mod badges, mirrored one to one: osu-web's badge shape filled with the mod type's colour, and the mod's glyph on top in a near-black shade of it. They are an experiment, so they are the one place mod colours follow osu-web's types (blue automation, purple conversion, red difficulty increase, lime difficulty reduction, pink fun, yellow system) rather than `MOD_PALETTE`, and the same in both themes. In the light theme most badge fills fall under 3:1 against the card; the glyphs clear 3:1 on every fill.
+
+```tsx
+import ModIconset from '@/components/icons/ModIconset';
+
+<ModIconset mods={score.mods} className="flex h-5 items-center" />
+<ModIconset mods={mods} freemod alwaysExpanded className="flex h-6" />
+```
+
+- `mods`: the stored bitflags. NF is never drawn, and no mods draws No Mod.
+- `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in the system colour.
+- `alwaysExpanded`: keeps the badges spread; otherwise they overlap and spread on hover.
+- The glyphs, the badge shape and their osu-web commit are in `public/icons/mods/`; each mod's name, type and glyph, and each type's colour, are in `@/lib/utils/mod-badges`. A mod osu-web has no glyph for shows its acronym.
+
+Don't:
+
+- Don't colour a mod chart, swatch or pill with `MOD_TYPE_COLORS`; those keep `MOD_PALETTE`.
+- Don't redraw a mod icon by hand. Copy osu-web's glyph and add the mod to `MOD_BADGES`.
+
+Gallery anchor: `/admin/design#color-mod-badges`
 
 ## Star rating colours
 
