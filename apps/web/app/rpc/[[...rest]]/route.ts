@@ -10,12 +10,13 @@ async function handleRequest(request: Request) {
     context: {
       headers: request.headers,
       requestUrl: request.url,
+      clientBuild: request.headers.get(BUILD_ID_HEADER),
     },
   });
 
   const result = response ?? new Response('Not found', { status: 404 });
   // The browser compares this with its own build to notice a new release, and
-  // takes a failed response without it as one from in front of the site.
+  // takes a gateway error without it as one from in front of the site.
   result.headers.set(BUILD_ID_HEADER, BUILD_ID);
   return result;
 }

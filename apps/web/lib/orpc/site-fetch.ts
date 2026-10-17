@@ -19,6 +19,9 @@ export class SiteUnreachableError extends Error {
 
 type Fetch = (request: Request, init?: RequestInit) => Promise<Response>;
 
+/** What a proxy answers when the site behind it is down or not answering. */
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
+
 /**
  * The fetch behind the browser's oRPC link. It calls `onOtherBuild` when a
  * response names a build other than `buildId`, and throws SiteUnreachableError
@@ -46,9 +49,9 @@ export function createSiteFetch({
 
     const servedBy = response.headers.get(BUILD_ID_HEADER);
     if (servedBy === null) {
-      // The site stamps every response it sends, so a server error without
+      // The site stamps every response it sends, so a gateway error without
       // the stamp is a proxy saying the site is down.
-      if (response.status >= 500) {
+      if (GATEWAY_STATUSES.has(response.status)) {
         throw new SiteUnreachableError();
       }
       return response;

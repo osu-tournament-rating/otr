@@ -46,8 +46,8 @@ describe('createSiteFetch', () => {
     await expect(fetch(request())).rejects.toBeInstanceOf(SiteUnreachableError);
   });
 
-  it('takes an unstamped server error as a proxy saying the site is down', async () => {
-    for (const status of [502, 503, 504, 521]) {
+  it('takes an unstamped gateway error as a proxy saying the site is down', async () => {
+    for (const status of [502, 503, 504]) {
       const { fetch } = siteFetch(
         async () => new Response('Bad gateway', { status })
       );
@@ -57,12 +57,14 @@ describe('createSiteFetch', () => {
     }
   });
 
-  it('returns an unstamped answer that is not a server error', async () => {
-    const { fetch, otherBuilds } = siteFetch(
-      async () => new Response('Not found', { status: 404 })
-    );
-    expect((await fetch(request())).status).toBe(404);
-    expect(otherBuilds).toHaveLength(0);
+  it('returns any other unstamped answer', async () => {
+    for (const status of [404, 500]) {
+      const { fetch, otherBuilds } = siteFetch(
+        async () => new Response('Error', { status })
+      );
+      expect((await fetch(request())).status).toBe(status);
+      expect(otherBuilds).toHaveLength(0);
+    }
   });
 
   it('lets an aborted request fail as an abort', async () => {
