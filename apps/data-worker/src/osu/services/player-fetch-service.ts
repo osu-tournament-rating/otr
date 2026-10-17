@@ -2,7 +2,6 @@ import { eq } from 'drizzle-orm';
 import type { API } from 'osu-api-v2-js';
 
 import { withApiErrorHandling, withApiMetrics } from '../api-helpers';
-import { convertRuleset } from '../conversions';
 import { ensurePlayerPlaceholder, updatePlayerStatus } from '../player-store';
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
@@ -170,7 +169,6 @@ export class PlayerFetchService {
     apiUser: Awaited<ReturnType<API['getUser']>>,
     nowIso: string
   ) {
-    const defaultRuleset = convertRuleset(apiUser.playmode ?? null);
     const updatedCountry = apiUser.country?.code ?? apiUser.country_code ?? '';
     const username = apiUser.username ?? '';
 
@@ -183,7 +181,6 @@ export class PlayerFetchService {
           username
         ),
         country: updatedCountry,
-        defaultRuleset,
         osuLastFetch: nowIso,
         updated: nowIso,
       })
