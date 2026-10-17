@@ -1,15 +1,27 @@
 import { describe, expect, it } from 'bun:test';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderToStaticMarkup } from 'react-dom/server';
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
 import { Mods } from '@otr/core/osu';
 
 import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset from '@/components/icons/ModIconset';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ModsEnumHelper } from '@/lib/enum-helpers';
-import { MOD_BADGES, getModBadgeAcronyms } from '@/lib/utils/mod-badges';
+import {
+  MOD_BADGES,
+  getModBadgeAcronyms,
+  getModName,
+} from '@/lib/utils/mod-badges';
 
 const iconDir = join(import.meta.dir, '../../../public/icons/mods');
+
+const renderToStaticMarkup = (node: ReactNode) =>
+  renderMarkup(<TooltipProvider>{node}</TooltipProvider>);
+
+/** Each badge is a button named for its mod. */
+const BADGE = /<button[^>]*aria-label="[^"]+"/g;
 
 const singleBitMods = Object.values(Mods).filter(
   (value): value is Mods =>
@@ -46,6 +58,7 @@ describe('ModIconset', () => {
     const html = renderToStaticMarkup(<ModIconset mods={Mods.Hidden} />);
 
     expect(html).toContain('aria-label="Hidden"');
+    expect(html).not.toContain('aria-label="HD"');
     expect(html).toContain('/icons/mods/blanks/mod-icon.svg');
     expect(html).toContain('/icons/mods/mod-hidden.svg');
     expect(html).toContain('background-color:hsl(360, 100%, 70%)');
@@ -109,7 +122,7 @@ describe('ModIconset', () => {
       <ModIconset mods={Mods.Hidden | Mods.Target} />
     );
 
-    expect(html.match(/role="img"/g)).toHaveLength(1);
+    expect(html.match(BADGE)).toHaveLength(1);
   });
 });
 
@@ -119,8 +132,37 @@ describe('FittingModIconset', () => {
       <FittingModIconset mods={Mods.Hidden | Mods.HardRock | Mods.DoubleTime} />
     );
 
-    expect(html.match(/role="img"/g)).toHaveLength(3);
-    expect(html.indexOf('Hidden')).toBeLessThan(html.indexOf('Hard Rock'));
+    expect(html.match(BADGE)).toHaveLength(3);
+    expect(html.indexOf('Hidden')).toBeLessThan(html.indexOf('Hard rock'));
     expect(html).not.toContain('more mods');
+  });
+});
+
+describe('getModName', () => {
+  it('names every badge the site draws in sentence case', () => {
+    const acronyms = [
+      'FM',
+      ...singleBitMods.flatMap((mod) => getModBadgeAcronyms(mod)),
+      ...Object.keys(MOD_BADGES),
+    ];
+    const badNames = acronyms
+      .map((acronym) => [acronym, getModName(acronym)] as const)
+      .filter(
+        ([acronym, name]) =>
+          !name ||
+          name === acronym ||
+          name === name.toUpperCase() ||
+          // Title Case: a second word that starts with a capital letter.
+          /\s[A-Z]/.test(name)
+      );
+
+    expect(badNames).toEqual([]);
+  });
+
+  it("keeps the site's own names for stored mods", () => {
+    expect(getModName('HR')).toBe('Hard rock');
+    expect(getModName('7K')).toBe('Mania 7 key');
+    expect(getModName('FM')).toBe('Freemod');
+    expect(getModName('WU')).toBe('Wind up');
   });
 });

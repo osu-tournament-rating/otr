@@ -1,10 +1,12 @@
 import type { CSSProperties } from 'react';
 
 import { FREEMOD_LABEL } from '@/lib/kit/format/mods';
+import TapTooltip from '@/components/tap-tooltip';
 import {
   MOD_BADGES,
   MOD_TYPE_COLORS,
   getModBadgeAcronyms,
+  getModName,
   getModGlyphColor,
   type ModBadge,
 } from '@/lib/utils/mod-badges';
@@ -25,7 +27,7 @@ const LAZER_ACRONYMS: Readonly<Record<string, string>> = {
 const FREEMOD_BADGE: ModBadge = { name: FREEMOD_LABEL, type: 'System' };
 
 /** The badge for an acronym, otr's legacy spelling or lazer's. */
-export function getModBadge(acronym: string): ModBadge {
+function getModBadge(acronym: string): ModBadge {
   if (acronym === 'FM') return FREEMOD_BADGE;
 
   // osu-web draws a mod it does not know as an acronym in the Fun colour.
@@ -84,27 +86,44 @@ function ModBadgeArt({
   );
 }
 
-/** One mod's badge, named for assistive tech; its height sets its size. */
+/**
+ * One mod's badge; its height sets its size. Its full name opens in a tooltip
+ * on hover, tap and keyboard focus. Without `tooltip`, it is a plain image
+ * named for assistive tech, for places that write the name beside it.
+ */
 export function ModBadgeIcon({
   acronym,
   className,
+  tooltip = true,
 }: {
   acronym: string;
   className?: string;
+  tooltip?: boolean;
 }) {
-  const badge = getModBadge(acronym);
+  const name = getModName(acronym);
+  const sizing = cn(
+    '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
+    className
+  );
+  const art = <ModBadgeArt acronym={acronym} badge={getModBadge(acronym)} />;
+
+  if (!tooltip) {
+    return (
+      <div role="img" aria-label={name} className={sizing}>
+        {art}
+      </div>
+    );
+  }
 
   return (
-    <div
-      role="img"
-      aria-label={badge.name}
-      className={cn(
-        '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
-        className
-      )}
+    <TapTooltip
+      content={name}
+      side="top"
+      triggerAriaLabel={name}
+      triggerClassName={cn('w-auto rounded-none', sizing)}
     >
-      <ModBadgeArt acronym={acronym} badge={badge} />
-    </div>
+      {art}
+    </TapTooltip>
   );
 }
 

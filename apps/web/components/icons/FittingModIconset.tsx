@@ -3,12 +3,13 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Mods } from '@otr/core/osu';
 
-import { ModBadgeIcon, getModBadge } from '@/components/icons/ModIconset';
+import { ModBadgeIcon } from '@/components/icons/ModIconset';
 import TapTooltip from '@/components/tap-tooltip';
 import {
   countModBadgeSlots,
   fitModBadges,
   getModBadgeAcronyms,
+  getModName,
 } from '@/lib/utils/mod-badges';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +18,7 @@ const BADGE_GAP_PX = 2;
 
 /** A badge-shaped "+N" chip that lists the mods it stands for. */
 function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
-  const names = acronyms.map((acronym) => getModBadge(acronym).name);
+  const names = acronyms.map(getModName);
 
   return (
     <TapTooltip
@@ -28,7 +29,8 @@ function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
         <ul className="flex flex-col gap-1">
           {acronyms.map((acronym, index) => (
             <li key={acronym} className="flex items-center gap-2">
-              <ModBadgeIcon acronym={acronym} className="h-4" />
+              {/* A tooltip can't hold tooltips: the name sits beside it. */}
+              <ModBadgeIcon acronym={acronym} tooltip={false} className="h-4" />
               {names[index]}
             </li>
           ))}
