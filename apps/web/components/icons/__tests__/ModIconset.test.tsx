@@ -112,7 +112,7 @@ describe('ModIconset', () => {
       <ModIconset mods={Mods.Hidden} freemod />
     );
 
-    expect(html).toContain('aria-label="Freemod"');
+    expect(html).toContain('aria-label="Free Mods"');
     expect(html).toContain('background-color:hsl(125, 100%, 70%)');
     expect(html).toContain(
       'color:color-mix(in srgb-linear, black, hsl(125, 100%, 70%) 10%)'
@@ -137,36 +137,34 @@ describe('FittingModIconset', () => {
     );
 
     expect(html.match(BADGE)).toHaveLength(3);
-    expect(html.indexOf('Hidden')).toBeLessThan(html.indexOf('Hard rock'));
+    expect(html.indexOf('Hidden')).toBeLessThan(html.indexOf('Hard Rock'));
     expect(html).not.toContain('more mods');
   });
 });
 
 describe('getModName', () => {
-  it('names every badge the site draws in sentence case', () => {
-    const acronyms = [
-      'FM',
-      ...singleBitMods.flatMap((mod) => getModBadgeAcronyms(mod)),
-      ...Object.keys(MOD_BADGES),
-    ];
-    const badNames = acronyms
-      .map((acronym) => [acronym, getModName(acronym)] as const)
-      .filter(
-        ([acronym, name]) =>
-          !name ||
-          name === acronym ||
-          name === name.toUpperCase() ||
-          // Title Case: a second word that starts with a capital letter.
-          /\s[A-Z]/.test(name)
-      );
+  it("names every badge the site draws with osu!'s official name", () => {
+    const acronyms = singleBitMods.flatMap((mod) => getModBadgeAcronyms(mod));
+    const unnamed = acronyms.filter(
+      (acronym) => getModName(acronym) === acronym
+    );
 
-    expect(badNames).toEqual([]);
+    expect(unnamed).toEqual([]);
+    // Every word of a proper mod name starts with a capital, as osu! writes it.
+    const notTitleCase = [...acronyms, 'FM', ...Object.keys(MOD_BADGES)]
+      .map(getModName)
+      .filter(
+        (name) => !name.split(' ').every((word) => /^[A-Z0-9]/.test(word))
+      );
+    expect(notTitleCase).toEqual([]);
   });
 
-  it("keeps the site's own names for stored mods", () => {
-    expect(getModName('HR')).toBe('Hard rock');
-    expect(getModName('7K')).toBe('Mania 7 key');
-    expect(getModName('FM')).toBe('Freemod');
-    expect(getModName('WU')).toBe('Wind up');
+  it("keeps osu!'s spelling for stored mods, keys and freemod", () => {
+    expect(getModName('SO')).toBe('Spun Out');
+    expect(getModName('HR')).toBe('Hard Rock');
+    expect(getModName('7K')).toBe('Seven Keys');
+    expect(getModName('CM')).toBe('Cinema');
+    expect(getModName('V2')).toBe('Score V2');
+    expect(getModName('FM')).toBe('Free Mods');
   });
 });

@@ -34,7 +34,8 @@ If the library has no component for what you need, build it in the library
   16px side margin on phones.
 - **Type.** Page title 30px bold, section title 16px semibold, row title
   16px medium, body 14px, labels 12px muted. Inter everywhere. Sentence case
-  everywhere, including buttons, dialogs, menus and status names. Never
+  everywhere, including buttons, dialogs, menus and status names. Mod names
+  are proper names and keep osu!'s Title Case ("Spun Out"). Never
   `uppercase`, never `tracking-wide`, never smaller than `text-xs`.
 - **Colour.** Semantic tokens only; no hex values or palette classes such as
   `text-orange-500`. Blue only for things you can act on or that are

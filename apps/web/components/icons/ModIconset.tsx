@@ -1,24 +1,19 @@
 import type { CSSProperties } from 'react';
 
-import { FREEMOD_LABEL } from '@/lib/kit/format/mods';
 import TapTooltip from '@/components/tap-tooltip';
 import {
   FREEMOD_COLOR,
+  FREEMOD_NAME,
   MOD_BADGES,
   MOD_TYPE_COLORS,
   getModBadgeAcronyms,
   getModName,
+  toLazerAcronym,
   getModGlyphColor,
   type ModBadge,
 } from '@/lib/utils/mod-badges';
 import type { Mods } from '@otr/core/osu';
 import { cn } from '@/lib/utils';
-
-/** Legacy acronyms that lazer, and so osu-web, spells differently. */
-const LAZER_ACRONYMS: Readonly<Record<string, string>> = {
-  CM: 'CN',
-  V2: 'SV2',
-};
 
 /**
  * Freemod is a lobby setting rather than a mod, so osu-web has no badge for
@@ -26,7 +21,7 @@ const LAZER_ACRONYMS: Readonly<Record<string, string>> = {
  * palette, so it doesn't read as any mod type.
  */
 const FREEMOD_BADGE: ModBadge = {
-  name: FREEMOD_LABEL,
+  name: FREEMOD_NAME,
   type: 'System',
   color: FREEMOD_COLOR,
 };
@@ -37,7 +32,7 @@ function getModBadge(acronym: string): ModBadge {
 
   // osu-web draws a mod it does not know as an acronym in the Fun colour.
   return (
-    MOD_BADGES[LAZER_ACRONYMS[acronym] ?? acronym] ?? {
+    MOD_BADGES[toLazerAcronym(acronym)] ?? {
       name: acronym,
       type: 'Fun',
     }

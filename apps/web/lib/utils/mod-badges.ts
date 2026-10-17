@@ -8,7 +8,6 @@
 import { Mods } from '@otr/core/osu';
 
 import { ModsEnumHelper } from '@/lib/enum-helpers';
-import { FREEMOD_LABEL } from '@/lib/kit/format/mods';
 
 export type ModType =
   | 'Automation'
@@ -200,30 +199,27 @@ export function fitModBadges(
   return { shown, hidden: total - shown };
 }
 
-/** The site's own full names for the mods it stores, by acronym. */
-const SITE_MOD_NAMES = new Map(
-  Object.values(ModsEnumHelper.metadata)
-    .filter(({ text, description }) => text && description)
-    .map(({ text, description }) => [text, description])
-);
+/** Legacy acronyms that lazer, and so osu-web, spells differently. */
+const LAZER_ACRONYMS: Readonly<Record<string, string>> = {
+  CM: 'CN',
+  V2: 'SV2',
+};
 
-/** osu-web's Title Case name in sentence case: "Wind Up" reads "Wind up". */
-function toSentenceCase(name: string): string {
-  const [first, ...rest] = name.split(' ');
-  return [first, ...rest.map((word) => word.toLowerCase())].join(' ');
+/** The lazer acronym for one of otr's legacy ones, which mostly match. */
+export function toLazerAcronym(acronym: string): string {
+  return LAZER_ACRONYMS[acronym] ?? acronym;
 }
 
+/** osu!'s name for the freemod setting, as its wiki writes it. */
+export const FREEMOD_NAME = 'Free Mods';
+
 /**
- * A badge's full name in sentence case, for its tooltip and accessible name:
- * the site's own name for a stored mod ("Hard rock", "Mania 4 key"), the
- * freemod label for FM, and osu-web's name for a lazer-only mod.
+ * A badge's full name, for its tooltip and accessible name. Mod names are
+ * proper names, so they keep osu!'s own Title Case ("Spun Out", "Seven
+ * Keys"), from osu-web's mod list; FM is osu!'s "Free Mods".
  */
 export function getModName(acronym: string): string {
-  if (acronym === 'FM') return FREEMOD_LABEL;
+  if (acronym === 'FM') return FREEMOD_NAME;
 
-  const siteName = SITE_MOD_NAMES.get(acronym);
-  if (siteName) return siteName;
-
-  const badge = MOD_BADGES[acronym];
-  return badge ? toSentenceCase(badge.name) : acronym;
+  return MOD_BADGES[toLazerAcronym(acronym)]?.name ?? acronym;
 }
