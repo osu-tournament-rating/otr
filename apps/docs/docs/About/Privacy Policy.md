@@ -43,7 +43,6 @@ Upon logging into the platform using osu! OAuth, we create a user profile for yo
 - Data you submit to us voluntarily, including:
     - [[Registrant Filtering]] submissions, tournament submissions, and other similar submissions
     - (Admins only) Logs of edited and deleted tournaments, matches, games, scores, beatmaps, and any other data type we choose to manage on our platform are stored.
-- Your user settings and preferences (coming soon)
 
 ## Cookies
 
