@@ -24,7 +24,8 @@ const LAZER_ACRONYMS: Readonly<Record<string, string>> = {
  */
 const FREEMOD_BADGE: ModBadge = { name: FREEMOD_LABEL, type: 'System' };
 
-function getBadge(acronym: string): ModBadge {
+/** The badge for an acronym, otr's legacy spelling or lazer's. */
+export function getModBadge(acronym: string): ModBadge {
   if (acronym === 'FM') return FREEMOD_BADGE;
 
   // osu-web draws a mod it does not know as an acronym in the Fun colour.
@@ -83,6 +84,30 @@ function ModBadgeArt({
   );
 }
 
+/** One mod's badge, named for assistive tech; its height sets its size. */
+export function ModBadgeIcon({
+  acronym,
+  className,
+}: {
+  acronym: string;
+  className?: string;
+}) {
+  const badge = getModBadge(acronym);
+
+  return (
+    <div
+      role="img"
+      aria-label={badge.name}
+      className={cn(
+        '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
+        className
+      )}
+    >
+      <ModBadgeArt acronym={acronym} badge={badge} />
+    </div>
+  );
+}
+
 /** A row of mod badges, side by side. No mods draws nothing. */
 export default function ModIconset({
   mods,
@@ -100,23 +125,9 @@ export default function ModIconset({
 
   return (
     <div className={cn('flex items-center gap-0.5', className)}>
-      {acronyms.map((mod) => {
-        const badge = getBadge(mod);
-
-        return (
-          <div
-            key={mod}
-            role="img"
-            aria-label={badge.name}
-            className={cn(
-              '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
-              iconClassName
-            )}
-          >
-            <ModBadgeArt acronym={mod} badge={badge} />
-          </div>
-        );
-      })}
+      {acronyms.map((mod) => (
+        <ModBadgeIcon key={mod} acronym={mod} className={iconClassName} />
+      ))}
     </div>
   );
 }

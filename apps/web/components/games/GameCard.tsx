@@ -77,6 +77,10 @@ export default function GameCard({
 
   const outcome = getOutcome(scoresByTeam);
   const headerMods = resolveGameDisplayMods(game, game.scores);
+  const scoreWidth = Math.max(
+    0,
+    ...game.scores.map((score) => formatCount(score.score).length)
+  );
   const renderScores = (team: Team) =>
     (scoresByTeam.get(team) ?? []).map((score) => {
       const player = players.find((player) => player.id === score.playerId);
@@ -85,6 +89,7 @@ export default function GameCard({
           key={score.id}
           score={score}
           mods={getScoreDisplayMods(score.mods, headerMods.mods)}
+          scoreWidth={scoreWidth}
           matchId={game.matchId}
           gameNumber={number}
           player={player}

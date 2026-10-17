@@ -75,6 +75,7 @@ import { contrastRatio, formatContrast } from '@/lib/kit/color/contrast';
 import { GRADE_PALETTE } from '@/lib/kit/color/grades';
 import { MOD_FILL_FOREGROUND, MOD_PALETTE } from '@/lib/kit/color/mods';
 import { MOD_TYPE_COLORS, type ModType } from '@/lib/utils/mod-badges';
+import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset from '@/components/icons/ModIconset';
 import {
   getStarRatingColor,
@@ -1234,6 +1235,22 @@ export default function ColorSection() {
           <ModIconset
             mods={Mods.Hidden | Mods.HardRock | Mods.DoubleTime}
             className="flex h-6"
+          />
+        </div>
+        <div className="mt-4 flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">
+            In a tight row, as score cards show it
+          </span>
+          <FittingModIconset
+            mods={
+              Mods.NoFail |
+              Mods.Easy |
+              Mods.Hidden |
+              Mods.DoubleTime |
+              Mods.Flashlight |
+              Mods.SpunOut
+            }
+            className="h-5 w-28"
           />
         </div>
       </Specimen>

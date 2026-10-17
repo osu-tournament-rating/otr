@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Mods } from '@otr/core/osu';
 
+import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset from '@/components/icons/ModIconset';
 import { ModsEnumHelper } from '@/lib/enum-helpers';
 import { MOD_BADGES, getModBadgeAcronyms } from '@/lib/utils/mod-badges';
@@ -109,5 +110,17 @@ describe('ModIconset', () => {
     );
 
     expect(html.match(/role="img"/g)).toHaveLength(1);
+  });
+});
+
+describe('FittingModIconset', () => {
+  it('sends every badge from the server, in order, before it can measure', () => {
+    const html = renderToStaticMarkup(
+      <FittingModIconset mods={Mods.Hidden | Mods.HardRock | Mods.DoubleTime} />
+    );
+
+    expect(html.match(/role="img"/g)).toHaveLength(3);
+    expect(html.indexOf('Hidden')).toBeLessThan(html.indexOf('Hard Rock'));
+    expect(html).not.toContain('more mods');
   });
 });

@@ -381,6 +381,7 @@ import ModIconset from '@/components/icons/ModIconset';
 - `mods`: the stored bitflags, every one drawn, NF included; NC and PF stand for the DT and SD they imply (`getModBadgeAcronyms`). No mods draws nothing; there is no No Mod badge.
 - `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in the system colour.
 - Badges sit side by side, 2px apart, and never overlap or shrink. Size them by height, no taller than the text line beside them: a game header's are 20px, 24px from tablet up; a score's 16px, 20px from tablet up.
+- `FittingModIconset` (`@/components/icons/FittingModIconset`) is the row for tight spaces, such as a score card's: give it a height and a width (`h-4 flex-1 basis-0`). It measures its width, shows the badges that fit and folds the rest into a grey "+N" chip whose tooltip (tap, hover or focus) lists them. It never wraps, so the grade and score beside it keep their spot; the fit logic is `countModBadgeSlots` and `fitModBadges` in `@/lib/utils/mod-badges`.
 - A game card's header shows `resolveGameDisplayMods` (the lobby's mods, or what every freemod score shares), and each score shows only what the header doesn't, from `getScoreDisplayMods` in `@/lib/utils/mods`. A score that matches its header shows no badges.
 - The glyphs, the badge shape and their osu-web commit are in `public/icons/mods/`; each mod's name, type and glyph, and each type's colour, are in `@/lib/utils/mod-badges`. A mod osu-web has no glyph for shows its acronym.
 

@@ -155,3 +155,37 @@ export function getModBadgeAcronyms(mods: number, freemod = false): string[] {
     .filter((text) => text !== '');
   return freemod ? ['FM', ...acronyms] : acronyms;
 }
+
+/** A badge's width over its height: osu-web's badge shape is 100 by 70. */
+export const MOD_BADGE_ASPECT = 10 / 7;
+
+/**
+ * How many badge-wide slots fit in a row `width` wide, for badges `height`
+ * tall and `gap` apart.
+ */
+export function countModBadgeSlots(
+  width: number,
+  height: number,
+  gap: number
+): number {
+  if (height <= 0) return 0;
+  // The small allowance keeps a row that fits exactly from losing a slot to
+  // rounding.
+  const slots = (width + gap) / (height * MOD_BADGE_ASPECT + gap) + 1e-6;
+  return Math.max(0, Math.floor(slots));
+}
+
+/**
+ * How many of `total` badges a row with room for `slots` shows: all of them,
+ * or one fewer than fit so a "+N" chip for the rest takes the last slot. A
+ * chip would hide a lone badge in its own space, so one badge always shows.
+ */
+export function fitModBadges(
+  total: number,
+  slots: number
+): { shown: number; hidden: number } {
+  if (total <= Math.max(slots, 1)) return { shown: total, hidden: 0 };
+
+  const shown = Math.max(0, slots - 1);
+  return { shown, hidden: total - shown };
+}
