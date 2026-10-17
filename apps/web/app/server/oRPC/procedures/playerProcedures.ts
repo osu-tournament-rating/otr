@@ -1,5 +1,20 @@
 import { ORPCError } from '@orpc/server';
-import { and, asc, desc, eq, gte, ilike, inArray, lte, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  ne,
+  notExists,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DatabaseClient } from '@/lib/db';
@@ -15,7 +30,12 @@ import {
   type PlayerFrequency,
   type PlayerRatingAdjustment,
 } from '@/lib/orpc/schema/playerStats';
-import { PlayerTournamentListItemSchema } from '@/lib/orpc/schema/tournament';
+import {
+  PlayerTournamentHistoryItemSchema,
+  PlayerTournamentListItemSchema,
+  type PlayerTournamentHistoryItem,
+  type PlayerTournamentListItem,
+} from '@/lib/orpc/schema/tournament';
 import { PlayerSchema } from '@/lib/orpc/schema/player';
 import {
   RatingAdjustmentType,
@@ -415,16 +435,221 @@ const buildMatchAggregates = (
   } as const;
 };
 
-export const getPlayerTournaments = publicProcedure
-  .input(
-    z.object({
-      id: z.union([z.number().int().positive(), z.string().min(1)]),
-      keyType: KeyTypeSchema,
-      ruleset: z.number().int().optional(),
-      dateMin: z.string().optional(),
-      dateMax: z.string().optional(),
+/** A score on a pooled beatmap that counts as playing in a tournament (#539). */
+export const UNVERIFIED_HISTORY_MIN_SCORE = 2000;
+
+const PlayerTournamentsInputSchema = z.object({
+  id: z.union([z.number().int().positive(), z.string().min(1)]),
+  keyType: KeyTypeSchema,
+  ruleset: z.number().int().optional(),
+  dateMin: z.string().optional(),
+  dateMax: z.string().optional(),
+});
+
+export type PlayerTournamentFilters = {
+  ruleset?: number;
+  dateMin?: string;
+  dateMax?: string;
+};
+
+const buildPlayerTournamentFilters = ({
+  ruleset,
+  dateMin,
+  dateMax,
+}: PlayerTournamentFilters): SQL[] => {
+  const filters: SQL[] = [];
+
+  if (ruleset != null) {
+    filters.push(eq(schema.tournaments.ruleset, ruleset));
+  }
+
+  if (dateMin) {
+    filters.push(gte(schema.tournaments.startTime, dateMin));
+  }
+
+  if (dateMax) {
+    filters.push(lte(schema.tournaments.endTime, dateMax));
+  }
+
+  return filters;
+};
+
+/** The tournaments a player has stats for, with their match record. */
+export async function listPlayerStatsTournaments(
+  db: DatabaseClient,
+  playerId: number,
+  filters: PlayerTournamentFilters
+): Promise<PlayerTournamentListItem[]> {
+  const rows = await db
+    .select({
+      ...tournamentListItemColumns,
+      matchesWon: schema.playerTournamentStats.matchesWon,
+      matchesLost: schema.playerTournamentStats.matchesLost,
     })
-  )
+    .from(schema.playerTournamentStats)
+    .innerJoin(
+      schema.tournaments,
+      eq(schema.playerTournamentStats.tournamentId, schema.tournaments.id)
+    )
+    .where(
+      and(
+        eq(schema.playerTournamentStats.playerId, playerId),
+        ...buildPlayerTournamentFilters(filters)
+      )
+    )
+    .orderBy(desc(schema.tournaments.endTime));
+
+  return rows.map((row) =>
+    PlayerTournamentListItemSchema.parse({
+      ...row,
+      ruleset: row.ruleset as Ruleset,
+      verificationStatus: row.verificationStatus as VerificationStatus,
+      submittedByUsername: null,
+      verifiedByUsername: null,
+    })
+  );
+}
+
+/**
+ * The tournaments a player played in but has no stats for. Stats exist only
+ * for Verified tournaments, so this covers every unverified one, and a
+ * Verified one before the weekly rating run computes its stats. Playing
+ * means at least UNVERIFIED_HISTORY_MIN_SCORE on a beatmap the tournament
+ * pooled, whatever the status of the score, game and match: a tournament's
+ * rejection reaches all three.
+ */
+export async function listPlayerTournamentsWithoutStats(
+  db: DatabaseClient,
+  playerId: number,
+  filters: PlayerTournamentFilters
+): Promise<PlayerTournamentHistoryItem[]> {
+  const rows = await db
+    .select(tournamentListItemColumns)
+    .from(schema.tournaments)
+    .where(
+      and(
+        or(
+          ne(
+            schema.tournaments.verificationStatus,
+            VerificationStatus.Verified
+          ),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(schema.playerTournamentStats)
+              .where(
+                eq(
+                  schema.playerTournamentStats.tournamentId,
+                  schema.tournaments.id
+                )
+              )
+          )
+        ),
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(schema.matches)
+            .innerJoin(
+              schema.games,
+              eq(schema.games.matchId, schema.matches.id)
+            )
+            .innerJoin(
+              schema.joinPooledBeatmaps,
+              and(
+                eq(
+                  schema.joinPooledBeatmaps.tournamentsPooledInId,
+                  schema.matches.tournamentId
+                ),
+                eq(
+                  schema.joinPooledBeatmaps.pooledBeatmapsId,
+                  schema.games.beatmapId
+                )
+              )
+            )
+            .innerJoin(
+              schema.gameScores,
+              eq(schema.gameScores.gameId, schema.games.id)
+            )
+            .where(
+              and(
+                eq(schema.matches.tournamentId, schema.tournaments.id),
+                eq(schema.gameScores.playerId, playerId),
+                gte(schema.gameScores.score, UNVERIFIED_HISTORY_MIN_SCORE)
+              )
+            )
+        ),
+        // Keeps the two lists apart while a rejected tournament still holds
+        // stats from before its rejection.
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(schema.playerTournamentStats)
+            .where(
+              and(
+                eq(schema.playerTournamentStats.playerId, playerId),
+                eq(
+                  schema.playerTournamentStats.tournamentId,
+                  schema.tournaments.id
+                )
+              )
+            )
+        ),
+        ...buildPlayerTournamentFilters(filters)
+      )
+    );
+
+  return rows.map((row) =>
+    PlayerTournamentHistoryItemSchema.parse({
+      ...row,
+      ruleset: row.ruleset as Ruleset,
+      verificationStatus: row.verificationStatus as VerificationStatus,
+      submittedByUsername: null,
+      verifiedByUsername: null,
+      matchesWon: null,
+      matchesLost: null,
+    })
+  );
+}
+
+/**
+ * One history from both lists, newest first by end date, or start date
+ * without one; undated last, then the newest ID first.
+ */
+export function mergePlayerTournamentHistory(
+  withStats: PlayerTournamentListItem[],
+  withoutStats: PlayerTournamentHistoryItem[]
+): PlayerTournamentHistoryItem[] {
+  return [...withStats, ...withoutStats].sort((a, b) => {
+    const left = a.endTime ?? a.startTime;
+    const right = b.endTime ?? b.startTime;
+
+    if (left !== right) {
+      if (left === null) return 1;
+      if (right === null) return -1;
+      // Both lists read the same columns, so string order is time order.
+      return left < right ? 1 : -1;
+    }
+
+    return b.id - a.id;
+  });
+}
+
+/** Both lists, with the same filters, as one history. */
+export async function listPlayerTournamentHistory(
+  db: DatabaseClient,
+  playerId: number,
+  filters: PlayerTournamentFilters
+): Promise<PlayerTournamentHistoryItem[]> {
+  const [withStats, withoutStats] = await Promise.all([
+    listPlayerStatsTournaments(db, playerId, filters),
+    listPlayerTournamentsWithoutStats(db, playerId, filters),
+  ]);
+
+  return mergePlayerTournamentHistory(withStats, withoutStats);
+}
+
+export const getPlayerTournaments = publicProcedure
+  .input(PlayerTournamentsInputSchema)
   .output(PlayerTournamentListItemSchema.array())
   .route({
     summary: 'List player tournaments',
@@ -441,43 +666,29 @@ export const getPlayerTournaments = publicProcedure
   .handler(async ({ input, context }) => {
     const playerId = await resolvePlayerId(context.db, input.id, input.keyType);
 
-    const filters = [eq(schema.playerTournamentStats.playerId, playerId)];
+    return listPlayerStatsTournaments(context.db, playerId, input);
+  });
 
-    if (input.ruleset != null) {
-      filters.push(eq(schema.tournaments.ruleset, input.ruleset));
-    }
+/**
+ * The profile's tournament history: the tournaments the player has stats
+ * for, with their record, and those they played in without stats (see
+ * `listPlayerTournamentsWithoutStats`), as one list. Not in the public API,
+ * whose list stays the tournaments with stats; the score rule is the site's
+ * own heuristic, not data a client should build on.
+ */
+export const getPlayerTournamentHistory = publicProcedure
+  .input(PlayerTournamentsInputSchema)
+  .output(PlayerTournamentHistoryItemSchema.array())
+  .route({
+    summary: "List a player's tournament history for the profile",
+    tags: ['players'],
+    method: 'GET',
+    path: '/players/{id}/tournament-history',
+  })
+  .handler(async ({ input, context }) => {
+    const playerId = await resolvePlayerId(context.db, input.id, input.keyType);
 
-    if (input.dateMin) {
-      filters.push(gte(schema.tournaments.startTime, input.dateMin));
-    }
-
-    if (input.dateMax) {
-      filters.push(lte(schema.tournaments.endTime, input.dateMax));
-    }
-
-    const rows = await context.db
-      .select({
-        ...tournamentListItemColumns,
-        matchesWon: schema.playerTournamentStats.matchesWon,
-        matchesLost: schema.playerTournamentStats.matchesLost,
-      })
-      .from(schema.playerTournamentStats)
-      .innerJoin(
-        schema.tournaments,
-        eq(schema.playerTournamentStats.tournamentId, schema.tournaments.id)
-      )
-      .where(and(...filters))
-      .orderBy(desc(schema.tournaments.endTime));
-
-    return rows.map((row) =>
-      PlayerTournamentListItemSchema.parse({
-        ...row,
-        ruleset: row.ruleset as Ruleset,
-        verificationStatus: row.verificationStatus as VerificationStatus,
-        submittedByUsername: null,
-        verifiedByUsername: null,
-      })
-    );
+    return listPlayerTournamentHistory(context.db, playerId, input);
   });
 
 export const getPlayerBeatmaps = publicProcedure
