@@ -61,7 +61,11 @@ export function PlayerResultContent({ data, query }: PlayerResultContentProps) {
           </span>
         ) : null}
 
-        {data.ruleset != null ? <RulesetLabel ruleset={data.ruleset} /> : null}
+        {/* Without a rating, the ruleset is only the derived default, which
+            is osu! for anyone with no verified tournaments. */}
+        {data.rating != null && data.ruleset != null ? (
+          <RulesetLabel ruleset={data.ruleset} />
+        ) : null}
       </span>
     </div>
   );

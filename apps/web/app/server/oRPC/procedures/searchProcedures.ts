@@ -22,6 +22,7 @@ import { buildTierProgress } from '@/lib/utils/tierProgress';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 
 import { publicProcedure } from './base';
+import { defaultRulesetSql } from './shared/defaultRuleset';
 import { buildTournamentRelevanceOrder } from './shared/tournamentListOrder';
 
 const DEFAULT_RESULT_LIMIT = 5;
@@ -107,7 +108,7 @@ export const searchEntities = publicProcedure
               id: schema.players.id,
               osuId: schema.players.osuId,
               username: schema.players.username,
-              defaultRuleset: schema.players.defaultRuleset,
+              defaultRuleset: defaultRulesetSql(schema.players.id),
               rating: schema.playerRatings.rating,
               ratingRuleset: schema.playerRatings.ruleset,
               globalRank: schema.playerRatings.globalRank,
@@ -118,7 +119,10 @@ export const searchEntities = publicProcedure
               schema.playerRatings,
               and(
                 eq(schema.playerRatings.playerId, schema.players.id),
-                eq(schema.playerRatings.ruleset, schema.players.defaultRuleset)
+                eq(
+                  schema.playerRatings.ruleset,
+                  defaultRulesetSql(schema.players.id)
+                )
               )
             )
             .where(playerCondition)

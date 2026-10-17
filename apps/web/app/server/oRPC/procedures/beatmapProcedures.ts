@@ -34,6 +34,7 @@ import {
   summarizePoolDisplayMods,
   summarizeRankRangeMods,
 } from './beatmapStatsHelpers';
+import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolveBeatmapId } from './shared/keyType';
 
 /** Verified scores surfaced by the beatmap page's score table. */
@@ -75,7 +76,7 @@ const playerCompactColumns = {
   osuId: schema.players.osuId,
   username: schema.players.username,
   country: schema.players.country,
-  defaultRuleset: schema.players.defaultRuleset,
+  defaultRuleset: defaultRulesetSql(schema.players.id),
 } as const;
 
 /** Clamps a stored accuracy aggregate into the 0–1 the response schema allows. */
@@ -207,7 +208,7 @@ export const getBeatmapStats = publicProcedure
             creatorOsuId: schema.players.osuId,
             creatorUsername: schema.players.username,
             creatorCountry: schema.players.country,
-            creatorDefaultRuleset: schema.players.defaultRuleset,
+            creatorDefaultRuleset: defaultRulesetSql(schema.players.id),
           })
           .from(schema.beatmaps)
           .leftJoin(
@@ -474,7 +475,7 @@ export const getBeatmapStats = publicProcedure
             playerOsuId: schema.players.osuId,
             playerUsername: schema.players.username,
             playerCountry: schema.players.country,
-            playerDefaultRuleset: schema.players.defaultRuleset,
+            playerDefaultRuleset: defaultRulesetSql(schema.players.id),
             score: schema.gameScores.score,
             grade: schema.gameScores.grade,
             accuracy: schema.gameScores.accuracy,
@@ -837,7 +838,7 @@ export const getBeatmapStats = publicProcedure
               osuId: schema.players.osuId,
               username: schema.players.username,
               country: schema.players.country,
-              defaultRuleset: schema.players.defaultRuleset,
+              defaultRuleset: defaultRulesetSql(schema.players.id),
             })
             .from(schema.players)
             .where(eq(schema.players.id, beatmap.setOwnerIdOverride))
