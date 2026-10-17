@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { hasAdminScope } from '@/lib/auth/roles';
+import { useFormDraft } from '@/lib/hooks/useFormDraft';
 import { useSession } from '@/lib/hooks/useSession';
 import { orpc } from '@/lib/orpc/orpc';
 import {
@@ -75,6 +76,7 @@ export default function TournamentSubmissionForm() {
   const form = useForm<TournamentSubmissionFormValues>({
     defaultValues: DEFAULT_VALUES,
   });
+  useFormDraft(form, 'tournament-submission', DEFAULT_VALUES);
   const isLazer = form.watch('isLazer');
 
   const [rejectOnSubmit, setRejectOnSubmit] = useState(false);
