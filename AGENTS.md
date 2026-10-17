@@ -114,6 +114,7 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
   `--no-web` skips the site.
 - osu! sign-in does not work on a stack's port. Sign in with
   `POST /api/auth/e2e/sign-in` and a body of `{"playerId": <id>, "admin": true}`.
+- A manual call to `/rpc` needs `-H 'origin: <the stack's web URL>'`.
 - Run `apps/scripts/otr down` when the task is done, unless the user still
   wants to look at the site. Say in your final report whether it is still up.
   `otr status` lists every stack, and `otr down --orphans` removes those whose
@@ -145,6 +146,13 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
   public API change.
 - Server components call the site's own oRPC endpoint over HTTP, so a wrong
   `INTERNAL_APP_BASE_URL` breaks server rendering.
+- `/rpc` serves only the site: same-origin browser calls, and server-side
+  calls that carry a token derived from `BETTER_AUTH_SECRET`. Everyone else
+  gets a 403 and uses `/api`. Any client can forge the browser headers the
+  gate checks, so the gate only deters; the rate limits protect.
+  `RPC_RATE_LIMIT` sets them to `enforce`, `observe`, or `off`. Unset, they
+  follow `NODE_ENV`: production builds enforce them, PR previews included,
+  and `next dev` leaves them off.
 - Configuration comes from one root `.env`, which the web app, worker,
   migrations, and processor all load. `apps/scripts` reads only its own `.env`.
   Variables already set in the shell win over `.env`.
