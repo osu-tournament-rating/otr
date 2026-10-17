@@ -34,11 +34,18 @@ export const MOD_TYPE_COLORS: Readonly<Record<ModType, string>> = {
 };
 
 /**
- * The glyph colour on a badge: the type colour 10% of the way from black,
- * mixed in linear sRGB as osu-web and osu!lazer do.
+ * The freemod badge's fill: osu-web's `@osu-colour-green-1`, the same 70%
+ * lightness step as the type colours, in the one hue of that family no mod
+ * type uses that isn't next to System's yellow.
  */
-export function getModGlyphColor(type: ModType): string {
-  return `color-mix(in srgb-linear, black, ${MOD_TYPE_COLORS[type]} 10%)`;
+export const FREEMOD_COLOR = 'hsl(125, 100%, 70%)';
+
+/**
+ * The glyph colour on a badge: its fill 10% of the way from black, mixed in
+ * linear sRGB as osu-web and osu!lazer do.
+ */
+export function getModGlyphColor(fill: string): string {
+  return `color-mix(in srgb-linear, black, ${fill} 10%)`;
 }
 
 export interface ModBadge {
@@ -46,6 +53,8 @@ export interface ModBadge {
   type: ModType;
   /** The glyph's file, `mod-<glyph>.svg`. Without one, the badge shows its acronym. */
   glyph?: string;
+  /** A fill other than the type's, for a badge that isn't a mod (freemod). */
+  color?: string;
 }
 
 /** Every lazer mod osu-web draws a glyph for, by acronym. */

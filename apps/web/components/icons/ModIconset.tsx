@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { FREEMOD_LABEL } from '@/lib/kit/format/mods';
 import TapTooltip from '@/components/tap-tooltip';
 import {
+  FREEMOD_COLOR,
   MOD_BADGES,
   MOD_TYPE_COLORS,
   getModBadgeAcronyms,
@@ -21,10 +22,14 @@ const LAZER_ACRONYMS: Readonly<Record<string, string>> = {
 
 /**
  * Freemod is a lobby setting rather than a mod, so osu-web has no badge for
- * it. It gets osu-web's acronym badge in the System colour, the type osu-web
- * gives other settings such as Score V2 and No Mod.
+ * it. It gets osu-web's acronym badge in a colour of its own from osu-web's
+ * palette, so it doesn't read as any mod type.
  */
-const FREEMOD_BADGE: ModBadge = { name: FREEMOD_LABEL, type: 'System' };
+const FREEMOD_BADGE: ModBadge = {
+  name: FREEMOD_LABEL,
+  type: 'System',
+  color: FREEMOD_COLOR,
+};
 
 /** The badge for an acronym, otr's legacy spelling or lazer's. */
 function getModBadge(acronym: string): ModBadge {
@@ -53,21 +58,19 @@ function maskStyle(color: string, src: string): CSSProperties {
 /** The badge's fill and its glyph, or its acronym when it has no glyph. */
 function ModBadgeArt({
   acronym,
-  badge: { type, glyph },
+  badge: { type, glyph, color },
 }: {
   acronym: string;
   badge: ModBadge;
 }) {
-  const glyphColor = getModGlyphColor(type);
+  const fill = color ?? MOD_TYPE_COLORS[type];
+  const glyphColor = getModGlyphColor(fill);
 
   return (
     <>
       <span
         className="absolute inset-0"
-        style={maskStyle(
-          MOD_TYPE_COLORS[type],
-          '/icons/mods/blanks/mod-icon.svg'
-        )}
+        style={maskStyle(fill, '/icons/mods/blanks/mod-icon.svg')}
       />
       {glyph ? (
         <span

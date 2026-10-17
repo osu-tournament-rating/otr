@@ -113,6 +113,10 @@ describe('ModIconset', () => {
     );
 
     expect(html).toContain('aria-label="Freemod"');
+    expect(html).toContain('background-color:hsl(125, 100%, 70%)');
+    expect(html).toContain(
+      'color:color-mix(in srgb-linear, black, hsl(125, 100%, 70%) 10%)'
+    );
     expect(html).toContain('>FM</span>');
     expect(html).toContain('mod-hidden.svg');
   });

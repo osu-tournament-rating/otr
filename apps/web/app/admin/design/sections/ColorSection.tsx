@@ -74,7 +74,11 @@ import {
 import { contrastRatio, formatContrast } from '@/lib/kit/color/contrast';
 import { GRADE_PALETTE } from '@/lib/kit/color/grades';
 import { MOD_FILL_FOREGROUND, MOD_PALETTE } from '@/lib/kit/color/mods';
-import { MOD_TYPE_COLORS, type ModType } from '@/lib/utils/mod-badges';
+import {
+  FREEMOD_COLOR,
+  MOD_TYPE_COLORS,
+  type ModType,
+} from '@/lib/utils/mod-badges';
 import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset from '@/components/icons/ModIconset';
 import {
@@ -125,6 +129,8 @@ const MOD_BADGE_SPECIMENS: readonly {
   label: string;
   mods: readonly Mods[];
   freemod?: boolean;
+  /** A fill other than the type's. */
+  fill?: string;
 }[] = [
   {
     type: 'DifficultyReduction',
@@ -169,9 +175,15 @@ const MOD_BADGE_SPECIMENS: readonly {
   },
   {
     type: 'System',
-    label: 'System, and freemod',
+    label: 'System',
     mods: [Mods.TouchDevice, Mods.ScoreV2],
+  },
+  {
+    type: 'System',
+    label: 'Freemod, not a mod type',
+    mods: [],
     freemod: true,
+    fill: FREEMOD_COLOR,
   },
 ];
 
@@ -1204,16 +1216,22 @@ export default function ColorSection() {
         description="osu-web's mod badges and type colours, mirrored one to one. The ratio is the badge against the card."
       >
         <ul className="flex flex-col gap-3">
-          {MOD_BADGE_SPECIMENS.map(({ type, label, mods, freemod }) => (
-            <li key={type} className="flex flex-col gap-1">
+          {MOD_BADGE_SPECIMENS.map(({ type, label, mods, freemod, fill }) => (
+            <li key={label} className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">
                 {label},{' '}
                 <ThemeValue
                   light={formatContrast(
-                    contrastRatio(MOD_TYPE_COLORS[type], SURFACES.light.card)
+                    contrastRatio(
+                      fill ?? MOD_TYPE_COLORS[type],
+                      SURFACES.light.card
+                    )
                   )}
                   dark={formatContrast(
-                    contrastRatio(MOD_TYPE_COLORS[type], SURFACES.dark.card)
+                    contrastRatio(
+                      fill ?? MOD_TYPE_COLORS[type],
+                      SURFACES.dark.card
+                    )
                   )}
                 />
               </span>
