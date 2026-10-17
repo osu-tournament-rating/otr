@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useFormDraft } from '@/lib/hooks/useFormDraft';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { RATED_RULESETS, RULESET_NAMES } from '@/lib/kit/format/ruleset';
 import { RANGE_SEPARATOR } from '@/lib/kit/format/date';
@@ -167,6 +168,7 @@ export default function FilteringForm({
     defaultValues: EMPTY_VALUES,
     mode: 'onChange',
   });
+  useFormDraft(form, 'registrant-filter', EMPTY_VALUES);
   const isLoading = form.formState.isSubmitting;
 
   async function onSubmit(values: FilteringFormValues) {

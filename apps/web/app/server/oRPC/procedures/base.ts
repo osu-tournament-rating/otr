@@ -10,6 +10,10 @@ import {
 import { setActiveSpanAttributes, withSpan } from '@otr/core/tracing';
 import { SpanKind } from '@opentelemetry/api';
 
+import {
+  API_KEY_MESSAGES,
+  parseBearerAuthorization,
+} from '@/lib/api/api-key-header';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { orpcProcedureCalls, orpcProcedureDuration } from '@/lib/metrics';
@@ -20,6 +24,7 @@ import {
   formatUserDescriptor,
   formatProcedurePath,
 } from './logging/helpers';
+import { assertCurrentBuild } from './shared/currentBuild';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
 type ApiKeyActor = {
@@ -38,6 +43,10 @@ const base = os.$context<
   {
     headers: Headers;
     requestUrl?: string;
+    // Set only by the REST API route, never by /rpc
+    apiKeyRequired?: boolean;
+    /** The build a call through /rpc came from; null when it sent none. */
+    clientBuild?: string | null;
   } & VerifiedApiKeyContext
 >();
 
@@ -349,24 +358,26 @@ const describeError = (error: ProcedureError) => {
   }
 };
 
+// Server renders forward the visitor's headers to /rpc, so an Authorization
+// value that isn't a Bearer key is ignored rather than refused
 const extractApiKey = (headers?: Headers) => {
-  if (!headers) {
-    return null;
-  }
-
-  const authorization = headers.get('authorization');
-  if (authorization?.startsWith('Bearer ')) {
-    const token = authorization.slice('Bearer '.length).trim();
-    return token.length > 0 ? token : null;
-  }
-
-  return null;
+  const credential = parseBearerAuthorization(headers?.get('authorization'));
+  return credential.kind === 'key' ? credential.key : null;
 };
 
-const withOptionalApiKey = base.middleware(async ({ context, next }) => {
+export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   const candidate = extractApiKey(context.headers);
 
   if (!candidate) {
+    // The REST route's gate already refuses requests without a key. This
+    // catches a route change that hands the procedures the wrong headers.
+    if (context.apiKeyRequired) {
+      throw new ORPCError('UNAUTHORIZED', {
+        status: 401,
+        message: API_KEY_MESSAGES.required,
+      });
+    }
+
     return next({
       context: {
         ...context,
@@ -788,6 +799,19 @@ export const withMaintenanceWindowGuard = base.middleware(
   }
 );
 
-export const adminMutationProcedure = protectedProcedure.use(
+// A page from another release sends input shaped by its own code
+export const withCurrentBuildGuard = base.middleware(
+  async ({ context, next }) => {
+    assertCurrentBuild(context.clientBuild);
+    return next();
+  }
+);
+
+/** A signed-in user's write, refused from a page of another release. */
+export const protectedMutationProcedure = protectedProcedure.use(
+  withCurrentBuildGuard
+);
+
+export const adminMutationProcedure = protectedMutationProcedure.use(
   withMaintenanceWindowGuard
 );
