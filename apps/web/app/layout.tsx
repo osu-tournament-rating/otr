@@ -2,6 +2,7 @@ import SiteBanner from '@/components/banner/SiteBanner';
 import Header from '@/components/header/Header';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
+import { SignInErrorToast } from '@/components/profile/LoginButton';
 import type { Metadata } from 'next';
 import React from 'react';
 import './globals.css';
@@ -77,6 +78,7 @@ export default async function RootLayout({
                 </main>
                 <Footer />
                 <Toaster richColors />
+                <SignInErrorToast />
                 <AudioPlayerControls />
               </AudioPlayerProvider>
             </SessionProvider>

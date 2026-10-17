@@ -4,6 +4,7 @@
  * The code and tokens it issues carry the osu! user id, so it keeps no state.
  */
 import {
+  FAKE_OSU_FAILURE,
   FAKE_OSU_PORT,
   FAKE_OSU_USER_COOKIE,
   fakeOsuUsername,
@@ -18,10 +19,10 @@ const cookieValue = (request: Request, name: string) =>
     .map((part) => part.trim().split('='))
     .find(([key]) => key === name)?.[1];
 
-const osuIdFromToken = (request: Request) => {
+const codeFromToken = (request: Request) => {
   const token = request.headers.get('authorization')?.replace(/^Bearer /, '');
   return token?.startsWith(TOKEN_PREFIX)
-    ? Number(token.slice(TOKEN_PREFIX.length))
+    ? token.slice(TOKEN_PREFIX.length)
     : null;
 };
 
@@ -37,8 +38,17 @@ const authorize = (request: Request, url: URL) => {
   }
 
   const callback = new URL(redirectUri);
-  callback.searchParams.set('code', osuId);
   callback.searchParams.set('state', url.searchParams.get('state') ?? '');
+
+  if (osuId === FAKE_OSU_FAILURE.cancel) {
+    callback.searchParams.set('error', 'access_denied');
+    callback.searchParams.set(
+      'error_description',
+      'The resource owner or authorization server denied the request.'
+    );
+  } else {
+    callback.searchParams.set('code', osuId);
+  }
 
   return Response.redirect(callback.toString(), 302);
 };
@@ -60,11 +70,17 @@ const token = async (request: Request) => {
 };
 
 const me = (request: Request) => {
-  const osuId = osuIdFromToken(request);
+  const code = codeFromToken(request);
 
-  if (!osuId) {
+  if (!code) {
     return Response.json({ authentication: 'basic' }, { status: 401 });
   }
+
+  if (code === FAKE_OSU_FAILURE.apiDown) {
+    return new Response('Service Unavailable', { status: 503 });
+  }
+
+  const osuId = Number(code);
 
   return Response.json({
     id: osuId,

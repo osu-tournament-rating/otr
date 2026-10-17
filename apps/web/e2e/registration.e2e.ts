@@ -1,11 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import {
-  FAKE_OSU_URL,
-  FAKE_OSU_USER_COOKIE,
-  fakeOsuUsername,
-} from './fixtures/fake-osu';
-import { ROUTES } from './fixtures/test-config';
+import { fakeOsuUsername } from './fixtures/fake-osu';
+import { logInWithFakeOsu } from './fixtures/osu-login';
 
 // Real osu! ids are far below this, so every run signs up a user the database
 // has never seen.
@@ -19,21 +15,7 @@ type SessionBody = {
 
 /** Signs in through the osu! OAuth callback, with the fake osu! as osuId. */
 async function signInWithOsu(page: Page, osuId: number): Promise<SessionBody> {
-  await page
-    .context()
-    .addCookies([
-      { name: FAKE_OSU_USER_COOKIE, value: String(osuId), url: FAKE_OSU_URL },
-    ]);
-  await page.goto(ROUTES.home);
-  await page.waitForLoadState('networkidle');
-
-  const callback = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === '/api/auth/callback/osu'
-  );
-  await page.getByRole('button', { name: 'Log in' }).first().click();
-
-  const response = await callback;
-  expect(response.status(), 'the OAuth callback should redirect').toBe(302);
+  const response = await logInWithFakeOsu(page, osuId);
   expect(
     response.headers()['location'],
     'the OAuth callback redirected with an error'
