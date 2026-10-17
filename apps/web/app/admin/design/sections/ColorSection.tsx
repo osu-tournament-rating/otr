@@ -1,6 +1,6 @@
 'use client';
 
-import { Team, VerificationStatus } from '@otr/core/osu';
+import { Mods, Team, VerificationStatus } from '@otr/core/osu';
 import {
   ChartBarBig,
   ChartColumn,
@@ -75,6 +75,13 @@ import { contrastRatio, formatContrast } from '@/lib/kit/color/contrast';
 import { GRADE_PALETTE } from '@/lib/kit/color/grades';
 import { MOD_FILL_FOREGROUND, MOD_PALETTE } from '@/lib/kit/color/mods';
 import {
+  FREEMOD_COLOR,
+  MOD_TYPE_COLORS,
+  type ModType,
+} from '@/lib/utils/mod-badges';
+import FittingModIconset from '@/components/icons/FittingModIconset';
+import ModIconset from '@/components/icons/ModIconset';
+import {
   getStarRatingColor,
   getStarRatingForegroundColor,
   getStarRatingMarkColor,
@@ -115,6 +122,70 @@ const COLOR_LIB = '@/lib/kit/color';
 const CHARTS = '@/components/kit/charts';
 /** The modules every demo chart below is built from. */
 const CHART_PARTS = `@/lib/kit/charts/{axis,ticks,format}, ${CHARTS}/ChartTooltip`;
+
+/** The mods otr stores, by the type osu-web gives them. No stored mod is Fun. */
+const MOD_BADGE_SPECIMENS: readonly {
+  type: ModType;
+  label: string;
+  mods: readonly Mods[];
+  freemod?: boolean;
+  /** A fill other than the type's. */
+  fill?: string;
+}[] = [
+  {
+    type: 'DifficultyReduction',
+    label: 'Difficulty reduction',
+    mods: [Mods.Easy, Mods.NoFail, Mods.HalfTime],
+  },
+  {
+    type: 'DifficultyIncrease',
+    label: 'Difficulty increase',
+    mods: [
+      Mods.Hidden,
+      Mods.HardRock,
+      Mods.SuddenDeath,
+      Mods.Perfect,
+      Mods.DoubleTime,
+      Mods.Nightcore,
+      Mods.Flashlight,
+      Mods.FadeIn,
+    ],
+  },
+  {
+    type: 'Conversion',
+    label: 'Conversion',
+    mods: [
+      Mods.Random,
+      Mods.Mirror,
+      Mods.Key1,
+      Mods.Key2,
+      Mods.Key3,
+      Mods.Key4,
+      Mods.Key5,
+      Mods.Key6,
+      Mods.Key7,
+      Mods.Key8,
+      Mods.Key9,
+    ],
+  },
+  {
+    type: 'Automation',
+    label: 'Automation',
+    mods: [Mods.Relax, Mods.Relax2, Mods.Autoplay, Mods.SpunOut, Mods.Cinema],
+  },
+  {
+    type: 'System',
+    label: 'System',
+    mods: [Mods.TouchDevice, Mods.ScoreV2],
+  },
+  {
+    type: 'System',
+    label: 'Freemod, not a mod type',
+    mods: [],
+    freemod: true,
+    fill: FREEMOD_COLOR,
+  },
+];
 
 /** Shows the light value inside light frames and the dark one inside dark frames. */
 function ThemeValue({
@@ -1135,6 +1206,70 @@ export default function ColorSection() {
               )
             )}
           </ul>
+        </div>
+      </Specimen>
+
+      <Specimen
+        id="color-mod-badges"
+        name="Mod badges"
+        importPath="@/components/icons/ModIconset"
+        description="osu-web's mod badges and type colours, mirrored one to one. The ratio is the badge against the card."
+      >
+        <ul className="flex flex-col gap-3">
+          {MOD_BADGE_SPECIMENS.map(({ type, label, mods, freemod, fill }) => (
+            <li key={label} className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                {label},{' '}
+                <ThemeValue
+                  light={formatContrast(
+                    contrastRatio(
+                      fill ?? MOD_TYPE_COLORS[type],
+                      SURFACES.light.card
+                    )
+                  )}
+                  dark={formatContrast(
+                    contrastRatio(
+                      fill ?? MOD_TYPE_COLORS[type],
+                      SURFACES.dark.card
+                    )
+                  )}
+                />
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {freemod && (
+                  <ModIconset mods={Mods.None} freemod className="flex h-6" />
+                )}
+                {mods.map((mod) => (
+                  <ModIconset key={mod} mods={mod} className="flex h-6" />
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">
+            A combination, as game and score cards show it
+          </span>
+          <ModIconset
+            mods={Mods.Hidden | Mods.HardRock | Mods.DoubleTime}
+            className="flex h-6"
+          />
+        </div>
+        <div className="mt-4 flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">
+            In a tight row, as score cards show it
+          </span>
+          <FittingModIconset
+            mods={
+              Mods.NoFail |
+              Mods.Easy |
+              Mods.Hidden |
+              Mods.DoubleTime |
+              Mods.Flashlight |
+              Mods.SpunOut
+            }
+            className="h-5 w-28"
+          />
         </div>
       </Specimen>
 

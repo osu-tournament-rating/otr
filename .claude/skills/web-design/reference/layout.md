@@ -392,11 +392,13 @@ Do:
 
 - Use it for every inline explanation: form labels, stat labels, table headers, chart cards.
 - Leave the hit area alone: the glyph is 16px (14px at `sm`) in a 20px button, and an invisible ring widens the target to 28px without moving the layout.
+- Keep the default arrow cursor on anything whose only job is a tooltip: InfoButton, TapTooltip triggers, mod badges, tier icons, flags. The pointer (hand) is for links and buttons that do something.
 
 Don't:
 
 - Don't use a circled question mark (lucide's `CircleHelp`).
 - Don't explain anything in a hover-only tooltip or a `title` attribute.
+- Don't add `cursor-pointer` or `cursor-help` to a tooltip trigger, even one that pins its content on click; the hand promises a link.
 - Don't colour the glyph blue.
 - Don't put it inside another button or link, such as a sortable column header; it is a button itself, so place it beside that control.
 

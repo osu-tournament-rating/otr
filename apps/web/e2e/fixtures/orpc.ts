@@ -5,6 +5,7 @@ import type { RouterClient } from '@orpc/server';
 import { test } from '@playwright/test';
 
 import type { router } from '../../app/server/oRPC/router';
+import { BUILD_ID, BUILD_ID_HEADER } from '../../lib/build-id';
 import { STORAGE_STATE, type TestRole } from './auth';
 
 /** The production build that `playwright.config.ts` starts. */
@@ -45,7 +46,9 @@ export function createOrpcClientForRole(
   const cookie = cookieHeaderFromStorageState(STORAGE_STATE[role]);
   const link = new RPCLink({
     url: `${baseURL.replace(/\/+$/, '')}/rpc`,
-    headers: () => ({ cookie }),
+    // The server refuses writes from another build. Builds made for tests
+    // carry no build stamp, so this process and the server agree.
+    headers: () => ({ cookie, [BUILD_ID_HEADER]: BUILD_ID }),
   });
   return createORPCClient(link);
 }

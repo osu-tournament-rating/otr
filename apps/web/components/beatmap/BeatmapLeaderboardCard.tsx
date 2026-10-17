@@ -223,7 +223,7 @@ export default function BeatmapLeaderboardCard({
             <DataTableRow>
               <DataTableHead className="w-16">Rank</DataTableHead>
               <DataTableHead>Player</DataTableHead>
-              <DataTableHead className="w-20">Mods</DataTableHead>
+              <DataTableHead className="w-36">Mods</DataTableHead>
               <DataTableHead numeric className="w-29">
                 Score
               </DataTableHead>
@@ -253,7 +253,7 @@ export default function BeatmapLeaderboardCard({
                 <DataTableCell empty={false}>
                   <div
                     data-testid="beatmap-top-play-mods"
-                    className="flex h-5 w-16 items-center"
+                    className="flex h-5 items-center"
                   >
                     <ModIconset
                       mods={performer.mods}

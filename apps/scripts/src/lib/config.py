@@ -28,6 +28,8 @@ class Config:
     template_db_port: int
     template_db_user: str
     template_db_password: str
+    # node-exporter's textfile directory, or None to record no runs
+    metrics_dir: Path | None = None
 
 
 def _env_or_throw(key: str) -> str:
@@ -40,6 +42,11 @@ def _env_or_throw(key: str) -> str:
 
 def _env_or_default(key: str, default: str) -> str:
     return os.getenv(key) or default
+
+
+def _path_or_none(key: str) -> Path | None:
+    var = os.getenv(key)
+    return Path(var).expanduser() if var else None
 
 
 def init() -> Config:
@@ -70,6 +77,7 @@ def init() -> Config:
         int(_env_or_default("TEMPLATE_DB_PORT", "5434")),
         _env_or_default("TEMPLATE_DB_USER", "postgres"),
         _env_or_default("TEMPLATE_DB_PASSWORD", "postgres"),
+        _path_or_none("METRICS_DIR"),
     )
 
 

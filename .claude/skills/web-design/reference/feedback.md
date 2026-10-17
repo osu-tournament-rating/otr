@@ -28,6 +28,7 @@ Import each component from its own file under `@/components/kit/feedback/`; the 
 | A site-wide notice (the weekly maintenance window)         | `Callout variant="banner"`                     |
 | A second notice where one already shows                    | one notice: merge or move it (below)           |
 | The result of an action (saved, deleted, could not save)   | a toast (`toast` from `sonner`), not a callout |
+| The site has been updated since the tab loaded             | `SiteUpdatedToast`, already in the root layout |
 
 Sizes for empty and error states, by container:
 

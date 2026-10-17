@@ -1,0 +1,16 @@
+# Sends every alert Prometheus raises, from the rules in
+# monitoring/prod/prometheus/rules, to Discord. The webhook URL is the root
+# .env's DISCORD_WEBHOOK_URL, which the compose entrypoint writes to the file
+# below because Alertmanager does not expand environment variables.
+route:
+  receiver: discord
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: discord
+    discord_configs:
+      - webhook_url_file: /tmp/discord_webhook_url
+        send_resolved: true

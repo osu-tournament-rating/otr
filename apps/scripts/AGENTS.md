@@ -86,6 +86,13 @@ configured application database.
   operation returns `True` only when every step worked, and logs one error
   naming the step that failed. `main.py` exits 1 on any other result or an
   uncaught exception. Check every subprocess's return code.
+- When `METRICS_DIR` is set, `main.py` also records how each run production's
+  cron makes ended in node-exporter's textfile collector (`src/lib/metrics.py`):
+  `processor`, `refresh-index`, and `archive` to the production and public
+  buckets. The cron must run this installed copy, not an older checkout. Production's alert rules in
+  `monitoring/prod/prometheus/rules` raise a Discord alert when the last run
+  failed or none finished within its cron interval. Their thresholds follow
+  the production crontab, so update them when it changes.
 
 ## Agent stacks
 

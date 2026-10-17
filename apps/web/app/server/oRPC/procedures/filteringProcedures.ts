@@ -7,7 +7,7 @@ import {
   Ruleset,
   VerificationStatus,
 } from '@otr/core/osu';
-import { protectedProcedure, publicProcedure } from './base';
+import { protectedMutationProcedure, publicProcedure } from './base';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 import {
   FilterReportSchema,
@@ -28,7 +28,7 @@ const FilterReportIdSchema = z.object({
   id: z.number().int().positive(),
 });
 
-export const filterRegistrants = protectedProcedure
+export const filterRegistrants = protectedMutationProcedure
   .input(FilteringRequestSchema)
   .output(FilteringResultSchema)
   .route({
