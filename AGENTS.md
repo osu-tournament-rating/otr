@@ -139,8 +139,10 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
 - Generated columns, such as a score's final value and the search vectors,
   cannot be written. IDs are identity columns.
 - Admin writes go through `adminMutationProcedure` so the maintenance window
-  applies. Authorization happens in procedures and server-side page checks.
-  Next middleware does no authorization.
+  applies, and every other write goes through `protectedMutationProcedure`.
+  Both refuse a write from a page built from an older release. Authorization
+  happens in procedures and server-side page checks. Next middleware does no
+  authorization.
 - Only procedures tagged `public` appear in the REST API. Changing one is a
   public API change.
 - Server components call the site's own oRPC endpoint over HTTP, so a wrong

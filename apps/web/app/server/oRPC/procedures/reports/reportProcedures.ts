@@ -23,7 +23,11 @@ import {
   type ReportCreateInput,
 } from '@/lib/orpc/schema/report';
 
-import { adminMutationProcedure, protectedProcedure } from '../base';
+import {
+  adminMutationProcedure,
+  protectedMutationProcedure,
+  protectedProcedure,
+} from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import {
   normalizeReportCreateContent,
@@ -238,7 +242,7 @@ export async function createReportHandler({
   return { success: true, reportId: created.id };
 }
 
-export const createReport = protectedProcedure
+export const createReport = protectedMutationProcedure
   .input(ReportCreateInputSchema)
   .output(ReportMutationResponseSchema)
   .route({
