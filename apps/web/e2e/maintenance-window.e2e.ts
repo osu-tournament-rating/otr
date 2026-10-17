@@ -2,10 +2,9 @@ import { readFileSync } from 'node:fs';
 
 import { test, expect } from '@playwright/test';
 import { createORPCClient } from '@orpc/client';
-import { RPCLink } from '@orpc/client/fetch';
 
-import { BUILD_ID, BUILD_ID_HEADER } from '../lib/build-id';
 import { STORAGE_STATE } from './fixtures/auth';
+import { createSiteRpcLink } from './fixtures/orpc';
 
 /**
  * The weekly maintenance window (Tuesdays 11:45-12:15 UTC) blocks admin
@@ -65,13 +64,9 @@ const adminClient = (
   baseURL: string,
   override: MaintenanceOverride
 ): AdminMutationClient => {
-  const link = new RPCLink({
-    url: `${baseURL}/rpc`,
-    headers: () => ({
-      cookie: adminCookieHeader(),
-      [BUILD_ID_HEADER]: BUILD_ID,
-      'x-e2e-maintenance-window': override,
-    }),
+  const link = createSiteRpcLink(baseURL, {
+    cookie: adminCookieHeader(),
+    'x-e2e-maintenance-window': override,
   });
 
   return createORPCClient(link) as unknown as AdminMutationClient;

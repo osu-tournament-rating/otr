@@ -200,6 +200,34 @@ test.describe('Global Website Search', () => {
       await expect(results).not.toContainText('No results found');
     });
 
+    test('a rate-limited search shows the same error', async ({ page }) => {
+      await page.route('**/rpc/search/query', (route) =>
+        route.fulfill({
+          status: 429,
+          contentType: 'application/json',
+          headers: { 'retry-after': '1' },
+          body: JSON.stringify({
+            json: {
+              defined: false,
+              code: 'TOO_MANY_REQUESTS',
+              status: 429,
+              message: 'Too many requests. Try again in 1 second.',
+              data: { code: 'RATE_LIMITED', retryAfter: 1 },
+            },
+          }),
+        })
+      );
+      await page.goto(ROUTES.home);
+      await page.waitForLoadState('networkidle');
+
+      await openSearchViaButton(page);
+      await typeQuery(page, 'Stage');
+
+      await expect(
+        page.locator(SEARCH_RESULTS).getByRole('alert')
+      ).toContainText('Search results could not load', { timeout: 15000 });
+    });
+
     test('Cmd/Ctrl+K opens the command dialog', async ({ page }) => {
       await page.goto(ROUTES.home);
       await page.waitForLoadState('networkidle');

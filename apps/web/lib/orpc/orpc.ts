@@ -25,7 +25,10 @@ const link = new RPCLink<ClientRetryPluginContext>({
     }
 
     const { headers } = await import('next/headers');
-    const forwarded = new Headers(await headers());
+    // Read first: it opts the page into dynamic rendering
+    const incoming = await headers();
+    const { buildServerRpcHeaders } = await import('./server-headers');
+    const forwarded = await buildServerRpcHeaders(incoming);
     forwarded.set(BUILD_ID_HEADER, BUILD_ID);
     return forwarded;
   },

@@ -36,6 +36,24 @@ function cookieHeaderFromStorageState(path: string): string {
 }
 
 /**
+ * A link to the site's `/rpc`, which serves only the site itself: calls send
+ * the site's Origin and build, as a page's own calls do, plus any `headers`
+ * given.
+ */
+export function createSiteRpcLink(
+  baseURL: string,
+  headers: Record<string, string> = {}
+) {
+  const { origin } = new URL(baseURL);
+  return new RPCLink({
+    url: `${origin}/rpc`,
+    // The server refuses writes from another build. Builds made for tests
+    // carry no build stamp, so this process and the server agree.
+    headers: () => ({ origin, [BUILD_ID_HEADER]: BUILD_ID, ...headers }),
+  });
+}
+
+/**
  * oRPC client for a test role, against the site under test unless
  * `baseURL` names another. Storage state is read lazily, after collection.
  */
@@ -44,11 +62,5 @@ export function createOrpcClientForRole(
   baseURL: string = getBaseUrl()
 ): RouterClient<typeof router> {
   const cookie = cookieHeaderFromStorageState(STORAGE_STATE[role]);
-  const link = new RPCLink({
-    url: `${baseURL.replace(/\/+$/, '')}/rpc`,
-    // The server refuses writes from another build. Builds made for tests
-    // carry no build stamp, so this process and the server agree.
-    headers: () => ({ cookie, [BUILD_ID_HEADER]: BUILD_ID }),
-  });
-  return createORPCClient(link);
+  return createORPCClient(createSiteRpcLink(baseURL, { cookie }));
 }
