@@ -87,6 +87,13 @@ function ModBadgeArt({
 }
 
 /**
+ * Lifts a badge's art 2px while its `group` trigger is hovered or focused,
+ * with the default 150ms transition, and keeps it still for reduced motion.
+ */
+export const MOD_BADGE_LIFT =
+  'absolute inset-0 transition-transform motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus-visible:-translate-y-0.5';
+
+/**
  * One mod's badge; its height sets its size. Its full name opens in a tooltip
  * on hover, tap and keyboard focus. Without `tooltip`, it is a plain image
  * named for assistive tech, for places that write the name beside it.
@@ -115,14 +122,16 @@ export function ModBadgeIcon({
     );
   }
 
+  // The art lifts, not the button, so the tooltip's anchor and the row's
+  // layout stay still.
   return (
     <TapTooltip
       content={name}
       side="top"
       triggerAriaLabel={name}
-      triggerClassName={cn('w-auto rounded-none', sizing)}
+      triggerClassName={cn('group w-auto rounded-none', sizing)}
     >
-      {art}
+      <span className={MOD_BADGE_LIFT}>{art}</span>
     </TapTooltip>
   );
 }

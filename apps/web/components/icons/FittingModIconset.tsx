@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Mods } from '@otr/core/osu';
 
-import { ModBadgeIcon } from '@/components/icons/ModIconset';
+import { MOD_BADGE_LIFT, ModBadgeIcon } from '@/components/icons/ModIconset';
 import TapTooltip from '@/components/tap-tooltip';
 import {
   countModBadgeSlots,
@@ -24,7 +24,7 @@ function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
     <TapTooltip
       side="top"
       triggerAriaLabel={`${acronyms.length} more ${acronyms.length === 1 ? 'mod' : 'mods'}: ${names.join(', ')}`}
-      triggerClassName="[container-type:size] relative aspect-[10/7] h-full w-auto shrink-0 rounded-none"
+      triggerClassName="group [container-type:size] relative aspect-[10/7] h-full w-auto shrink-0 rounded-none"
       content={
         <ul className="flex flex-col gap-1">
           {acronyms.map((acronym, index) => (
@@ -37,21 +37,23 @@ function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
         </ul>
       }
     >
-      <span
-        aria-hidden
-        className="absolute inset-0 bg-muted-foreground"
-        style={{
-          maskImage: 'url(/icons/mods/blanks/mod-icon.svg)',
-          maskPosition: 'center',
-          maskRepeat: 'no-repeat',
-          maskSize: 'contain',
-        }}
-      />
-      <span
-        aria-hidden
-        className="absolute inset-0 flex items-center justify-center text-[length:max(40cqh,0.75rem)] leading-none font-black text-background"
-      >
-        +{acronyms.length}
+      <span className={MOD_BADGE_LIFT}>
+        <span
+          aria-hidden
+          className="absolute inset-0 bg-muted-foreground"
+          style={{
+            maskImage: 'url(/icons/mods/blanks/mod-icon.svg)',
+            maskPosition: 'center',
+            maskRepeat: 'no-repeat',
+            maskSize: 'contain',
+          }}
+        />
+        <span
+          aria-hidden
+          className="absolute inset-0 flex items-center justify-center text-[length:max(40cqh,0.75rem)] leading-none font-black text-background"
+        >
+          +{acronyms.length}
+        </span>
       </span>
     </TapTooltip>
   );
@@ -100,7 +102,8 @@ export default function FittingModIconset({
     <div
       ref={ref}
       className={cn(
-        'flex min-w-0 [justify-content:safe_flex-end] overflow-hidden',
+        // Clipped sideways only, so a lifted badge keeps its top.
+        'flex min-w-0 [justify-content:safe_flex-end] overflow-x-clip',
         className
       )}
     >
