@@ -283,12 +283,12 @@ jobs:
           tags: tag:ci
           ping: ${{ secrets.SSH_HOST }}
 
-      # The host runs whatever copy the Dev tier deploy action last put there,
-      # so settle that before spending a build on it. A version 2 copy ignores
-      # the migrations this run uploads and uses its image's. Production shares
-      # the host's Docker daemon and pulls that image on every deploy, so this
-      # fails only while production has yet to deploy the newest migration,
-      # and it warns.
+      # The host runs whatever copy the last Dev tier deploy or nightly run put
+      # there, so settle that before spending a build on it. A version 2 copy
+      # ignores the migrations this run uploads and uses its image's.
+      # Production shares the host's Docker daemon and pulls that image on
+      # every deploy, so this fails only while production has yet to deploy
+      # the newest migration, and it warns.
       - name: Check the host database script
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
