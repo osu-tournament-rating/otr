@@ -273,41 +273,65 @@ export function enumParam<T extends EnumValue>(
  * Any number of values from a fixed set, written as repeated keys
  * (`status=1&status=4`). Empty means no filter. Unknown values are dropped,
  * duplicates collapse, and the order always follows `options`.
+ *
+ * With `allValue`, the param has a third state for a list whose default
+ * depends on the visitor, such as a signed-in player's ruleset: absent reads
+ * as `undefined` (the page's own default), `allValue` (`ruleset=all`) reads
+ * as `[]` (every option), and values read as those values. `[]` is then
+ * written as `allValue`, and `undefined` as nothing.
  */
 export function arrayParam<T extends EnumValue>(
   options: readonly T[],
-  config: BaseOptions = {}
-): ListParamDefinition<T[]> {
+  config: BaseOptions & { allValue: string }
+): ListParamDefinition<T[] | undefined>;
+export function arrayParam<T extends EnumValue>(
+  options: readonly T[],
+  config?: BaseOptions & { allValue?: undefined }
+): ListParamDefinition<T[]>;
+export function arrayParam<T extends EnumValue>(
+  options: readonly T[],
+  config: BaseOptions & { allValue?: string } = {}
+): ListParamDefinition<T[] | undefined> {
+  const { allValue } = config;
   const canonical = (values: readonly T[]) =>
     options.filter((option) => values.includes(option));
+  const listsEqual = (a: readonly T[], b: readonly T[]) => {
+    const left = canonical(a);
+    const right = canonical(b);
+    return (
+      left.length === right.length &&
+      left.every((value, index) => value === right[index])
+    );
+  };
 
   return {
     resolve: (name) => {
       const key = config.key ?? name;
-      return createParam<T[]>({
+      return createParam<T[] | undefined>({
         name,
         keys: [key],
         role: config.role ?? 'filter',
-        defaultValue: [],
+        defaultValue: allValue === undefined ? [] : undefined,
         parse: (params) => {
-          const raw = params.getAll(key);
-          return options.filter((option) =>
-            raw.some((value) => value.trim() === String(option))
+          const raw = params.getAll(key).map((value) => value.trim());
+          const values = options.filter((option) =>
+            raw.includes(String(option))
           );
+          if (allValue === undefined || values.length > 0) return values;
+          return raw.includes(allValue) ? [] : undefined;
         },
         write: (value, params) => {
-          for (const option of canonical(value)) {
+          if (value === undefined) return;
+          const values = canonical(value);
+          if (values.length === 0 && allValue !== undefined) {
+            params.append(key, allValue);
+          }
+          for (const option of values) {
             params.append(key, String(option));
           }
         },
-        equals: (a, b) => {
-          const left = canonical(a);
-          const right = canonical(b);
-          return (
-            left.length === right.length &&
-            left.every((value, index) => value === right[index])
-          );
-        },
+        equals: (a, b) =>
+          a === undefined || b === undefined ? a === b : listsEqual(a, b),
       });
     },
   };

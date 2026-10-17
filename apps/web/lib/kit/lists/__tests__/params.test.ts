@@ -477,6 +477,69 @@ describe('param builders', () => {
   });
 });
 
+describe('arrayParam with allValue', () => {
+  const spec = defineListParams({
+    ruleset: arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' }),
+  });
+
+  it('reads absent as undefined, all as every option, and values as given', () => {
+    expect(parseListState(spec, '').ruleset).toBeUndefined();
+    expect(parseListState(spec, '?ruleset=all').ruleset).toEqual([]);
+    expect(parseListState(spec, '?ruleset=4&ruleset=1').ruleset).toEqual([
+      Ruleset.Taiko,
+      Ruleset.Mania4k,
+    ]);
+  });
+
+  it('lets values win over all, and reads only unknown values as absent', () => {
+    expect(parseListState(spec, '?ruleset=all&ruleset=2').ruleset).toEqual([
+      Ruleset.Catch,
+    ]);
+    expect(parseListState(spec, '?ruleset=3').ruleset).toBeUndefined();
+    expect(parseListState(spec, '?ruleset=All').ruleset).toBeUndefined();
+  });
+
+  it('writes all for an empty list and nothing for undefined', () => {
+    expect(serializeListState(spec, { ruleset: undefined }).toString()).toBe(
+      ''
+    );
+    expect(serializeListState(spec, { ruleset: [] }).toString()).toBe(
+      'ruleset=all'
+    );
+    expect(
+      serializeListState(spec, {
+        ruleset: [Ruleset.Mania4k, Ruleset.Osu],
+      }).toString()
+    ).toBe('ruleset=0&ruleset=4');
+  });
+
+  it('tells undefined apart from every option', () => {
+    expect(spec.ruleset.equals(undefined, undefined)).toBe(true);
+    expect(spec.ruleset.equals(undefined, [])).toBe(false);
+    expect(spec.ruleset.equals([], [])).toBe(true);
+    expect(spec.ruleset.equals([Ruleset.Osu, Ruleset.Taiko], [1, 0])).toBe(
+      true
+    );
+  });
+
+  it('resets to undefined through a patch, and survives Clear all', () => {
+    const state = parseListState(spec, '?ruleset=1');
+    expect(
+      applyListPatch(spec, state, { ruleset: undefined }).ruleset
+    ).toBeUndefined();
+    expect(clearListFilters(spec, state).ruleset).toEqual([Ruleset.Taiko]);
+    expect(countActiveFilters(spec, state)).toBe(0);
+  });
+
+  it('keeps the two-state behaviour without allValue', () => {
+    expect(parseListState(params, '').ruleset).toEqual([]);
+    expect(parseListState(params, '?ruleset=all').ruleset).toEqual([]);
+    expect(
+      serializeListState(params, { ...defaults, ruleset: [] }).toString()
+    ).toBe('');
+  });
+});
+
 describe('flagsParam', () => {
   // Mods as bitflags: NF 1, EZ 2, HD 8, HR 16, DT 64, NC 512 (with DT, 576).
   const MODS = [1, 2, 8, 16, 64, 576] as const;

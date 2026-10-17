@@ -613,18 +613,19 @@ import { useListState } from '@/lib/kit/lists/use-list-state';
 
 Param builders. Each takes an optional `role` and `key` (the URL key, when it differs from the param's name, so old links keep working). `rangeParam` and `dayRangeParam` take `keys`, a `[min, max]` or `[from, to]` pair, as the tournament list's `keys: ['minRankRange', 'maxRankRange']`; `sortParam` takes `key`, `directionKey` and `legacyDescendingKey` and is always `sort`; `pageParam` is always `page`.
 
-| Builder                              | Value                            | Address                                  | Default role |
-| ------------------------------------ | -------------------------------- | ---------------------------------------- | ------------ |
-| `searchParam({ minLength })`         | `string`, trimmed                | `q=world+cup`                            | `search`     |
-| `pageParam()`                        | `number`, from 1                 | `page=3`                                 | `page`       |
-| `sortParam(keys, default)`           | `SortState`                      | `sort=name&dir=asc`                      | `sort`       |
-| `enumParam(options, { default })`    | one option, or `undefined`       | `ruleset=1`                              | `filter`     |
-| `arrayParam(options)`                | options in their fixed order     | `status=0&status=4`                      | `filter`     |
-| `flagsParam(flags)`                  | the set flags, in `flags` order  | `mods=24` (one bitmask)                  | `filter`     |
-| `booleanParam({ default })`          | `boolean`                        | `verified=true`                          | `filter`     |
-| `numberParam({ min, max, integer })` | `number \| undefined`            | `report=42`                              | `filter`     |
-| `rangeParam({ min, max, integer })`  | `{ min?, max? }`                 | `minSr=5&maxSr=7` for a param named `sr` | `filter`     |
-| `dayRangeParam()`                    | `{ from?, to? }` as `YYYY-MM-DD` | `dateFrom=2024-07-20` for `date`         | `filter`     |
+| Builder                              | Value                            | Address                                         | Default role |
+| ------------------------------------ | -------------------------------- | ----------------------------------------------- | ------------ |
+| `searchParam({ minLength })`         | `string`, trimmed                | `q=world+cup`                                   | `search`     |
+| `pageParam()`                        | `number`, from 1                 | `page=3`                                        | `page`       |
+| `sortParam(keys, default)`           | `SortState`                      | `sort=name&dir=asc`                             | `sort`       |
+| `enumParam(options, { default })`    | one option, or `undefined`       | `ruleset=1`                                     | `filter`     |
+| `arrayParam(options)`                | options in their fixed order     | `status=0&status=4`                             | `filter`     |
+| `arrayParam(options, { allValue })`  | the same, or `undefined`         | `ruleset=all` for `[]`, nothing for `undefined` | `filter`     |
+| `flagsParam(flags)`                  | the set flags, in `flags` order  | `mods=24` (one bitmask)                         | `filter`     |
+| `booleanParam({ default })`          | `boolean`                        | `verified=true`                                 | `filter`     |
+| `numberParam({ min, max, integer })` | `number \| undefined`            | `report=42`                                     | `filter`     |
+| `rangeParam({ min, max, integer })`  | `{ min?, max? }`                 | `minSr=5&maxSr=7` for a param named `sr`        | `filter`     |
+| `dayRangeParam()`                    | `{ from?, to? }` as `YYYY-MM-DD` | `dateFrom=2024-07-20` for `date`                | `filter`     |
 
 Roles decide how the list treats a param:
 
@@ -638,6 +639,7 @@ What the codecs guarantee, and the tests check:
 - Defaults are never written, so a fresh list has a bare address; a sort writes only the half that differs (`dir=asc` alone).
 - Invalid values read as the default instead of throwing: unknown options, out-of-range numbers, `1e3` or `0x10`, `2024-02-30`, a page of 0.
 - Arrays repeat the key, drop duplicates and unknown values, and keep the options' order, so one state has one address.
+- With `allValue`, an array has three states: absent reads as `undefined` (the page's own default), `allValue` reads as `[]` (every option), and values win over `allValue`. `[]` writes `allValue` and `undefined` writes nothing. Unknown values alone read as absent.
 - Ranges drop bounds outside the domain, treat a bound at the domain's edge as no limit, and swap reversed bounds; day ranges do the same.
 - `serializeListState` keeps params the spec does not own (`tab`, tracking params) ahead of its own, and output order follows the spec.
 - `defineListParams` throws when two params claim one URL key.
