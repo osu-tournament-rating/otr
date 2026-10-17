@@ -24,6 +24,9 @@ import type { User } from 'osu-api-v2-js';
 
 const OSU_PROVIDER_ID = 'osu';
 const OSU_PROFILE_URL = 'https://osu.ppy.sh/api/v2/me';
+// osu! OAuth2 doesn't return email addresses, so each user gets a placeholder
+// built from their osu! id.
+const PLACEHOLDER_EMAIL_PREFIX = 'placeholder-';
 // The account create hook runs before defaults are coerced, so fields the
 // Drizzle type has as null arrive undefined.
 type AuthAccount = {
@@ -46,6 +49,11 @@ const parseOsuId = (value?: string | null) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+
+const osuIdFromPlaceholderEmail = (email: string) =>
+  email.startsWith(PLACEHOLDER_EMAIL_PREFIX)
+    ? parseOsuId(email.slice(PLACEHOLDER_EMAIL_PREFIX.length))
+    : null;
 
 const sanitizeUsername = (value: string | null | undefined) => {
   if (typeof value !== 'string') {
@@ -517,7 +525,9 @@ export const auth = betterAuth({
     additionalFields: {
       playerId: {
         type: 'number',
-        required: true,
+        // The column is NOT NULL, but Better Auth checks `required` before
+        // the user create hook below can fill it in.
+        required: false,
         // Server-owned: the OAuth flow sets it, and sessions and admin
         // scopes resolve through it.
         input: false,
@@ -544,6 +554,34 @@ export const auth = betterAuth({
     modelName: 'auth_verification',
   },
   databaseHooks: {
+    user: {
+      create: {
+        // Better Auth ignores `input: false` fields in the provider profile,
+        // so getUserInfo can't hand a new user its playerId. getUserInfo has
+        // already created the player, so look it up by the osu! id.
+        before: async (user) => {
+          if (user.playerId) {
+            return;
+          }
+
+          const osuId = osuIdFromPlaceholderEmail(user.email);
+          const player =
+            osuId === null
+              ? undefined
+              : await db.query.players.findFirst({
+                  where: eq(schema.players.osuId, osuId),
+                });
+
+          if (!player) {
+            throw new APIError('INTERNAL_SERVER_ERROR', {
+              message: 'No player found for the new user',
+            });
+          }
+
+          return { data: { ...user, playerId: player.id } };
+        },
+      },
+    },
     account: {
       create: {
         after: async (account) => {
@@ -606,14 +644,12 @@ export const auth = betterAuth({
               profile,
             });
 
-            // osu! OAuth2 doesn't return email addresses, so we use a placeholder
             return {
               id: profile.id.toString(),
-              email: `placeholder-${profile.id}`,
+              email: `${PLACEHOLDER_EMAIL_PREFIX}${profile.id}`,
               name: profile.username,
               image: profile.avatar_url,
               emailVerified: false,
-              playerId: ensured.player.id,
             };
           },
         },
