@@ -29,7 +29,6 @@ describe('ModIconset', () => {
 
   it('draws a glyph for every single-bit mod with an acronym', () => {
     const withoutGlyphs = singleBitMods
-      .filter((mod) => mod !== Mods.NoFail)
       .filter((mod) => ModsEnumHelper.metadata[mod].text !== '')
       .filter(
         (mod) =>
@@ -63,14 +62,22 @@ describe('ModIconset', () => {
     );
   });
 
-  it('draws No Mod with its glyph and clears No Fail', () => {
-    for (const mods of [Mods.None, Mods.NoFail]) {
-      const html = renderToStaticMarkup(<ModIconset mods={mods} />);
+  it('draws nothing for no mods, and draws No Fail', () => {
+    expect(renderToStaticMarkup(<ModIconset mods={Mods.None} />)).toBe('');
 
-      expect(html).toContain('mod-no-mod.svg');
-      expect(html).toContain('background-color:#ffcc22');
-      expect(html).not.toContain('mod-no-fail.svg');
-    }
+    const html = renderToStaticMarkup(
+      <ModIconset mods={Mods.NoFail | Mods.DoubleTime} />
+    );
+    expect(html).toContain('mod-no-fail.svg');
+    expect(html).toContain('mod-double-time.svg');
+  });
+
+  it('sets badges side by side, never overlapping', () => {
+    const html = renderToStaticMarkup(
+      <ModIconset mods={Mods.Hidden | Mods.HardRock} />
+    );
+
+    expect(html).not.toMatch(/-ml-|peer/);
   });
 
   it('draws freemod as an acronym badge', () => {
@@ -81,7 +88,6 @@ describe('ModIconset', () => {
     expect(html).toContain('aria-label="Freemod"');
     expect(html).toContain('>FM</span>');
     expect(html).toContain('mod-hidden.svg');
-    expect(html).not.toContain('mod-no-mod.svg');
   });
 
   it('skips mods that have no acronym', () => {

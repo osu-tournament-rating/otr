@@ -230,7 +230,6 @@ function PoolMods({
       freemod={freemod}
       className={`flex shrink-0 items-center ${className}`}
       iconClassName={iconClassName}
-      alwaysExpanded
     />
   );
 }

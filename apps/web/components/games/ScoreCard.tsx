@@ -1,6 +1,6 @@
 'use client';
 
-import { Ruleset, Team } from '@otr/core/osu';
+import { Ruleset, Team, type Mods } from '@otr/core/osu';
 import Image from 'next/image';
 
 import ModIconset from '@/components/icons/ModIconset';
@@ -72,6 +72,7 @@ function PerformanceItem({ label, value }: { label: string; value: string }) {
  */
 export default function ScoreCard({
   score,
+  mods,
   player,
   countryName,
   matchId,
@@ -79,6 +80,8 @@ export default function ScoreCard({
   highlighted = false,
 }: {
   score: GameScore;
+  /** The mods to show: the score's own beyond those its game's header shows. */
+  mods: Mods;
   player?: MatchPlayer;
   /** The player's country name, from the server, so hydration never differs. */
   countryName?: string;
@@ -148,18 +151,20 @@ export default function ScoreCard({
 
       {/* Phones: two lines, the hit counts joined into one. */}
       <div className="relative flex min-w-0 flex-1 flex-col gap-1 px-2 py-1 sm:hidden">
-        <div className="flex items-center justify-between gap-1.5">
+        {/* A score with many mods moves its mods, grade and score under the
+            name rather than squeezing the name out. */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
           {/* 8px apart: the status icon and the flag are both tap targets. */}
           <div className="flex min-w-0 items-center gap-2">
             {status}
             <CountryFlag code={player?.country} name={countryName} size="sm" />
             {playerLink}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {/* A set height: the icons size themselves to it. */}
             <ModIconset
               className="flex h-5 shrink-0 items-center justify-end"
-              mods={score.mods}
+              mods={mods}
             />
             {grade(24)}
             <span className="tabular-nums" style={scoreStyle}>
@@ -193,19 +198,16 @@ export default function ScoreCard({
 
       {/* Tablet and up: name, mods, grade and score, then the figures. */}
       <div className="relative hidden min-w-0 flex-1 flex-col gap-2 px-2 sm:flex">
-        <div className="team-flex-row flex flex-1 items-center justify-between">
-          <div className="team-flex-row flex h-full min-w-0 items-center justify-start gap-2">
+        {/* As on phones, many mods move under the name rather than over it. */}
+        <div className="team-flex-row flex flex-1 flex-wrap items-center justify-between gap-y-1">
+          <div className="team-flex-row flex min-w-0 items-center justify-start gap-2">
             {status}
             {actions}
             <CountryFlag code={player?.country} name={countryName} />
             {playerLink}
           </div>
-          <div className="team-flex-row flex h-full items-center justify-center gap-2">
-            <ModIconset
-              className="flex h-full max-w-20 items-center justify-end"
-              iconClassName="max-h-6"
-              mods={score.mods}
-            />
+          <div className="team-flex-row flex items-center justify-center gap-2">
+            <ModIconset className="h-6" mods={mods} />
             {grade(32)}
             <span className="tabular-nums" style={scoreStyle}>
               {formatCount(score.score)}

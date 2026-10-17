@@ -374,13 +374,14 @@ Gallery anchor: `/admin/design#color-mods`
 ```tsx
 import ModIconset from '@/components/icons/ModIconset';
 
-<ModIconset mods={score.mods} className="flex h-5 items-center" />
-<ModIconset mods={mods} freemod alwaysExpanded className="flex h-6" />
+<ModIconset mods={headerMods.mods} freemod={headerMods.freemod} className="h-6" />
+<ModIconset mods={getScoreDisplayMods(score.mods, headerMods.mods)} className="h-5" />
 ```
 
-- `mods`: the stored bitflags. NF is never drawn, and no mods draws No Mod.
+- `mods`: the stored bitflags, every one drawn, NF included. No mods draws nothing; there is no No Mod badge.
 - `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in the system colour.
-- `alwaysExpanded`: keeps the badges spread; otherwise they overlap and spread on hover.
+- Badges sit side by side, 2px apart, and never overlap or shrink.
+- A game card's header shows `resolveGameDisplayMods` (the lobby's mods, or what every freemod score shares), and each score shows only what the header doesn't, from `getScoreDisplayMods` in `@/lib/utils/mods`. A score that matches its header shows no badges.
 - The glyphs, the badge shape and their osu-web commit are in `public/icons/mods/`; each mod's name, type and glyph, and each type's colour, are in `@/lib/utils/mod-badges`. A mod osu-web has no glyph for shows its acronym.
 
 Don't:

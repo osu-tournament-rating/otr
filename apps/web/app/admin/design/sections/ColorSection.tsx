@@ -128,7 +128,7 @@ const MOD_BADGE_SPECIMENS: readonly {
   {
     type: 'DifficultyReduction',
     label: 'Difficulty reduction',
-    mods: [Mods.Easy, Mods.HalfTime],
+    mods: [Mods.Easy, Mods.NoFail, Mods.HalfTime],
   },
   {
     type: 'DifficultyIncrease',
@@ -169,7 +169,7 @@ const MOD_BADGE_SPECIMENS: readonly {
   {
     type: 'System',
     label: 'System, and freemod',
-    mods: [Mods.None, Mods.TouchDevice, Mods.ScoreV2],
+    mods: [Mods.TouchDevice, Mods.ScoreV2],
     freemod: true,
   },
 ];
@@ -1229,7 +1229,7 @@ export default function ColorSection() {
         </ul>
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">
-            Stacked, as score cards show them
+            A combination, as game and score cards show it
           </span>
           <ModIconset
             mods={Mods.Hidden | Mods.HardRock | Mods.DoubleTime}

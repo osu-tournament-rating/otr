@@ -8,7 +8,7 @@ import {
   getModGlyphColor,
   type ModBadge,
 } from '@/lib/utils/mod-badges';
-import { Mods } from '@otr/core/osu';
+import type { Mods } from '@otr/core/osu';
 import { cn } from '@/lib/utils';
 
 /** Legacy acronyms that lazer, and so osu-web, spells differently. */
@@ -83,34 +83,30 @@ function ModBadgeArt({
   );
 }
 
+/** A row of mod badges, side by side. No mods draws nothing. */
 export default function ModIconset({
   mods,
   className,
   iconClassName,
   freemod = false,
-  alwaysExpanded = false,
 }: {
   mods: Mods;
   className?: string;
   iconClassName?: string;
   freemod?: boolean;
-  alwaysExpanded?: boolean;
 }) {
-  // Clear NF
-  mods &= ~Mods.NoFail;
   // Mods without an acronym have no icon
-  let metadata = ModsEnumHelper.getMetadata(mods)
+  const acronyms = ModsEnumHelper.getMetadata(mods)
     .map(({ text }) => text)
     .filter((text) => text !== '');
-  if (mods === Mods.None && !freemod) {
-    metadata = ['NM'];
-  }
   if (freemod) {
-    metadata.unshift('FM');
+    acronyms.unshift('FM');
   }
+  if (acronyms.length === 0) return null;
+
   return (
-    <div className={className}>
-      {metadata.map((mod, idx) => {
+    <div className={cn('flex items-center gap-0.5', className)}>
+      {acronyms.map((mod) => {
         const badge = getBadge(mod);
 
         return (
@@ -119,13 +115,9 @@ export default function ModIconset({
             role="img"
             aria-label={badge.name}
             className={cn(
-              'peer [container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0 transition-[margin] duration-200 ease-in-out',
-              alwaysExpanded
-                ? 'not-first:-ml-2'
-                : 'not-first:-ml-4 peer-hover:not-first:-ml-2 hover:not-first:-ml-2',
+              '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
               iconClassName
             )}
-            style={{ zIndex: metadata.length - idx }}
           >
             <ModBadgeArt acronym={mod} badge={badge} />
           </div>

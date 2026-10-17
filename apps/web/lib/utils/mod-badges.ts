@@ -43,10 +43,7 @@ export interface ModBadge {
   glyph?: string;
 }
 
-/**
- * Every lazer mod osu-web draws a glyph for, by acronym, plus No Mod, which
- * osu-web adds as a System mod.
- */
+/** Every lazer mod osu-web draws a glyph for, by acronym. */
 export const MOD_BADGES: Readonly<Record<string, ModBadge>> = {
   '10K': { name: 'Ten Keys', type: 'Conversion', glyph: 'ten-keys' },
   '1K': { name: 'One Key', type: 'Conversion', glyph: 'one-key' },
@@ -103,7 +100,6 @@ export const MOD_BADGES: Readonly<Record<string, ModBadge>> = {
   MU: { name: 'Muted', type: 'Fun', glyph: 'muted' },
   NC: { name: 'Nightcore', type: 'DifficultyIncrease', glyph: 'nightcore' },
   NF: { name: 'No Fail', type: 'DifficultyReduction', glyph: 'no-fail' },
-  NM: { name: 'No Mod', type: 'System', glyph: 'no-mod' },
   NR: { name: 'No Release', type: 'DifficultyReduction', glyph: 'no-release' },
   NS: { name: 'No Scope', type: 'Fun', glyph: 'no-scope' },
   PF: { name: 'Perfect', type: 'DifficultyIncrease', glyph: 'perfect' },
