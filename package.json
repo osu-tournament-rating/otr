@@ -6,7 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "lint": "bun run --filter '*' --parallel lint",
+    "lint": "bun run lint:deps && bun run --filter '*' --parallel lint",
+    "lint:deps": "bun lib/deps/check-install.ts && bun lib/deps/check-peer-imports.ts && knip --no-progress",
     "build": "bun run --filter '*' --parallel build",
     "start": "bun run --filter '*' --parallel start",
     "dev": "bun run --filter web dev",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "drizzle-kit": "^0.31.11",
     "husky": "^9.1.7",
+    "knip": "^6.41.0",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript": "^6.0.3"

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "include": ["unlisted", "binaries"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "lib/**/*.test.ts",
+        "scripts/**/*.test.ts",
+        ".github/scripts/*.test.ts"
+      ]
+    },
+    "apps/web": { "entry": ["**/*.test.{ts,tsx}", "e2e/**/*.ts"] },
+    "apps/data-worker": { "entry": ["**/*.test.ts"] },
+    "packages/otr-core": { "entry": ["**/*.test.ts"] }
+  }
+}
