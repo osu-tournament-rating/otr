@@ -14,7 +14,8 @@ async function handleRequest(request: Request) {
   });
 
   const result = response ?? new Response('Not found', { status: 404 });
-  // The browser compares this with its own build to notice a new release.
+  // The browser compares this with its own build to notice a new release, and
+  // takes a failed response without it as one from in front of the site.
   result.headers.set(BUILD_ID_HEADER, BUILD_ID);
   return result;
 }
