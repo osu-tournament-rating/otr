@@ -151,9 +151,14 @@ export default function ScoreCard({
 
       {/* Phones: two lines, the hit counts joined into one. */}
       <div className="relative flex min-w-0 flex-1 flex-col gap-1 px-2 py-1 sm:hidden">
-        {/* A score with many mods moves its mods, grade and score under the
-            name rather than squeezing the name out. */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5">
+        {/* A score with mods moves its mods, grade and score under the name
+            rather than squeezing the name out; one without truncates it. */}
+        <div
+          className={cn(
+            'flex items-center justify-between gap-1.5',
+            mods !== 0 && 'flex-wrap'
+          )}
+        >
           {/* 8px apart: the status icon and the flag are both tap targets. */}
           <div className="flex min-w-0 items-center gap-2">
             {status}
@@ -162,10 +167,7 @@ export default function ScoreCard({
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {/* A set height: the icons size themselves to it. */}
-            <ModIconset
-              className="flex h-5 shrink-0 items-center justify-end"
-              mods={mods}
-            />
+            <ModIconset className="h-4 shrink-0 justify-end" mods={mods} />
             {grade(24)}
             <span className="tabular-nums" style={scoreStyle}>
               {formatCount(score.score)}
@@ -199,7 +201,12 @@ export default function ScoreCard({
       {/* Tablet and up: name, mods, grade and score, then the figures. */}
       <div className="relative hidden min-w-0 flex-1 flex-col gap-2 px-2 sm:flex">
         {/* As on phones, many mods move under the name rather than over it. */}
-        <div className="team-flex-row flex flex-1 flex-wrap items-center justify-between gap-y-1">
+        <div
+          className={cn(
+            'team-flex-row flex flex-1 items-center justify-between gap-y-1',
+            mods !== 0 && 'flex-wrap'
+          )}
+        >
           <div className="team-flex-row flex min-w-0 items-center justify-start gap-2">
             {status}
             {actions}
@@ -207,7 +214,7 @@ export default function ScoreCard({
             {playerLink}
           </div>
           <div className="team-flex-row flex items-center justify-center gap-2">
-            <ModIconset className="h-6" mods={mods} />
+            <ModIconset className="h-5" mods={mods} />
             {grade(32)}
             <span className="tabular-nums" style={scoreStyle}>
               {formatCount(score.score)}

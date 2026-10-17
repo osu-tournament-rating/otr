@@ -172,8 +172,9 @@ export default function GameCardHeader({
           <ModIconset
             mods={mods.mods}
             freemod={mods.freemod}
-            className="flex min-w-1/8 flex-row items-end justify-end"
-            iconClassName="max-h-8 sm:max-h-12"
+            className="shrink-0 items-end justify-end"
+            // No taller than the title's line, so the badges sit on it.
+            iconClassName="h-5 sm:h-6"
           />
         </div>
       </div>

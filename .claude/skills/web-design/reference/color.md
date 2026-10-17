@@ -374,13 +374,13 @@ Gallery anchor: `/admin/design#color-mods`
 ```tsx
 import ModIconset from '@/components/icons/ModIconset';
 
-<ModIconset mods={headerMods.mods} freemod={headerMods.freemod} className="h-6" />
-<ModIconset mods={getScoreDisplayMods(score.mods, headerMods.mods)} className="h-5" />
+<ModIconset mods={headerMods.mods} freemod={headerMods.freemod} iconClassName="h-5 sm:h-6" />
+<ModIconset mods={getScoreDisplayMods(score.mods, headerMods.mods)} className="h-4" />
 ```
 
-- `mods`: the stored bitflags, every one drawn, NF included. No mods draws nothing; there is no No Mod badge.
+- `mods`: the stored bitflags, every one drawn, NF included; NC and PF stand for the DT and SD they imply (`getModBadgeAcronyms`). No mods draws nothing; there is no No Mod badge.
 - `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in the system colour.
-- Badges sit side by side, 2px apart, and never overlap or shrink.
+- Badges sit side by side, 2px apart, and never overlap or shrink. Size them by height, no taller than the text line beside them: a game header's are 20px, 24px from tablet up; a score's 16px, 20px from tablet up.
 - A game card's header shows `resolveGameDisplayMods` (the lobby's mods, or what every freemod score shares), and each score shows only what the header doesn't, from `getScoreDisplayMods` in `@/lib/utils/mods`. A score that matches its header shows no badges.
 - The glyphs, the badge shape and their osu-web commit are in `public/icons/mods/`; each mod's name, type and glyph, and each type's colour, are in `@/lib/utils/mod-badges`. A mod osu-web has no glyph for shows its acronym.
 
