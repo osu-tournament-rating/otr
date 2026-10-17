@@ -27,6 +27,15 @@ scrape_configs:
     static_configs:
       - targets: ['otr-rabbitmq:15692']
 
+  # RabbitMQ's default endpoint sums every queue together. This one reports
+  # each queue's message counts, for the per-queue alerts.
+  - job_name: 'rabbitmq-queues'
+    metrics_path: '/metrics/detailed'
+    params:
+      family: ['queue_coarse_metrics']
+    static_configs:
+      - targets: ['otr-rabbitmq:15692']
+
   - job_name: 'web'
     metrics_path: '/api/metrics'
     authorization:
