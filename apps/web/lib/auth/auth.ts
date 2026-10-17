@@ -23,7 +23,10 @@ import { API as OsuApi } from 'osu-api-v2-js';
 import type { User } from 'osu-api-v2-js';
 
 const OSU_PROVIDER_ID = 'osu';
-const OSU_PROFILE_URL = 'https://osu.ppy.sh/api/v2/me';
+// The e2e suite points osu! at its fake server, e2e/fixtures/fake-osu-server.ts.
+const OSU_URL =
+  (isE2eAuthEnabled() && process.env.E2E_OSU_URL) || 'https://osu.ppy.sh';
+const OSU_PROFILE_URL = `${OSU_URL}/api/v2/me`;
 // osu! OAuth2 doesn't return email addresses, so each user gets a placeholder
 // built from their osu! id.
 const PLACEHOLDER_EMAIL_PREFIX = 'placeholder-';
@@ -87,7 +90,11 @@ const mapPlaymodeToRuleset = (playmode?: string | null) => {
 // `setNewToken()`/`createAsync()` ever resolve it — construct from a user token
 // and it hangs unless we resolve it ourselves.
 const createUserOsuApiClient = (accessToken: string) => {
-  const api = new OsuApi({ access_token: accessToken, token_type: 'Bearer' });
+  const api = new OsuApi({
+    access_token: accessToken,
+    token_type: 'Bearer',
+    server: OSU_URL,
+  });
   (api as unknown as { token_promise: Promise<unknown> }).token_promise =
     Promise.resolve();
   return api;
@@ -614,8 +621,8 @@ export const auth = betterAuth({
           providerId: OSU_PROVIDER_ID,
           clientId: process.env.WEB_OSU_CLIENT_ID,
           clientSecret: process.env.WEB_OSU_CLIENT_SECRET,
-          authorizationUrl: 'https://osu.ppy.sh/oauth/authorize',
-          tokenUrl: 'https://osu.ppy.sh/oauth/token',
+          authorizationUrl: `${OSU_URL}/oauth/authorize`,
+          tokenUrl: `${OSU_URL}/oauth/token`,
           userInfoUrl: OSU_PROFILE_URL,
           scopes: ['identify', 'public'],
           redirectURI: legacyOAuthCallbackURL(
