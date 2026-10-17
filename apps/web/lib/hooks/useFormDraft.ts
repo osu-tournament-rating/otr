@@ -93,7 +93,7 @@ function sessionDraftStorage(): DraftStorage | null {
 /**
  * Keeps a form's input in the tab's session storage, so a reload, such as the
  * one that picks up a new release, gives it back. The draft is forgotten when
- * the form returns to `empty`, as it does after a successful submit or Clear.
+ * the form returns to `empty`, such as when a successful submit resets it.
  *
  * `empty` must be the form's default values and stable across renders.
  */
