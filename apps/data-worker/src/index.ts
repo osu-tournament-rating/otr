@@ -5,6 +5,7 @@ import {
   QueueConstants,
   type FetchOsuMessage,
   type FetchPlayerOsuTrackMessage,
+  type ProcessBeatmapAttributesMessage,
   type ProcessTournamentAutomationCheckMessage,
   type ProcessTournamentStatsMessage,
 } from '@otr/core';
@@ -41,8 +42,85 @@ import {
   TournamentStatsWorker,
 } from './stats';
 import { PlayerRefetchScheduler } from './players/player-refetch-scheduler';
+import {
+  checkBeatmapFileStore,
+  createBeatmapFileStore,
+} from './beatmap-attributes/file-store';
+import { BeatmapFileDownloader } from './beatmap-attributes/downloader';
+import { BeatmapAttributesService } from './beatmap-attributes/beatmap-attributes-service';
+import { BeatmapAttributesWorker } from './beatmap-attributes/beatmap-attributes-worker';
+import { BeatmapAttributesScheduler } from './beatmap-attributes/beatmap-attributes-scheduler';
 
 const logger = consoleLogger;
+
+/**
+ * Starts the attribute job consumer and the sweep, or returns null and leaves
+ * them off when nothing is configured, the settings are wrong, or the store
+ * fails its probe. The other consumers keep running in each of those cases.
+ */
+const startBeatmapAttributes = async (
+  publisher: RabbitMqPublisher<ProcessBeatmapAttributesMessage> | null
+) => {
+  const { config, error } = dataWorkerEnv.beatmapFiles;
+
+  if (error) {
+    logger.error(`Beatmap file storage is off: ${error}`);
+    return null;
+  }
+
+  if (!config || !publisher) {
+    logger.info(
+      'Beatmap file storage is off: neither BEATMAP_FILES_BUCKET nor BEATMAP_FILES_DIR is set'
+    );
+    return null;
+  }
+
+  const store = createBeatmapFileStore(config);
+
+  try {
+    await checkBeatmapFileStore(store);
+  } catch (probeError) {
+    logger.error(
+      'Beatmap file storage is off; jobs from beatmap fetches wait in the queue',
+      { error: probeError }
+    );
+    return null;
+  }
+
+  const consumer = new RabbitMqConsumer<ProcessBeatmapAttributesMessage>({
+    url: dataWorkerEnv.amqpUrl,
+    queue: QueueConstants.attributes.beatmaps,
+    // The service relies on one job at a time.
+    prefetch: 1,
+    logger,
+  });
+
+  const worker = new BeatmapAttributesWorker({
+    queue: consumer,
+    service: new BeatmapAttributesService({
+      db,
+      logger,
+      store,
+      downloader: new BeatmapFileDownloader({ logger }),
+    }),
+    logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
+
+  const scheduler = new BeatmapAttributesScheduler({
+    db,
+    logger,
+    publisher,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
+
+  await worker.start();
+  scheduler.start();
+
+  logger.info('Beatmap file storage is on', { location: store.location });
+
+  return { worker, scheduler };
+};
 
 startMetricsServer();
 
@@ -119,6 +197,18 @@ const bootstrap = async () => {
     logger,
   });
 
+  // Exists before the osu! consumer starts, so no beatmap fetch drops its
+  // job. With a store configured, jobs queue even while the store fails its
+  // probe, and wait for a start that passes it.
+  const beatmapAttributesPublisher = dataWorkerEnv.beatmapFiles.config
+    ? new RabbitMqPublisher<ProcessBeatmapAttributesMessage>({
+        url: dataWorkerEnv.amqpUrl,
+        queue: QueueConstants.attributes.beatmaps,
+      })
+    : null;
+  let beatmapAttributes: Awaited<ReturnType<typeof startBeatmapAttributes>> =
+    null;
+
   const beatmapService = new BeatmapFetchService({
     db,
     api: osuApiClient,
@@ -128,6 +218,11 @@ const bootstrap = async () => {
     publishPlayerFetch: async (osuPlayerId) => {
       await osuPublisher.publish({ type: 'player', osuPlayerId });
     },
+    publishBeatmapAttributes: beatmapAttributesPublisher
+      ? async (payload) => {
+          await beatmapAttributesPublisher.publish(payload);
+        }
+      : undefined,
   });
 
   const matchService = new MatchFetchService({
@@ -232,15 +327,21 @@ const bootstrap = async () => {
       automationWorker.stop(),
       statsWorker.stop(),
       playerRefetchScheduler.stop(),
+      beatmapAttributes?.worker.stop(),
+      beatmapAttributes?.scheduler.stop(),
       osuPublisher.close(),
       automationPublisher.close(),
       osuTrackPublisher.close(),
     ]);
+    // Closed after the osu! worker and the sweep stop, since both publish to it.
+    await beatmapAttributesPublisher?.close();
     process.exit(0);
   };
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+
+  beatmapAttributes = await startBeatmapAttributes(beatmapAttributesPublisher);
 };
 
 bootstrap().catch((error) => {

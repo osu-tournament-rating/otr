@@ -119,7 +119,11 @@ without syncing the venv. It refuses to run in the main checkout.
   `+5`, and OTLP over HTTP `+6` and gRPC `+7`. Everything binds to loopback.
 - `up` writes a marked block into the worktree's `.env`. It holds the stack's
   URLs and ports. It turns on test sign-in (`E2E_TEST_AUTH`), and turns off
-  scheduled player refetches and the maintenance window. The tracing endpoint
-  is set only while monitoring runs. A running process whose settings changed
-  is restarted. After `down`, the block still points at the disposed stack, so
-  nothing falls back to the main checkout's services.
+  scheduled player refetches and the maintenance window. It blanks
+  `BEATMAP_FILES_BUCKET`, `BEATMAP_FILES_ACCESS_KEY_ID`, and
+  `BEATMAP_FILES_SECRET_ACCESS_KEY`, so a stack never writes to the production
+  bucket, and leaves `BEATMAP_FILES_DIR` to the agent, who can set it to store
+  beatmap files in a local directory. The tracing endpoint is set only while
+  monitoring runs. A running process whose settings changed is restarted.
+  After `down`, the block still points at the disposed stack, so nothing falls
+  back to the main checkout's services.

@@ -38,6 +38,7 @@ import {
   tournamentAudits,
   userSettings,
   beatmapAttributes,
+  beatmapFiles,
   oAuthClientAdminNote,
   joinBeatmapCreators,
   joinPooledBeatmaps,
@@ -244,6 +245,7 @@ export const beatmapsRelations = relations(beatmaps, ({ one, many }) => ({
   }),
   games: many(games),
   beatmapAttributes: many(beatmapAttributes),
+  beatmapFile: one(beatmapFiles),
   beatmapAudits: many(beatmapAudits),
   beatmapAdminNotes: many(beatmapAdminNotes),
   joinBeatmapCreators: many(joinBeatmapCreators),
@@ -508,6 +510,13 @@ export const beatmapAttributesRelations = relations(
     }),
   })
 );
+
+export const beatmapFilesRelations = relations(beatmapFiles, ({ one }) => ({
+  beatmap: one(beatmaps, {
+    fields: [beatmapFiles.beatmapId],
+    references: [beatmaps.id],
+  }),
+}));
 
 export const oAuthClientAdminNoteRelations = relations(
   oAuthClientAdminNote,

@@ -72,6 +72,8 @@ class BeatmapFetchTestDb {
     createdBeatmapsId: number;
     creatorsId: number;
   }> = [];
+  // beatmap_files checksums by beatmap id
+  readonly beatmapFiles = new Map<number, string | null>();
 
   private nextId = 1000;
 
@@ -100,6 +102,15 @@ class BeatmapFetchTestDb {
           (row) => row.osuId === osuId
         );
       },
+    },
+    beatmapFiles: {
+      findMany: async ({ where }: { where: unknown }) =>
+        conditionValues(where)
+          .filter((beatmapId) => this.beatmapFiles.has(beatmapId))
+          .map((beatmapId) => ({
+            beatmapId,
+            checksum: this.beatmapFiles.get(beatmapId) ?? null,
+          })),
     },
   };
 
@@ -291,11 +302,15 @@ const siblingBeatmap: BeatmapRow = {
   updated: '2026-01-01T00:00:00.000Z',
 };
 
+type AttributesJob = { beatmapId: number; checksum?: string };
+
 const createService = (
   db: BeatmapFetchTestDb,
-  api: { getBeatmap: unknown; getBeatmapset: unknown }
+  api: { getBeatmap: unknown; getBeatmapset: unknown },
+  publishBeatmapAttributes?: (payload: AttributesJob) => Promise<void>
 ) => {
   const logs: Array<{ message: string; context?: unknown }> = [];
+  const errors: Array<{ message: string; context?: unknown }> = [];
   const published: number[] = [];
 
   const logger = {
@@ -304,7 +319,9 @@ const createService = (
       logs.push({ message, context });
     },
     warn: () => {},
-    error: () => {},
+    error: (message: string, context?: unknown) => {
+      errors.push({ message, context });
+    },
     child: () => logger,
   } as unknown as Logger;
 
@@ -324,9 +341,10 @@ const createService = (
     publishPlayerFetch: async (osuPlayerId) => {
       published.push(osuPlayerId);
     },
+    publishBeatmapAttributes,
   });
 
-  return { service, logs, published };
+  return { service, logs, errors, published };
 };
 
 const workingApi = {
@@ -493,5 +511,101 @@ describe('BeatmapFetchService creators', () => {
 
     expect(creatorsOf(db, 111)).toEqual([]);
     expect(creatorsOf(db, 222)).toEqual([77]);
+  });
+});
+
+describe('BeatmapFetchService beatmap attributes', () => {
+  const checksums: Record<number, string> = {
+    111: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    222: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  };
+
+  const apiWithChecksums = {
+    getBeatmap: async (osuBeatmapId: number) => ({
+      id: osuBeatmapId,
+      beatmapset_id: apiBeatmapset.id,
+      checksum: checksums[osuBeatmapId],
+    }),
+    getBeatmapset: async () => ({
+      ...apiBeatmapset,
+      beatmaps: apiBeatmapset.beatmaps.map((beatmap) => ({
+        ...beatmap,
+        checksum: checksums[beatmap.id],
+      })),
+    }),
+  };
+
+  const fetchWithFiles = async (
+    files: Map<number, string | null>,
+    publish?: (payload: AttributesJob) => Promise<void>
+  ) => {
+    const db = new BeatmapFetchTestDb([siblingBeatmap]);
+    files.forEach((checksum, beatmapId) =>
+      db.beatmapFiles.set(beatmapId, checksum)
+    );
+
+    const jobs: AttributesJob[] = [];
+    const { service, errors } = createService(
+      db,
+      apiWithChecksums,
+      publish ??
+        (async (payload) => {
+          jobs.push(payload);
+        })
+    );
+
+    const fetched = await service.fetchAndPersist(111);
+    const requestedId = Array.from(db.beatmaps.values()).find(
+      (row) => row.osuId === 111
+    )!.id;
+
+    return { fetched, jobs, errors, requestedId };
+  };
+
+  it("queues the requested beatmap with osu!'s checksum", async () => {
+    const { fetched, jobs, requestedId } = await fetchWithFiles(new Map());
+
+    expect(fetched).toBe(true);
+    // The sibling has no stored file yet, so the sweep picks it up instead.
+    expect(jobs).toEqual([
+      { beatmapId: requestedId, checksum: checksums[111] },
+    ]);
+  });
+
+  it('queues a sibling whose stored file osu! has replaced', async () => {
+    const { jobs, requestedId } = await fetchWithFiles(
+      new Map([[siblingBeatmap.id, 'cccccccccccccccccccccccccccccccc']])
+    );
+
+    expect(jobs).toEqual([
+      { beatmapId: requestedId, checksum: checksums[111] },
+      { beatmapId: siblingBeatmap.id, checksum: checksums[222] },
+    ]);
+  });
+
+  it('skips a sibling whose stored file is current', async () => {
+    const { jobs, requestedId } = await fetchWithFiles(
+      new Map([[siblingBeatmap.id, checksums[222]!]])
+    );
+
+    expect(jobs).toEqual([
+      { beatmapId: requestedId, checksum: checksums[111] },
+    ]);
+  });
+
+  it('logs a failed publish without failing the fetch', async () => {
+    const { fetched, errors } = await fetchWithFiles(
+      new Map([[siblingBeatmap.id, null]]),
+      async () => {
+        throw new Error('broker unavailable');
+      }
+    );
+
+    expect(fetched).toBe(true);
+    expect(
+      errors.filter(
+        (entry) => entry.message === 'Failed to enqueue beatmap attributes'
+      )
+    ).toHaveLength(2);
   });
 });
