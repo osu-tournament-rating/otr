@@ -695,10 +695,10 @@ listStateHref('/tournaments', TOURNAMENT_LIST_PARAMS, {
 
 ### A default that depends on the visitor
 
-A signed-in player can set the ruleset the leaderboard and the tournament list open in (Settings, "Leaderboard and tournaments"); without a setting it is the ruleset they have played most. Signed-out visitors keep the fixed defaults: osu! on the leaderboard, every ruleset on the tournament list.
+A signed-in player can set the ruleset the leaderboard and the tournament list open in (Settings, "Leaderboard and tournaments"); without a setting it is the ruleset they have played most. Signed-out visitors keep the fixed defaults: osu! on the leaderboard, every ruleset on the tournament list. So does a player with no verified tournaments, or whose most played is `mania (other)`, which the lists leave out.
 
 - The spec stays module-level and has no default for the param, so a bare address reads as `undefined`: `enumParam(RATED_RULESETS, { role: 'scope' })` on the leaderboard, `arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' })` on the tournament list, where every ruleset needs its own value.
-- The server page resolves the visitor's default with `getBrowsingRuleset(db, session?.dbPlayer?.id)` (`@/lib/db/ruleset-settings`), fetches with `state.ruleset ?? default`, and passes the default to the toolbar as a prop.
+- The server page resolves the visitor's default with `getBrowsingRuleset(db, session?.dbPlayer?.id)` (`@/lib/db/ruleset-settings`), which is null when the fixed default applies, fetches with `state.ruleset ?? default`, and passes the default to the toolbar as a prop.
 - The toolbar shows `state.ruleset ?? default`, and writes `undefined` when the pick equals the default (`rulesetsForAddress` on the tournament list), so the visitor's own default never lands in the address and a shared link shows each visitor theirs.
 - Links the server builds (pages, Clear all, sort headers) keep the unresolved state. A link that means a ruleset names it, osu! included, as the profile's country link does.
 

@@ -24,14 +24,14 @@ type TournamentSeed = {
 
 // `user` gives the player a users row, and `profileRuleset` a settings row
 // on it. `expected` is the default ruleset; `mostPlayed` is the ruleset
-// played most, when the two differ.
+// played most, when the two differ, and null with no verified tournaments.
 const cases: {
   label: string;
   osuId: number;
   tournaments: TournamentSeed[];
   user?: { profileRuleset?: Ruleset | null };
   expected: Ruleset;
-  mostPlayed?: Ruleset;
+  mostPlayed?: Ruleset | null;
 }[] = [
   {
     label: 'more tournaments beat more matches',
@@ -131,6 +131,7 @@ const cases: {
     osuId: 999_591_007,
     tournaments: [],
     expected: Ruleset.Osu,
+    mostPlayed: null,
   },
   {
     label: 'ManiaOther tournaments count',
@@ -159,7 +160,7 @@ const cases: {
     tournaments: [],
     user: { profileRuleset: Ruleset.Mania7k },
     expected: Ruleset.Mania7k,
-    mostPlayed: Ruleset.Osu,
+    mostPlayed: null,
   },
   {
     label: 'a settings row without a profile setting falls back',
@@ -184,7 +185,7 @@ const expectedByOsuId = new Map(
 const mostPlayedByOsuId = new Map(
   cases.map((testCase) => [
     testCase.osuId,
-    testCase.mostPlayed ?? testCase.expected,
+    testCase.mostPlayed === undefined ? testCase.expected : testCase.mostPlayed,
   ])
 );
 const userOsuIds = cases
@@ -227,7 +228,7 @@ describe.skipIf(!url)('defaultRulesetSql', () => {
       .where(inArray(schema.players.osuId, osuIds));
   };
 
-  const byOsuId = (rows: { id: number; defaultRuleset: Ruleset }[]) =>
+  const byOsuId = (rows: { id: number; defaultRuleset: Ruleset | null }[]) =>
     new Map(
       rows.map((row) => [osuIdByPlayerId.get(row.id), row.defaultRuleset])
     );
@@ -373,7 +374,7 @@ describe.skipIf(!url)('defaultRulesetSql', () => {
     expect(byOsuId(rows)).toEqual(expectedByOsuId);
   });
 
-  it('ignores the profile setting in the ruleset played most', async () => {
+  it('ignores the profile setting and osu! in the ruleset played most', async () => {
     const rows = await db
       .select({
         id: schema.players.id,

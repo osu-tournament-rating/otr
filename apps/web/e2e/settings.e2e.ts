@@ -193,7 +193,7 @@ test.describe('Settings', () => {
 
       const section = page.getByTestId('settings-default-ruleset-section');
       const select = section.getByRole('combobox', { name: label });
-      await expect(select).toHaveText(/^Most played \(/, { timeout: 10000 });
+      await expect(select).toHaveText(/^Most played/, { timeout: 10000 });
       await select.click();
       await page.getByRole('option', { name: option, exact: true }).click();
       await expect(page.getByText('Saved')).toBeVisible({ timeout: 10000 });

@@ -8,6 +8,7 @@ import {
   MOST_PLAYED_VALUE,
   fromRulesetSelectValue,
   getMostPlayedLabel,
+  getMostPlayedRuleset,
   toRulesetSelectValue,
   type RulesetSettingKey,
   type RulesetSettingValue,
@@ -72,9 +73,10 @@ function RulesetSettingField({
   setting: RulesetSettingKey;
   label: string;
   initialValue: Ruleset | null;
-  mostPlayed: Ruleset;
+  mostPlayed: Ruleset | null;
 }) {
   const id = useId();
+  const fallback = getMostPlayedRuleset(setting, mostPlayed);
   const router = useRouter();
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
@@ -118,12 +120,14 @@ function RulesetSettingField({
           leading={
             <>
               <SelectItem value={MOST_PLAYED_VALUE}>
-                <RulesetIcon
-                  ruleset={mostPlayed}
-                  aria-hidden="true"
-                  className="size-4 fill-current text-muted-foreground"
-                />
-                {getMostPlayedLabel(mostPlayed)}
+                {fallback !== null && (
+                  <RulesetIcon
+                    ruleset={fallback}
+                    aria-hidden="true"
+                    className="size-4 fill-current text-muted-foreground"
+                  />
+                )}
+                {getMostPlayedLabel(fallback)}
               </SelectItem>
               <SelectSeparator />
             </>

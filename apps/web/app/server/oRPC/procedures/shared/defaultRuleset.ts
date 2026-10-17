@@ -17,10 +17,10 @@ import { Ruleset, VerificationStatus } from '@otr/core/osu';
 /**
  * The ruleset a player has played the most verified tournaments in, then the
  * most verified matches, then the one with their most recent verified
- * tournament, then the lowest ruleset number. A player with no verified
- * tournaments gets osu!. `playerId` is the caller's players id column, and the
+ * tournament, then the lowest ruleset number. Null for a player with no
+ * verified tournaments. `playerId` is the caller's players id column, and the
  * result works as a selected field or in a join condition. It ignores the
- * player's settings; `defaultRulesetSql` applies them.
+ * player's settings; `defaultRulesetSql` applies them and falls back to osu!.
  *
  * player_tournament_stats only gets rows for verified tournaments, but a
  * tournament rejected since the last weekly run keeps its rows until then, so
@@ -44,7 +44,7 @@ import { Ruleset, VerificationStatus } from '@otr/core/osu';
  * copy, so a column the caller passed from either table would bind to that
  * copy instead of the caller's row.
  */
-export function mostPlayedRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
+export function mostPlayedRulesetSql(playerId: AnyColumn): SQL<Ruleset | null> {
   const stats = alias(schema.playerTournamentStats, 'default_ruleset_stats');
   const tournament = alias(schema.tournaments, 'default_ruleset_tournament');
 
@@ -67,13 +67,15 @@ export function mostPlayedRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
     )
     .limit(1);
 
-  return sql<Ruleset>`coalesce(${mostPlayed}, ${Ruleset.Osu})`.mapWith(Number);
+  return sql<Ruleset | null>`${mostPlayed}`.mapWith((value): Ruleset | null =>
+    Number(value)
+  );
 }
 
 /**
  * A player's default ruleset: the profile ruleset they chose in their
- * settings, else `mostPlayedRulesetSql`. Takes the caller's players id column
- * and works wherever `mostPlayedRulesetSql` does.
+ * settings, else `mostPlayedRulesetSql`, else osu!. Takes the caller's players
+ * id column and works wherever `mostPlayedRulesetSql` does.
  *
  * The settings subquery follows the same rules as the one in
  * `mostPlayedRulesetSql`: its join keeps Drizzle from dropping its table
@@ -94,7 +96,7 @@ export function defaultRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
     .where(eq(user.playerId, playerId))
     .limit(1);
 
-  return sql<Ruleset>`coalesce(${chosen}, ${mostPlayedRulesetSql(playerId)})`.mapWith(
+  return sql<Ruleset>`coalesce(${chosen}, ${mostPlayedRulesetSql(playerId)}, ${Ruleset.Osu})`.mapWith(
     Number
   );
 }

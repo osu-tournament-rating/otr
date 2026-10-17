@@ -1,6 +1,6 @@
 import type { Ruleset } from '@otr/core/osu';
 
-import { getRulesetLabel } from '@/lib/kit/format/ruleset';
+import { getRulesetLabel, isRatedRuleset } from '@/lib/kit/format/ruleset';
 import {
   RatedRulesetSchema,
   type RatedRuleset,
@@ -31,7 +31,28 @@ export function fromRulesetSelectValue(value: string): RulesetSettingValue {
   return parsed.success ? parsed.data : null;
 }
 
-/** "Most played (taiko)": the option names the ruleset it stands for now. */
-export function getMostPlayedLabel(mostPlayed: Ruleset): string {
-  return `Most played (${getRulesetLabel(mostPlayed)})`;
+/**
+ * The ruleset a setting left on most played opens in now: the ruleset played
+ * most, and for the lists only a rated one (as `resolveBrowsingRuleset`).
+ * Null when there is none and the page keeps its own default: osu! on the
+ * profile, osu! on the leaderboard and every ruleset on the tournament list.
+ */
+export function getMostPlayedRuleset(
+  setting: RulesetSettingKey,
+  mostPlayed: Ruleset | null
+): Ruleset | null {
+  if (setting === 'browsingRuleset') {
+    return isRatedRuleset(mostPlayed) ? mostPlayed : null;
+  }
+  return mostPlayed;
+}
+
+/**
+ * "Most played (taiko)": the option names the ruleset it stands for now, or
+ * just "Most played" when it stands for none.
+ */
+export function getMostPlayedLabel(ruleset: Ruleset | null): string {
+  return ruleset === null
+    ? 'Most played'
+    : `Most played (${getRulesetLabel(ruleset)})`;
 }

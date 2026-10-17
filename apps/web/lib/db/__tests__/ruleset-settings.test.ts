@@ -32,6 +32,18 @@ describe('resolveBrowsingRuleset', () => {
     ).toBe(Ruleset.Mania4k);
   });
 
+  it('leaves a player with no verified tournaments to the page’s own default', () => {
+    expect(
+      resolveBrowsingRuleset({ browsingRuleset: null, mostPlayedRuleset: null })
+    ).toBeNull();
+    expect(
+      resolveBrowsingRuleset({
+        browsingRuleset: Ruleset.Taiko,
+        mostPlayedRuleset: null,
+      })
+    ).toBe(Ruleset.Taiko);
+  });
+
   it('leaves an unrated ruleset played most to the page’s own default', () => {
     expect(
       resolveBrowsingRuleset({
@@ -84,6 +96,29 @@ const players = [
       mostPlayedRuleset: Ruleset.Osu,
     },
     browsing: Ruleset.Osu,
+  },
+  // No verified tournaments is not osu!: the lists keep their own defaults.
+  {
+    osuId: 999_108_004,
+    tournaments: [],
+    settings: undefined,
+    expected: {
+      profileRuleset: null,
+      browsingRuleset: null,
+      mostPlayedRuleset: null,
+    },
+    browsing: null,
+  },
+  {
+    osuId: 999_108_005,
+    tournaments: [],
+    settings: { profileRuleset: null, browsingRuleset: Ruleset.Catch },
+    expected: {
+      profileRuleset: null,
+      browsingRuleset: Ruleset.Catch,
+      mostPlayedRuleset: null,
+    },
+    browsing: Ruleset.Catch,
   },
 ];
 

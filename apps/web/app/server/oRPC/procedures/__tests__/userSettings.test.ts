@@ -5,7 +5,10 @@ import * as schema from '@otr/core/db/schema';
 import { Ruleset } from '@otr/core/osu';
 
 import type { DatabaseClient } from '@/lib/db';
-import { UpdateUserSettingsInputSchema } from '@/lib/orpc/schema/user';
+import {
+  UpdateUserSettingsInputSchema,
+  UserSettingsSchema,
+} from '@/lib/orpc/schema/user';
 
 import { withCurrentBuildGuard, withMaintenanceWindowGuard } from '../base';
 import { router } from '../../router';
@@ -137,6 +140,21 @@ describe('getUserSettingsHandler', () => {
         context: { db: selectTestDb([settings]), session },
       })
     ).toEqual(settings);
+  });
+
+  // The output schema checks the handler's result, so it must allow null.
+  it('has no ruleset played most for a player with no verified tournaments', async () => {
+    const settings = {
+      profileRuleset: null,
+      browsingRuleset: null,
+      mostPlayedRuleset: null,
+    };
+
+    const result = await getUserSettingsHandler({
+      context: { db: selectTestDb([settings]), session },
+    });
+    expect(result).toEqual(settings);
+    expect(UserSettingsSchema.safeParse(result).success).toBe(true);
   });
 
   it('refuses a session without a user row', async () => {

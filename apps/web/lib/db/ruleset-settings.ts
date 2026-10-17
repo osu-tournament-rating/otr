@@ -4,14 +4,17 @@ import { eq } from 'drizzle-orm';
 
 import { mostPlayedRulesetSql } from '@/app/server/oRPC/procedures/shared/defaultRuleset';
 import type { DatabaseClient } from '@/lib/db';
-import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
+import { isRatedRuleset } from '@/lib/kit/format/ruleset';
 
 /** A player's two ruleset settings, null when left on most played. */
 export interface RulesetSettings {
   profileRuleset: Ruleset | null;
   browsingRuleset: Ruleset | null;
-  /** The ruleset they have played most, whatever the settings say. */
-  mostPlayedRuleset: Ruleset;
+  /**
+   * The ruleset they have played most, whatever the settings say. Null with no
+   * verified tournaments.
+   */
+  mostPlayedRuleset: Ruleset | null;
 }
 
 /**
@@ -49,14 +52,15 @@ export async function getRulesetSettings(
 /**
  * The ruleset a signed-in player's leaderboard and tournament list open in:
  * their browsing setting, else the ruleset they have played most. Their
- * profile setting plays no part. Null when that is not a rated ruleset (most
- * played can be mania (other)), so the page keeps its own default.
+ * profile setting plays no part. Null when they have played no rated ruleset
+ * (no verified tournaments, or most played is mania (other)), so the page
+ * keeps its own default, as for a visitor.
  */
 export function resolveBrowsingRuleset(
   settings: Pick<RulesetSettings, 'browsingRuleset' | 'mostPlayedRuleset'>
 ): Ruleset | null {
   const ruleset = settings.browsingRuleset ?? settings.mostPlayedRuleset;
-  return RATED_RULESETS.includes(ruleset) ? ruleset : null;
+  return isRatedRuleset(ruleset) ? ruleset : null;
 }
 
 /** `resolveBrowsingRuleset` for a player id; null for a visitor. */

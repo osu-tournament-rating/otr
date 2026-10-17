@@ -49,8 +49,11 @@ export type RatedRuleset = z.infer<typeof RatedRulesetSchema>;
 export const UserSettingsSchema = z.object({
   profileRuleset: RulesetSchema.nullable(),
   browsingRuleset: RulesetSchema.nullable(),
-  /** The ruleset they have played most, which a null setting follows. */
-  mostPlayedRuleset: RulesetSchema,
+  /**
+   * The ruleset they have played most, which a null setting follows. Null
+   * with no verified tournaments.
+   */
+  mostPlayedRuleset: RulesetSchema.nullable(),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
