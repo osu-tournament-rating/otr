@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 import { NextRequest } from 'next/server';
 
 import { openAPIHandler } from '@/app/server/openapi';
+import { auth } from '@/lib/auth/auth';
 
 import { GET } from '../route';
 
@@ -67,6 +68,64 @@ describe('OpenAPI route', () => {
     expect(response.headers.get('www-authenticate')).toBe(
       'Bearer realm="otr_api"'
     );
+    expect(handle).not.toHaveBeenCalled();
+  });
+
+  it('checks the key whatever the case of the Bearer scheme (#1061)', async () => {
+    const verifyApiKey = spyOn(auth.api, 'verifyApiKey').mockResolvedValue({
+      valid: false,
+      key: null,
+      error: { code: 'INVALID_API_KEY', message: 'Invalid API key.' },
+    } as never);
+
+    try {
+      for (const scheme of ['Bearer', 'bearer', 'BEARER']) {
+        verifyApiKey.mockClear();
+
+        const response = await GET(
+          nextRouteRequest('http://localhost/api/stats/platform', {
+            authorization: `${scheme} not-a-real-key`,
+          })
+        );
+
+        expect(response.status).toBe(401);
+        expect((await response.json()).message).toBe('Invalid API key.');
+        expect(verifyApiKey).toHaveBeenCalledTimes(1);
+        expect(verifyApiKey.mock.calls[0]![0]!.body.key).toBe('not-a-real-key');
+      }
+    } finally {
+      verifyApiKey.mockRestore();
+    }
+  });
+
+  it('answers a Bearer authorization without a key with a 401', async () => {
+    const response = await GET(
+      nextRouteRequest('http://localhost/api/stats/platform', {
+        authorization: 'Bearer',
+      })
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toBe(
+      'Bearer realm="otr_api"'
+    );
+    expect(await response.json()).toEqual({ error: 'API key is missing.' });
+    expect(handle).not.toHaveBeenCalled();
+  });
+
+  it('refuses another scheme without falling back to x-api-key', async () => {
+    const response = await GET(
+      nextRouteRequest('http://localhost/api/stats/platform', {
+        authorization: 'Basic dXNlcjpwYXNz',
+        'x-api-key': 'key-123',
+      })
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      error:
+        'Provide the API key using the Authorization: Bearer <key> header.',
+    });
     expect(handle).not.toHaveBeenCalled();
   });
 });

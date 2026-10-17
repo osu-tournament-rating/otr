@@ -10,6 +10,7 @@ import {
 import { setActiveSpanAttributes, withSpan } from '@otr/core/tracing';
 import { SpanKind } from '@opentelemetry/api';
 
+import { parseBearerAuthorization } from '@/lib/api/api-key-header';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { orpcProcedureCalls, orpcProcedureDuration } from '@/lib/metrics';
@@ -349,18 +350,11 @@ const describeError = (error: ProcedureError) => {
   }
 };
 
+// Server renders forward the visitor's headers to /rpc, so an Authorization
+// value that isn't a Bearer key is ignored rather than refused
 const extractApiKey = (headers?: Headers) => {
-  if (!headers) {
-    return null;
-  }
-
-  const authorization = headers.get('authorization');
-  if (authorization?.startsWith('Bearer ')) {
-    const token = authorization.slice('Bearer '.length).trim();
-    return token.length > 0 ? token : null;
-  }
-
-  return null;
+  const credential = parseBearerAuthorization(headers?.get('authorization'));
+  return credential.kind === 'key' ? credential.key : null;
 };
 
 const withOptionalApiKey = base.middleware(async ({ context, next }) => {
