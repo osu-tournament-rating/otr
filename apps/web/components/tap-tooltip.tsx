@@ -45,7 +45,7 @@ export default function TapTooltip({
               type="button"
               aria-label={triggerAriaLabel}
               className={cn(
-                'block w-full cursor-pointer rounded text-left',
+                'block w-full rounded text-left',
                 'focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
                 triggerClassName
               )}

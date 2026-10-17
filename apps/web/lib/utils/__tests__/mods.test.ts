@@ -10,6 +10,7 @@ import {
   filterBeatmapModDistribution,
   getBeatmapModLabel,
   normalizeBeatmapDisplayMods,
+  getScoreDisplayMods,
   resolveGameDisplayMods,
   selectBeatmapListModGroups,
 } from '../mods';
@@ -269,6 +270,15 @@ describe('resolveGameDisplayMods', () => {
     ).toEqual({ mods: Mods.Hidden, freemod: false });
   });
 
+  it('keeps No Fail when every freemod score has it', () => {
+    expect(
+      resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [
+        { mods: Mods.Hidden | Mods.NoFail },
+        { mods: Mods.Hidden | Mods.NoFail },
+      ])
+    ).toEqual({ mods: Mods.Hidden | Mods.NoFail, freemod: false });
+  });
+
   it('falls back to FM when freemod combinations genuinely differ', () => {
     expect(
       resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [
@@ -278,10 +288,86 @@ describe('resolveGameDisplayMods', () => {
     ).toEqual({ mods: Mods.None, freemod: true });
   });
 
+  it('shows the forced mods beside FM', () => {
+    expect(
+      resolveGameDisplayMods(
+        { isFreeMod: true, mods: Mods.FreeModAllowed | Mods.DoubleTime },
+        [{ mods: Mods.DoubleTime | Mods.Hidden }, { mods: Mods.DoubleTime }]
+      )
+    ).toEqual({ mods: Mods.DoubleTime, freemod: true });
+  });
+
   it('keeps the FM icon for a freemod game with no scores', () => {
     expect(
       resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [])
     ).toEqual({ mods: Mods.None, freemod: true });
+  });
+});
+
+describe('getScoreDisplayMods', () => {
+  it('moves No Fail to the header when every score in a No Mod lobby has it', () => {
+    const scores = [{ mods: Mods.NoFail }, { mods: Mods.NoFail }];
+    const game = { mods: Mods.None };
+    const header = resolveGameDisplayMods(
+      { ...game, isFreeMod: deriveGameIsFreeMod(game.mods, scores) },
+      scores
+    );
+
+    expect(header).toEqual({ mods: Mods.NoFail, freemod: false });
+    expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
+      [Mods.None, Mods.None]
+    );
+  });
+
+  it('shows nothing when a score matches its forced lobby', () => {
+    const lobby = Mods.NoFail | Mods.DoubleTime;
+    const header = resolveGameDisplayMods({ isFreeMod: false, mods: lobby }, [
+      { mods: lobby },
+    ]);
+
+    expect(header.mods).toBe(lobby);
+    expect(getScoreDisplayMods(lobby, header.mods)).toBe(Mods.None);
+  });
+
+  it('shows nothing when every freemod score shares one combination', () => {
+    const scores = [
+      { mods: Mods.Hidden | Mods.HardRock },
+      { mods: Mods.Hidden | Mods.HardRock },
+    ];
+    const header = resolveGameDisplayMods(
+      { isFreeMod: true, mods: Mods.None },
+      scores
+    );
+
+    expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
+      [Mods.None, Mods.None]
+    );
+  });
+
+  it('shows each score its mods beyond the forced ones when they vary', () => {
+    expect(
+      getScoreDisplayMods(Mods.DoubleTime | Mods.Hidden, Mods.DoubleTime)
+    ).toBe(Mods.Hidden);
+    expect(getScoreDisplayMods(Mods.HardRock, Mods.None)).toBe(Mods.HardRock);
+  });
+
+  it('shows No Fail on the scores that differ by it alone', () => {
+    const scores = [{ mods: Mods.Hidden | Mods.NoFail }, { mods: Mods.Hidden }];
+    const header = resolveGameDisplayMods(
+      { isFreeMod: true, mods: Mods.None },
+      scores
+    );
+
+    expect(header).toEqual({ mods: Mods.Hidden, freemod: false });
+    expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
+      [Mods.NoFail, Mods.None]
+    );
+  });
+
+  it('shows Nightcore on a score in a Double Time lobby', () => {
+    expect(
+      getScoreDisplayMods(Mods.DoubleTime | Mods.Nightcore, Mods.DoubleTime)
+    ).toBe(Mods.Nightcore);
   });
 });
 
