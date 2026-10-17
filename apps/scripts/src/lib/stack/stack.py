@@ -199,7 +199,8 @@ def managed_env(
 ) -> dict[str, str | None]:
     """The settings `otr up` writes into the worktree's .env. They also turn
     off what a disposable stack should never do: refetch players from osu! on
-    a schedule, or close itself for the maintenance window."""
+    a schedule, close itself for the maintenance window, or write beatmap
+    files to the production bucket."""
     ports = stack.ports
     web = f"http://{HOST}:{ports.web}"
     pg_auth = f"{quote(creds.pg_user, safe='')}:{quote(creds.pg_password, safe='')}"
@@ -221,6 +222,12 @@ def managed_env(
         "MAINTENANCE_WINDOW_ENABLED": "false",
         "PLAYER_OSU_AUTO_REFETCH_ENABLED": "false",
         "PLAYER_OSUTRACK_AUTO_REFETCH_ENABLED": "false",
+        # Blank, not None: a variable that is set, even to nothing, keeps any
+        # other env file from supplying the bucket. BEATMAP_FILES_DIR stays
+        # unmanaged, so a stack can opt in to storing files in a directory.
+        "BEATMAP_FILES_BUCKET": "",
+        "BEATMAP_FILES_ACCESS_KEY_ID": "",
+        "BEATMAP_FILES_SECRET_ACCESS_KEY": "",
     }
 
 

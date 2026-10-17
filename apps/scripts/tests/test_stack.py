@@ -132,6 +132,27 @@ def test_managed_env_escapes_credentials_and_toggles_tracing(tmp_path):
     assert off["PLAYER_OSU_AUTO_REFETCH_ENABLED"] == "false"
 
 
+def test_managed_env_blanks_the_beatmap_files_bucket(tmp_path, monkeypatch):
+    monkeypatch.setenv("BEATMAP_FILES_BUCKET", "otr-beatmaps")
+    entry = stack.Stack(tmp_path, "otr-a-123456", Path("/w/a"), 1)
+    main = (
+        "BEATMAP_FILES_BUCKET=otr-beatmaps\n"
+        "BEATMAP_FILES_ACCESS_KEY_ID=GOOG1EXAMPLE\n"
+        "BEATMAP_FILES_SECRET_ACCESS_KEY=secret\n"
+        "BEATMAP_FILES_DIR=/tmp/beatmaps\n"
+    )
+
+    managed = stack.managed_env(entry, CREDS, monitoring=False)
+    values = envfile.parse(envfile.apply(main, managed))
+
+    assert values["BEATMAP_FILES_BUCKET"] == ""
+    assert values["BEATMAP_FILES_ACCESS_KEY_ID"] == ""
+    assert values["BEATMAP_FILES_SECRET_ACCESS_KEY"] == ""
+    assert values["BEATMAP_FILES_DIR"] == "/tmp/beatmaps"
+    assert "BEATMAP_FILES_DIR" not in managed
+    assert stack.process_env(managed)["BEATMAP_FILES_BUCKET"] == ""
+
+
 def test_process_env_overrides_the_shell(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://main")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://main")
