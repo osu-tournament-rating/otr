@@ -10,7 +10,7 @@ import {
 } from '@/lib/orpc/schema/apiKey';
 import * as schema from '@otr/core/db/schema';
 
-import { protectedProcedure } from './base';
+import { protectedMutationProcedure, protectedProcedure } from './base';
 type RawApiKeyRecord = typeof schema.apiKeys.$inferSelect;
 
 type ApiKeyResponse = Omit<
@@ -160,7 +160,7 @@ export const getUserApiKeys = protectedProcedure
     );
   });
 
-export const generateUserApiKey = protectedProcedure
+export const generateUserApiKey = protectedMutationProcedure
   .input(
     z.object({
       name: z
@@ -223,7 +223,7 @@ export const generateUserApiKey = protectedProcedure
     });
   });
 
-export const deleteUserApiKey = protectedProcedure
+export const deleteUserApiKey = protectedMutationProcedure
   .input(
     z.object({
       keyId: z.string().min(1, 'API key id is required'),

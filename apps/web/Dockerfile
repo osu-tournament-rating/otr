@@ -13,6 +13,12 @@ COPY packages/otr-core/package.json packages/otr-core/
 RUN bun install --frozen-lockfile
 
 COPY . .
+# Names the web code the image is built from (.github/scripts/web-build-id.sh).
+# Every /rpc call and response carries it, so a page loaded from an earlier
+# release can tell that the site has been updated, and the server can refuse
+# that page's writes.
+ARG OTR_BUILD_ID=development
+ENV NEXT_PUBLIC_OTR_BUILD_ID=$OTR_BUILD_ID
 RUN bun run --filter web build
 
 ENV NODE_ENV=production
