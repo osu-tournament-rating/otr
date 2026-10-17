@@ -121,15 +121,18 @@ export function summarizePoolDisplayMods(
       scores
     );
 
+    // Pools never show No Fail or a freemod game's forced mods, so neither
+    // splits the tally.
+    const mods = resolved.freemod ? Mods.None : resolved.mods & ~Mods.NoFail;
     const tally = talliesByTournament.get(tournamentId) ?? new Map();
-    const key = resolved.freemod ? 'fm' : String(resolved.mods);
+    const key = resolved.freemod ? 'fm' : String(mods);
     const entry = tally.get(key);
 
     if (entry) {
       entry.gameCount += 1;
     } else {
       tally.set(key, {
-        mods: resolved.mods,
+        mods,
         freemod: resolved.freemod,
         gameCount: 1,
       });

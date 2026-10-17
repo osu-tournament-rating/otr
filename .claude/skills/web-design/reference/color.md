@@ -15,6 +15,7 @@ Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its lig
 - [Tier colours](#tier-colours): `TIER_PALETTE`, `TIER_TEXT_CLASS`
 - [Grade colours](#grade-colours): `GRADE_PALETTE`, `getGradeColor`
 - [Mod colours](#mod-colours): `MOD_PALETTE`, `getModPaletteColor`
+- [Mod badges](#mod-badges): `ModIconset`, `MOD_TYPE_COLORS`
 - [Star rating colours](#star-rating-colours): `getStarRatingMarkColor`
 - [Contrast helpers](#contrast-helpers): `contrastRatio`, `colorDistance`
 - [Tick rule](#tick-rule): `getNiceTicks`, `getCategoryTicks`, `getTimeTicks`
@@ -365,6 +366,34 @@ Don't:
 - Don't swap a mod to a new hue to fix contrast or a clash. Players know these colours; move the lightness, or the chroma for a rare mod, as `mods.ts` does.
 
 Gallery anchor: `/admin/design#color-mods`
+
+## Mod badges
+
+`ModIconset` draws osu-web's lazer mod badges, mirrored one to one: osu-web's badge shape filled with the mod type's colour, and the mod's glyph on top in a near-black shade of it. They are an experiment, so they are the one place mod colours follow osu-web's types (blue automation, purple conversion, red difficulty increase, lime difficulty reduction, pink fun, yellow system) rather than `MOD_PALETTE`, and the same in both themes. In the light theme most badge fills fall under 3:1 against the card; the glyphs clear 3:1 on every fill.
+
+```tsx
+import ModIconset from '@/components/icons/ModIconset';
+
+<ModIconset mods={headerMods.mods} freemod={headerMods.freemod} iconClassName="h-5 sm:h-6" />
+<ModIconset mods={getScoreDisplayMods(score.mods, headerMods.mods)} className="h-4" />
+```
+
+- `mods`: the stored bitflags, every one drawn, NF included; NC and PF stand for the DT and SD they imply (`getModBadgeAcronyms`). No mods draws nothing; there is no No Mod badge.
+- `lazerMods`: a lazer game's or score's lazer mods, drawn instead of the flags in play order, lazer-only mods included (`getModBadgeEntries`). A custom speed joins the badge's name ("Double Time 1.2x", `getModEntryName`) and is written after the badge in 12px semibold; `FittingModIconset` keeps it in the name only, so every badge keeps one slot. Pass `null` or leave it out for stable data.
+- Every badge is a TapTooltip button named for its mod, so its full name opens on hover, tap and keyboard focus. Names come from `getModName` in `@/lib/utils/mod-badges`: osu!'s official names from osu-web's mod list ("Spun Out", "Hard Rock", "Seven Keys") and "Free Mods" for FM. Mod names are proper names, so they keep osu!'s Title Case; don't sentence-case them. `ModBadgeIcon` with `tooltip={false}` is the plain image, for places that write the name beside it.
+- Hovering or focusing a badge, or the "+N" chip, lifts its art 2px with the default 150ms transition (`MOD_BADGE_LIFT`, under `motion-safe:`). The art moves, not the button, so layout, row height and the tooltip's anchor stay still; a clipping parent clips sideways only (`overflow-x-clip`) so the lift keeps its top.
+- `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in `FREEMOD_COLOR`, osu-web's green-1: the type colours' 70% lightness step in a hue no mod type uses, so it doesn't read as a System mod.
+- Badges sit side by side, 2px apart, and never overlap or shrink. Size them by height, no taller than the text line beside them: a game header's are 20px, 24px from tablet up; a score's 16px, 20px from tablet up.
+- `FittingModIconset` (`@/components/icons/FittingModIconset`) is the row for tight spaces, such as a score card's: give it a height and a width (`h-4 flex-1 basis-0`). It measures its width, shows the badges that fit and folds the rest into a grey "+N" chip whose tooltip (tap, hover or focus) lists them with their names. It never wraps, so the grade and score beside it keep their spot; the fit logic is `countModBadgeSlots` and `fitModBadges` in `@/lib/utils/mod-badges`.
+- A game card's header shows `resolveGameDisplayMods` (the lobby's mods, or what every freemod score shares), and each score shows only what the header doesn't, from `getScoreDisplayMods` in `@/lib/utils/mods`. A score that matches its header shows no badges. Lazer mods follow the same rules: the header's come with `resolveGameDisplayMods`, and a score's from `getScoreDisplayLazerMods`, which keeps a mod the header shows with different settings.
+- The glyphs, the badge shape and their osu-web commit are in `public/icons/mods/`; each mod's name, type and glyph, and each type's colour, are in `@/lib/utils/mod-badges`. A mod osu-web has no glyph for shows its acronym.
+
+Don't:
+
+- Don't colour a mod chart, swatch or pill with `MOD_TYPE_COLORS`; those keep `MOD_PALETTE`.
+- Don't redraw a mod icon by hand. Copy osu-web's glyph and add the mod to `MOD_BADGES`.
+
+Gallery anchor: `/admin/design#color-mod-badges`
 
 ## Star rating colours
 

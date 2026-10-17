@@ -1,5 +1,7 @@
 'use client';
 
+import type { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import Link from 'next/link';
 
 import ModIconset from '@/components/icons/ModIconset';
@@ -18,7 +20,6 @@ import {
   getWarningTexts,
 } from '@/lib/kit/status/reasons';
 import type { Game } from '@/lib/orpc/schema/match';
-import { resolveGameDisplayMods } from '@/lib/utils/mods';
 
 import BeatmapBackground from './BeatmapBackground';
 import GameActionsMenu from './GameActionsMenu';
@@ -35,14 +36,16 @@ const ON_ART_LINK =
 export default function GameCardHeader({
   game,
   number,
+  mods,
 }: {
   game: Game;
   /** The game's place in the match, which names its status icon and menu. */
   number: number;
+  /** The mods to show, from `resolveGameDisplayMods`. */
+  mods: { mods: Mods; lazerMods: LazerMod[] | null; freemod: boolean };
 }) {
   const isDeletedBeatmap =
     !game.beatmap || !game.beatmap.beatmapset || game.beatmap.osuId === 0;
-  const headerMods = resolveGameDisplayMods(game, game.scores);
   const beatmapLabel = `${game.beatmap?.beatmapset?.title ?? 'Deleted beatmap'} [${game.beatmap?.diffName ?? 'Unknown'}]`;
   const hasTitle = Boolean(game.beatmap?.beatmapset?.title);
   // Names the report and the notes, as the old buttons did.
@@ -168,11 +171,12 @@ export default function GameCardHeader({
             )}
           </div>
           <ModIconset
-            mods={headerMods.mods}
-            lazerMods={headerMods.lazerMods}
-            freemod={headerMods.freemod}
-            className="flex min-w-1/8 flex-row items-end justify-end"
-            iconClassName="max-h-8 sm:max-h-12"
+            mods={mods.mods}
+            lazerMods={mods.lazerMods}
+            freemod={mods.freemod}
+            className="shrink-0 items-end justify-end"
+            // No taller than the title's line, so the badges sit on it.
+            iconClassName="h-5 sm:h-6"
           />
         </div>
       </div>

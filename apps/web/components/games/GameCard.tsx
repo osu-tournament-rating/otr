@@ -6,6 +6,11 @@ import { TEAM_LABELS } from '@/lib/kit/format/enum-labels';
 import { formatCount } from '@/lib/kit/format/number';
 import type { Game, GameScore, MatchPlayer } from '@/lib/orpc/schema/match';
 import { cn } from '@/lib/utils';
+import {
+  getScoreDisplayLazerMods,
+  getScoreDisplayMods,
+  resolveGameDisplayMods,
+} from '@/lib/utils/mods';
 
 import GameCardHeader from './GameCardHeader';
 import ScoreCard from './ScoreCard';
@@ -75,6 +80,11 @@ export default function GameCard({
   }
 
   const outcome = getOutcome(scoresByTeam);
+  const headerMods = resolveGameDisplayMods(game, game.scores);
+  const scoreWidth = Math.max(
+    0,
+    ...game.scores.map((score) => formatCount(score.score).length)
+  );
   const renderScores = (team: Team) =>
     (scoresByTeam.get(team) ?? []).map((score) => {
       const player = players.find((player) => player.id === score.playerId);
@@ -82,6 +92,12 @@ export default function GameCard({
         <ScoreCard
           key={score.id}
           score={score}
+          mods={getScoreDisplayMods(score.mods, headerMods.mods)}
+          lazerMods={getScoreDisplayLazerMods(
+            score.lazerMods,
+            headerMods.lazerMods
+          )}
+          scoreWidth={scoreWidth}
           matchId={game.matchId}
           gameNumber={number}
           player={player}
@@ -102,7 +118,7 @@ export default function GameCard({
         highlighted && 'ring-2 ring-primary'
       )}
     >
-      <GameCardHeader game={game} number={number} />
+      <GameCardHeader game={game} number={number} mods={headerMods} />
       {game.scores.length === 0 ? (
         <div className="rounded-lg border bg-score-card p-4 text-center text-sm text-muted-foreground">
           No scores available

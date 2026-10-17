@@ -207,6 +207,29 @@ services:
       - ./monitoring/prod/prometheus/rules:/etc/prometheus/rules:ro
     depends_on:
       - postgres-exporter
+      - alertmanager
+
+  # Sends the alerts Prometheus raises to Discord. Alertmanager cannot read the
+  # webhook URL from the environment, so the entrypoint writes it to the file
+  # monitoring/prod/alertmanager/alertmanager.yml reads.
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    container_name: otr-alertmanager
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        (umask 077 && echo -n "$${DISCORD_WEBHOOK_URL}" > /tmp/discord_webhook_url)
+        exec /bin/alertmanager \
+          --config.file=/etc/alertmanager/alertmanager.yml \
+          --storage.path=/alertmanager \
+          --cluster.listen-address=
+    environment:
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - alertmanager-data:/alertmanager
+      - ./monitoring/prod/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
 
   loki:
     image: grafana/loki:3.7.3
@@ -262,7 +285,6 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY}
       GF_USERS_ALLOW_SIGN_UP: 'false'
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-NULL}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/prod/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -276,6 +298,8 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.20.1
     container_name: otr-postgres-exporter
     restart: unless-stopped
+    # Adds pg_postmaster_start_time_seconds, for PostgreSQLRestarting.
+    command: ['--collector.postmaster']
     environment:
       DATA_SOURCE_URI: db:5432/${DOCKER_POSTGRES_DB:-postgres}?sslmode=disable
       DATA_SOURCE_USER: ${DOCKER_POSTGRES_USER:-postgres}
@@ -291,8 +315,13 @@ services:
     command:
       - '--path.rootfs=/host'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      # The operations scripts in apps/scripts record each cron run here, for
+      # the alerts in monitoring/prod/prometheus/rules. Deploy creates the
+      # directory, so it belongs to the user the scripts run as, not root.
+      - '--collector.textfile.directory=/textfile'
     volumes:
       - /:/host:ro,rslave
+      - ./textfile-collector:/textfile:ro
     pid: host
     # Don't rename, will break disaster recovery
     profiles:
@@ -302,6 +331,7 @@ volumes:
   postgres-data:
   rabbitmq-data:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
   alloy-data:
   loki-data:

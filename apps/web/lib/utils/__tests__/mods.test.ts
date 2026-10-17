@@ -10,6 +10,8 @@ import {
   filterBeatmapModDistribution,
   getBeatmapModLabel,
   normalizeBeatmapDisplayMods,
+  getScoreDisplayLazerMods,
+  getScoreDisplayMods,
   resolveGameDisplayMods,
   selectBeatmapListModGroups,
 } from '../mods';
@@ -269,6 +271,19 @@ describe('resolveGameDisplayMods', () => {
     ).toEqual({ mods: Mods.Hidden, lazerMods: null, freemod: false });
   });
 
+  it('keeps No Fail when every freemod score has it', () => {
+    expect(
+      resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [
+        { mods: Mods.Hidden | Mods.NoFail },
+        { mods: Mods.Hidden | Mods.NoFail },
+      ])
+    ).toEqual({
+      mods: Mods.Hidden | Mods.NoFail,
+      lazerMods: null,
+      freemod: false,
+    });
+  });
+
   it('falls back to FM when freemod combinations genuinely differ', () => {
     expect(
       resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [
@@ -276,6 +291,15 @@ describe('resolveGameDisplayMods', () => {
         { mods: Mods.HardRock },
       ])
     ).toEqual({ mods: Mods.None, lazerMods: null, freemod: true });
+  });
+
+  it('shows the forced mods beside FM', () => {
+    expect(
+      resolveGameDisplayMods(
+        { isFreeMod: true, mods: Mods.FreeModAllowed | Mods.DoubleTime },
+        [{ mods: Mods.DoubleTime | Mods.Hidden }, { mods: Mods.DoubleTime }]
+      )
+    ).toEqual({ mods: Mods.DoubleTime, lazerMods: null, freemod: true });
   });
 
   it('keeps the FM icon for a freemod game with no scores', () => {
@@ -325,6 +349,81 @@ describe('resolveGameDisplayMods with lazer mods', () => {
   });
 });
 
+describe('getScoreDisplayMods', () => {
+  it('moves No Fail to the header when every score in a No Mod lobby has it', () => {
+    const scores = [{ mods: Mods.NoFail }, { mods: Mods.NoFail }];
+    const game = { mods: Mods.None };
+    const header = resolveGameDisplayMods(
+      { ...game, isFreeMod: deriveGameIsFreeMod(game.mods, scores) },
+      scores
+    );
+
+    expect(header).toEqual({
+      mods: Mods.NoFail,
+      lazerMods: null,
+      freemod: false,
+    });
+    expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
+      [Mods.None, Mods.None]
+    );
+  });
+
+  it('shows nothing when a score matches its forced lobby', () => {
+    const lobby = Mods.NoFail | Mods.DoubleTime;
+    const header = resolveGameDisplayMods({ isFreeMod: false, mods: lobby }, [
+      { mods: lobby },
+    ]);
+
+    expect(header.mods).toBe(lobby);
+    expect(getScoreDisplayMods(lobby, header.mods)).toBe(Mods.None);
+  });
+
+  it('shows nothing when every freemod score shares one combination', () => {
+    const scores = [
+      { mods: Mods.Hidden | Mods.HardRock },
+      { mods: Mods.Hidden | Mods.HardRock },
+    ];
+    const header = resolveGameDisplayMods(
+      { isFreeMod: true, mods: Mods.None },
+      scores
+    );
+
+    expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
+      [Mods.None, Mods.None]
+    );
+  });
+
+  it('shows each score its mods beyond the forced ones when they vary', () => {
+    expect(
+      getScoreDisplayMods(Mods.DoubleTime | Mods.Hidden, Mods.DoubleTime)
+    ).toBe(Mods.Hidden);
+    expect(getScoreDisplayMods(Mods.HardRock, Mods.None)).toBe(Mods.HardRock);
+  });
+
+  it('shows No Fail on the scores that differ by it alone', () => {
+    const scores = [{ mods: Mods.Hidden | Mods.NoFail }, { mods: Mods.Hidden }];
+    const header = resolveGameDisplayMods(
+      { isFreeMod: true, mods: Mods.None },
+      scores
+    );
+
+    expect(header).toEqual({
+      mods: Mods.Hidden,
+      lazerMods: null,
+      freemod: false,
+    });
+    expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
+      [Mods.NoFail, Mods.None]
+    );
+  });
+
+  it('shows Nightcore on a score in a Double Time lobby', () => {
+    expect(
+      getScoreDisplayMods(Mods.DoubleTime | Mods.Nightcore, Mods.DoubleTime)
+    ).toBe(Mods.Nightcore);
+  });
+});
+
 describe('deriveGameIsFreeMod', () => {
   it('is freemod when scores vary from a NoMod game', () => {
     expect(deriveGameIsFreeMod(Mods.None, [{ mods: Mods.Hidden }])).toBe(true);
@@ -347,5 +446,60 @@ describe('deriveGameIsFreeMod', () => {
     expect(deriveGameIsFreeMod(Mods.HardRock, [{ mods: Mods.HardRock }])).toBe(
       false
     );
+  });
+});
+
+describe('resolveGameDisplayMods No Fail for lazer games', () => {
+  it('adds No Fail to the lobby lazer mods when every score has it', () => {
+    expect(
+      resolveGameDisplayMods(
+        { isFreeMod: false, mods: Mods.Hidden, lazerMods: [{ acronym: 'HD' }] },
+        [
+          {
+            mods: Mods.Hidden | Mods.NoFail,
+            lazerMods: [{ acronym: 'HD' }, { acronym: 'NF' }],
+          },
+        ]
+      ).lazerMods
+    ).toEqual([{ acronym: 'HD' }, { acronym: 'NF' }]);
+  });
+
+  it('shows the required lazer mods with FM when freemod scores differ', () => {
+    const lazerMods = [{ acronym: 'DA', settings: { approach_rate: 9 } }];
+
+    expect(
+      resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None, lazerMods }, [
+        { mods: Mods.Hidden, lazerMods: [{ acronym: 'HD' }, ...lazerMods] },
+        { mods: Mods.HardRock, lazerMods: [{ acronym: 'HR' }, ...lazerMods] },
+      ])
+    ).toEqual({ mods: Mods.None, lazerMods, freemod: true });
+  });
+});
+
+describe('getScoreDisplayLazerMods', () => {
+  it('drops the lazer mods the header shows with the same settings', () => {
+    expect(
+      getScoreDisplayLazerMods(
+        [
+          { acronym: 'DT', settings: { speed_change: 1.2 } },
+          { acronym: 'HD' },
+          { acronym: 'DA', settings: { approach_rate: 9 } },
+        ],
+        [
+          { acronym: 'DT', settings: { speed_change: 1.2 } },
+          { acronym: 'DA', settings: { approach_rate: 10 } },
+        ]
+      )
+    ).toEqual([
+      { acronym: 'HD' },
+      { acronym: 'DA', settings: { approach_rate: 9 } },
+    ]);
+  });
+
+  it('keeps a stable score on its flags and a lazer score without a header list', () => {
+    expect(getScoreDisplayLazerMods(null, [{ acronym: 'HD' }])).toBeNull();
+    expect(getScoreDisplayLazerMods([{ acronym: 'HD' }], null)).toEqual([
+      { acronym: 'HD' },
+    ]);
   });
 });

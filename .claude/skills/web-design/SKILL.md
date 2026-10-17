@@ -34,7 +34,8 @@ If the library has no component for what you need, build it in the library
   16px side margin on phones.
 - **Type.** Page title 30px bold, section title 16px semibold, row title
   16px medium, body 14px, labels 12px muted. Inter everywhere. Sentence case
-  everywhere, including buttons, dialogs, menus and status names. Never
+  everywhere, including buttons, dialogs, menus and status names. Mod names
+  are proper names and keep osu!'s Title Case ("Spun Out"). Never
   `uppercase`, never `tracking-wide`, never smaller than `text-xs`.
 - **Colour.** Semantic tokens only; no hex values or palette classes such as
   `text-orange-500`. Blue only for things you can act on or that are
@@ -72,7 +73,8 @@ If the library has no component for what you need, build it in the library
 - **Help.** One info button, a circled "i", that opens on tap, hover and
   keyboard focus. Anything that only opens on hover is a bug. Help, captions
   and tooltips say what is not already on screen; never restate a label,
-  placeholder, hint or title.
+  placeholder, hint or title. A tooltip trigger keeps the arrow cursor; the
+  pointer is only for links and buttons that act.
 - **Formatting.** Dates "Jul 20 – Aug 3, 2024", timestamps "Jul 20, 2024,
   15:42 UTC", relative time only in feeds. Ranks "#1,234". Rating changes
   with one decimal. Rulesets osu!, taiko, catch, mania 4K, mania 7K. Never

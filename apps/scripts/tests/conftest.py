@@ -34,6 +34,7 @@ config_module.config = types.SimpleNamespace(
     template_db_port=5434,
     template_db_user="postgres",
     template_db_password="postgres",
+    metrics_dir=None,
 )
 sys.modules.setdefault("lib.config", config_module)
 

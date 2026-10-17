@@ -33,6 +33,13 @@ name: Deploy
 # them to the host at <REMOTE_PATH>/apps/scripts, with the production
 # environment's SCRIPTS_ENV secret as their .env, once the stack is up. A
 # redeploy installs the release's copy, so it rolls the scripts back too.
+#
+# Prometheus evaluates the rules in monitoring/prod/prometheus/rules and
+# Alertmanager sends what fires to Discord, through the webhook in the ENV
+# secret's DISCORD_WEBHOOK_URL. The scripts' cron runs reach those rules
+# through node-exporter's textfile collector, in <REMOTE_PATH>/textfile-collector,
+# once SCRIPTS_ENV sets METRICS_DIR to that directory and the crontab runs the
+# copy at <REMOTE_PATH>/apps/scripts.
 
 on:
   push:
@@ -592,8 +599,11 @@ jobs:
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
         run: |
           set -euo pipefail
+          # node-exporter reads textfile-collector, where the operations scripts
+          # record their cron runs. Made here, before compose would create it
+          # owned by root, so the scripts' user can write to it.
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash -s -- "$REMOTE_PATH" <<'EOF'
-            mkdir -p "$1"
+            mkdir -p "$1/textfile-collector"
           EOF
 
       - name: Upload deployment assets
@@ -646,6 +656,10 @@ jobs:
               docker rm -f otr-docs
             fi
             docker compose --profile node-exporter up -d --remove-orphans
+            # up -d leaves a container alone when only a file it mounts
+            # changed, so Prometheus and Alertmanager reread their config and
+            # rules here. An invalid file keeps the previous one loaded.
+            docker compose kill -s SIGHUP prometheus alertmanager
           EOF
 
       # Before the processor's `latest` moves, so a failed install leaves the
