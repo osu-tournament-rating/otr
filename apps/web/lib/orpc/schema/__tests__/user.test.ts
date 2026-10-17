@@ -12,16 +12,6 @@ describe('PublicUserSchema', () => {
       created: '2026-08-01 00:00:00+00',
       updated: null,
       lastViewedReportsAt: '2026-08-02 00:00:00+00',
-      userSettings: [
-        {
-          id: 3,
-          defaultRuleset: 0,
-          defaultRulesetIsControlled: false,
-          userId: 1,
-          created: '2026-08-01 00:00:00+00',
-          updated: null,
-        },
-      ],
       player: {
         id: 2,
         osuId: 4,
@@ -29,7 +19,6 @@ describe('PublicUserSchema', () => {
         searchVector: "'peppy':1A",
         previousUsernames: ['old name'],
         country: 'AU',
-        defaultRuleset: 0,
         osuLastFetch: '2026-08-01 00:00:00+00',
         osuTrackLastFetch: null,
         osuTrackDataFetchStatus: 0,

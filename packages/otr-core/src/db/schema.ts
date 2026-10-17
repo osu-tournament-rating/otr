@@ -1401,7 +1401,6 @@ export const players = pgTable(
           sql`setweight(to_tsvector('simple', ${searchableText(players.username)}), 'A') || setweight(to_tsvector('simple', ${searchableText(joinedText(players.previousUsernames))}), 'B')`
       ),
     country: varchar({ length: 4 }).default('').notNull(),
-    defaultRuleset: integer('default_ruleset').default(0).notNull(),
     osuLastFetch: timestamp('osu_last_fetch', {
       withTimezone: true,
       mode: 'string',
@@ -1839,40 +1838,6 @@ export const tournaments = pgTable(
       foreignColumns: [users.id],
       name: 'fk_tournaments_users_verified_by_user_id',
     }).onDelete('set null'),
-  ]
-);
-
-export const userSettings = pgTable(
-  'user_settings',
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity({
-      name: 'user_settings_id_seq',
-      startWith: 1,
-      increment: 1,
-      minValue: 1,
-      maxValue: 2147483647,
-      cache: 1,
-    }),
-    defaultRuleset: integer('default_ruleset').default(0).notNull(),
-    defaultRulesetIsControlled: boolean('default_ruleset_is_controlled')
-      .default(false)
-      .notNull(),
-    userId: integer('user_id').notNull(),
-    created: timestamp({ withTimezone: true, mode: 'string' })
-      .default(sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-    updated: timestamp({ withTimezone: true, mode: 'string' }),
-  },
-  (table) => [
-    uniqueIndex('ix_user_settings_user_id').using(
-      'btree',
-      table.userId.asc().nullsLast().op('int4_ops')
-    ),
-    foreignKey({
-      columns: [table.userId],
-      foreignColumns: [users.id],
-      name: 'fk_user_settings_users_user_id',
-    }).onDelete('cascade'),
   ]
 );
 
