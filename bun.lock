@@ -6,6 +6,8 @@
       "name": "otr",
       "dependencies": {
         "dotenv": "^18.0.7",
+        "drizzle-orm": "^0.45.4",
+        "pg": "^8.23.1",
       },
       "devDependencies": {
         "drizzle-kit": "^0.31.11",
