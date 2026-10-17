@@ -313,6 +313,7 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           tags: stagecodes/otr-web:pr-${{ env.PR_NUMBER }}
+          build-args: OTR_BUILD_ID=${{ needs.authorize.outputs.head_sha }}
           # Shared read cache plus a per-PR layer; the GHA cache budget is 10 GB.
           cache-from: |
             type=gha,scope=web

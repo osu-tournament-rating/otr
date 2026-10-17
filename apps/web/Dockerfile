@@ -13,6 +13,10 @@ COPY packages/otr-core/package.json packages/otr-core/
 RUN bun install --frozen-lockfile
 
 COPY . .
+# The commit the image is built from. Every /rpc response names it, so a tab
+# loaded from an earlier release can tell that the site has been updated.
+ARG OTR_BUILD_ID=development
+ENV NEXT_PUBLIC_OTR_BUILD_ID=$OTR_BUILD_ID
 RUN bun run --filter web build
 
 ENV NODE_ENV=production

@@ -244,6 +244,7 @@ jobs:
           push: true
           provenance: mode=max
           tags: stagecodes/otr-web:sha-${{ needs.resolve.outputs.ref }}
+          build-args: OTR_BUILD_ID=${{ needs.resolve.outputs.ref }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max,ignore-error=true
 
