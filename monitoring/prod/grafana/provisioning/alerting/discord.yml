@@ -1,18 +1,13 @@
+# Alertmanager sends alerts to Discord now (monitoring/prod/alertmanager), and
+# Grafana has no alert rules of its own. This removes the Discord contact point
+# and notification policy this file used to provision. It keeps the old name
+# because deploy copies monitoring/ onto the host without deleting files, so a
+# renamed file would leave the old one provisioning them again.
 apiVersion: 1
-contactPoints:
-  - orgId: 1
-    name: discord
-    receivers:
-      - uid: discord-webhook
-        type: discord
-        settings:
-          url: ${DISCORD_WEBHOOK_URL}
-        disableResolveMessage: false
 
-policies:
+resetPolicies:
+  - 1
+
+deleteContactPoints:
   - orgId: 1
-    receiver: discord
-    group_by: ['alertname']
-    group_wait: 30s
-    group_interval: 5m
-    repeat_interval: 4h
+    uid: discord-webhook

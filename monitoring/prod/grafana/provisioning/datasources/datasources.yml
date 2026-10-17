@@ -38,6 +38,18 @@ datasources:
           datasourceUid: tempo
           urlDisplayLabel: 'View trace'
 
+  # Shows the alerts Prometheus raises, and lets operators silence one, since
+  # Alertmanager publishes no port of its own.
+  - name: Alertmanager
+    type: alertmanager
+    uid: alertmanager
+    access: proxy
+    url: http://otr-alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false
+
   - name: Tempo
     type: tempo
     uid: tempo
