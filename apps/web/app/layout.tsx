@@ -1,4 +1,5 @@
 import SiteBanner from '@/components/banner/SiteBanner';
+import SiteUpdatedToast from '@/components/banner/SiteUpdatedToast';
 import Header from '@/components/header/Header';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
@@ -77,6 +78,7 @@ export default async function RootLayout({
                 </main>
                 <Footer />
                 <Toaster richColors />
+                <SiteUpdatedToast />
                 <AudioPlayerControls />
               </AudioPlayerProvider>
             </SessionProvider>

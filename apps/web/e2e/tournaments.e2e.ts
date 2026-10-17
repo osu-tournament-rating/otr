@@ -782,6 +782,39 @@ test.describe('Tournaments', () => {
       }
     });
 
+    test('a reload keeps what was typed, select choices included', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.tournamentSubmit);
+      await page.waitForLoadState('networkidle');
+
+      const form = page.locator('[data-testid="tournament-submission-form"]');
+      const name = form.getByLabel('Name', { exact: true });
+      const ruleset = form.getByRole('combobox', { name: 'Ruleset' });
+      const lobbySize = form.getByRole('combobox', { name: 'Lobby size' });
+
+      await name.fill('E2E draft check');
+      // taiko rather than osu!: a select restored as empty reads as 0, osu!.
+      await ruleset.click();
+      await page.getByRole('option', { name: 'taiko', exact: true }).click();
+      await lobbySize.click();
+      await page.getByRole('option', { name: '2v2', exact: true }).click();
+
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(name).toHaveValue('E2E draft check');
+      await expect(ruleset).toHaveText('taiko');
+      await expect(lobbySize).toHaveText('2v2');
+
+      await form.getByRole('button', { name: 'Clear' }).click();
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(name).toHaveValue('');
+      await expect(ruleset).toHaveText('Select ruleset');
+    });
+
     test('submission is auth-gated for unauthenticated users', async ({
       page,
     }) => {

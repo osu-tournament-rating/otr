@@ -16,7 +16,7 @@ import {
 } from '@/lib/queue/publishers';
 import { createPlaceholderBeatmap } from './beatmapPlaceholders';
 
-import { protectedProcedure } from '../base';
+import { protectedMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { getCorrelationId } from '../logging/helpers';
 
@@ -416,7 +416,7 @@ export async function submitTournamentHandler({
   }
 }
 
-export const submitTournament = protectedProcedure
+export const submitTournament = protectedMutationProcedure
   .input(TournamentSubmissionInputSchema)
   .output(TournamentSubmissionResponseSchema)
   .errors({
