@@ -10,7 +10,7 @@ import { SectionHeader } from '@/components/kit/layout/SectionHeader';
 import { LoadMore } from '@/components/kit/tables/LoadMore';
 import { formatCountOf } from '@/lib/kit/format/number';
 import type { PlayerRatingAdjustment } from '@/lib/orpc/schema/playerStats';
-import type { PlayerTournamentListItem } from '@/lib/orpc/schema/tournament';
+import type { PlayerTournamentHistoryItem } from '@/lib/orpc/schema/tournament';
 
 import PlayerTournamentCard from './PlayerTournamentCard';
 
@@ -19,13 +19,13 @@ const LOAD_MORE_COUNT = 25;
 
 /**
  * A player's tournaments as divided rows, five at first, with "Show more"
- * revealing the rest 25 at a time. Each row expands its own matches.
+ * revealing the rest 25 at a time. Rows with a record expand their matches.
  */
 export default function PlayerTournamentsList({
   tournaments,
   adjustments,
 }: {
-  tournaments: PlayerTournamentListItem[];
+  tournaments: PlayerTournamentHistoryItem[];
   adjustments: PlayerRatingAdjustment[];
 }) {
   const [displayCount, setDisplayCount] = useState(INITIAL_COUNT);
