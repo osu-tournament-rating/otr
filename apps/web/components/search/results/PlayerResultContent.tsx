@@ -61,8 +61,8 @@ export function PlayerResultContent({ data, query }: PlayerResultContentProps) {
           </span>
         ) : null}
 
-        {/* Without a rating, the ruleset is only the derived default, which
-            is osu! for anyone with no verified tournaments. */}
+        {/* Without a rating, the ruleset is only the player's default, which
+            is osu! for anyone with no verified tournaments or setting. */}
         {data.rating != null && data.ruleset != null ? (
           <RulesetLabel ruleset={data.ruleset} />
         ) : null}

@@ -15,11 +15,12 @@ import * as schema from '@otr/core/db/schema';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 
 /**
- * A player's default ruleset: the one they have played the most verified
- * tournaments in, then the most verified matches, then the one with their most
- * recent verified tournament, then the lowest ruleset number. A player with no
- * verified tournaments gets osu!. `playerId` is the caller's players id
- * column, and the result works as a selected field or in a join condition.
+ * The ruleset a player has played the most verified tournaments in, then the
+ * most verified matches, then the one with their most recent verified
+ * tournament, then the lowest ruleset number. A player with no verified
+ * tournaments gets osu!. `playerId` is the caller's players id column, and the
+ * result works as a selected field or in a join condition. It ignores the
+ * player's settings; `defaultRulesetSql` applies them.
  *
  * player_tournament_stats only gets rows for verified tournaments, but a
  * tournament rejected since the last weekly run keeps its rows until then, so
@@ -43,7 +44,7 @@ import { Ruleset, VerificationStatus } from '@otr/core/osu';
  * copy, so a column the caller passed from either table would bind to that
  * copy instead of the caller's row.
  */
-export function defaultRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
+export function mostPlayedRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
   const stats = alias(schema.playerTournamentStats, 'default_ruleset_stats');
   const tournament = alias(schema.tournaments, 'default_ruleset_tournament');
 
@@ -67,4 +68,33 @@ export function defaultRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
     .limit(1);
 
   return sql<Ruleset>`coalesce(${mostPlayed}, ${Ruleset.Osu})`.mapWith(Number);
+}
+
+/**
+ * A player's default ruleset: the profile ruleset they chose in their
+ * settings, else `mostPlayedRulesetSql`. Takes the caller's players id column
+ * and works wherever `mostPlayedRulesetSql` does.
+ *
+ * The settings subquery follows the same rules as the one in
+ * `mostPlayedRulesetSql`: its join keeps Drizzle from dropping its table
+ * names, and its aliases keep its tables from taking the caller's names.
+ * Admin notes, for one, select from an unaliased `"users"` joined to
+ * `"players"`. A caller there that passed `users.player_id` would, without
+ * the alias, compare the subquery's own users row with itself and pick up
+ * any user's setting.
+ */
+export function defaultRulesetSql(playerId: AnyColumn): SQL<Ruleset> {
+  const user = alias(schema.users, 'default_ruleset_user');
+  const settings = alias(schema.userSettings, 'default_ruleset_settings');
+
+  const chosen = new QueryBuilder()
+    .select({ ruleset: settings.profileRuleset })
+    .from(settings)
+    .innerJoin(user, eq(user.id, settings.userId))
+    .where(eq(user.playerId, playerId))
+    .limit(1);
+
+  return sql<Ruleset>`coalesce(${chosen}, ${mostPlayedRulesetSql(playerId)})`.mapWith(
+    Number
+  );
 }

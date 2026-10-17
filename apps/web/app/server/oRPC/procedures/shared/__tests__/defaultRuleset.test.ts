@@ -7,7 +7,7 @@ import { Pool } from 'pg';
 import * as schema from '@otr/core/db/schema';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 
-import { defaultRulesetSql } from '../defaultRuleset';
+import { defaultRulesetSql, mostPlayedRulesetSql } from '../defaultRuleset';
 
 // Seeds and deletes rows; point it at a disposable database
 const url = process.env.SEARCH_TEST_DATABASE_URL;
@@ -22,11 +22,16 @@ type TournamentSeed = {
   status?: VerificationStatus;
 };
 
+// `user` gives the player a users row, and `profileRuleset` a settings row
+// on it. `expected` is the default ruleset; `mostPlayed` is the ruleset
+// played most, when the two differ.
 const cases: {
   label: string;
   osuId: number;
   tournaments: TournamentSeed[];
+  user?: { profileRuleset?: Ruleset | null };
   expected: Ruleset;
+  mostPlayed?: Ruleset;
 }[] = [
   {
     label: 'more tournaments beat more matches',
@@ -137,12 +142,54 @@ const cases: {
     ],
     expected: Ruleset.ManiaOther,
   },
+  {
+    label: 'a profile setting beats the ruleset played most',
+    osuId: 999_591_009,
+    tournaments: [
+      { ruleset: Ruleset.Osu, matchesPlayed: 1 },
+      { ruleset: Ruleset.Osu, matchesPlayed: 1 },
+    ],
+    user: { profileRuleset: Ruleset.Catch },
+    expected: Ruleset.Catch,
+    mostPlayed: Ruleset.Osu,
+  },
+  {
+    label: 'a profile setting applies with no verified tournaments',
+    osuId: 999_591_010,
+    tournaments: [],
+    user: { profileRuleset: Ruleset.Mania7k },
+    expected: Ruleset.Mania7k,
+    mostPlayed: Ruleset.Osu,
+  },
+  {
+    label: 'a settings row without a profile setting falls back',
+    osuId: 999_591_011,
+    tournaments: [{ ruleset: Ruleset.Taiko, matchesPlayed: 1 }],
+    user: { profileRuleset: null },
+    expected: Ruleset.Taiko,
+  },
+  {
+    label: 'a user with no settings row falls back',
+    osuId: 999_591_012,
+    tournaments: [{ ruleset: Ruleset.Mania4k, matchesPlayed: 1 }],
+    user: {},
+    expected: Ruleset.Mania4k,
+  },
 ];
 
 const osuIds = cases.map((testCase) => testCase.osuId);
 const expectedByOsuId = new Map(
   cases.map((testCase) => [testCase.osuId, testCase.expected])
 );
+const mostPlayedByOsuId = new Map(
+  cases.map((testCase) => [
+    testCase.osuId,
+    testCase.mostPlayed ?? testCase.expected,
+  ])
+);
+const userOsuIds = cases
+  .filter((testCase) => testCase.user)
+  .map((testCase) => testCase.osuId);
 const ALL_RULESETS = [
   Ruleset.Osu,
   Ruleset.Taiko,
@@ -158,10 +205,23 @@ describe.skipIf(!url)('defaultRulesetSql', () => {
   const osuIdByPlayerId = new Map<number, number>();
   let playerIds: number[] = [];
 
+  // users.player_id is NOT NULL but its foreign key sets null on delete, so
+  // a player's users row has to go first. Its settings row cascades with it.
   const remove = async () => {
     await db
       .delete(schema.tournaments)
       .where(like(schema.tournaments.name, `${TOURNAMENT_PREFIX}%`));
+    await db
+      .delete(schema.users)
+      .where(
+        inArray(
+          schema.users.playerId,
+          db
+            .select({ id: schema.players.id })
+            .from(schema.players)
+            .where(inArray(schema.players.osuId, osuIds))
+        )
+      );
     await db
       .delete(schema.players)
       .where(inArray(schema.players.osuId, osuIds));
@@ -189,6 +249,30 @@ describe.skipIf(!url)('defaultRulesetSql', () => {
       osuIdByPlayerId.set(player.id, player.osuId);
     }
     playerIds = players.map((player) => player.id);
+
+    const playerIdByOsuId = new Map(
+      players.map((player) => [player.osuId, player.id])
+    );
+
+    const users = await db
+      .insert(schema.users)
+      .values(
+        userOsuIds.map((osuId) => ({ playerId: playerIdByOsuId.get(osuId)! }))
+      )
+      .returning({ id: schema.users.id, playerId: schema.users.playerId });
+
+    const settings = cases.flatMap((testCase) => {
+      if (!testCase.user || !('profileRuleset' in testCase.user)) {
+        return [];
+      }
+      const playerId = playerIdByOsuId.get(testCase.osuId);
+      const user = users.find((row) => row.playerId === playerId)!;
+      return [
+        { userId: user.id, profileRuleset: testCase.user.profileRuleset },
+      ];
+    });
+
+    await db.insert(schema.userSettings).values(settings);
 
     const seeds = cases.flatMap((testCase) =>
       testCase.tournaments.map((tournament) => ({
@@ -287,6 +371,44 @@ describe.skipIf(!url)('defaultRulesetSql', () => {
       );
 
     expect(byOsuId(rows)).toEqual(expectedByOsuId);
+  });
+
+  it('ignores the profile setting in the ruleset played most', async () => {
+    const rows = await db
+      .select({
+        id: schema.players.id,
+        defaultRuleset: mostPlayedRulesetSql(schema.players.id),
+      })
+      .from(schema.players)
+      .where(inArray(schema.players.id, playerIds));
+
+    expect(byOsuId(rows)).toEqual(mostPlayedByOsuId);
+  });
+
+  // Admin notes select from an unaliased users table joined to players. The
+  // settings subquery's own users table must not capture the caller's.
+  it('resolves through a caller that joins unaliased users', async () => {
+    const rows = await db
+      .select({
+        id: schema.players.id,
+        fromPlayer: defaultRulesetSql(schema.players.id),
+        fromUser: defaultRulesetSql(schema.users.playerId),
+      })
+      .from(schema.users)
+      .innerJoin(schema.players, eq(schema.players.id, schema.users.playerId))
+      .where(inArray(schema.players.id, playerIds));
+
+    const expected = new Map<number | undefined, Ruleset>(
+      userOsuIds.map((osuId) => [osuId, expectedByOsuId.get(osuId)!])
+    );
+    expect(
+      byOsuId(
+        rows.map((row) => ({ id: row.id, defaultRuleset: row.fromPlayer }))
+      )
+    ).toEqual(expected);
+    expect(
+      byOsuId(rows.map((row) => ({ id: row.id, defaultRuleset: row.fromUser })))
+    ).toEqual(expected);
   });
 
   it('joins the rating of each player’s default ruleset', async () => {
