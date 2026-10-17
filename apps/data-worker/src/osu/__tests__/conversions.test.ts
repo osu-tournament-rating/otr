@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 import { Mods } from '@otr/core/osu/enums';
 
-import { calculateScoreWithMods, convertModsToFlags } from '../conversions';
+import {
+  calculateScoreWithMods,
+  convertModsToFlags,
+  normalizeLazerMods,
+} from '../conversions';
 
 describe('convertModsToFlags', () => {
   it('returns none when mods are missing', () => {
@@ -31,6 +35,36 @@ describe('convertModsToFlags', () => {
     ]);
 
     expect(result).toBe(Mods.None);
+  });
+
+  it('maps lazer acronyms that have a stable bit', () => {
+    expect(convertModsToFlags(['AP'])).toBe(Mods.Relax2);
+    expect(convertModsToFlags(['DC'])).toBe(Mods.HalfTime);
+    expect(convertModsToFlags(['CN'])).toBe(Mods.Cinema);
+  });
+});
+
+describe('normalizeLazerMods', () => {
+  it('keeps lazer-only mods and changed settings', () => {
+    const result = normalizeLazerMods([
+      { acronym: 'dt', settings: { speed_change: 1.1 } },
+      { acronym: 'HD', settings: {} },
+      { acronym: 'BR' },
+      'cl',
+      null,
+      { acronym: '' },
+    ]);
+
+    expect(result).toEqual([
+      { acronym: 'DT', settings: { speed_change: 1.1 } },
+      { acronym: 'HD' },
+      { acronym: 'BR' },
+      { acronym: 'CL' },
+    ]);
+  });
+
+  it('returns an empty list when mods are missing', () => {
+    expect(normalizeLazerMods(undefined)).toEqual([]);
   });
 });
 

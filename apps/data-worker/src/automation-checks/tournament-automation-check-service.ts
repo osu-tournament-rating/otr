@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import {
   GameRejectionReason,
   MatchRejectionReason,
@@ -62,6 +63,7 @@ type ScoreRow = {
   id: number;
   score: number;
   mods: number;
+  lazerMods: LazerMod[] | null;
   team: number;
   ruleset: number;
   verificationStatus: number;
@@ -86,6 +88,7 @@ type GameRow = {
   scoringType: number;
   teamType: number;
   mods: number;
+  lazerMods: LazerMod[] | null;
   startTime: string;
   endTime: string;
   verificationStatus: number;
@@ -178,6 +181,7 @@ export class TournamentAutomationCheckService {
                 scoringType: true,
                 teamType: true,
                 mods: true,
+                lazerMods: true,
                 startTime: true,
                 endTime: true,
                 verificationStatus: true,
@@ -191,6 +195,7 @@ export class TournamentAutomationCheckService {
                     id: true,
                     score: true,
                     mods: true,
+                    lazerMods: true,
                     team: true,
                     ruleset: true,
                     verificationStatus: true,
@@ -449,6 +454,7 @@ const mapGame = (game: GameRow): AutomationGame => ({
   scoringType: game.scoringType as ScoringType,
   teamType: game.teamType as TeamType,
   mods: game.mods as Mods,
+  lazerMods: game.lazerMods,
   startTime: game.startTime,
   endTime: game.endTime,
   verificationStatus: game.verificationStatus as VerificationStatus,
@@ -465,6 +471,7 @@ const mapScore = (score: ScoreRow): AutomationScore => ({
   id: score.id,
   score: score.score,
   mods: score.mods as Mods,
+  lazerMods: score.lazerMods,
   team: score.team as Team,
   ruleset: score.ruleset as Ruleset,
   verificationStatus: score.verificationStatus as VerificationStatus,

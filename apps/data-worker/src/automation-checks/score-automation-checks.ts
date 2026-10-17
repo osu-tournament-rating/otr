@@ -35,11 +35,12 @@ export class ScoreAutomationChecks {
       });
     }
 
-    if (hasInvalidMods(score.mods)) {
+    if (hasInvalidMods(score.mods, score.lazerMods)) {
       rejection = combineRejection(rejection, ScoreRejectionReason.InvalidMods);
       this.logger?.trace('Score automation check: invalid mods', {
         scoreId: score.id,
         mods: score.mods,
+        lazerMods: score.lazerMods,
       });
     }
 

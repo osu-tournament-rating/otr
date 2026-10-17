@@ -40,3 +40,9 @@ export const AdminNotePreviewSchema = adminNoteBaseSchema
   });
 
 export type AdminNotePreview = z.infer<typeof AdminNotePreviewSchema>;
+
+/** A mod as osu!lazer reports it, with the settings the player changed. */
+export const LazerModSchema = z.object({
+  acronym: z.string(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});

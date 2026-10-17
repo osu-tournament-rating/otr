@@ -2,10 +2,14 @@
  * Mod bitflags as the acronyms players know: `HD, HR`. The beatmap pages'
  * display rules (dropping NF and SO, folding NC into DT) live in
  * `@/lib/utils/mods`; this is the faithful form, for audit values and data
- * views where every recorded flag matters.
+ * views where every recorded flag matters. Lazer scores also keep their full
+ * mod list, settings included; `formatLazerMods` writes that out.
  */
 
 import { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
+
+import { formatNumber } from './number';
 
 /** One acronym per single-bit mod, in bit order. Composite masks are left out. */
 export const MOD_ACRONYMS: ReadonlyArray<readonly [Mods, string]> = [
@@ -78,4 +82,29 @@ export function formatMods(mods: number): string {
 
   const acronyms = getModAcronyms(mods);
   return acronyms.length > 0 ? acronyms.join(', ') : NO_MOD_LABEL;
+}
+
+/**
+ * A lazer mod's custom speed, such as 1.2 for `DT 1.2x`, or null when it
+ * plays at its default rate.
+ */
+export function getLazerModSpeed(mod: LazerMod): number | null {
+  const speed = mod.settings?.speed_change;
+  return typeof speed === 'number' && Number.isFinite(speed) ? speed : null;
+}
+
+/** `DT 1.2x`: the acronym, then the speed when the player changed it. */
+export function formatLazerMod(mod: LazerMod): string {
+  const speed = getLazerModSpeed(mod);
+  return speed === null
+    ? mod.acronym
+    : `${mod.acronym} ${formatNumber(speed, { maxDecimals: 2 })}x`;
+}
+
+/**
+ * Lazer mods in the order they were played, lazer-only mods included:
+ * `DT 1.2x, DA, BR`, or `NM` when there are none.
+ */
+export function formatLazerMods(mods: readonly LazerMod[]): string {
+  return mods.length > 0 ? mods.map(formatLazerMod).join(', ') : NO_MOD_LABEL;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { Ruleset, Team, type Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import Image from 'next/image';
 
 import FittingModIconset from '@/components/icons/FittingModIconset';
@@ -73,6 +74,7 @@ function PerformanceItem({ label, value }: { label: string; value: string }) {
 export default function ScoreCard({
   score,
   mods,
+  lazerMods,
   scoreWidth,
   player,
   countryName,
@@ -83,6 +85,8 @@ export default function ScoreCard({
   score: GameScore;
   /** The mods to show: the score's own beyond those its game's header shows. */
   mods: Mods;
+  /** The same for a lazer score's lazer mods, from `getScoreDisplayLazerMods`. */
+  lazerMods?: LazerMod[] | null;
   /** Characters every score in the game takes: the longest one's. */
   scoreWidth: number;
   player?: MatchPlayer;
@@ -175,6 +179,7 @@ export default function ScoreCard({
           </div>
           <FittingModIconset
             mods={mods}
+            lazerMods={lazerMods}
             className="h-4 min-w-6 flex-1 basis-0"
           />
           {grade(24)}
@@ -216,6 +221,7 @@ export default function ScoreCard({
           </div>
           <FittingModIconset
             mods={mods}
+            lazerMods={lazerMods}
             className="team-flex-row h-5 min-w-8 flex-1 basis-0"
           />
           {grade(32)}

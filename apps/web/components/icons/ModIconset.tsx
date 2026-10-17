@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { Fragment, type CSSProperties } from 'react';
 
 import TapTooltip from '@/components/tap-tooltip';
 import {
@@ -6,13 +6,15 @@ import {
   FREEMOD_NAME,
   MOD_BADGES,
   MOD_TYPE_COLORS,
-  getModBadgeAcronyms,
-  getModName,
+  formatModSpeed,
+  getModBadgeEntries,
+  getModEntryName,
   toLazerAcronym,
   getModGlyphColor,
   type ModBadge,
 } from '@/lib/utils/mod-badges';
 import type { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import { cn } from '@/lib/utils';
 
 /**
@@ -92,20 +94,23 @@ export const MOD_BADGE_LIFT =
   'absolute inset-0 transition-transform motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus-visible:-translate-y-0.5';
 
 /**
- * One mod's badge; its height sets its size. Its full name opens in a tooltip
- * on hover, tap and keyboard focus. Without `tooltip`, it is a plain image
- * named for assistive tech, for places that write the name beside it.
+ * One mod's badge; its height sets its size. Its full name, with a custom
+ * `speed` such as `Double Time 1.2x`, opens in a tooltip on hover, tap and
+ * keyboard focus. Without `tooltip`, it is a plain image named for assistive
+ * tech, for places that write the name beside it.
  */
 export function ModBadgeIcon({
   acronym,
+  speed = null,
   className,
   tooltip = true,
 }: {
   acronym: string;
+  speed?: number | null;
   className?: string;
   tooltip?: boolean;
 }) {
-  const name = getModName(acronym);
+  const name = getModEntryName({ acronym, speed });
   const sizing = cn(
     '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
     className
@@ -134,25 +139,46 @@ export function ModBadgeIcon({
   );
 }
 
-/** A row of mod badges, side by side. No mods draws nothing. */
+/**
+ * A row of mod badges, side by side. No mods draws nothing. Pass a lazer
+ * score's or game's `lazerMods` to draw them instead of the flags, with a
+ * custom speed written after its badge.
+ */
 export default function ModIconset({
   mods,
+  lazerMods,
   className,
   iconClassName,
   freemod = false,
 }: {
   mods: Mods;
+  lazerMods?: readonly LazerMod[] | null;
   className?: string;
   iconClassName?: string;
   freemod?: boolean;
 }) {
-  const acronyms = getModBadgeAcronyms(mods, freemod);
-  if (acronyms.length === 0) return null;
+  const entries = getModBadgeEntries(mods, lazerMods, freemod);
+  if (entries.length === 0) return null;
 
   return (
     <div className={cn('flex items-center gap-0.5', className)}>
-      {acronyms.map((mod) => (
-        <ModBadgeIcon key={mod} acronym={mod} className={iconClassName} />
+      {entries.map(({ acronym, speed }) => (
+        <Fragment key={acronym}>
+          <ModBadgeIcon
+            acronym={acronym}
+            speed={speed}
+            className={iconClassName}
+          />
+          {speed !== null && (
+            // Named with the badge, so assistive tech hears it once.
+            <span
+              aria-hidden
+              className="shrink-0 pr-0.5 text-xs font-semibold tabular-nums"
+            >
+              {formatModSpeed(speed)}
+            </span>
+          )}
+        </Fragment>
       ))}
     </div>
   );

@@ -1257,6 +1257,20 @@ export default function ColorSection() {
         </div>
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">
+            A lazer score, with a custom speed and lazer-only mods
+          </span>
+          <ModIconset
+            mods={Mods.DoubleTime}
+            lazerMods={[
+              { acronym: 'DT', settings: { speed_change: 1.2 } },
+              { acronym: 'DA', settings: { approach_rate: 9.5 } },
+              { acronym: 'BR' },
+            ]}
+            className="flex h-6"
+          />
+        </div>
+        <div className="mt-4 flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">
             In a tight row, as score cards show it
           </span>
           <FittingModIconset

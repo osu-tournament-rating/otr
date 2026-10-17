@@ -37,6 +37,7 @@ export const createScore = (
   id: overrides.id ?? generateId(),
   score: overrides.score ?? 100000,
   mods: overrides.mods ?? Mods.None,
+  lazerMods: overrides.lazerMods ?? null,
   team: overrides.team ?? Team.Red,
   ruleset: overrides.ruleset ?? Ruleset.Osu,
   verificationStatus:
@@ -68,6 +69,7 @@ export const createGame = (
     scoringType: overrides.scoringType ?? ScoringType.ScoreV2,
     teamType: overrides.teamType ?? TeamType.TeamVs,
     mods: overrides.mods ?? Mods.None,
+    lazerMods: overrides.lazerMods ?? null,
     startTime:
       overrides.startTime !== undefined
         ? overrides.startTime

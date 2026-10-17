@@ -190,6 +190,7 @@ export default function BeatmapLeaderboardCard({
                     <span className="flex min-w-0 items-center gap-2">
                       <ModIconset
                         mods={performer.mods}
+                        lazerMods={performer.lazerMods}
                         className="flex h-4 shrink-0 items-center"
                         iconClassName="h-4"
                       />
@@ -257,6 +258,7 @@ export default function BeatmapLeaderboardCard({
                   >
                     <ModIconset
                       mods={performer.mods}
+                      lazerMods={performer.lazerMods}
                       className="flex h-full items-center"
                       iconClassName="h-5"
                     />

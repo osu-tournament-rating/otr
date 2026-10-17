@@ -76,6 +76,7 @@ export const FIELD_NAMES = {
   teamType: { label: 'Team type', legacy: ['Team Type'] },
   team: { label: 'Team' },
   mods: { label: 'Mods' },
+  lazerMods: { label: 'Lazer mods' },
   score: { label: 'Score' },
   placement: { label: 'Placement' },
   accuracy: { label: 'Accuracy', short: 'Acc' },
