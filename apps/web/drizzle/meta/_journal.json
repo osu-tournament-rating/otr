@@ -236,8 +236,15 @@
     {
       "idx": 33,
       "version": "7",
-      "when": 1792265483306,
+      "when": 1792272717857,
       "tag": "0033_drop_default_ruleset",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792272725921,
+      "tag": "0034_user_ruleset_settings",
       "breakpoints": true
     }
   ]

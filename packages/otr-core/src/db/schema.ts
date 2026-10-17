@@ -1841,6 +1841,42 @@ export const tournaments = pgTable(
   ]
 );
 
+export const userSettings = pgTable(
+  'user_settings',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity({
+      name: 'user_settings_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      maxValue: 2147483647,
+      cache: 1,
+    }),
+    // Ruleset anyone opening this user's profile sees first. Null means the
+    // ruleset they have played most.
+    profileRuleset: integer('profile_ruleset'),
+    // Ruleset this user's leaderboard and tournament list open in. Null means
+    // the ruleset they have played most, whatever profileRuleset says.
+    browsingRuleset: integer('browsing_ruleset'),
+    userId: integer('user_id').notNull(),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updated: timestamp({ withTimezone: true, mode: 'string' }),
+  },
+  (table) => [
+    uniqueIndex('ix_user_settings_user_id').using(
+      'btree',
+      table.userId.asc().nullsLast().op('int4_ops')
+    ),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: 'fk_user_settings_users_user_id',
+    }).onDelete('cascade'),
+  ]
+);
+
 export const beatmapAttributes = pgTable(
   'beatmap_attributes',
   {

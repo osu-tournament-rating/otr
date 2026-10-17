@@ -36,6 +36,7 @@ import {
   playerTournamentStats,
   tournamentAdminNotes,
   tournamentAudits,
+  userSettings,
   beatmapAttributes,
   oAuthClientAdminNote,
   joinBeatmapCreators,
@@ -122,6 +123,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   tournaments_verifiedByUserId: many(tournaments, {
     relationName: 'tournaments_verifiedByUserId_users_id',
   }),
+  userSettings: one(userSettings),
   player: one(players, {
     fields: [users.playerId],
     references: [players.id],
@@ -489,6 +491,13 @@ export const tournamentAuditsRelations = relations(
     }),
   })
 );
+
+export const userSettingsRelations = relations(userSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [userSettings.userId],
+    references: [users.id],
+  }),
+}));
 
 export const beatmapAttributesRelations = relations(
   beatmapAttributes,
