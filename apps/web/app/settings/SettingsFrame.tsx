@@ -2,6 +2,8 @@ import { KeyRound, Keyboard, Settings, UserX, Users } from 'lucide-react';
 import type * as React from 'react';
 
 import { SETTINGS_COPY } from '@/app/settings/settings-copy';
+import { AllRulesetsIcon } from '@/components/icons/RulesetIcon';
+import { FormGrid } from '@/components/kit/controls/FormPanel';
 import { Callout } from '@/components/kit/feedback/Callout';
 import {
   PanelSkeleton,
@@ -40,6 +42,23 @@ function FieldSkeleton() {
 
 // Each panel prints its static text, so it wraps to the loaded height at
 // every width; bars stand in for what depends on the account.
+
+export function DefaultRulesetPanelSkeleton({ label }: { label?: string }) {
+  return (
+    <PanelSkeleton label={label}>
+      <SectionHeaderSkeleton
+        icon={AllRulesetsIcon}
+        title="Default ruleset"
+        meta={false}
+      />
+      {/* "Your profile", then "Leaderboard and tournaments". */}
+      <FormGrid className="p-4">
+        <FieldSkeleton />
+        <FieldSkeleton />
+      </FormGrid>
+    </PanelSkeleton>
+  );
+}
 
 export function FriendsPanelSkeleton({ label }: { label?: string }) {
   return (

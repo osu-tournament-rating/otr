@@ -1,6 +1,7 @@
 import {
   ApiKeysPanelSkeleton,
   DangerZonePanelSkeleton,
+  DefaultRulesetPanelSkeleton,
   FriendsPanelSkeleton,
   SettingsFrame,
   ShortcutsPanelSkeleton,
@@ -9,7 +10,8 @@ import {
 export default function SettingsLoading() {
   return (
     <SettingsFrame>
-      <FriendsPanelSkeleton label="Loading settings" />
+      <DefaultRulesetPanelSkeleton label="Loading settings" />
+      <FriendsPanelSkeleton />
       <ApiKeysPanelSkeleton />
       <ShortcutsPanelSkeleton />
       <DangerZonePanelSkeleton />

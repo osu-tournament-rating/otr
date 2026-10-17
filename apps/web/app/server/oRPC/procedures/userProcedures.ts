@@ -1,11 +1,19 @@
 import { ORPCError } from '@orpc/server';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import * as schema from '@otr/core/db/schema';
-import { CurrentUserSchema, PublicUserSchema } from '@/lib/orpc/schema/user';
+import {
+  CurrentUserSchema,
+  PublicUserSchema,
+  UpdateUserSettingsInputSchema,
+  UserSettingsSchema,
+  type UpdateUserSettingsInput,
+  type UserSettings,
+} from '@/lib/orpc/schema/user';
 import { auth } from '@/lib/auth/auth';
-import { db } from '@/lib/db';
+import { db, type DatabaseClient } from '@/lib/db';
+import { getRulesetSettings } from '@/lib/db/ruleset-settings';
 
 import { protectedMutationProcedure, protectedProcedure } from './base';
 
@@ -150,3 +158,86 @@ export const deleteMyFriends = protectedMutationProcedure
 
     return { success: true };
   });
+
+interface UserSettingsContext {
+  db: DatabaseClient;
+  session: {
+    dbUser?: { id: number; playerId: number } | null;
+  } | null;
+}
+
+function requireDbUser(context: UserSettingsContext) {
+  const user = context.session?.dbUser;
+  if (!user) {
+    throw new ORPCError('NOT_FOUND', { message: 'User not found' });
+  }
+  return user;
+}
+
+export async function getUserSettingsHandler({
+  context,
+}: {
+  context: UserSettingsContext;
+}): Promise<UserSettings> {
+  const user = requireDbUser(context);
+  const settings = await getRulesetSettings(context.db, user.playerId);
+
+  if (!settings) {
+    throw new ORPCError('NOT_FOUND', { message: 'Player not found' });
+  }
+
+  return settings;
+}
+
+export const getUserSettings = protectedProcedure
+  .output(UserSettingsSchema)
+  .route({
+    summary: 'Get the current user’s settings',
+    tags: ['authenticated'],
+    method: 'GET',
+    path: '/users/me/settings',
+  })
+  .handler(getUserSettingsHandler);
+
+/**
+ * Saves the settings `input` names and leaves the others alone. The first
+ * save creates the user's settings row.
+ */
+export async function updateUserSettingsHandler({
+  input,
+  context,
+}: {
+  input: UpdateUserSettingsInput;
+  context: UserSettingsContext;
+}) {
+  const user = requireDbUser(context);
+  const changes = {
+    ...(input.profileRuleset !== undefined && {
+      profileRuleset: input.profileRuleset,
+    }),
+    ...(input.browsingRuleset !== undefined && {
+      browsingRuleset: input.browsingRuleset,
+    }),
+  };
+
+  await context.db
+    .insert(schema.userSettings)
+    .values({ userId: user.id, ...changes })
+    .onConflictDoUpdate({
+      target: schema.userSettings.userId,
+      set: { ...changes, updated: sql`CURRENT_TIMESTAMP` },
+    });
+
+  return { success: true };
+}
+
+export const updateUserSettings = protectedMutationProcedure
+  .input(UpdateUserSettingsInputSchema)
+  .output(z.object({ success: z.boolean() }))
+  .route({
+    summary: 'Update the current user’s settings',
+    tags: ['authenticated'],
+    method: 'PATCH',
+    path: '/users/me/settings',
+  })
+  .handler(updateUserSettingsHandler);

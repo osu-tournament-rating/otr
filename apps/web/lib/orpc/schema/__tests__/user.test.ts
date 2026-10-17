@@ -12,6 +12,14 @@ describe('PublicUserSchema', () => {
       created: '2026-08-01 00:00:00+00',
       updated: null,
       lastViewedReportsAt: '2026-08-02 00:00:00+00',
+      userSettings: {
+        id: 3,
+        profileRuleset: 1,
+        browsingRuleset: 4,
+        userId: 1,
+        created: '2026-08-01 00:00:00+00',
+        updated: null,
+      },
       player: {
         id: 2,
         osuId: 4,
