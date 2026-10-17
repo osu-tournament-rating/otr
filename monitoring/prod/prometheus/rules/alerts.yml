@@ -17,6 +17,26 @@ groups:
         annotations:
           summary: High memory usage detected
 
+      # Archives write a dump and delete it after upload, so a short drop is
+      # normal. This needs the trend to hold for an hour on a disk already
+      # under 30% free.
+      - alert: DiskFillingUp
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*"}[6h], 24 * 3600) < 0
+          and node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.3
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.mountpoint }} will be full within a day at the current rate'
+
+      - alert: OOMKill
+        expr: increase(node_vmstat_oom_kill[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: The kernel killed a process for running out of memory
+
       - alert: DiskSpaceLow
         expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 85
         for: 5m
@@ -35,6 +55,39 @@ groups:
         annotations:
           summary: PostgreSQL is down
 
+      # restart: unless-stopped brings a crashing database back within seconds,
+      # too fast for PostgreSQLDown.
+      - alert: PostgreSQLRestarting
+        expr: changes(pg_postmaster_start_time_seconds[15m]) > 2
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL restarted {{ $value }} times in 15 minutes
+
+      - alert: PostgreSQLConnectionsHigh
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL is using {{ $value | humanizePercentage }} of its connections
+
+      - alert: PostgreSQLDeadlocks
+        expr: increase(pg_stat_database_deadlocks[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Deadlocks on {{ $labels.datname }}
+
+      - alert: PostgreSQLDatabaseGrowth
+        expr: |
+          (pg_database_size_bytes - pg_database_size_bytes offset 1d)
+            / pg_database_size_bytes offset 1d > 0.25
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.datname }} grew by {{ $value | humanizePercentage }} in a day'
+
   - name: rabbitmq
     rules:
       - alert: RabbitMQDown
@@ -45,16 +98,108 @@ groups:
         annotations:
           summary: RabbitMQ is down
 
+      - alert: RabbitMQRestarting
+        expr: resets(rabbitmq_erlang_uptime_seconds[15m]) > 2
+        labels:
+          severity: critical
+        annotations:
+          summary: RabbitMQ restarted {{ $value }} times in 15 minutes
+
       - alert: QueueDepthHigh
-        expr: rabbitmq_queue_messages > 1000
+        expr: rabbitmq_detailed_queue_messages{queue!~".+\\.failed"} > 1000
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: Queue {{ $labels.queue }} depth is high
 
+      # A message lands here after five failed attempts, and nothing retries it.
+      # Only new arrivals alert, so messages left parked don't repeat forever.
+      - alert: FailedQueueMessages
+        expr: |
+          rabbitmq_detailed_queue_messages{queue=~".+\\.failed"}
+            - rabbitmq_detailed_queue_messages{queue=~".+\\.failed"} offset 15m > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value }} more messages failed for good in {{ $labels.queue }}'
+
   - name: application
     rules:
+      # Mostly down rather than always down, so a crash loop that answers the
+      # odd scrape still counts.
+      - alert: TargetDown
+        expr: avg_over_time(up[10m]) < 0.5
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus cannot scrape {{ $labels.job }}
+          description: Alerts built on its metrics stay silent while it is down.
+
+      # Each deploy restarts both, and back-to-back merges deploy about every
+      # five minutes, so it takes more than that to count as a crash loop.
+      - alert: ServiceRestarting
+        expr: changes(process_start_time_seconds{job=~"web|data-worker"}[15m]) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.job }} restarted {{ $value }} times in 15 minutes'
+
+      # Server errors only: 503s come from the weekly maintenance window, and
+      # PostgreSQLDown covers a database outage.
+      - alert: WebServerErrorRate
+        expr: |
+          sum(rate(web_orpc_procedure_calls_total{code=~"5..",code!="503"}[10m]))
+            / sum(rate(web_orpc_procedure_calls_total[10m])) > 0.05
+          and sum(rate(web_orpc_procedure_calls_total[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of site requests are failing with server errors'
+
+      - alert: WebSlowRequests
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(web_orpc_procedure_duration_seconds_bucket[10m]))) > 2
+          and sum(rate(web_orpc_procedure_duration_seconds_count[10m])) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: The slowest 5% of site requests take over {{ $value | humanizeDuration }}
+
+      - alert: OsuApiErrors
+        expr: |
+          sum(rate(data_worker_osu_api_requests_total{status="error"}[10m]))
+            / sum(rate(data_worker_osu_api_requests_total[10m])) > 0.2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of osu! API requests are failing'
+
+      # Some resources answer 401 or 403 on their own; almost every request
+      # doing so points at the API credentials.
+      - alert: OsuApiUnauthorized
+        expr: |
+          sum(rate(data_worker_osu_api_requests_total{status="unauthorized"}[10m]))
+            / sum(rate(data_worker_osu_api_requests_total[10m])) > 0.9
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: The osu! API rejects almost every request, so check the API credentials
+
+      - alert: OsuTrackApiErrors
+        expr: |
+          sum(rate(data_worker_osutrack_api_requests_total{status="error"}[30m]))
+            / sum(rate(data_worker_osutrack_api_requests_total[30m])) > 0.5
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value | humanizePercentage }} of osu!track requests are failing'
+
       - alert: HighErrorRate
         expr: rate(data_worker_queue_messages_processed_total{status="error"}[5m]) > 0.1
         for: 5m

@@ -298,6 +298,8 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.20.1
     container_name: otr-postgres-exporter
     restart: unless-stopped
+    # Adds pg_postmaster_start_time_seconds, for PostgreSQLRestarting.
+    command: ['--collector.postmaster']
     environment:
       DATA_SOURCE_URI: db:5432/${DOCKER_POSTGRES_DB:-postgres}?sslmode=disable
       DATA_SOURCE_USER: ${DOCKER_POSTGRES_USER:-postgres}

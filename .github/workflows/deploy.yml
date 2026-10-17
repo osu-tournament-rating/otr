@@ -656,6 +656,10 @@ jobs:
               docker rm -f otr-docs
             fi
             docker compose --profile node-exporter up -d --remove-orphans
+            # up -d leaves a container alone when only a file it mounts
+            # changed, so Prometheus and Alertmanager reread their config and
+            # rules here. An invalid file keeps the previous one loaded.
+            docker compose kill -s SIGHUP prometheus alertmanager
           EOF
 
       # Before the processor's `latest` moves, so a failed install leaves the
