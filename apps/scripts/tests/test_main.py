@@ -13,7 +13,7 @@ import pytest
 from google.api_core.exceptions import ServiceUnavailable
 
 import main
-from lib import processor, public_html
+from lib import metrics, processor, public_html
 from lib.gcs import gcs_utils
 from lib.scripts import db
 
@@ -289,3 +289,83 @@ def test_a_template_drop_whose_lookup_fails_exits_nonzero(monkeypatch, cli):
     assert "Checking whether agent_1 exists failed" in log
     assert "'template-db' failed" in log
     assert not any("DROP DATABASE" in command for command in commands)
+
+
+@pytest.fixture
+def metrics_dir(monkeypatch, tmp_path):
+    path = tmp_path / "textfile"
+    path.mkdir()
+    monkeypatch.setattr(metrics.config, "metrics_dir", path)
+    return path
+
+
+def recorded(metrics_dir: Path) -> dict[str, str]:
+    return {path.name: path.read_text() for path in metrics_dir.iterdir()}
+
+
+def test_a_run_records_its_result_for_the_alerts(monkeypatch, cli, metrics_dir):
+    fake_processor(monkeypatch)
+
+    cli("-s", "processor")
+
+    (text,) = recorded(metrics_dir).values()
+    assert 'otr_script_last_run_success{script="processor"} 1\n' in text
+    assert re.search(
+        r'otr_script_last_run_timestamp_seconds\{script="processor"\} \d+\n', text
+    )
+
+
+def test_each_archive_bucket_records_its_own_result(
+    monkeypatch, cli, dirs, metrics_dir
+):
+    fake_docker(monkeypatch)
+    fake_storage(monkeypatch)
+    cli("-s", "archive", "--archive-bucket", "production")
+    fake_docker(monkeypatch, fail_on="pg_dump")
+    cli("-s", "archive", "--archive-bucket", "public")
+
+    files = recorded(metrics_dir)
+
+    assert sorted(files) == [
+        "otr_script_archive_production.prom",
+        "otr_script_archive_public.prom",
+    ]
+    production = files["otr_script_archive_production.prom"]
+    public = files["otr_script_archive_public.prom"]
+    assert (
+        'otr_script_last_run_success{script="archive",bucket="production"} 1\n'
+        in production
+    )
+    assert 'otr_script_last_run_success{script="archive",bucket="public"} 0\n' in public
+
+
+def test_a_run_that_raises_records_a_failure(monkeypatch, cli, metrics_dir):
+    def popen(cmd, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "docker")
+
+    monkeypatch.setattr(processor.subprocess, "Popen", popen)
+
+    cli("-s", "processor")
+
+    (text,) = recorded(metrics_dir).values()
+    assert 'otr_script_last_run_success{script="processor"} 0\n' in text
+
+
+def test_a_hand_run_script_records_nothing(monkeypatch, cli, dirs, metrics_dir):
+    fake_docker(monkeypatch)
+    fake_storage(monkeypatch)
+
+    cli("-s", "template-db", "--template-action", "list")
+    cli("-s", "archive", "--archive-bucket", "test")
+
+    assert recorded(metrics_dir) == {}
+
+
+def test_a_failed_recording_keeps_the_runs_exit_code(monkeypatch, cli, metrics_dir):
+    fake_processor(monkeypatch)
+    metrics_dir.rmdir()
+
+    code, log = cli("-s", "processor")
+
+    assert code == 0
+    assert "Recording the 'processor' run in" in log

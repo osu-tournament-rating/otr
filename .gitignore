@@ -37,6 +37,9 @@ apps/replay/.pytest_cache/
 apps/replay/.ruff_cache/
 apps/replay/otr-replay_*
 
+# node-exporter's textfile directory (docker-compose.yml)
+textfile-collector/
+
 # misc
 .DS_Store
 *.pem
