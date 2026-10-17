@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 
 import { test, expect } from '@playwright/test';
 import { createORPCClient } from '@orpc/client';
-import { RPCLink } from '@orpc/client/fetch';
 
 import { STORAGE_STATE } from './fixtures/auth';
+import { createSiteRpcLink } from './fixtures/orpc';
 import { ROUTES } from './fixtures/test-config';
 
 /**
@@ -190,12 +190,9 @@ test.describe('Filtering during the maintenance window', () => {
     };
     const cookie = state.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
-    const link = new RPCLink({
-      url: `${baseURL}/rpc`,
-      headers: () => ({
-        cookie,
-        'x-e2e-maintenance-window': 'active',
-      }),
+    const link = createSiteRpcLink(baseURL!, {
+      cookie,
+      'x-e2e-maintenance-window': 'active',
     });
     const client = createORPCClient(link) as unknown as {
       filtering: {

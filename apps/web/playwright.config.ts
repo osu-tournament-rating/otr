@@ -30,7 +30,12 @@ export default defineConfig({
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
-    // The maintenance-window spec forces the window per-request instead
-    env: { E2E_TEST_AUTH: 'true', MAINTENANCE_WINDOW_ENABLED: 'false' },
+    // The maintenance-window spec forces the window per-request instead, and
+    // the whole suite calls from one IP, faster than any person
+    env: {
+      E2E_TEST_AUTH: 'true',
+      MAINTENANCE_WINDOW_ENABLED: 'false',
+      RPC_RATE_LIMIT: 'off',
+    },
   },
 });
