@@ -18,6 +18,7 @@ async function handle(request: Request) {
     prefix: '/api',
     context: {
       headers,
+      apiKeyRequired: true,
     },
   });
 

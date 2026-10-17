@@ -10,7 +10,10 @@ import {
 import { setActiveSpanAttributes, withSpan } from '@otr/core/tracing';
 import { SpanKind } from '@opentelemetry/api';
 
-import { parseBearerAuthorization } from '@/lib/api/api-key-header';
+import {
+  API_KEY_MESSAGES,
+  parseBearerAuthorization,
+} from '@/lib/api/api-key-header';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { orpcProcedureCalls, orpcProcedureDuration } from '@/lib/metrics';
@@ -39,6 +42,8 @@ const base = os.$context<
   {
     headers: Headers;
     requestUrl?: string;
+    // Set only by the REST API route, never by /rpc
+    apiKeyRequired?: boolean;
   } & VerifiedApiKeyContext
 >();
 
@@ -357,10 +362,19 @@ const extractApiKey = (headers?: Headers) => {
   return credential.kind === 'key' ? credential.key : null;
 };
 
-const withOptionalApiKey = base.middleware(async ({ context, next }) => {
+export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   const candidate = extractApiKey(context.headers);
 
   if (!candidate) {
+    // The REST route's gate already refuses requests without a key. This
+    // catches a route change that hands the procedures the wrong headers.
+    if (context.apiKeyRequired) {
+      throw new ORPCError('UNAUTHORIZED', {
+        status: 401,
+        message: API_KEY_MESSAGES.required,
+      });
+    }
+
     return next({
       context: {
         ...context,

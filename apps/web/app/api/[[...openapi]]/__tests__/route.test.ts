@@ -43,6 +43,7 @@ describe('OpenAPI route', () => {
     expect(options?.context?.headers.get('authorization')).toBe(
       'Bearer key-123'
     );
+    expect(options?.context?.apiKeyRequired).toBe(true);
   });
 
   it('passes a Bearer request on with its own headers', async () => {
@@ -57,6 +58,7 @@ describe('OpenAPI route', () => {
     const [handledRequest, options] = handle.mock.calls[0]!;
     expect(handledRequest).toBe(request);
     expect(options?.context?.headers).toBe(request.headers);
+    expect(options?.context?.apiKeyRequired).toBe(true);
   });
 
   it('answers a request without a key with a 401', async () => {
