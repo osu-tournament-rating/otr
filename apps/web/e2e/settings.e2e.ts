@@ -224,6 +224,13 @@ test.describe('Settings', () => {
     }) => {
       await chooseSetting(page, 'Leaderboard and tournaments', 'catch');
 
+      // The leaderboard's first-visit dialog would hide the page behind it.
+      await page.addInitScript(() => {
+        window.localStorage.setItem(
+          'otr-leaderboard-first-visit-dismissed',
+          'true'
+        );
+      });
       await page.goto(ROUTES.leaderboard);
       await page.waitForLoadState('networkidle');
       await expect(page.getByRole('radio', { name: 'catch' })).toBeChecked({
