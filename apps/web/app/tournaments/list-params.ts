@@ -1,6 +1,7 @@
 import {
   TournamentQuerySortType,
   TournamentRejectionReason,
+  type Ruleset,
 } from '@otr/core/osu';
 
 import { RANK_RANGE_MAX, RANK_RANGE_MIN } from '@/lib/filters/tournament-rank';
@@ -79,6 +80,10 @@ export const TOURNAMENT_REJECTION_REASONS: readonly TournamentRejectionReason[] 
  * parses it and fetches; the toolbar reads and writes it. The rank, date,
  * lobby size, ruleset and rejection reason keys are the ones the list has
  * always written, so old links keep working.
+ *
+ * An address without a ruleset shows the visitor's browsing ruleset, which
+ * the page resolves (every ruleset when signed out), so every ruleset needs
+ * its own value: `ruleset=all`.
  */
 export const TOURNAMENT_LIST_PARAMS = defineListParams({
   q: searchParam(),
@@ -88,7 +93,7 @@ export const TOURNAMENT_LIST_PARAMS = defineListParams({
     DEFAULT_TOURNAMENT_SORT,
     { legacyDescendingKey: 'descending' }
   ),
-  ruleset: arrayParam(RATED_RULESETS, { role: 'scope' }),
+  ruleset: arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' }),
   status: arrayParam(VERIFICATION_STATUS_ORDER),
   lobbySize: arrayParam(LOBBY_SIZES),
   reason: flagsParam(TOURNAMENT_REJECTION_REASONS, { key: 'rejectionReason' }),
@@ -111,17 +116,48 @@ export function tournamentListHref(state: TournamentListState): string {
   return listStateHref(TOURNAMENT_LIST_PATH, TOURNAMENT_LIST_PARAMS, state);
 }
 
-/** The procedure's input for a list state. */
+/**
+ * The rulesets a list state shows: its own, else `defaultRulesets`, the
+ * visitor's browsing ruleset (empty for every ruleset).
+ */
+export function resolveTournamentRulesets(
+  state: Pick<TournamentListState, 'ruleset'>,
+  defaultRulesets: readonly Ruleset[]
+): readonly Ruleset[] {
+  return state.ruleset ?? defaultRulesets;
+}
+
+/**
+ * The address's ruleset for chips set to `rulesets`: nothing when they are
+ * the visitor's own `defaultRulesets`, so the visitor's default never lands
+ * in a shared link, and otherwise the chips (empty writes `ruleset=all`).
+ */
+export function rulesetsForAddress(
+  rulesets: readonly Ruleset[],
+  defaultRulesets: readonly Ruleset[]
+): Ruleset[] | undefined {
+  const same =
+    rulesets.length === defaultRulesets.length &&
+    rulesets.every((ruleset) => defaultRulesets.includes(ruleset));
+  return same ? undefined : [...rulesets];
+}
+
+/**
+ * The procedure's input for a list state, with `defaultRulesets` standing in
+ * for a ruleset the address leaves out.
+ */
 export function toTournamentListRequest(
-  state: TournamentListState
+  state: TournamentListState,
+  defaultRulesets: readonly Ruleset[]
 ): TournamentListRequest {
   const reasonMask = flagsToMask(state.reason);
+  const rulesets = resolveTournamentRulesets(state, defaultRulesets);
 
   return {
     page: state.page,
     pageSize: TOURNAMENT_PAGE_SIZE,
     searchQuery: state.q || undefined,
-    rulesets: state.ruleset.length > 0 ? [...state.ruleset] : undefined,
+    rulesets: rulesets.length > 0 ? [...rulesets] : undefined,
     verificationStatus: state.status.length > 0 ? [...state.status] : undefined,
     lobbySize: state.lobbySize.length > 0 ? [...state.lobbySize] : undefined,
     rejectionReason: reasonMask > 0 ? reasonMask : undefined,

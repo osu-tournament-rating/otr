@@ -7,11 +7,13 @@ import type * as React from 'react';
 
 import { GallerySection, Specimen } from '../gallery';
 import {
+  DEFAULT_LEADERBOARD_RULESET,
   LEADERBOARD_LIST_PARAMS,
   LEADERBOARD_MATCHES_SCALE,
   LEADERBOARD_RANGES,
   LEADERBOARD_TIER_LABELS,
 } from '@/app/leaderboard/list-params';
+import { rulesetsForAddress } from '@/app/tournaments/list-params';
 import { AuditSystemSwitch } from '@/components/audit/AuditSystemSwitch';
 import BeatmapCover from '@/components/beatmaps/BeatmapCover';
 import { Button } from '@/components/kit/controls/Button';
@@ -115,7 +117,11 @@ const TOURNAMENT_SORTS: readonly SortOption<TournamentSortKey>[] = [
 
 const LOBBY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
-/** The spec a tournaments page would share between its server page and client toolbar. */
+/**
+ * The spec a tournaments page would share between its server page and client
+ * toolbar. A bare address shows the visitor's browsing ruleset, so every
+ * ruleset is `ruleset=all`.
+ */
 const TOURNAMENT_PARAMS = defineListParams({
   q: searchParam(),
   page: pageParam(),
@@ -123,7 +129,7 @@ const TOURNAMENT_PARAMS = defineListParams({
     TOURNAMENT_SORTS.map((option) => option.value),
     { key: 'endTime', direction: 'desc' }
   ),
-  ruleset: arrayParam(RATED_RULESETS, { role: 'scope' }),
+  ruleset: arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' }),
   status: arrayParam(VERIFICATION_STATUS_ORDER),
   lobbySize: arrayParam(LOBBY_SIZES),
   rank: rangeParam({ min: 1, max: 1_000_000, integer: true }),
@@ -132,6 +138,9 @@ const TOURNAMENT_PARAMS = defineListParams({
 });
 
 type TournamentState = ListState<typeof TOURNAMENT_PARAMS>;
+
+/** The demo visitor's browsing ruleset, which a bare address shows. */
+const DEMO_BROWSING_RULESETS: readonly Ruleset[] = [Ruleset.Osu];
 
 interface DemoTournament {
   id: number;
@@ -234,12 +243,13 @@ const LOBBY_OPTIONS = LOBBY_SIZES.map((size) => ({
 
 function filterTournaments(state: TournamentState): DemoTournament[] {
   const term = normalizeSearchTerm(state.q).toLowerCase();
+  const rulesets = state.ruleset ?? DEMO_BROWSING_RULESETS;
   const rows = DEMO_TOURNAMENTS.filter(
     (row) =>
       (!term ||
         row.name.toLowerCase().includes(term) ||
         row.abbreviation.toLowerCase().includes(term)) &&
-      (state.ruleset.length === 0 || state.ruleset.includes(row.ruleset)) &&
+      (rulesets.length === 0 || rulesets.includes(row.ruleset)) &&
       (state.status.length === 0 || state.status.includes(row.status)) &&
       (state.lobbySize.length === 0 ||
         state.lobbySize.some((size) => size === row.lobbySize)) &&
@@ -417,8 +427,12 @@ function TournamentToolbarDemo() {
           }
           rulesets={
             <RulesetChips
-              value={state.ruleset}
-              onValueChange={(ruleset) => setState({ ruleset })}
+              value={state.ruleset ?? DEMO_BROWSING_RULESETS}
+              onValueChange={(ruleset) =>
+                setState({
+                  ruleset: rulesetsForAddress(ruleset, DEMO_BROWSING_RULESETS),
+                })
+              }
             />
           }
           count={formatCountOf(rows.length, 'tournament', 'tournaments')}
@@ -608,8 +622,13 @@ function LeaderboardToolbarDemo({ hasFriends }: { hasFriends: boolean }) {
         }
         rulesets={
           <RulesetSwitch
-            value={state.ruleset}
-            onValueChange={(ruleset) => setState({ ruleset })}
+            value={state.ruleset ?? DEFAULT_LEADERBOARD_RULESET}
+            onValueChange={(ruleset) =>
+              setState({
+                ruleset:
+                  ruleset === DEFAULT_LEADERBOARD_RULESET ? undefined : ruleset,
+              })
+            }
           />
         }
         count={formatCountOf(3_906, 'player', 'players')}
@@ -1438,6 +1457,10 @@ const ADDRESS_EXAMPLES: { note: string; state: Partial<TournamentState> }[] = [
       lobbySize: [4, 1],
     },
   },
+  {
+    note: 'Every ruleset, over the visitor’s own default',
+    state: { ruleset: [] },
+  },
   { note: 'A switch writes true', state: { verified: true } },
   {
     note: 'Ranges and days',
@@ -1540,7 +1563,7 @@ export default function ListsSection() {
         id="lists-toolbar"
         name="ListToolbar"
         importPath={`${KIT}/ListToolbar`}
-        description="The strip at the top of every list's panel: search, sort and Filters, then ruleset chips and the count, then active-filter chips. Everything here is live, an EmptyState takes the rows' place when nothing matches, and the address underneath is what the page would show."
+        description="The strip at the top of every list's panel: search, sort and Filters, then ruleset chips and the count, then active-filter chips. Everything here is live, an EmptyState takes the rows' place when nothing matches, and the address underneath is what the page would show. The chips open on the visitor's browsing ruleset (osu! here), which the address leaves out; All writes ruleset=all."
         stacked
       >
         <TournamentToolbarDemo />
@@ -1690,7 +1713,7 @@ export default function ListsSection() {
         id="lists-list-state"
         name="useListState and the list params"
         importPath="@/lib/kit/lists/use-list-state"
-        description="Every control that changes a list lives in the address, described once with the builders in @/lib/kit/lists/params. Defaults are left out, invalid values are ignored, and other params such as a tab are kept. A bitflag filter (flagsParam) is a list of flags in state and one number in the address. The rating history views under ScopeSwitch use the shallow option, which changes this page's address without a server render."
+        description="Every control that changes a list lives in the address, described once with the builders in @/lib/kit/lists/params. Defaults are left out, invalid values are ignored, and other params such as a tab are kept. An arrayParam with allValue tells a bare address (the visitor's own default) from every option (ruleset=all). A bitflag filter (flagsParam) is a list of flags in state and one number in the address. The rating history views under ScopeSwitch use the shallow option, which changes this page's address without a server render."
         stacked
       >
         <ListStateDemo />
