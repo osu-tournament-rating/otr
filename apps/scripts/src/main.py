@@ -3,7 +3,7 @@ import sys
 from collections.abc import Callable
 from functools import partial
 
-from lib import cli, logs, processor, public_html
+from lib import cli, logs, metrics, processor, public_html
 from lib.constants import scripts
 from lib.scripts import db, template_db
 
@@ -33,8 +33,10 @@ def main() -> int:
                 succeeded = script_map[script]() is True
             except Exception:
                 logger.exception(f"'{script}' failed")
+                metrics.record_run(script, args, succeeded=False)
                 return 1
 
+            metrics.record_run(script, args, succeeded)
             if not succeeded:
                 logger.error(f"'{script}' failed")
                 return 1

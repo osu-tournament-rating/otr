@@ -70,3 +70,89 @@ groups:
           severity: warning
         annotations:
           summary: Rate limiter queue building up
+
+  # apps/scripts records how each cron run ended in node-exporter's textfile
+  # collector (src/lib/metrics.py). A run is overdue when none has finished
+  # within its cron interval plus some slack for the run's length and for the
+  # host's daylight saving shift. The intervals follow the production crontab,
+  # which lives on the host: the production archive every 6 hours, the public
+  # archive and the processor every Tuesday, and the public index every hour.
+  # Each overdue rule has a never-recorded twin that waits as long, for a run
+  # that has recorded nothing at all, such as one whose cron entry is broken.
+  - name: scripts
+    rules:
+      - alert: ScriptRunFailed
+        expr: otr_script_last_run_success == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: The last {{ $labels.script }}{{ with $labels.bucket }} {{ . }}{{ end }} run failed
+          description: Its log is in the scripts' log directory on the production host.
+
+      - alert: ScriptRunOverdue
+        expr: time() - otr_script_last_run_timestamp_seconds{script="archive",bucket="production"} > 8 * 3600
+        labels:
+          severity: critical
+          script: archive
+          bucket: production
+        annotations:
+          summary: No archive production run has finished in 8 hours
+      - alert: ScriptRunNeverRecorded
+        expr: absent(otr_script_last_run_timestamp_seconds{script="archive",bucket="production"})
+        for: 8h
+        labels:
+          severity: critical
+          script: archive
+          bucket: production
+        annotations:
+          summary: No archive production run has been recorded in 8 hours
+
+      - alert: ScriptRunOverdue
+        expr: time() - otr_script_last_run_timestamp_seconds{script="archive",bucket="public"} > 7 * 86400 + 6 * 3600
+        labels:
+          severity: warning
+          script: archive
+          bucket: public
+        annotations:
+          summary: No archive public run has finished in 7 days
+      - alert: ScriptRunNeverRecorded
+        expr: absent(otr_script_last_run_timestamp_seconds{script="archive",bucket="public"})
+        for: 174h
+        labels:
+          severity: warning
+          script: archive
+          bucket: public
+        annotations:
+          summary: No archive public run has been recorded in 7 days
+
+      - alert: ScriptRunOverdue
+        expr: time() - otr_script_last_run_timestamp_seconds{script="processor"} > 7 * 86400 + 6 * 3600
+        labels:
+          severity: critical
+          script: processor
+        annotations:
+          summary: No processor run has finished in 7 days
+      - alert: ScriptRunNeverRecorded
+        expr: absent(otr_script_last_run_timestamp_seconds{script="processor"})
+        for: 174h
+        labels:
+          severity: critical
+          script: processor
+        annotations:
+          summary: No processor run has been recorded in 7 days
+
+      - alert: ScriptRunOverdue
+        expr: time() - otr_script_last_run_timestamp_seconds{script="refresh-index"} > 3 * 3600
+        labels:
+          severity: warning
+          script: refresh-index
+        annotations:
+          summary: No refresh-index run has finished in 3 hours
+      - alert: ScriptRunNeverRecorded
+        expr: absent(otr_script_last_run_timestamp_seconds{script="refresh-index"})
+        for: 3h
+        labels:
+          severity: warning
+          script: refresh-index
+        annotations:
+          summary: No refresh-index run has been recorded in 3 hours

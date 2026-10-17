@@ -313,8 +313,13 @@ services:
     command:
       - '--path.rootfs=/host'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      # The operations scripts in apps/scripts record each cron run here, for
+      # the alerts in monitoring/prod/prometheus/rules. Deploy creates the
+      # directory, so it belongs to the user the scripts run as, not root.
+      - '--collector.textfile.directory=/textfile'
     volumes:
       - /:/host:ro,rslave
+      - ./textfile-collector:/textfile:ro
     pid: host
     # Don't rename, will break disaster recovery
     profiles:
