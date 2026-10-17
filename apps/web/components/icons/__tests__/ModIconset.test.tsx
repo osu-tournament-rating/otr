@@ -6,7 +6,7 @@ import { Mods } from '@otr/core/osu';
 
 import ModIconset from '@/components/icons/ModIconset';
 import { ModsEnumHelper } from '@/lib/enum-helpers';
-import { MOD_BADGES } from '@/lib/utils/mod-badges';
+import { MOD_BADGES, getModBadgeAcronyms } from '@/lib/utils/mod-badges';
 
 const iconDir = join(import.meta.dir, '../../../public/icons/mods');
 
@@ -78,6 +78,19 @@ describe('ModIconset', () => {
     );
 
     expect(html).not.toMatch(/-ml-|peer/);
+  });
+
+  it('draws Nightcore and Perfect without the mods they imply', () => {
+    expect(
+      getModBadgeAcronyms(
+        Mods.DoubleTime | Mods.Nightcore | Mods.SuddenDeath | Mods.Perfect
+      )
+    ).toEqual(['NC', 'PF']);
+    expect(getModBadgeAcronyms(Mods.DoubleTime | Mods.SuddenDeath)).toEqual([
+      'SD',
+      'DT',
+    ]);
+    expect(getModBadgeAcronyms(Mods.Hidden, true)).toEqual(['FM', 'HD']);
   });
 
   it('draws freemod as an acronym badge', () => {

@@ -5,6 +5,10 @@
  * the osu-web commit this mirrors.
  */
 
+import { Mods } from '@otr/core/osu';
+
+import { ModsEnumHelper } from '@/lib/enum-helpers';
+
 export type ModType =
   | 'Automation'
   | 'Conversion'
@@ -135,3 +139,19 @@ export const MOD_BADGES: Readonly<Record<string, ModBadge>> = {
   WG: { name: 'Wiggle', type: 'Fun', glyph: 'wiggle' },
   WU: { name: 'Wind Up', type: 'Fun', glyph: 'wind-up' },
 };
+
+/**
+ * The badges a combination draws, in bit order, after FM when `freemod`.
+ * Nightcore and Perfect stand for the Double Time and Sudden Death they
+ * imply, as in osu!, and mods without an acronym draw nothing.
+ */
+export function getModBadgeAcronyms(mods: number, freemod = false): string[] {
+  let shown = mods;
+  if (shown & Mods.Nightcore) shown &= ~Mods.DoubleTime;
+  if (shown & Mods.Perfect) shown &= ~Mods.SuddenDeath;
+
+  const acronyms = ModsEnumHelper.getMetadata(shown as Mods)
+    .map(({ text }) => text)
+    .filter((text) => text !== '');
+  return freemod ? ['FM', ...acronyms] : acronyms;
+}

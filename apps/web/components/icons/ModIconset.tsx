@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react';
 
-import { ModsEnumHelper } from '@/lib/enum-helpers';
 import { FREEMOD_LABEL } from '@/lib/kit/format/mods';
 import {
   MOD_BADGES,
   MOD_TYPE_COLORS,
+  getModBadgeAcronyms,
   getModGlyphColor,
   type ModBadge,
 } from '@/lib/utils/mod-badges';
@@ -95,13 +95,7 @@ export default function ModIconset({
   iconClassName?: string;
   freemod?: boolean;
 }) {
-  // Mods without an acronym have no icon
-  const acronyms = ModsEnumHelper.getMetadata(mods)
-    .map(({ text }) => text)
-    .filter((text) => text !== '');
-  if (freemod) {
-    acronyms.unshift('FM');
-  }
+  const acronyms = getModBadgeAcronyms(mods, freemod);
   if (acronyms.length === 0) return null;
 
   return (
