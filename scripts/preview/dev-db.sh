@@ -26,9 +26,11 @@ set -euo pipefail
 # from it and shared by every preview.
 #
 # EXPECTED_JOURNAL is computed on the runner, which has jq and the migration
-# files; the host has neither.
+# files; the host has neither. The runner uploads the same migration files as
+# MIGRATIONS_ARCHIVE, so the migrator applies exactly what verify expects, and
+# the migration image supplies only the runtime.
 
-API_VERSION=2
+API_VERSION=3
 
 # The .env compose reads sits beside it and carries the postgres credentials.
 # Sourcing it keeps them in one place rather than a second secret that has to
@@ -58,6 +60,9 @@ LIVE_DB="${DEV_LIVE_DB:-otr_dev}"
 OTR_SCRIPTS_DIR="${OTR_SCRIPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/apps/scripts}"
 MAX_STALE_DAYS="${DEV_DB_MAX_STALE_DAYS:-14}"
 EXPECTED_JOURNAL="${EXPECTED_JOURNAL:-}"
+# A gzip tar holding apps/web/drizzle/meta/_journal.json and
+# apps/web/drizzle/*.sql, relative to the migration image's WORKDIR.
+MIGRATIONS_ARCHIVE="${MIGRATIONS_ARCHIVE:-}"
 PREVIEW_REMOTE_PATH="${PREVIEW_REMOTE_PATH:-}"
 MAX_CLONES="${DEV_DB_MAX_CLONES:-6}"
 MIN_FREE_BYTES="${DEV_DB_MIN_FREE_BYTES:-21474836480}"
@@ -66,7 +71,10 @@ LOCK_FILE="${DEV_DB_LOCK_FILE:-$PWD/.dev-db.lock}"
 LOCK_WAIT="${DEV_DB_LOCK_WAIT:-1800}"
 CLONE_MAX_AGE_DAYS="${DEV_DB_CLONE_MAX_AGE_DAYS:-14}"
 REAP_LIMIT="${DEV_DB_REAP_LIMIT:-10}"
-# latest is what production runs, and every merge to the default branch ships.
+# Supplies the runtime that applies MIGRATIONS_ARCHIVE. Its own migrations are
+# used only when no archive is given, and they can trail the default branch:
+# the host shares production's Docker daemon, so latest here is the image
+# production last deployed.
 MIGRATION_IMAGE="${DEV_MIGRATION_IMAGE:-stagecodes/otr-web:latest}"
 NETWORK="${DEV_NETWORK:-otr-dev}"
 
@@ -117,6 +125,17 @@ require_journal() {
   [[ -n "$EXPECTED_JOURNAL" ]] || fail "EXPECTED_JOURNAL is not set"
 }
 
+# Checked before a restore starts, so a bad upload fails in seconds rather
+# than after minutes of restoring. The messages leave out the path, which is
+# a directory on the host.
+require_migrations_archive() {
+  [[ -n "$MIGRATIONS_ARCHIVE" ]] || return 0
+  [[ -f "$MIGRATIONS_ARCHIVE" && -r "$MIGRATIONS_ARCHIVE" ]] ||
+    fail "MIGRATIONS_ARCHIVE is not a readable file"
+  tar -tzf "$MIGRATIONS_ARCHIVE" apps/web/drizzle/meta/_journal.json >/dev/null 2>&1 ||
+    fail "MIGRATIONS_ARCHIVE has no apps/web/drizzle/meta/_journal.json"
+}
+
 require_clone_name() {
   [[ "$1" =~ ^otr_pr_[0-9]+$ ]] || fail "$1 is not a per-PR database name"
 }
@@ -141,11 +160,30 @@ database_size() { # database_size <database>
   query postgres "select pg_database_size('$1')"
 }
 
+# Which migrations migrate ran, for verify to name when the result falls short.
+MIGRATION_SOURCE=''
+
 migrate() { # migrate <database>
+  require_migrations_archive
+  if [[ -n "$MIGRATIONS_ARCHIVE" ]]; then
+    MIGRATION_SOURCE="the default branch's migrations from the runner"
+  else
+    MIGRATION_SOURCE="the migrations inside $MIGRATION_IMAGE"
+    echo "dev-db: MIGRATIONS_ARCHIVE is not set; migrating with $MIGRATION_SOURCE" >&2
+  fi
+
   local output status=0
   if [[ -n "${DEV_MIGRATOR_COMMAND:-}" ]]; then
     # shellcheck disable=SC2086 # the seam is a command line, not one word
     output="$($DEV_MIGRATOR_COMMAND "$1" 2>&1 </dev/null)" || status=$?
+  elif [[ -n "$MIGRATIONS_ARCHIVE" ]]; then
+    # The archive arrives on stdin, never the workflow's script. The image's
+    # own copy is removed first so none of its migrations mix in.
+    output="$(docker run --rm -i --network "$NETWORK" \
+      -e DATABASE_URL="$(db_url "$1")" \
+      "$MIGRATION_IMAGE" sh -c \
+      'set -e; rm -rf apps/web/drizzle; tar -xzf - -C .; exec ./scripts/run-migrations.sh' \
+      2>&1 <"$MIGRATIONS_ARCHIVE")" || status=$?
   else
     output="$(docker run --rm --network "$NETWORK" \
       -e DATABASE_URL="$(db_url "$1")" \
@@ -230,14 +268,16 @@ check() {
 
 sync() {
   require_journal
-  local problem status
+  require_migrations_archive
+  local problem applied status
   if ! problem="$(health_problem "$SEED_DB")" || ! problem="$(health_problem "$LIVE_DB")"; then
     echo "sync: restoring, $problem"
     restore
     return
   fi
 
-  status="$(status_of "$LIVE_DB")"
+  applied="$(applied_journal "$LIVE_DB")"
+  status="$(classify_journal "$applied" "$EXPECTED_JOURNAL")"
   case "$status" in
     match)
       echo "sync: $LIVE_DB already matches the expected journal"
@@ -246,6 +286,12 @@ sync() {
       echo "sync: migrating $LIVE_DB forward, it is behind the expected journal"
       migrate "$LIVE_DB"
       verify "$LIVE_DB"
+      ;;
+    ahead)
+      # Each run reads the journal once, so a run that started before a
+      # migration merged sees a database a newer run already migrated.
+      # Restoring would roll the shared database back under every preview.
+      fail "$LIVE_DB is ahead of the expected journal: applied $(count_lines "$applied"), expected $(count_lines "$EXPECTED_JOURNAL"). The default branch gained a migration after this run read it; run it again."
       ;;
     *)
       echo "sync: restoring, $LIVE_DB diverged from the expected journal"
@@ -256,6 +302,7 @@ sync() {
 
 restore() {
   require_journal
+  require_migrations_archive
   echo "restoring $SEED_DB from the dev replica"
   # --db-only keeps this to the dev tier's own db container. The scoping that
   # keeps it off production lives in the scripts' .env, the dev environment's
@@ -364,11 +411,16 @@ clone() { # clone <database>
 
 verify() { # verify <database>
   require_journal
-  local applied status
+  local applied status message
   applied="$(applied_journal "$1")"
   status="$(classify_journal "$applied" "$EXPECTED_JOURNAL")"
-  [[ "$status" == match ]] ||
-    fail "$1 is $status: applied $(count_lines "$applied"), expected $(count_lines "$EXPECTED_JOURNAL")"
+  if [[ "$status" != match ]]; then
+    message="$1 is $status: applied $(count_lines "$applied"), expected $(count_lines "$EXPECTED_JOURNAL")"
+    if [[ -n "$MIGRATION_SOURCE" ]]; then
+      message+="; the migrator ran $MIGRATION_SOURCE"
+    fi
+    fail "$message"
+  fi
   echo "verified $1 against $(count_lines "$EXPECTED_JOURNAL") expected migrations"
 }
 

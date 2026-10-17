@@ -68,6 +68,10 @@ jobs:
               echo "$when $(sha256sum "apps/web/drizzle/${tag}.sql" | cut -d' ' -f1)"
             done)
           echo "expected=$(base64 -w0 <<<"$list")" >> "$GITHUB_OUTPUT"
+          # The host migrates with these same files rather than the ones in
+          # its image, which can trail the default branch.
+          tar -czf "$RUNNER_TEMP/migrations.tar.gz" \
+            apps/web/drizzle/meta/_journal.json apps/web/drizzle/*.sql
 
       - name: Connect to tailscale
         uses: tailscale/github-action@v4
@@ -145,15 +149,24 @@ jobs:
             --limit 200 --json number --jq '.[].number')
           echo "$(count_lines "$open_prs") open pull requests"
 
+          # mktemp -d makes the upload directory private to the deploying user,
+          # and the script below removes it.
+          upload=$(ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" mktemp -d)
+          scp -o StrictHostKeyChecking=no -q "$RUNNER_TEMP/migrations.tar.gz" \
+            "$SSH_USER@$SSH_HOST:$upload/"
+
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
             bash -s -- "$DEV_REMOTE_PATH" "$ACTION" \
-            "$EXPECTED_JOURNAL" "$(base64 -w0 <<<"$open_prs")" "$PREVIEW_REMOTE_PATH" <<'EOF'
+            "$EXPECTED_JOURNAL" "$(base64 -w0 <<<"$open_prs")" "$PREVIEW_REMOTE_PATH" \
+            "$upload" <<'EOF'
             set -euo pipefail
             cd "$1"
+            trap 'rm -rf "$6"' EXIT
             EXPECTED_JOURNAL="$(printf %s "$3" | base64 -d)"
             OPEN_PRS="$(printf %s "$4" | base64 -d)"
             export EXPECTED_JOURNAL OPEN_PRS
             export PREVIEW_REMOTE_PATH="$5"
+            export MIGRATIONS_ARCHIVE="$6/migrations.tar.gz"
 
             case "$2" in
               deploy) ./scripts/preview/dev-db.sh sync ;;

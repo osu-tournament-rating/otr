@@ -26,7 +26,7 @@ describe('classify_journal', () => {
   test.each([
     ['identical journals', list(first, second), list(first, second), 'match'],
     ['applied behind expected', list(first), list(first, second), 'behind'],
-    ['applied ahead of expected', list(first, second), list(first), 'diverged'],
+    ['applied ahead of expected', list(first, second), list(first), 'ahead'],
     [
       'same count, rewritten entry',
       list(first, '2000 xxx'),
