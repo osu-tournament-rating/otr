@@ -165,6 +165,19 @@ describe('summarizePoolDisplayMods', () => {
 
     expect(resolved.get(42)).toEqual({ mods: Mods.HardRock, freemod: false });
   });
+
+  test('counts games that differ only by No Fail together', () => {
+    const resolved = summarizePoolDisplayMods([
+      // Three uniform Hidden games, two of them all No Fail, outvote two DT.
+      poolRow(7, 1, Mods.None, Mods.Hidden | Mods.NoFail, 2),
+      poolRow(7, 2, Mods.None, Mods.Hidden | Mods.NoFail, 2),
+      poolRow(7, 3, Mods.None, Mods.Hidden, 2),
+      poolRow(7, 4, Mods.DoubleTime, Mods.DoubleTime, 2),
+      poolRow(7, 5, Mods.DoubleTime, Mods.DoubleTime, 2),
+    ]);
+
+    expect(resolved.get(7)).toEqual({ mods: Mods.Hidden, freemod: false });
+  });
 });
 
 describe('summarizeRankRangeMods', () => {

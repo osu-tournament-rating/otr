@@ -229,27 +229,50 @@ export function normalizedScore(mods: Mods, score: number): number {
 }
 
 /**
- * The mods to display for a game: its own outside freemod, otherwise the single
- * combination every score shares, or FM when they vary.
+ * The mods a game card's header shows. Outside freemod, the lobby's mods as
+ * they are, with No Fail when every score has it. In freemod, the mods every score shares when the scores agree
+ * apart from No Fail; otherwise FM and the lobby's forced mods.
  */
 export function resolveGameDisplayMods(
   game: { isFreeMod: boolean; mods: Mods },
   scores: { mods: number }[]
 ): { mods: Mods; freemod: boolean } {
   if (!game.isFreeMod) {
-    return { mods: game.mods, freemod: false };
+    // A lobby that records no No Fail while every score has it was still
+    // played with it; freemod detection ignores No Fail, so it is the lobby's.
+    const everyNoFail =
+      scores.length > 0 && scores.every((s) => s.mods & Mods.NoFail);
+    return {
+      mods: (everyNoFail ? game.mods | Mods.NoFail : game.mods) as Mods,
+      freemod: false,
+    };
   }
 
-  // NoFail is never shown and shouldn't split otherwise-identical combinations.
+  // No Fail alone doesn't make a freemod game's scores differ.
   const mask = ~Mods.NoFail;
   const uniqueCombos = new Set(scores.map((s) => s.mods & mask));
 
   if (uniqueCombos.size === 1) {
-    const [common] = uniqueCombos;
-    return { mods: common as Mods, freemod: false };
+    const shared = scores.reduce((mods, s) => mods & s.mods, ~0);
+    return { mods: shared as Mods, freemod: false };
   }
 
-  return { mods: Mods.None, freemod: true };
+  const forced =
+    (game.mods & Mods.FreeModAllowed) === Mods.FreeModAllowed
+      ? game.mods & ~Mods.FreeModAllowed
+      : game.mods;
+  return { mods: forced as Mods, freemod: true };
+}
+
+/**
+ * The mods a score card shows: those its game's header doesn't already show.
+ * None when the score matches the header.
+ */
+export function getScoreDisplayMods(
+  scoreMods: number,
+  headerMods: number
+): Mods {
+  return (scoreMods & ~headerMods) as Mods;
 }
 
 /** Whether per-score mods diverge from a game that records no mods of its own. */
