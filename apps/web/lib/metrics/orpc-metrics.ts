@@ -4,7 +4,8 @@ import { metricsRegistry } from './registry';
 export const orpcProcedureCalls = new Counter({
   name: 'web_orpc_procedure_calls_total',
   help: 'oRPC procedure calls',
-  // code is the HTTP status, so alerts can tell server errors from client ones.
+  // status is success, error, or rate_limited (a 429). code is the HTTP
+  // status, so alerts can tell server errors from client ones.
   labelNames: ['procedure', 'status', 'code', 'accessMethod'] as const,
   registers: [metricsRegistry],
 });

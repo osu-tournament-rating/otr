@@ -24,6 +24,7 @@ export function useSearch(query: string) {
       revalidateOnFocus: false,
       revalidateIfStale: false,
       dedupingInterval: 3000,
+      shouldRetryOnError: false,
     }
   );
 }

@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { createORPCClient, ORPCError } from '@orpc/client';
 import { RPCLink } from '@orpc/client/fetch';
 import { NextRequest } from 'next/server';
 
 import { SITE_ONLY_MESSAGE } from '@/lib/rpc/access';
+import {
+  CLIENT_IP_HEADER,
+  getInternalRpcToken,
+  INTERNAL_RPC_HEADER,
+} from '@/lib/rpc/internal-token';
+import { consume, RATE_LIMITS } from '@/lib/rpc/rate-limit';
 
 import { POST } from '../route';
 
@@ -55,6 +61,22 @@ const captureError = async (call: Promise<unknown>) => {
   throw new Error('Expected the call to fail');
 };
 
+const env = process.env as Record<string, string | undefined>;
+const originalMode = env.RPC_RATE_LIMIT;
+
+beforeEach(() => {
+  globalThis.__otrRpcRateLimit = undefined;
+});
+
+afterEach(() => {
+  if (originalMode === undefined) {
+    delete env.RPC_RATE_LIMIT;
+  } else {
+    env.RPC_RATE_LIMIT = originalMode;
+  }
+  globalThis.__otrRpcRateLimit = undefined;
+});
+
 describe('/rpc route', () => {
   it('refuses a call from outside the site with a readable 403', async () => {
     const { client, responses } = clientWith({});
@@ -73,6 +95,43 @@ describe('/rpc route', () => {
   it('passes a same-origin call on to the procedures', async () => {
     const { client, responses } = clientWith({
       'sec-fetch-site': 'same-origin',
+    });
+
+    await captureError(client.doesNotExist({}));
+
+    expect(responses[0]?.status).toBe(404);
+  });
+
+  it('refuses a browser over the general limit with a 429 and Retry-After', async () => {
+    env.RPC_RATE_LIMIT = 'enforce';
+    for (let call = 0; call < RATE_LIMITS.general.capacity; call++) {
+      consume('general', 'ip:203.0.113.7');
+    }
+    const { client, responses } = clientWith({
+      'sec-fetch-site': 'same-origin',
+      'cf-connecting-ip': '203.0.113.7',
+    });
+
+    const error = await captureError(client.doesNotExist({}));
+
+    expect(responses[0]?.status).toBe(429);
+    expect(responses[0]?.headers.get('retry-after')).toBe('1');
+    expect(error).toBeInstanceOf(ORPCError);
+    expect(error).toMatchObject({
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Too many requests. Try again in 1 second.',
+      data: { code: 'RATE_LIMITED', retryAfter: 1 },
+    });
+  });
+
+  it('leaves server-side calls out of the general limit', async () => {
+    env.RPC_RATE_LIMIT = 'enforce';
+    for (let call = 0; call < RATE_LIMITS.general.capacity; call++) {
+      consume('general', 'ip:203.0.113.7');
+    }
+    const { client, responses } = clientWith({
+      [INTERNAL_RPC_HEADER]: await getInternalRpcToken(),
+      [CLIENT_IP_HEADER]: '203.0.113.7',
     });
 
     await captureError(client.doesNotExist({}));

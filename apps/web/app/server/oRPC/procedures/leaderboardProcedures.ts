@@ -10,7 +10,11 @@ import {
 import { buildTierProgress, getTierBounds } from '@/lib/utils/tierProgress';
 import { Ruleset } from '@otr/core/osu';
 
-import { publicProcedure, protectedProcedure } from './base';
+import {
+  publicProcedure,
+  protectedProcedure,
+  withSearchRateLimit,
+} from './base';
 import {
   buildLeaderboardOrder,
   buildLeaderboardSearchCondition,
@@ -334,6 +338,7 @@ export async function runLeaderboard({
 
 export const getLeaderboard = publicProcedure
   .input(LeaderboardRequestSchema.omit({ friend: true, userId: true }))
+  .use(withSearchRateLimit, (input) => input.searchQuery)
   .output(LeaderboardResponseSchema)
   .route({
     summary: 'List leaderboard entries',
@@ -347,6 +352,7 @@ export const getLeaderboard = publicProcedure
 
 export const getLeaderboardFriends = protectedProcedure
   .input(LeaderboardRequestSchema.omit({ friend: true, userId: true }))
+  .use(withSearchRateLimit, (input) => input.searchQuery)
   .output(LeaderboardResponseSchema)
   .route({
     summary: "List leaderboard entries for user's friends",

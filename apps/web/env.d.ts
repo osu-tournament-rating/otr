@@ -13,5 +13,7 @@ declare namespace NodeJS {
     WEB_OSU_CLIENT_ID: string;
     WEB_OSU_CLIENT_SECRET: string;
     RABBITMQ_AMQP_URL: string;
+    /** /rpc rate limits: enforced in production and off elsewhere by default */
+    RPC_RATE_LIMIT?: 'enforce' | 'observe' | 'off';
   }
 }

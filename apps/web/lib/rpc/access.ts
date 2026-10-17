@@ -14,6 +14,7 @@ import {
   INTERNAL_RPC_HEADER,
   isInternalRpcToken,
 } from './internal-token';
+import { checkRateLimit, rateLimitedError } from './rate-limit';
 
 /**
  * Who is calling `/rpc`: a page in a visitor's browser, or the site's own
@@ -123,9 +124,11 @@ type RpcInterceptorOptions<T extends RpcRouteContext> =
   };
 
 /**
- * The `/rpc` handler's gate. It runs before the procedure is matched, inside
- * oRPC's error handling, so a refusal goes back as an ordinary RPC error the
- * site's client can read. The caller it finds goes on in `context.rpc`.
+ * The `/rpc` handler's gate and per-IP limit on browser calls. It runs before
+ * the procedure is matched, inside oRPC's error handling, so a refusal goes
+ * back as an ordinary RPC error the site's client can read. The caller it
+ * finds goes on in `context.rpc`. Server-side calls skip the general limit: a
+ * refusal there would break the page being rendered.
  */
 export const rpcAccessInterceptor = async <T extends RpcRouteContext>(
   options: RpcInterceptorOptions<T>
@@ -154,6 +157,19 @@ export const rpcAccessInterceptor = async <T extends RpcRouteContext>(
     });
 
     throw error;
+  }
+
+  if (caller.kind === 'browser') {
+    const { allowed, retryAfterSeconds } = checkRateLimit(
+      'general',
+      caller.clientIp ? `ip:${caller.clientIp}` : null,
+      { caller: 'browser', path: request.url.pathname }
+    );
+
+    if (!allowed) {
+      context.resHeaders?.set('retry-after', String(retryAfterSeconds));
+      throw rateLimitedError(retryAfterSeconds);
+    }
   }
 
   return options.next({ ...options, context: { ...context, rpc: caller } });
