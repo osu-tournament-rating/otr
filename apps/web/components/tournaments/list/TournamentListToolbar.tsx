@@ -1,10 +1,13 @@
 'use client';
 
+import type { Ruleset } from '@otr/core/osu';
+
 import {
   TOURNAMENT_LIST_PARAMS,
   TOURNAMENT_REJECTION_REASONS,
   TOURNAMENT_SORT_OPTIONS,
   LOBBY_SIZES,
+  rulesetsForAddress,
   type TournamentListState,
 } from '@/app/tournaments/list-params';
 import {
@@ -125,7 +128,18 @@ function getActiveFilters(
  * The tournament list's toolbar: search, sort, filters and ruleset chips,
  * all kept in the page address, with the result count from the server.
  */
-export default function TournamentListToolbar({ count }: { count?: string }) {
+export default function TournamentListToolbar({
+  count,
+  defaultRulesets,
+}: {
+  count?: string;
+  /**
+   * The visitor's browsing ruleset, which an address without a ruleset
+   * shows; empty for every ruleset. Choosing it leaves the ruleset out of
+   * the address.
+   */
+  defaultRulesets: readonly Ruleset[];
+}) {
   const list = useListState(TOURNAMENT_LIST_PARAMS);
   const { state, setState } = list;
 
@@ -198,8 +212,10 @@ export default function TournamentListToolbar({ count }: { count?: string }) {
       }
       rulesets={
         <RulesetChips
-          value={state.ruleset}
-          onValueChange={(ruleset) => setState({ ruleset })}
+          value={state.ruleset ?? defaultRulesets}
+          onValueChange={(ruleset) =>
+            setState({ ruleset: rulesetsForAddress(ruleset, defaultRulesets) })
+          }
         />
       }
       count={count}

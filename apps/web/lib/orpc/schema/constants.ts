@@ -20,6 +20,10 @@ export const RulesetSchema = z
   .describe(
     'Ruleset: 0=Osu, 1=Taiko, 2=Catch, 3=ManiaOther, 4=Mania4k, 5=Mania7k'
   );
+// A second describe() replaces the first, so this one restates the values.
+export const DefaultRulesetSchema = RulesetSchema.describe(
+  'The ruleset the player chose for their profile in their settings. Without one, the ruleset they have played the most verified tournaments in, then the most verified matches, then most recently, and osu! when they have none. 0=Osu, 1=Taiko, 2=Catch, 3=ManiaOther, 4=Mania4k, 5=Mania7k'
+);
 export const ScoringTypeSchema = z
   .enum(ScoringType)
   .describe('ScoringType: 0=Score, 1=Accuracy, 2=Combo, 3=ScoreV2');

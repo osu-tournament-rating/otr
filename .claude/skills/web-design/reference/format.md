@@ -368,7 +368,7 @@ import {
 
 - `RulesetName` is a label, not a control. `iconOnly` adds a tooltip that opens on hover, focus and tap, with the full name as its `aria-label`. The icon is muted.
 - `RATED_RULESETS` is the order for chips, tabs, legends and ruleset filters. It leaves out `Ruleset.ManiaOther` (`mania (other)`), as the tournament list, beatmap list, leaderboard and filter tool do. Only admin pickers offer it: the tournament, game and beatmap edit dialogs, and the submission form when an admin is signed in.
-- `isRuleset(value)` checks a value read from outside (an address, a payload) against every `Ruleset`, `mania (other)` included; a list param built on `RATED_RULESETS` (`enumParam`, `arrayParam`) already drops it.
+- `isRuleset(value)` checks a value read from outside (an address, a payload) against every `Ruleset`, `mania (other)` included; a list param built on `RATED_RULESETS` (`enumParam`, `arrayParam`) already drops it. `isRatedRuleset(value)` accepts only `RATED_RULESETS`, for a ruleset a rated list must be able to open in, such as a player's most played.
 - `RULESET_NAMES[ruleset]` is `{ label, fullName }` (type `RulesetNameEntry`) for every `Ruleset`.
 - `getRulesetLabel(n)` and `getRulesetFullName(n)` take any number and return `Unknown ruleset` outside the enum. Always go through `Ruleset` from `@otr/core/osu`; never hard-code `0`–`5`.
 - `RulesetIcon` (`components/icons/RulesetIcon.tsx`) stays: `RulesetName` uses it.

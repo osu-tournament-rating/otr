@@ -1401,7 +1401,6 @@ export const players = pgTable(
           sql`setweight(to_tsvector('simple', ${searchableText(players.username)}), 'A') || setweight(to_tsvector('simple', ${searchableText(joinedText(players.previousUsernames))}), 'B')`
       ),
     country: varchar({ length: 4 }).default('').notNull(),
-    defaultRuleset: integer('default_ruleset').default(0).notNull(),
     osuLastFetch: timestamp('osu_last_fetch', {
       withTimezone: true,
       mode: 'string',
@@ -1853,10 +1852,12 @@ export const userSettings = pgTable(
       maxValue: 2147483647,
       cache: 1,
     }),
-    defaultRuleset: integer('default_ruleset').default(0).notNull(),
-    defaultRulesetIsControlled: boolean('default_ruleset_is_controlled')
-      .default(false)
-      .notNull(),
+    // Ruleset anyone opening this user's profile sees first. Null means the
+    // ruleset they have played most.
+    profileRuleset: integer('profile_ruleset'),
+    // Ruleset this user's leaderboard and tournament list open in. Null means
+    // the ruleset they have played most, whatever profileRuleset says.
+    browsingRuleset: integer('browsing_ruleset'),
     userId: integer('user_id').notNull(),
     created: timestamp({ withTimezone: true, mode: 'string' })
       .default(sql`CURRENT_TIMESTAMP`)

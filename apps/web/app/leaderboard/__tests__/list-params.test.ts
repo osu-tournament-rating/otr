@@ -21,11 +21,24 @@ const parse = (query: string) =>
   parseListState(LEADERBOARD_LIST_PARAMS, new URLSearchParams(query));
 
 describe('LEADERBOARD_LIST_PARAMS', () => {
-  it('reads a bare address as the global osu! leaderboard', () => {
+  it('reads a bare address as the global leaderboard on no named ruleset', () => {
     expect(parse('')).toEqual(getDefaultListState(LEADERBOARD_LIST_PARAMS));
+    expect(parse('').ruleset).toBeUndefined();
     expect(
       listStateHref('/leaderboard', LEADERBOARD_LIST_PARAMS, parse(''))
     ).toBe('/leaderboard');
+  });
+
+  // An address without a ruleset shows each visitor their own, so a link
+  // that means osu! has to say so.
+  it('writes every named ruleset, osu! included', () => {
+    expect(parse('ruleset=0').ruleset).toBe(Ruleset.Osu);
+    expect(
+      listStateHref('/leaderboard', LEADERBOARD_LIST_PARAMS, parse('ruleset=0'))
+    ).toBe('/leaderboard?ruleset=0');
+    expect(
+      leaderboardHref(parse(''), { country: 'PL', ruleset: Ruleset.Osu })
+    ).toBe('/leaderboard?ruleset=0&country=PL');
   });
 
   it('reads the keys old links use', () => {
@@ -60,7 +73,7 @@ describe('LEADERBOARD_LIST_PARAMS', () => {
     const state = parse(
       'ruleset=3&sort=name&tiers=wood&minRating=50&maxMatches=1000&minWinRate=0&country=X'
     );
-    expect(state.ruleset).toBe(Ruleset.Osu);
+    expect(state.ruleset).toBeUndefined();
     expect(state.sort).toEqual({ key: 'rating', direction: 'desc' });
     expect(state.tiers).toEqual([]);
     expect(state.rating).toEqual({});
@@ -116,13 +129,19 @@ describe('leaderboardHref', () => {
 });
 
 describe('toLeaderboardRequest', () => {
-  it('sends nothing but the page and ruleset for a bare address', () => {
-    const request = toLeaderboardRequest(parse(''));
+  it('sends nothing but the page and the default ruleset for a bare address', () => {
+    const request = toLeaderboardRequest(parse(''), Ruleset.Catch);
     expect(
       Object.fromEntries(
         Object.entries(request).filter(([, value]) => value !== undefined)
       )
-    ).toEqual({ page: 1, ruleset: Ruleset.Osu });
+    ).toEqual({ page: 1, ruleset: Ruleset.Catch });
+  });
+
+  it('prefers the address’s ruleset to the default', () => {
+    expect(
+      toLeaderboardRequest(parse('ruleset=0'), Ruleset.Catch).ruleset
+    ).toBe(Ruleset.Osu);
   });
 
   it('maps search, sort and filters onto the procedure input', () => {
@@ -130,7 +149,8 @@ describe('toLeaderboardRequest', () => {
       parse(
         'q=mrekk&sort=winRate&dir=asc&ruleset=5&country=KR&tiers=master' +
           '&minRating=1000&maxOsuRank=10000&minMatches=20&minWinRate=50&maxWinRate=75'
-      )
+      ),
+      Ruleset.Osu
     );
 
     expect(request).toMatchObject({
@@ -150,8 +170,8 @@ describe('toLeaderboardRequest', () => {
   });
 
   it('leaves the default sort to the server, and sends any other direction', () => {
-    expect(toLeaderboardRequest(parse('')).sort).toBeUndefined();
-    expect(toLeaderboardRequest(parse('dir=asc'))).toMatchObject({
+    expect(toLeaderboardRequest(parse(''), Ruleset.Osu).sort).toBeUndefined();
+    expect(toLeaderboardRequest(parse('dir=asc'), Ruleset.Osu)).toMatchObject({
       sort: 'rating',
       descending: false,
     });

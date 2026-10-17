@@ -18,7 +18,6 @@ import { legacyOAuthCallbackURL } from './osu-callback';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { Ruleset } from '@otr/core/osu';
 import { API as OsuApi } from 'osu-api-v2-js';
 import type { User } from 'osu-api-v2-js';
 
@@ -58,22 +57,6 @@ const sanitizeUsername = (value: string | null | undefined) => {
 
 const sanitizeCountry = (value: string | null | undefined) =>
   value ? value.trim().toUpperCase() : '';
-
-const mapPlaymodeToRuleset = (playmode?: string | null) => {
-  switch (playmode) {
-    case 'osu':
-      return Ruleset.Osu;
-    case 'taiko':
-      return Ruleset.Taiko;
-    case 'fruits':
-      return Ruleset.Catch;
-    case 'mania':
-      // TODO: Set based on variants
-      return Ruleset.Mania4k;
-    default:
-      return Ruleset.Osu;
-  }
-};
 
 // osu-api-v2-js v3 awaits `token_promise` on every request, and only
 // `setNewToken()`/`createAsync()` ever resolve it — construct from a user token
@@ -119,13 +102,6 @@ const ensurePlayer = async ({
 
   const sanitizedUsername = sanitizeUsername(profile?.username);
   const sanitizedCountry = sanitizeCountry(profile?.country_code);
-  let profilePlaymode: string | null | undefined;
-  if (profile && 'playmode' in profile) {
-    profilePlaymode = profile.playmode;
-  }
-  const defaultRuleset = profile
-    ? mapPlaymodeToRuleset(profilePlaymode)
-    : Ruleset.Osu;
 
   if (profile?.is_bot) {
     return player ?? null;
@@ -138,7 +114,6 @@ const ensurePlayer = async ({
         osuId,
         username: sanitizedUsername,
         country: sanitizedCountry,
-        defaultRuleset,
         osuLastFetch: nowIso,
         osuTrackLastFetch: null,
       })
@@ -154,7 +129,6 @@ const ensurePlayer = async ({
     const updatePayload = {
       username: sanitizedUsername || player.username,
       country: sanitizedCountry || player.country,
-      defaultRuleset,
       osuLastFetch: nowIso,
     };
 

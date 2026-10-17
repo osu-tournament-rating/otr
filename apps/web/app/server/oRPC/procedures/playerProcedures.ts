@@ -1,5 +1,16 @@
 import { ORPCError } from '@orpc/server';
-import { and, asc, desc, eq, gte, ilike, inArray, lte, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  sql,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DatabaseClient } from '@/lib/db';
@@ -26,6 +37,7 @@ import {
 import { buildTierProgress } from '@/lib/utils/tierProgress';
 
 import { publicProcedure } from './base';
+import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolvePlayerId } from './shared/keyType';
 
 export const getPlayer = publicProcedure
@@ -52,7 +64,10 @@ export const getPlayer = publicProcedure
     const playerId = await resolvePlayerId(context.db, input.id, input.keyType);
 
     const player = await context.db
-      .select()
+      .select({
+        ...getTableColumns(schema.players),
+        defaultRuleset: defaultRulesetSql(schema.players.id),
+      })
       .from(schema.players)
       .where(eq(schema.players.id, playerId))
       .limit(1);
@@ -90,7 +105,7 @@ const playerCompactColumns = {
   osuId: schema.players.osuId,
   username: schema.players.username,
   country: schema.players.country,
-  defaultRuleset: schema.players.defaultRuleset,
+  defaultRuleset: defaultRulesetSql(schema.players.id),
 } as const;
 
 type RatingAdjustmentSummary = Pick<
@@ -704,18 +719,24 @@ export const getPlayerStats = publicProcedure
   .handler(async ({ input, context }) => {
     const playerId = await resolvePlayerId(context.db, input.id, input.keyType);
 
-    const player = await context.db.query.players.findFirst({
-      where: (players, { eq }) => eq(players.id, playerId),
-    });
+    const [player] = await context.db
+      .select({
+        id: schema.players.id,
+        osuId: schema.players.osuId,
+        username: schema.players.username,
+        country: schema.players.country,
+        defaultRuleset: defaultRulesetSql(schema.players.id),
+      })
+      .from(schema.players)
+      .where(eq(schema.players.id, playerId))
+      .limit(1);
 
     if (!player) {
       throw new ORPCError('NOT_FOUND', { message: 'Player not found' });
     }
 
-    const playerDefaultRuleset = VALID_RULESETS.has(
-      player.defaultRuleset as Ruleset
-    )
-      ? (player.defaultRuleset as Ruleset)
+    const playerDefaultRuleset = VALID_RULESETS.has(player.defaultRuleset)
+      ? player.defaultRuleset
       : Ruleset.Osu;
 
     const resolvedRuleset = (() => {

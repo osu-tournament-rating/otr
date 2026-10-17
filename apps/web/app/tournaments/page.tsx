@@ -1,3 +1,4 @@
+import type { Ruleset } from '@otr/core/osu';
 import { Trophy, Upload } from 'lucide-react';
 import { Metadata } from 'next';
 import { headers } from 'next/headers';
@@ -8,6 +9,7 @@ import {
   TOURNAMENT_LIST_PARAMS,
   TOURNAMENT_PAGE_SIZE,
   legacyTournamentListHref,
+  resolveTournamentRulesets,
   toTournamentListRequest,
   tournamentListHref,
   type TournamentListState,
@@ -22,6 +24,8 @@ import TournamentList from '@/components/tournaments/list/TournamentList';
 import TournamentListError from '@/components/tournaments/list/TournamentListError';
 import TournamentListToolbar from '@/components/tournaments/list/TournamentListToolbar';
 import { auth } from '@/lib/auth/auth';
+import { db } from '@/lib/db';
+import { getBrowsingRuleset } from '@/lib/db/ruleset-settings';
 import { formatCountOf } from '@/lib/kit/format/number';
 import {
   clearListFilters,
@@ -38,10 +42,13 @@ export const metadata: Metadata = {
 };
 
 async function fetchTournaments(
-  state: TournamentListState
+  state: TournamentListState,
+  defaultRulesets: readonly Ruleset[]
 ): Promise<TournamentListPageResponse | null> {
   try {
-    return await orpc.tournaments.listPage(toTournamentListRequest(state));
+    return await orpc.tournaments.listPage(
+      toTournamentListRequest(state, defaultRulesets)
+    );
   } catch (error) {
     // Next's own control-flow errors (dynamic rendering, redirects) pass.
     unstable_rethrow(error);
@@ -52,9 +59,11 @@ async function fetchTournaments(
 
 function TournamentResults({
   state,
+  defaultRulesets,
   data,
 }: {
   state: TournamentListState;
+  defaultRulesets: readonly Ruleset[];
   data: TournamentListPageResponse | null;
 }) {
   if (!data) {
@@ -63,7 +72,10 @@ function TournamentResults({
 
   if (data.items.length === 0) {
     const filtered = countActiveFilters(TOURNAMENT_LIST_PARAMS, state) > 0;
-    const narrowed = filtered || state.q !== '' || state.ruleset.length > 0;
+    const narrowed =
+      filtered ||
+      state.q !== '' ||
+      resolveTournamentRulesets(state, defaultRulesets).length > 0;
 
     return (
       <EmptyState
@@ -108,9 +120,22 @@ export default async function Page({ searchParams }: PageSearchParams) {
   if (legacyHref) redirect(legacyHref);
 
   const state = parseListState(TOURNAMENT_LIST_PARAMS, raw);
-  const [session, data] = await Promise.all([
-    auth.api.getSession({ headers: await headers() }),
-    fetchTournaments(state),
+  const sessionRequest = auth.api.getSession({ headers: await headers() });
+  // An address without a ruleset shows the visitor's browsing ruleset, and
+  // every ruleset when signed out. It is never written to the address, so a
+  // shared link shows each visitor their own.
+  const defaultRulesetsRequest = sessionRequest
+    .then((session) => getBrowsingRuleset(db, session?.dbPlayer?.id))
+    .then((ruleset): Ruleset[] => (ruleset === null ? [] : [ruleset]));
+  const [session, defaultRulesets, data] = await Promise.all([
+    sessionRequest,
+    defaultRulesetsRequest,
+    // Only an address without a ruleset waits for the visitor's.
+    state.ruleset === undefined
+      ? defaultRulesetsRequest.then((rulesets) =>
+          fetchTournaments(state, rulesets)
+        )
+      : fetchTournaments(state, []),
   ]);
 
   // A page past the end, such as an old link after filtering, shows the last.
@@ -135,13 +160,18 @@ export default async function Page({ searchParams }: PageSearchParams) {
 
       <Panel aria-label="Tournament archive" data-testid="tournament-results">
         <TournamentListToolbar
+          defaultRulesets={defaultRulesets}
           count={
             data
               ? formatCountOf(data.totalCount, 'tournament', 'tournaments')
               : undefined
           }
         />
-        <TournamentResults state={state} data={data} />
+        <TournamentResults
+          state={state}
+          defaultRulesets={defaultRulesets}
+          data={data}
+        />
       </Panel>
     </PageFrame>
   );

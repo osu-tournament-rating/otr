@@ -123,7 +123,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   tournaments_verifiedByUserId: many(tournaments, {
     relationName: 'tournaments_verifiedByUserId_users_id',
   }),
-  userSettings: many(userSettings),
+  userSettings: one(userSettings),
   player: one(players, {
     fields: [users.playerId],
     references: [players.id],

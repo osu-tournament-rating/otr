@@ -44,6 +44,8 @@ export default function PlayerHero({
       meta={
         player.country ? (
           <Link
+            // Always names the ruleset, osu! included, so the visitor's
+            // browsing ruleset never replaces the one this profile shows.
             href={leaderboardHref(parseListState(LEADERBOARD_LIST_PARAMS, {}), {
               country: player.country,
               ruleset,

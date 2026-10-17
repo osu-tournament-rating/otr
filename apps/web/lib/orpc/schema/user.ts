@@ -1,8 +1,9 @@
 import { users } from '@otr/core/db/schema';
+import { Ruleset } from '@otr/core/osu';
 import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-import { CreatedUpdatedOmit } from './constants';
+import { CreatedUpdatedOmit, RulesetSchema } from './constants';
 
 export const UserSchema = createSelectSchema(users).omit(CreatedUpdatedOmit);
 
@@ -30,6 +31,48 @@ export const CurrentUserSchema = z.object({
 });
 
 export type CurrentUser = z.infer<typeof CurrentUserSchema>;
+
+/** A ruleset a player can choose in their settings: one they can be rated in. */
+export const RatedRulesetSchema = z
+  .literal([
+    Ruleset.Osu,
+    Ruleset.Taiko,
+    Ruleset.Catch,
+    Ruleset.Mania4k,
+    Ruleset.Mania7k,
+  ])
+  .describe('Ruleset: 0=Osu, 1=Taiko, 2=Catch, 4=Mania4k, 5=Mania7k');
+
+export type RatedRuleset = z.infer<typeof RatedRulesetSchema>;
+
+/** The signed-in player's ruleset settings. Null means most played. */
+export const UserSettingsSchema = z.object({
+  profileRuleset: RulesetSchema.nullable(),
+  browsingRuleset: RulesetSchema.nullable(),
+  /**
+   * The ruleset they have played most, which a null setting follows. Null
+   * with no verified tournaments.
+   */
+  mostPlayedRuleset: RulesetSchema.nullable(),
+});
+
+export type UserSettings = z.infer<typeof UserSettingsSchema>;
+
+/** The settings to change; a key left out keeps its value, null clears it. */
+export const UpdateUserSettingsInputSchema = z
+  .object({
+    profileRuleset: RatedRulesetSchema.nullable().optional(),
+    browsingRuleset: RatedRulesetSchema.nullable().optional(),
+  })
+  .refine(
+    (input) =>
+      input.profileRuleset !== undefined || input.browsingRuleset !== undefined,
+    { message: 'At least one setting is required' }
+  );
+
+export type UpdateUserSettingsInput = z.infer<
+  typeof UpdateUserSettingsInputSchema
+>;
 
 export const ADMIN_BAN_REASONS = [
   'API abuse',

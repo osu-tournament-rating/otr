@@ -21,7 +21,7 @@ The beatmap list is the reference. Components live in their own files under `@/c
 
 ## Rules at a glance
 
-- Every control that changes what a list shows is in the page address: search, sort, page, filters, ruleset, scope, tab. A reload or a shared link shows the same list. Defaults are left out of the address.
+- Every control that changes what a list shows is in the page address: search, sort, page, filters, ruleset, scope, tab. A reload or a shared link shows the same list. Defaults are left out of the address, including a default that depends on the visitor, such as a signed-in player's browsing ruleset ([A default that depends on the visitor](#a-default-that-depends-on-the-visitor)).
 - One toolbar: search, sort and Filters on the first row; scope, ruleset chips, view options and the result count on the second; active-filter chips under both. A list without a search is one strip: scope on the left, count, sort and Filters on the right. It sits inside the list's panel, above the rows.
 - Two heights, so each row lines up: the first row is 40px (the search field, the sort dropdown, its direction IconButton and the Filters button, all at the `lg` size); the second row and the active-filter row are 32px (the scope switch, ruleset chips, layout toggles, active-filter chips and the ghost `sm` "Clear all"). Outside a toolbar, a SortControl in a SectionHeader or a DataTable's phone sort strip is `size="sm"` (32px).
 - Buttons are the controls family's: text buttons are `Button` (`@/components/kit/controls/Button`) and icon-only ones `IconButton` (`@/components/kit/controls/IconButton`), never `@/components/ui/button`. Chips, the scope switch's segments, layout toggles and calendar days are not buttons in that sense and keep their own look.
@@ -59,7 +59,8 @@ export const TOURNAMENT_LIST_PARAMS = defineListParams({
     key: 'endTime',
     direction: 'desc',
   }),
-  ruleset: arrayParam(RATED_RULESETS, { role: 'scope' }),
+  // A bare address shows the visitor's browsing ruleset; `ruleset=all` shows every one.
+  ruleset: arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' }),
   status: arrayParam(VERIFICATION_STATUS_ORDER),
   reason: flagsParam(TOURNAMENT_REJECTION_REASONS, { key: 'rejectionReason' }),
   rank: rangeParam({ min: 1, max: 1_000_000, integer: true }),
@@ -67,8 +68,11 @@ export const TOURNAMENT_LIST_PARAMS = defineListParams({
   verified: booleanParam(),
 });
 
-/** The procedure's input for a list state. */
-export function toTournamentListRequest(state: TournamentListState) { … }
+/** The procedure's input for a list state, with the visitor's rulesets for a bare address. */
+export function toTournamentListRequest(
+  state: TournamentListState,
+  defaultRulesets: readonly Ruleset[]
+) { … }
 ```
 
 The server page parses it and fetches; the client toolbar reads and writes it:
@@ -76,7 +80,13 @@ The server page parses it and fetches; the client toolbar reads and writes it:
 ```tsx
 // app/tournaments/page.tsx (server)
 const state = parseListState(TOURNAMENT_LIST_PARAMS, await searchParams);
-const data = await orpc.tournaments.listPage(toTournamentListRequest(state));
+const session = await auth.api.getSession({ headers: await headers() });
+const browsing = await getBrowsingRuleset(db, session?.dbPlayer?.id);
+const defaultRulesets = browsing === null ? [] : [browsing];
+const data = await orpc.tournaments.listPage(
+  toTournamentListRequest(state, defaultRulesets)
+);
+// <TournamentListToolbar defaultRulesets={defaultRulesets} … />
 
 // components/tournaments/list/TournamentListToolbar.tsx ('use client')
 const list = useListState(TOURNAMENT_LIST_PARAMS);
@@ -114,8 +124,10 @@ const { state, setState } = list;
   }
   rulesets={
     <RulesetChips
-      value={state.ruleset}
-      onValueChange={(ruleset) => setState({ ruleset })}
+      value={state.ruleset ?? defaultRulesets}
+      onValueChange={(ruleset) =>
+        setState({ ruleset: rulesetsForAddress(ruleset, defaultRulesets) })
+      }
     />
   }
   // From the server page: formatCountOf(data.totalCount, 'tournament', 'tournaments')
@@ -297,7 +309,7 @@ import { RulesetChips } from '@/components/kit/lists/RulesetChips';
 />;
 ```
 
-- `value`: the chosen rulesets; `[]` means all. Pair it with `arrayParam(RATED_RULESETS, { role: 'scope' })`, so "Clear all" leaves it alone.
+- `value`: the chosen rulesets; `[]` means all. Pair it with `arrayParam(RATED_RULESETS, { role: 'scope' })`, so "Clear all" leaves it alone. The tournament list, whose bare address shows the visitor's browsing ruleset, adds `allValue: 'all'` and passes `state.ruleset ?? defaultRulesets` ([A default that depends on the visitor](#a-default-that-depends-on-the-visitor)).
 - `rulesets`: which chips to offer, defaulting to `RATED_RULESETS` (no `mania (other)`).
 - `showAll`: hide the "All" chip.
 - `label`: the group's accessible name, "Filter by ruleset" by default.
@@ -317,7 +329,7 @@ import { RulesetSwitch } from '@/components/kit/lists/RulesetSwitch';
 />;
 ```
 
-- Pair it with `enumParam(RATED_RULESETS, { default: Ruleset.Osu, role: 'scope' })`.
+- Pair it with `enumParam(RATED_RULESETS, { default: Ruleset.Osu, role: 'scope' })`, as the stats page does. The leaderboard, whose bare address shows the visitor's browsing ruleset, leaves out `default` and passes `state.ruleset ?? defaultRuleset` ([A default that depends on the visitor](#a-default-that-depends-on-the-visitor)).
 - `rulesets` (the five rated ones by default) and `label` (the group's accessible name, "Ruleset" by default) work as on RulesetChips.
 - Outside a toolbar, such as the stats page's rating distribution strip, its loading block is `RulesetSwitchSkeleton`; in a toolbar it is ListToolbarSkeleton's `rulesets={5} rulesetsAll={false}` ([feedback.md](feedback.md#skeletons)).
 
@@ -613,18 +625,19 @@ import { useListState } from '@/lib/kit/lists/use-list-state';
 
 Param builders. Each takes an optional `role` and `key` (the URL key, when it differs from the param's name, so old links keep working). `rangeParam` and `dayRangeParam` take `keys`, a `[min, max]` or `[from, to]` pair, as the tournament list's `keys: ['minRankRange', 'maxRankRange']`; `sortParam` takes `key`, `directionKey` and `legacyDescendingKey` and is always `sort`; `pageParam` is always `page`.
 
-| Builder                              | Value                            | Address                                  | Default role |
-| ------------------------------------ | -------------------------------- | ---------------------------------------- | ------------ |
-| `searchParam({ minLength })`         | `string`, trimmed                | `q=world+cup`                            | `search`     |
-| `pageParam()`                        | `number`, from 1                 | `page=3`                                 | `page`       |
-| `sortParam(keys, default)`           | `SortState`                      | `sort=name&dir=asc`                      | `sort`       |
-| `enumParam(options, { default })`    | one option, or `undefined`       | `ruleset=1`                              | `filter`     |
-| `arrayParam(options)`                | options in their fixed order     | `status=0&status=4`                      | `filter`     |
-| `flagsParam(flags)`                  | the set flags, in `flags` order  | `mods=24` (one bitmask)                  | `filter`     |
-| `booleanParam({ default })`          | `boolean`                        | `verified=true`                          | `filter`     |
-| `numberParam({ min, max, integer })` | `number \| undefined`            | `report=42`                              | `filter`     |
-| `rangeParam({ min, max, integer })`  | `{ min?, max? }`                 | `minSr=5&maxSr=7` for a param named `sr` | `filter`     |
-| `dayRangeParam()`                    | `{ from?, to? }` as `YYYY-MM-DD` | `dateFrom=2024-07-20` for `date`         | `filter`     |
+| Builder                              | Value                            | Address                                         | Default role |
+| ------------------------------------ | -------------------------------- | ----------------------------------------------- | ------------ |
+| `searchParam({ minLength })`         | `string`, trimmed                | `q=world+cup`                                   | `search`     |
+| `pageParam()`                        | `number`, from 1                 | `page=3`                                        | `page`       |
+| `sortParam(keys, default)`           | `SortState`                      | `sort=name&dir=asc`                             | `sort`       |
+| `enumParam(options, { default })`    | one option, or `undefined`       | `ruleset=1`                                     | `filter`     |
+| `arrayParam(options)`                | options in their fixed order     | `status=0&status=4`                             | `filter`     |
+| `arrayParam(options, { allValue })`  | the same, or `undefined`         | `ruleset=all` for `[]`, nothing for `undefined` | `filter`     |
+| `flagsParam(flags)`                  | the set flags, in `flags` order  | `mods=24` (one bitmask)                         | `filter`     |
+| `booleanParam({ default })`          | `boolean`                        | `verified=true`                                 | `filter`     |
+| `numberParam({ min, max, integer })` | `number \| undefined`            | `report=42`                                     | `filter`     |
+| `rangeParam({ min, max, integer })`  | `{ min?, max? }`                 | `minSr=5&maxSr=7` for a param named `sr`        | `filter`     |
+| `dayRangeParam()`                    | `{ from?, to? }` as `YYYY-MM-DD` | `dateFrom=2024-07-20` for `date`                | `filter`     |
 
 Roles decide how the list treats a param:
 
@@ -638,6 +651,7 @@ What the codecs guarantee, and the tests check:
 - Defaults are never written, so a fresh list has a bare address; a sort writes only the half that differs (`dir=asc` alone).
 - Invalid values read as the default instead of throwing: unknown options, out-of-range numbers, `1e3` or `0x10`, `2024-02-30`, a page of 0.
 - Arrays repeat the key, drop duplicates and unknown values, and keep the options' order, so one state has one address.
+- With `allValue`, an array has three states: absent reads as `undefined` (the page's own default), `allValue` reads as `[]` (every option), and values win over `allValue`. `[]` writes `allValue` and `undefined` writes nothing. Unknown values alone read as absent.
 - Ranges drop bounds outside the domain, treat a bound at the domain's edge as no limit, and swap reversed bounds; day ranges do the same.
 - `serializeListState` keeps params the spec does not own (`tab`, tracking params) ahead of its own, and output order follows the spec.
 - `defineListParams` throws when two params claim one URL key.
@@ -668,15 +682,25 @@ const BEATMAP_PARAMS = defineListParams({
 
 Leave `shallow` off for a list the server filters, sorts or pages: its page must render again for the new state.
 
-A link that opens another list already filtered, such as the header search's "See all", builds the address from that list's spec, so it stays valid when the list's params change:
+A link that opens another list already filtered, such as the header search's "See all", builds the address from that list's spec, so it stays valid when the list's params change. The header search found tournaments of every ruleset, so its "See all" says so instead of opening on the visitor's browsing ruleset:
 
 ```ts
 listStateHref('/tournaments', TOURNAMENT_LIST_PARAMS, {
   ...getDefaultListState(TOURNAMENT_LIST_PARAMS),
   q: term,
+  ruleset: [],
 });
-// '/tournaments?q=world+cup'
+// '/tournaments?q=world+cup&ruleset=all'
 ```
+
+### A default that depends on the visitor
+
+A signed-in player can set the ruleset the leaderboard and the tournament list open in (Settings, "Leaderboard and tournaments"); without a setting it is the ruleset they have played most. Signed-out visitors keep the fixed defaults: osu! on the leaderboard, every ruleset on the tournament list. So does a player with no verified tournaments, or whose most played is `mania (other)`, which the lists leave out.
+
+- The spec stays module-level and has no default for the param, so a bare address reads as `undefined`: `enumParam(RATED_RULESETS, { role: 'scope' })` on the leaderboard, `arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' })` on the tournament list, where every ruleset needs its own value.
+- The server page resolves the visitor's default with `getBrowsingRuleset(db, session?.dbPlayer?.id)` (`@/lib/db/ruleset-settings`), which is null when the fixed default applies, fetches with `state.ruleset ?? default`, and passes the default to the toolbar as a prop.
+- The toolbar shows `state.ruleset ?? default`, and writes `undefined` when the pick equals the default (`rulesetsForAddress` on the tournament list), so the visitor's own default never lands in the address and a shared link shows each visitor theirs.
+- Links the server builds (pages, Clear all, sort headers) keep the unresolved state. A link that means a ruleset names it, osu! included, as the profile's country link does.
 
 Do:
 

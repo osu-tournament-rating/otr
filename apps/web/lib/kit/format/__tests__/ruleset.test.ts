@@ -4,6 +4,7 @@ import { Ruleset } from '@otr/core/osu';
 import {
   getRulesetFullName,
   getRulesetLabel,
+  isRatedRuleset,
   isRuleset,
   RATED_RULESETS,
   RULESET_NAMES,
@@ -58,5 +59,14 @@ describe('ruleset names', () => {
     expect(isRuleset('0')).toBe(false);
     expect(getRulesetLabel(9)).toBe('Unknown ruleset');
     expect(getRulesetFullName(-1)).toBe('Unknown ruleset');
+  });
+
+  it('tells a rated ruleset from mania (other) and missing values', () => {
+    for (const ruleset of RATED_RULESETS) {
+      expect(isRatedRuleset(ruleset)).toBe(true);
+    }
+    expect(isRatedRuleset(Ruleset.ManiaOther)).toBe(false);
+    expect(isRatedRuleset(null)).toBe(false);
+    expect(isRatedRuleset(9)).toBe(false);
   });
 });
