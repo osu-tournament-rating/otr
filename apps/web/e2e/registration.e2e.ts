@@ -1,12 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import {
+  E2E_DELETE_PLAYER_PATH,
+  E2E_FAKE_OSU_ID_FLOOR,
+} from '../lib/auth/e2e-auth';
 import { fakeOsuUsername } from './fixtures/fake-osu';
 import { logInWithFakeOsu } from './fixtures/osu-login';
 
-// Real osu! ids are far below this, so every run signs up a user the database
-// has never seen.
+// Every run signs up a user the database has never seen.
 const newOsuId = () =>
-  2_000_000_000 + Math.floor(Math.random() * 1_000_000_000);
+  E2E_FAKE_OSU_ID_FLOOR + Math.floor(Math.random() * 1_000_000_000);
 
 type SessionBody = {
   user: { id: string; osuId: number; playerId: number };
@@ -35,12 +38,19 @@ async function signInWithOsu(page: Page, osuId: number): Promise<SessionBody> {
 }
 
 test.describe('Registration', () => {
+  const osuId = newOsuId();
+
+  test.afterEach(async ({ request }) => {
+    const response = await request.post(E2E_DELETE_PLAYER_PATH, {
+      data: { osuId },
+    });
+    expect(response.ok()).toBe(true);
+  });
+
   test('a new osu! user signs up, then signs back in to the same account', async ({
     page,
     context,
   }) => {
-    const osuId = newOsuId();
-
     const signUp = await signInWithOsu(page, osuId);
     expect(signUp.user.osuId).toBe(osuId);
     expect(signUp.dbPlayer?.osuId).toBe(osuId);
