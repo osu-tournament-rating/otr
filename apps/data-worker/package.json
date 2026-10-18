@@ -6,7 +6,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --compile --outfile dist/data-worker",
-    "lint": "bunx eslint src --ext .ts --cache --cache-location node_modules/.cache/eslint/",
+    "lint": "eslint src --ext .ts --cache --cache-location node_modules/.cache/eslint/",
     "test": "bun test"
   },
   "dependencies": {
@@ -20,7 +20,11 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^10.0.1",
     "@types/amqplib": "^0.10.8",
-    "bun-types": "^1.4.3"
+    "@typescript-eslint/eslint-plugin": "^8.71.1",
+    "@typescript-eslint/parser": "^8.71.1",
+    "bun-types": "^1.4.3",
+    "eslint": "^10.12.0"
   }
 }

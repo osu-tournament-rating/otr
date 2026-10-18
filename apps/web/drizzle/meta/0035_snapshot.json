@@ -1,6 +1,6 @@
 {
-  "id": "cc4ece17-fd46-4f71-b101-bf8981838e9b",
-  "prevId": "4cbbcc9a-e78a-4ead-805d-dc6121b90c2c",
+  "id": "f064a941-2c15-4940-9933-854345411a27",
+  "prevId": "a05530fe-fdb9-475c-bc48-773e7305a9b1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3028,6 +3028,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "lazer_mods": {
+          "name": "lazer_mods",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "stat_combo_break": {
           "name": "stat_combo_break",
           "type": "integer",
@@ -3342,6 +3348,12 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "lazer_mods": {
+          "name": "lazer_mods",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "start_time": {
           "name": "start_time",
@@ -6582,18 +6594,6 @@
             "cache": "1",
             "cycle": false
           }
-        },
-        "profile_ruleset": {
-          "name": "profile_ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "browsing_ruleset": {
-          "name": "browsing_ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "user_id": {
           "name": "user_id",

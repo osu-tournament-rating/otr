@@ -10,6 +10,7 @@ import {
   filterBeatmapModDistribution,
   getBeatmapModLabel,
   normalizeBeatmapDisplayMods,
+  getScoreDisplayLazerMods,
   getScoreDisplayMods,
   resolveGameDisplayMods,
   selectBeatmapListModGroups,
@@ -257,7 +258,7 @@ describe('resolveGameDisplayMods', () => {
       resolveGameDisplayMods({ isFreeMod: false, mods: Mods.HardRock }, [
         { mods: Mods.None },
       ])
-    ).toEqual({ mods: Mods.HardRock, freemod: false });
+    ).toEqual({ mods: Mods.HardRock, lazerMods: null, freemod: false });
   });
 
   it('reports the shared score combo for a uniform freemod game', () => {
@@ -267,7 +268,7 @@ describe('resolveGameDisplayMods', () => {
         { mods: Mods.Hidden },
         { mods: Mods.Hidden | Mods.NoFail },
       ])
-    ).toEqual({ mods: Mods.Hidden, freemod: false });
+    ).toEqual({ mods: Mods.Hidden, lazerMods: null, freemod: false });
   });
 
   it('keeps No Fail when every freemod score has it', () => {
@@ -276,7 +277,11 @@ describe('resolveGameDisplayMods', () => {
         { mods: Mods.Hidden | Mods.NoFail },
         { mods: Mods.Hidden | Mods.NoFail },
       ])
-    ).toEqual({ mods: Mods.Hidden | Mods.NoFail, freemod: false });
+    ).toEqual({
+      mods: Mods.Hidden | Mods.NoFail,
+      lazerMods: null,
+      freemod: false,
+    });
   });
 
   it('falls back to FM when freemod combinations genuinely differ', () => {
@@ -285,7 +290,7 @@ describe('resolveGameDisplayMods', () => {
         { mods: Mods.Hidden },
         { mods: Mods.HardRock },
       ])
-    ).toEqual({ mods: Mods.None, freemod: true });
+    ).toEqual({ mods: Mods.None, lazerMods: null, freemod: true });
   });
 
   it('shows the forced mods beside FM', () => {
@@ -294,13 +299,53 @@ describe('resolveGameDisplayMods', () => {
         { isFreeMod: true, mods: Mods.FreeModAllowed | Mods.DoubleTime },
         [{ mods: Mods.DoubleTime | Mods.Hidden }, { mods: Mods.DoubleTime }]
       )
-    ).toEqual({ mods: Mods.DoubleTime, freemod: true });
+    ).toEqual({ mods: Mods.DoubleTime, lazerMods: null, freemod: true });
   });
 
   it('keeps the FM icon for a freemod game with no scores', () => {
     expect(
       resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [])
-    ).toEqual({ mods: Mods.None, freemod: true });
+    ).toEqual({ mods: Mods.None, lazerMods: null, freemod: true });
+  });
+});
+
+describe('resolveGameDisplayMods with lazer mods', () => {
+  it('uses the game lazer mods when the game is not freemod', () => {
+    const lazerMods = [{ acronym: 'DT', settings: { speed_change: 1.2 } }];
+
+    expect(
+      resolveGameDisplayMods(
+        { isFreeMod: false, mods: Mods.DoubleTime, lazerMods },
+        []
+      )
+    ).toEqual({ mods: Mods.DoubleTime, lazerMods, freemod: false });
+  });
+
+  it('reports lazer mods every score shares, ignoring NF', () => {
+    expect(
+      resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [
+        {
+          mods: Mods.Hidden,
+          lazerMods: [{ acronym: 'HD' }, { acronym: 'DA' }],
+        },
+        {
+          mods: Mods.Hidden | Mods.NoFail,
+          lazerMods: [{ acronym: 'HD' }, { acronym: 'DA' }, { acronym: 'NF' }],
+        },
+      ]).lazerMods
+    ).toEqual([{ acronym: 'HD' }, { acronym: 'DA' }]);
+  });
+
+  it('drops lazer mods when the scores differ in them', () => {
+    expect(
+      resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None }, [
+        { mods: Mods.Hidden, lazerMods: [{ acronym: 'HD' }] },
+        {
+          mods: Mods.Hidden,
+          lazerMods: [{ acronym: 'HD' }, { acronym: 'BR' }],
+        },
+      ])
+    ).toEqual({ mods: Mods.Hidden, lazerMods: null, freemod: false });
   });
 });
 
@@ -313,7 +358,11 @@ describe('getScoreDisplayMods', () => {
       scores
     );
 
-    expect(header).toEqual({ mods: Mods.NoFail, freemod: false });
+    expect(header).toEqual({
+      mods: Mods.NoFail,
+      lazerMods: null,
+      freemod: false,
+    });
     expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
       [Mods.None, Mods.None]
     );
@@ -358,7 +407,11 @@ describe('getScoreDisplayMods', () => {
       scores
     );
 
-    expect(header).toEqual({ mods: Mods.Hidden, freemod: false });
+    expect(header).toEqual({
+      mods: Mods.Hidden,
+      lazerMods: null,
+      freemod: false,
+    });
     expect(scores.map((s) => getScoreDisplayMods(s.mods, header.mods))).toEqual(
       [Mods.NoFail, Mods.None]
     );
@@ -393,5 +446,60 @@ describe('deriveGameIsFreeMod', () => {
     expect(deriveGameIsFreeMod(Mods.HardRock, [{ mods: Mods.HardRock }])).toBe(
       false
     );
+  });
+});
+
+describe('resolveGameDisplayMods No Fail for lazer games', () => {
+  it('adds No Fail to the lobby lazer mods when every score has it', () => {
+    expect(
+      resolveGameDisplayMods(
+        { isFreeMod: false, mods: Mods.Hidden, lazerMods: [{ acronym: 'HD' }] },
+        [
+          {
+            mods: Mods.Hidden | Mods.NoFail,
+            lazerMods: [{ acronym: 'HD' }, { acronym: 'NF' }],
+          },
+        ]
+      ).lazerMods
+    ).toEqual([{ acronym: 'HD' }, { acronym: 'NF' }]);
+  });
+
+  it('shows the required lazer mods with FM when freemod scores differ', () => {
+    const lazerMods = [{ acronym: 'DA', settings: { approach_rate: 9 } }];
+
+    expect(
+      resolveGameDisplayMods({ isFreeMod: true, mods: Mods.None, lazerMods }, [
+        { mods: Mods.Hidden, lazerMods: [{ acronym: 'HD' }, ...lazerMods] },
+        { mods: Mods.HardRock, lazerMods: [{ acronym: 'HR' }, ...lazerMods] },
+      ])
+    ).toEqual({ mods: Mods.None, lazerMods, freemod: true });
+  });
+});
+
+describe('getScoreDisplayLazerMods', () => {
+  it('drops the lazer mods the header shows with the same settings', () => {
+    expect(
+      getScoreDisplayLazerMods(
+        [
+          { acronym: 'DT', settings: { speed_change: 1.2 } },
+          { acronym: 'HD' },
+          { acronym: 'DA', settings: { approach_rate: 9 } },
+        ],
+        [
+          { acronym: 'DT', settings: { speed_change: 1.2 } },
+          { acronym: 'DA', settings: { approach_rate: 10 } },
+        ]
+      )
+    ).toEqual([
+      { acronym: 'HD' },
+      { acronym: 'DA', settings: { approach_rate: 9 } },
+    ]);
+  });
+
+  it('keeps a stable score on its flags and a lazer score without a header list', () => {
+    expect(getScoreDisplayLazerMods(null, [{ acronym: 'HD' }])).toBeNull();
+    expect(getScoreDisplayLazerMods([{ acronym: 'HD' }], null)).toEqual([
+      { acronym: 'HD' },
+    ]);
   });
 });

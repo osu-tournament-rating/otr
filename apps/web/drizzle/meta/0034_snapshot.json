@@ -1,5 +1,5 @@
 {
-  "id": "4cbbcc9a-e78a-4ead-805d-dc6121b90c2c",
+  "id": "a05530fe-fdb9-475c-bc48-773e7305a9b1",
   "prevId": "5d52b4f5-e75a-4104-82aa-3d6d7f900579",
   "version": "7",
   "dialect": "postgresql",
@@ -3028,6 +3028,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "lazer_mods": {
+          "name": "lazer_mods",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "stat_combo_break": {
           "name": "stat_combo_break",
           "type": "integer",
@@ -3342,6 +3348,12 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "lazer_mods": {
+          "name": "lazer_mods",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "start_time": {
           "name": "start_time",
@@ -5654,6 +5666,13 @@
           "notNull": true,
           "default": "''"
         },
+        "default_ruleset": {
+          "name": "default_ruleset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "osu_last_fetch": {
           "name": "osu_last_fetch",
           "type": "timestamp with time zone",
@@ -6582,6 +6601,20 @@
             "cache": "1",
             "cycle": false
           }
+        },
+        "default_ruleset": {
+          "name": "default_ruleset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "default_ruleset_is_controlled": {
+          "name": "default_ruleset_is_controlled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "user_id": {
           "name": "user_id",

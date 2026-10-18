@@ -1,5 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test';
+import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { Mods, Ruleset, VerificationStatus } from '@otr/core/osu/enums';
+import type { Mod, Multiplayer } from 'osu-api-v2-js';
 
 mock.module('../../client', () => ({
   APIError: class APIError extends Error {},
@@ -42,7 +44,7 @@ const createService = (existingScore?: {
     dataCompletion: {} as never,
   });
 
-  const processRoomScores = (score: Record<string, unknown>) =>
+  const processRoomScores = (score: ReturnType<typeof createScore>) =>
     (
       service as unknown as {
         processRoomScores: (...args: unknown[]) => Promise<void>;
@@ -61,18 +63,28 @@ const createService = (existingScore?: {
   return { inserted, updated, processRoomScores };
 };
 
-const createScore = (mods: string[]) => ({
-  user_id: 100,
-  total_score: 100_001,
-  legacy_total_score: 40_000,
-  mods: mods.map((acronym) => ({ acronym })),
-  statistics: {},
-  accuracy: 0.98,
-  pp: null,
-  max_combo: 500,
-  passed: true,
-  rank: 'S',
-});
+type ModInput = string | Mod;
+
+const toApiMods = (mods: ModInput[]): Mod[] =>
+  mods.map((mod) => (typeof mod === 'string' ? { acronym: mod } : mod));
+
+/**
+ * The score fields the room fetch reads. `satisfies` checks their names and
+ * types against the osu! API client, so a renamed field fails to compile.
+ */
+const createScore = (mods: ModInput[]) =>
+  ({
+    user_id: 100,
+    total_score: 100_001,
+    legacy_total_score: 40_000,
+    mods: toApiMods(mods),
+    statistics: {},
+    accuracy: 0.98,
+    pp: null,
+    max_combo: 500,
+    passed: true,
+    rank: 'S',
+  }) satisfies Partial<Multiplayer.Room.PlaylistItem.Score>;
 
 describe('processRoomScores', () => {
   it('stores easy scores with the multiplier', async () => {
@@ -96,6 +108,25 @@ describe('processRoomScores', () => {
     expect(inserted[0]?.legacyTotalScore).toBe(40_000);
   });
 
+  it('stores every lazer mod with its settings', async () => {
+    const { inserted, processRoomScores } = createService();
+
+    await processRoomScores(
+      createScore([
+        { acronym: 'DT', settings: { speed_change: 1.2 } },
+        'DA',
+        'BR',
+      ])
+    );
+
+    expect(inserted[0]?.mods).toBe(Mods.DoubleTime);
+    expect(inserted[0]?.lazerMods).toEqual([
+      { acronym: 'DT', settings: { speed_change: 1.2 } },
+      { acronym: 'DA' },
+      { acronym: 'BR' },
+    ]);
+  });
+
   it('applies the multiplier when updating an existing score', async () => {
     const { updated, processRoomScores } = createService({
       id: 55,
@@ -107,5 +138,124 @@ describe('processRoomScores', () => {
     expect(updated[0]?.rawScore).toBe(100_001);
     expect(updated[0]?.adjustedScore).toBe(175_002);
     expect(updated[0]?.legacyTotalScore).toBe(40_000);
+  });
+
+  it('replaces the lazer mods when updating an existing score', async () => {
+    const { updated, processRoomScores } = createService({
+      id: 55,
+      verificationStatus: VerificationStatus.None,
+    });
+
+    await processRoomScores(createScore(['HD', 'BR']));
+
+    expect(updated[0]?.lazerMods).toEqual([
+      { acronym: 'HD' },
+      { acronym: 'BR' },
+    ]);
+  });
+});
+
+/** A finished head-to-head room with one playlist item and no scores. */
+const createRoomEvents = (requiredMods: ModInput[]) => ({
+  room: {
+    name: 'TT: (Red) vs (Blue)',
+    type: 'head_to_head',
+    starts_at: '2025-10-04T12:00:00Z',
+    ends_at: '2025-10-04T13:00:00Z',
+  },
+  users: [],
+  events: [
+    {
+      event_type: 'game_started',
+      playlist_item_id: 3,
+      created_at: '2025-10-04T12:05:00Z',
+    },
+    {
+      event_type: 'game_completed',
+      playlist_item_id: 3,
+      created_at: '2025-10-04T12:09:00Z',
+    },
+    {
+      event_type: 'room_disbanded',
+      playlist_item_id: null,
+      created_at: '2025-10-04T13:00:00Z',
+    },
+  ],
+  playlist_items: [
+    {
+      id: 3,
+      beatmap_id: 1234,
+      ruleset_id: 0,
+      required_mods: toApiMods(requiredMods),
+      details: { room_type: 'head_to_head', teams: null },
+      scores: [],
+    } satisfies Partial<Multiplayer.Room.PlaylistItem.WithDetailsScores>,
+  ],
+});
+
+const fetchRoom = async (requiredMods: ModInput[]) => {
+  const insertedGames: Record<string, unknown>[] = [];
+
+  const tx = {
+    query: {
+      // Already fetched, so the room fetch queues no beatmap job.
+      beatmaps: {
+        findFirst: async () => ({
+          id: 9,
+          dataFetchStatus: DataFetchStatus.Fetched,
+        }),
+      },
+      games: { findFirst: async () => undefined },
+    },
+    insert: () => ({
+      values: (values: Record<string, unknown>) => {
+        insertedGames.push(values);
+        return {
+          returning: async () => [
+            { id: 77, verificationStatus: VerificationStatus.None },
+          ],
+        };
+      },
+    }),
+    update: () => ({ set: () => ({ where: async () => {} }) }),
+  };
+
+  const service = new RoomFetchService({
+    db: {
+      update: () => ({ set: () => ({ where: async () => {} }) }),
+      transaction: async (run: (client: typeof tx) => Promise<void>) => run(tx),
+    } as never,
+    api: { getRoomEvents: async () => createRoomEvents(requiredMods) } as never,
+    rateLimiter: { schedule: (task: () => unknown) => task() } as never,
+    logger: { warn: () => {}, error: () => {}, info: () => {} } as never,
+    publishBeatmapFetch: async () => {},
+    dataCompletion: { updateMatchFetchStatus: async () => {} } as never,
+  });
+
+  const fetched = await service.fetchAndPersistRoom(42, {
+    id: 1,
+    tournamentId: 2,
+    dataFetchStatus: DataFetchStatus.NotFetched,
+    verificationStatus: VerificationStatus.None,
+    isLazer: true,
+    tournament: { id: 2, ruleset: Ruleset.Osu },
+  });
+
+  return { fetched, insertedGames };
+};
+
+describe('fetchAndPersistRoom', () => {
+  it("stores the game's required lazer mods with their settings", async () => {
+    const { fetched, insertedGames } = await fetchRoom([
+      { acronym: 'DT', settings: { speed_change: 1.2 } },
+      'BR',
+    ]);
+
+    expect(fetched).toBe(true);
+    expect(insertedGames[0]?.mods).toBe(Mods.DoubleTime);
+    expect(insertedGames[0]?.lazerMods).toEqual([
+      { acronym: 'DT', settings: { speed_change: 1.2 } },
+      { acronym: 'BR' },
+    ]);
   });
 });

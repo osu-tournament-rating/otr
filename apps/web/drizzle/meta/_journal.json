@@ -243,15 +243,22 @@
     {
       "idx": 34,
       "version": "7",
-      "when": 1792287577490,
-      "tag": "0034_drop_default_ruleset",
+      "when": 1792287545217,
+      "tag": "0034_lazer_mods",
       "breakpoints": true
     },
     {
       "idx": 35,
       "version": "7",
-      "when": 1792287577941,
-      "tag": "0035_user_ruleset_settings",
+      "when": 1792287885248,
+      "tag": "0035_drop_default_ruleset",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792287885705,
+      "tag": "0036_user_ruleset_settings",
       "breakpoints": true
     }
   ]

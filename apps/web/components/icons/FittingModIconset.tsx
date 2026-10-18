@@ -2,14 +2,16 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
 import { MOD_BADGE_LIFT, ModBadgeIcon } from '@/components/icons/ModIconset';
 import TapTooltip from '@/components/tap-tooltip';
 import {
   countModBadgeSlots,
   fitModBadges,
-  getModBadgeAcronyms,
-  getModName,
+  getModBadgeEntries,
+  getModEntryName,
+  type ModBadgeEntry,
 } from '@/lib/utils/mod-badges';
 import { cn } from '@/lib/utils';
 
@@ -17,8 +19,9 @@ import { cn } from '@/lib/utils';
 const BADGE_GAP_PX = 2;
 
 /** A badge-shaped "+N" chip that lists the mods it stands for. */
-function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
-  const names = acronyms.map(getModName);
+function HiddenModsChip({ entries }: { entries: ModBadgeEntry[] }) {
+  const acronyms = entries.map(({ acronym }) => acronym);
+  const names = entries.map(getModEntryName);
 
   return (
     <TapTooltip
@@ -30,7 +33,12 @@ function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
           {acronyms.map((acronym, index) => (
             <li key={acronym} className="flex items-center gap-2">
               {/* A tooltip can't hold tooltips: the name sits beside it. */}
-              <ModBadgeIcon acronym={acronym} tooltip={false} className="h-4" />
+              <ModBadgeIcon
+                acronym={acronym}
+                speed={entries[index].speed}
+                tooltip={false}
+                className="h-4"
+              />
               {names[index]}
             </li>
           ))}
@@ -62,18 +70,22 @@ function HiddenModsChip({ acronyms }: { acronyms: string[] }) {
 /**
  * A mod row that never wraps: it shows as many badges as its width holds and
  * folds the rest into a "+N" chip. Give it a height and a width, such as
- * `h-5 flex-1`; the badges keep their order and pack to the end.
+ * `h-5 flex-1`; the badges keep their order and pack to the end. Lazer mods
+ * draw as `ModIconset` draws them, with a custom speed in the badge's name
+ * only, so every badge keeps one slot.
  */
 export default function FittingModIconset({
   mods,
+  lazerMods,
   className,
 }: {
   mods: Mods;
+  lazerMods?: readonly LazerMod[] | null;
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState<number | null>(null);
-  const acronyms = getModBadgeAcronyms(mods);
+  const entries = getModBadgeEntries(mods, lazerMods);
 
   // Measured before the first client paint, so the row never shows a cut.
   useLayoutEffect(() => {
@@ -94,9 +106,9 @@ export default function FittingModIconset({
   // The server can't measure: it sends every badge, clipped at the row's end.
   const { shown } =
     slots === null
-      ? { shown: acronyms.length }
-      : fitModBadges(acronyms.length, slots);
-  const hidden = acronyms.slice(shown);
+      ? { shown: entries.length }
+      : fitModBadges(entries.length, slots);
+  const hidden = entries.slice(shown);
 
   return (
     <div
@@ -108,10 +120,10 @@ export default function FittingModIconset({
       )}
     >
       <div className="flex h-full items-center gap-0.5">
-        {acronyms.slice(0, shown).map((acronym) => (
-          <ModBadgeIcon key={acronym} acronym={acronym} />
+        {entries.slice(0, shown).map(({ acronym, speed }) => (
+          <ModBadgeIcon key={acronym} acronym={acronym} speed={speed} />
         ))}
-        {hidden.length > 0 && <HiddenModsChip acronyms={hidden} />}
+        {hidden.length > 0 && <HiddenModsChip entries={hidden} />}
       </div>
     </div>
   );

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { Mods } from '@otr/core/osu';
 
-import { formatMods, getModAcronyms, MOD_ACRONYMS } from '../mods';
+import {
+  formatLazerMods,
+  formatMods,
+  getModAcronyms,
+  MOD_ACRONYMS,
+} from '../mods';
 
 describe('formatMods', () => {
   it('writes acronyms in bit order', () => {
@@ -53,5 +58,21 @@ describe('formatMods', () => {
       expect(flag & (flag - 1)).toBe(0);
     }
     expect(new Set(MOD_ACRONYMS.map(([, acronym]) => acronym)).size).toBe(31);
+  });
+});
+
+describe('formatLazerMods', () => {
+  it('writes every lazer mod in play order, with a custom speed', () => {
+    expect(
+      formatLazerMods([
+        { acronym: 'HD' },
+        { acronym: 'DT', settings: { speed_change: 1.25 } },
+        { acronym: 'BR', settings: { spin_speed: 0.5 } },
+      ])
+    ).toBe('HD, DT 1.25x, BR');
+  });
+
+  it('writes NM when there are none', () => {
+    expect(formatLazerMods([])).toBe('NM');
   });
 });

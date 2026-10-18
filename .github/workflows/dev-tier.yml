@@ -4,10 +4,12 @@ name: Dev tier
 # out of deploy.yml: this tier has no application images and no migrate
 # service, so it does not fit that workflow's build-and-migrate shape.
 #
-# A deploy and the nightly run also install the operations scripts in
-# apps/scripts from the default branch at <DEV_REMOTE_PATH>/apps/scripts, with
-# the dev environment's SCRIPTS_ENV secret as their .env. dev-db.sh restores
-# the replica with them.
+# A deploy and the nightly run install scripts/preview from the default branch
+# at <DEV_REMOTE_PATH>/scripts/preview, where previews run it. They also
+# install the operations scripts in apps/scripts at
+# <DEV_REMOTE_PATH>/apps/scripts, with the dev environment's SCRIPTS_ENV secret
+# as their .env. dev-db.sh restores the replica with them. Only a deploy
+# replaces the tier's .env and docker-compose.yml.
 
 on:
   workflow_dispatch:
@@ -68,6 +70,10 @@ jobs:
               echo "$when $(sha256sum "apps/web/drizzle/${tag}.sql" | cut -d' ' -f1)"
             done)
           echo "expected=$(base64 -w0 <<<"$list")" >> "$GITHUB_OUTPUT"
+          # The host migrates with these same files rather than the ones in
+          # its image, which can trail the default branch.
+          tar -czf "$RUNNER_TEMP/migrations.tar.gz" \
+            apps/web/drizzle/meta/_journal.json apps/web/drizzle/*.sql
 
       - name: Connect to tailscale
         uses: tailscale/github-action@v4
@@ -89,11 +95,80 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > .env
           cp docker-compose-dev.yml docker-compose.yml
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            mkdir -p "$DEV_REMOTE_PATH/scripts"
-          scp -o StrictHostKeyChecking=no -r .env docker-compose.yml \
+            mkdir -p "$DEV_REMOTE_PATH"
+          scp -o StrictHostKeyChecking=no .env docker-compose.yml \
             "$SSH_USER@$SSH_HOST:$DEV_REMOTE_PATH/"
-          scp -o StrictHostKeyChecking=no -r scripts/preview \
-            "$SSH_USER@$SSH_HOST:$DEV_REMOTE_PATH/scripts/"
+
+      # Previews run the host's copy, so the nightly run installs it too, not
+      # only a deploy. As in deploy-ops-scripts.sh, each install unpacks into
+      # its own directory and scripts/preview is a symlink moved to it in one
+      # rename. preview.yml reads the copy without dev-db.sh's lock, so it
+      # finds either the old copy or the new one, never neither. The swap
+      # still waits for that lock, so a dev-db.sh run that holds it keeps one
+      # copy from start to finish.
+      - name: Install the preview scripts
+        if: ${{ contains(fromJSON('["deploy", "nightly"]'), github.event.inputs.action || 'nightly') }}
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          DEV_REMOTE_PATH: ${{ secrets.DEV_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          tar -czf "$RUNNER_TEMP/preview.tar.gz" -C scripts preview
+          # mktemp -d makes the upload directory private to the deploying user,
+          # and the script below removes it.
+          upload=$(ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" mktemp -d)
+          scp -o StrictHostKeyChecking=no -q "$RUNNER_TEMP/preview.tar.gz" \
+            "$SSH_USER@$SSH_HOST:$upload/"
+
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            bash -s -- "$DEV_REMOTE_PATH" "$upload" <<'EOF'
+            set -euo pipefail
+            cd "$1"
+            mkdir -p scripts
+            # Installs sit beside the link, named by time so sorting the names
+            # sorts the installs. At the same depth as scripts/preview, the
+            # ../.. dev-db.sh climbs to find apps/scripts reaches this
+            # directory whether or not the link is resolved.
+            release="$(mktemp -d "scripts/.preview-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+            name="${release##*/}"
+            installed=false
+            trap 'rm -rf "$2"; [[ "$installed" == true ]] || rm -rf "$release"' EXIT
+            tar -xzf "$2/preview.tar.gz" -C "$release" --strip-components=1
+            chmod 755 "$release"
+            chmod +x "$release/dev-db.sh"
+            # A copy that cannot report its version never goes live. The rest
+            # of this script is bash's stdin, so the check gets /dev/null.
+            "$release/dev-db.sh" capabilities </dev/null
+
+            exec 9>.dev-db.lock
+            flock -w 1800 -x 9 || {
+              echo "another dev tier operation still holds the lock after 1800s" >&2
+              exit 1
+            }
+            # rename(2) swaps the symlink in one step. It cannot replace a
+            # real directory, and -T refuses to move the link into one, so the
+            # first install over the old real directory moves it aside first,
+            # named by when it was installed so it sorts oldest. That install
+            # alone leaves a moment with no scripts/preview.
+            ln -sfn "$name" scripts/.preview-next
+            if [[ -d scripts/preview && ! -L scripts/preview ]]; then
+              mv -T scripts/preview \
+                "scripts/.preview-$(date -u -r scripts/preview +%Y%m%dT%H%M%SZ)-legacy"
+            fi
+            mv -T scripts/.preview-next scripts/preview
+            installed=true
+            echo "scripts/preview now points at install $name"
+
+            # The two installs before this one are kept, because a run that
+            # started before the swap can still be reading its files.
+            find scripts -mindepth 1 -maxdepth 1 -type d -name '.preview-[0-9]*' -printf '%f\n' |
+              sort -r | { grep -vxF "$name" || true; } | tail -n +3 |
+              while IFS= read -r old; do
+                rm -rf "scripts/$old"
+                echo "removed install $old"
+              done
+          EOF
 
       - name: Bring up dev tier
         if: ${{ (github.event.inputs.action || 'nightly') == 'deploy' }}
@@ -107,7 +182,6 @@ jobs:
             bash -s -- "$DEV_REMOTE_PATH" <<'EOF'
             set -euo pipefail
             cd "$1"
-            chmod +x scripts/preview/dev-db.sh
             docker compose pull
             docker compose up -d --remove-orphans
             # Nothing consumes these queues without a data worker, so let idle
@@ -145,15 +219,24 @@ jobs:
             --limit 200 --json number --jq '.[].number')
           echo "$(count_lines "$open_prs") open pull requests"
 
+          # mktemp -d makes the upload directory private to the deploying user,
+          # and the script below removes it.
+          upload=$(ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" mktemp -d)
+          scp -o StrictHostKeyChecking=no -q "$RUNNER_TEMP/migrations.tar.gz" \
+            "$SSH_USER@$SSH_HOST:$upload/"
+
           ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
             bash -s -- "$DEV_REMOTE_PATH" "$ACTION" \
-            "$EXPECTED_JOURNAL" "$(base64 -w0 <<<"$open_prs")" "$PREVIEW_REMOTE_PATH" <<'EOF'
+            "$EXPECTED_JOURNAL" "$(base64 -w0 <<<"$open_prs")" "$PREVIEW_REMOTE_PATH" \
+            "$upload" <<'EOF'
             set -euo pipefail
             cd "$1"
+            trap 'rm -rf "$6"' EXIT
             EXPECTED_JOURNAL="$(printf %s "$3" | base64 -d)"
             OPEN_PRS="$(printf %s "$4" | base64 -d)"
             export EXPECTED_JOURNAL OPEN_PRS
             export PREVIEW_REMOTE_PATH="$5"
+            export MIGRATIONS_ARCHIVE="$6/migrations.tar.gz"
 
             case "$2" in
               deploy) ./scripts/preview/dev-db.sh sync ;;

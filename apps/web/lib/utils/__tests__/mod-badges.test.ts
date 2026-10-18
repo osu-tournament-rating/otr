@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'bun:test';
 
-import { countModBadgeSlots, fitModBadges } from '../mod-badges';
+import { Mods } from '@otr/core/osu';
+
+import {
+  countModBadgeSlots,
+  fitModBadges,
+  getModBadgeEntries,
+  getModEntryName,
+} from '../mod-badges';
 
 describe('countModBadgeSlots', () => {
   it('fits a badge 10/7 as wide as it is tall, gaps between', () => {
@@ -33,5 +40,38 @@ describe('fitModBadges', () => {
 
   it('shows a lone badge rather than a chip in its place', () => {
     expect(fitModBadges(1, 0)).toEqual({ shown: 1, hidden: 0 });
+  });
+});
+
+describe('getModBadgeEntries', () => {
+  it('draws lazer mods in play order with their speed, after FM', () => {
+    expect(
+      getModBadgeEntries(
+        Mods.DoubleTime,
+        [{ acronym: 'DT', settings: { speed_change: 1.2 } }, { acronym: 'BR' }],
+        true
+      )
+    ).toEqual([
+      { acronym: 'FM', speed: null },
+      { acronym: 'DT', speed: 1.2 },
+      { acronym: 'BR', speed: null },
+    ]);
+  });
+
+  it('draws the flags when there are no lazer mods', () => {
+    expect(getModBadgeEntries(Mods.Hidden, null)).toEqual([
+      { acronym: 'HD', speed: null },
+    ]);
+  });
+});
+
+describe('getModEntryName', () => {
+  it('names a custom speed after the mod', () => {
+    expect(getModEntryName({ acronym: 'DT', speed: 1.25 })).toBe(
+      'Double Time 1.25x'
+    );
+    expect(getModEntryName({ acronym: 'DA', speed: null })).toBe(
+      'Difficulty Adjust'
+    );
   });
 });

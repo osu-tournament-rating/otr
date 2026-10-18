@@ -36,7 +36,8 @@
     "apps/web/**/*.tsx",
     "apps/data-worker/env.d.ts",
     "apps/data-worker/src/**/*.ts",
-    "packages/**/*.ts"
+    "packages/**/*.ts",
+    "lib/**/*.ts"
   ],
   "exclude": [
     "node_modules",

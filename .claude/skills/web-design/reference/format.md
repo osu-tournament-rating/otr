@@ -446,6 +446,7 @@ formatMods(Mods.FreeModAllowed); // "Freemod"
 - This is the faithful form: it keeps NF, SO, V2 and key mods, and drops only a flag another implies (DT under NC, SD under PF). Use it for data views and audit values.
 - Acronyms follow the site's `ModsEnumHelper` (Cinema is `CM`). Key co-op, which it leaves blank, is `CO`, as the data worker reads it.
 - `MOD_ACRONYMS` is the bit-order table, and `NO_MOD_LABEL` (`NM`) and `FREEMOD_LABEL` (`Freemod`) the two words it can print; a value carrying the whole freemod mask reads `Freemod` plus whatever else is set.
+- Lazer games and scores also carry `lazerMods`, every mod in play order with the settings the player changed, lazer-only mods included. Write it with `formatLazerMods`: `DT 1.2x, DA, BR`, or `NM` for an empty list. `formatLazerMod` writes one, and `getLazerModSpeed` reads a custom speed. Where a game or score has `lazerMods`, show them instead of the flags; `ModIconset` and `FittingModIconset` take them as `lazerMods` ([color.md](color.md#mod-badges)).
 - The beatmap pages' display rules (drop NF and SO, fold NC into DT, `HDHR` without separators) stay in `lib/utils/mods.ts` (`getBeatmapModLabel`); their colours are the mod palette in `@/lib/kit/color/mods` ([color.md](color.md#mod-colours)).
 
 ## Countries

@@ -86,10 +86,10 @@ the rating run: admin writes return 503 and the worker defers osu! fetches.
   copy.
 - The dev tier is a shared environment, restored nightly from a redacted copy of
   production.
-- The dev host keeps the `scripts/preview` from the last Dev tier `deploy` run.
-  Nightly runs and previews use that copy, and nothing else updates it. After
-  a change to `scripts/preview` merges, tell the user to run the Dev tier
-  `deploy` action.
+- Dev tier `deploy` and nightly runs install `scripts/preview` on the dev host
+  from `master`, and previews use that copy. After a change to
+  `scripts/preview` merges, tell the user to run the Dev tier `deploy` action
+  to apply it before the next nightly run.
 
 ## Starting in a worktree
 
@@ -152,6 +152,20 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
   Variables already set in the shell win over `.env`.
 - Changing a queue's declared arguments, such as its priority, requires deleting
   that queue on every broker.
+- Each workspace declares every package it imports or runs, including in config
+  files and tests. Bun hoists packages, and a worktree resolves anything it
+  lacks from the main checkout, so an undeclared package passes locally and
+  fails in CI. Root `bun run lint`, which pre-commit and CI run, starts with
+  `lint:deps`. First, `lib/deps/check-install.ts` checks that every declared
+  package is installed in this checkout at a version its range allows. When it
+  reports a stale or missing install, run the reinstall command it prints; new
+  desktop worktrees copy the main checkout's `node_modules`. Then knip checks
+  that each workspace, or the root, declares the packages its code, config, and
+  test files import, and the binaries its `package.json` scripts call directly.
+  knip lets an import through when a declared package lists it as a peer and
+  it resolves from anywhere, including the main checkout, so
+  `lib/deps/check-peer-imports.ts` reports those imports first. Neither checks
+  hook commands, workflow steps, or FlatCompat plugin names.
 
 ## UI conventions
 

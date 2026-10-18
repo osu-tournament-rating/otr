@@ -33,19 +33,17 @@ count_lines() { # count_lines <list>
   fi
 }
 
-# match | behind | diverged. behind means applied is a proper prefix of
-# expected; anything else that is not equal is diverged.
+# match | behind | ahead | diverged. behind means applied is a proper prefix
+# of expected, and ahead means expected is a proper prefix of applied;
+# anything else that is not equal is diverged.
 classify_journal() { # classify_journal <applied> <expected>
   local -a applied=() expected=()
   if [[ -n "$1" ]]; then mapfile -t applied <<<"$1"; fi
   if [[ -n "$2" ]]; then mapfile -t expected <<<"$2"; fi
 
-  local i
-  if ((${#applied[@]} > ${#expected[@]})); then
-    echo diverged
-    return
-  fi
-  for ((i = 0; i < ${#applied[@]}; i++)); do
+  local i shorter="${#applied[@]}"
+  if ((${#expected[@]} < shorter)); then shorter="${#expected[@]}"; fi
+  for ((i = 0; i < shorter; i++)); do
     if [[ "${applied[i]}" != "${expected[i]}" ]]; then
       echo diverged
       return
@@ -53,8 +51,10 @@ classify_journal() { # classify_journal <applied> <expected>
   done
   if ((${#applied[@]} == ${#expected[@]})); then
     echo match
-  else
+  elif ((${#applied[@]} < ${#expected[@]})); then
     echo behind
+  else
+    echo ahead
   fi
 }
 

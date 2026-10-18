@@ -615,6 +615,7 @@ export const getTournament = publicProcedure
               rejectionReason: schema.games.rejectionReason,
               warningFlags: schema.games.warningFlags,
               mods: schema.games.mods,
+              lazerMods: schema.games.lazerMods,
               beatmapDbId: schema.beatmaps.id,
               beatmapOsuId: schema.beatmaps.osuId,
               beatmapRuleset: schema.beatmaps.ruleset,
@@ -767,6 +768,7 @@ export const getTournament = publicProcedure
           rejectionReason: game.rejectionReason,
           warningFlags: game.warningFlags,
           mods: game.mods,
+          lazerMods: game.lazerMods,
           // TODO: This is actually an incorrect calculation.
           // We should create a set of rules which determines this,
           // i.e. mods set at the game level = generally no freemod allowed.

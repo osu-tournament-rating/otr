@@ -1,4 +1,5 @@
 import { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
 import { getModAcronyms, NO_MOD_LABEL } from '@/lib/kit/format/mods';
 import { ModsEnumHelper } from '../enum-helpers';
@@ -230,13 +231,15 @@ export function normalizedScore(mods: Mods, score: number): number {
 
 /**
  * The mods a game card's header shows. Outside freemod, the lobby's mods as
- * they are, with No Fail when every score has it. In freemod, the mods every score shares when the scores agree
- * apart from No Fail; otherwise FM and the lobby's forced mods.
+ * they are, with No Fail when every score has it. In freemod, the mods every
+ * score shares when the scores agree apart from No Fail; otherwise FM and the
+ * lobby's forced mods. Lazer games follow the same rules for their lazer
+ * mods, which are null when the scores' lazer mods differ.
  */
 export function resolveGameDisplayMods(
-  game: { isFreeMod: boolean; mods: Mods },
-  scores: { mods: number }[]
-): { mods: Mods; freemod: boolean } {
+  game: { isFreeMod: boolean; mods: Mods; lazerMods?: LazerMod[] | null },
+  scores: { mods: number; lazerMods?: LazerMod[] | null }[]
+): { mods: Mods; lazerMods: LazerMod[] | null; freemod: boolean } {
   if (!game.isFreeMod) {
     // A lobby that records no No Fail while every score has it was still
     // played with it; freemod detection ignores No Fail, so it is the lobby's.
@@ -244,6 +247,9 @@ export function resolveGameDisplayMods(
       scores.length > 0 && scores.every((s) => s.mods & Mods.NoFail);
     return {
       mods: (everyNoFail ? game.mods | Mods.NoFail : game.mods) as Mods,
+      lazerMods: game.lazerMods
+        ? withNoFail(game.lazerMods, everyNoFail)
+        : null,
       freemod: false,
     };
   }
@@ -254,14 +260,54 @@ export function resolveGameDisplayMods(
 
   if (uniqueCombos.size === 1) {
     const shared = scores.reduce((mods, s) => mods & s.mods, ~0);
-    return { mods: shared as Mods, freemod: false };
+    return {
+      mods: shared as Mods,
+      lazerMods: getSharedLazerMods(scores),
+      freemod: false,
+    };
   }
 
   const forced =
     (game.mods & Mods.FreeModAllowed) === Mods.FreeModAllowed
       ? game.mods & ~Mods.FreeModAllowed
       : game.mods;
-  return { mods: forced as Mods, freemod: true };
+  // A lazer game's own mods are its required ones, the lobby's forced mods.
+  return {
+    mods: forced as Mods,
+    lazerMods: game.lazerMods ?? null,
+    freemod: true,
+  };
+}
+
+const isNoFail = (mod: LazerMod) => mod.acronym === 'NF';
+
+/** `mods` with No Fail added when `noFail` and not already there. */
+function withNoFail(mods: LazerMod[], noFail: boolean): LazerMod[] {
+  return noFail && !mods.some(isNoFail) ? [...mods, { acronym: 'NF' }] : mods;
+}
+
+/**
+ * The lazer mods every score played, when they agree apart from No Fail, with
+ * No Fail when every score has it; null when they differ.
+ */
+function getSharedLazerMods(
+  scores: { lazerMods?: LazerMod[] | null }[]
+): LazerMod[] | null {
+  const lists = scores.map((score) => score.lazerMods);
+  if (lists.length === 0 || lists.some((list) => !list)) return null;
+
+  const withoutNoFail = (lists as LazerMod[][]).map((list) =>
+    list.filter((mod) => !isNoFail(mod))
+  );
+  const key = JSON.stringify(withoutNoFail[0]);
+  if (!withoutNoFail.every((list) => JSON.stringify(list) === key)) {
+    return null;
+  }
+
+  return withNoFail(
+    withoutNoFail[0],
+    (lists as LazerMod[][]).every((list) => list.some(isNoFail))
+  );
 }
 
 /**
@@ -274,6 +320,25 @@ export function getScoreDisplayMods(
 ): Mods {
   return (scoreMods & ~headerMods) as Mods;
 }
+
+/**
+ * The lazer mods a score card shows: those the header doesn't already show
+ * with the same settings. A score without lazer mods returns null, and one
+ * whose header has none keeps its own.
+ */
+export function getScoreDisplayLazerMods(
+  scoreLazerMods: LazerMod[] | null | undefined,
+  headerLazerMods: LazerMod[] | null | undefined
+): LazerMod[] | null {
+  if (!scoreLazerMods) return null;
+  if (!headerLazerMods) return scoreLazerMods;
+
+  const shown = new Set(headerLazerMods.map(lazerModKey));
+  return scoreLazerMods.filter((mod) => !shown.has(lazerModKey(mod)));
+}
+
+const lazerModKey = (mod: LazerMod) =>
+  `${mod.acronym} ${JSON.stringify(mod.settings ?? {})}`;
 
 /** Whether per-score mods diverge from a game that records no mods of its own. */
 function hasModsVaryingFromGame(
