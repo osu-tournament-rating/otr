@@ -9,7 +9,9 @@ services:
   db:
     # otr-scripts recovery runs `docker compose stop db` in this directory,
     # so this service must stay named `db`.
-    image: postgres:17
+    # Matches docker-compose.yml, so the dev tier runs production's version.
+    # A dev tier deploy restarts the database when this line changes.
+    image: postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     container_name: otr-dev-db
     restart: unless-stopped
     shm_size: '256m'
@@ -57,7 +59,9 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:4-management
+    # Matches docker-compose.yml. A dev tier deploy restarts the broker when
+    # this line changes.
+    image: rabbitmq:4.3.6-management@sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58
     container_name: otr-dev-rabbitmq
     restart: unless-stopped
     ports:
