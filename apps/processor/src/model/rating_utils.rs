@@ -95,26 +95,30 @@ fn initial_rating(player: &Player, ruleset: &Ruleset) -> f64 {
     match &player.ruleset_data {
         Some(data) => {
             // Special handling for Mania4k and Mania7k.
-            // This is here because osu!track cannot track Mania4k and Mania7k separately.
-            // Thus, a player_osu_ruleset_data entry exists for ManiaOther which must be
-            // used specifically for earliest global rank info for these rulesets.
-            // Using the overall mania rank for the initial rating is close enough in accuracy
-            // for our purposes.
+            // osu!track cannot track Mania4k and Mania7k separately, so the data worker
+            // seeds each variant's earliest rank from the overall mania history, aligned
+            // to the player's first match in that variant. Using the overall mania rank
+            // for the initial rating is close enough in accuracy for our purposes.
             if matches!(ruleset, Ruleset::Mania4k | Ruleset::Mania7k) {
-                // First, try to get earliest_global_rank from ManiaOther (ruleset 3)
-                if let Some(mania_other_data) = data.iter().find(|rd| rd.ruleset == Ruleset::ManiaOther) {
-                    if let Some(earliest_rank) = mania_other_data.earliest_global_rank {
-                        return mu_from_rank(earliest_rank, *ruleset);
-                    }
+                let variant_data = data.iter().find(|rd| rd.ruleset == *ruleset);
+
+                // First, use the variant's own earliest rank
+                if let Some(earliest_rank) = variant_data.and_then(|rd| rd.earliest_global_rank) {
+                    return mu_from_rank(earliest_rank, *ruleset);
                 }
 
-                // Fallback: use the respective ruleset's own rank,
-                // preferring the earliest-known rank per the closest-known-rank rule
-                if let Some(rank) = data
+                // Then the overall mania earliest rank from ManiaOther (ruleset 3), which
+                // covers a variant row created after the last osu!track fetch
+                if let Some(earliest_rank) = data
                     .iter()
-                    .find(|rd| rd.ruleset == *ruleset)
-                    .and_then(|ruleset_data| ruleset_data.earliest_global_rank.or(ruleset_data.global_rank))
+                    .find(|rd| rd.ruleset == Ruleset::ManiaOther)
+                    .and_then(|rd| rd.earliest_global_rank)
                 {
+                    return mu_from_rank(earliest_rank, *ruleset);
+                }
+
+                // Last, the variant's current rank
+                if let Some(rank) = variant_data.and_then(|rd| rd.global_rank) {
                     return mu_from_rank(rank, *ruleset);
                 }
 
@@ -374,10 +378,32 @@ mod tests {
     }
 
     #[test]
+    fn test_mania_variant_earliest_rank_preferred_over_mania_other() {
+        use crate::model::structures::ruleset::Ruleset::*;
+
+        // The data worker aligns each variant's earliest rank to the player's first match
+        // in that variant, so it wins over the overall mania rank in ManiaOther.
+        let player = Player {
+            id: 1,
+            username: None,
+            country: None,
+            ruleset_data: Some(vec![
+                generate_ruleset_data(ManiaOther, 5000, Some(1000)),
+                generate_ruleset_data(Mania4k, 2000, Some(1500)),
+                generate_ruleset_data(Mania7k, 3000, Some(2500)),
+            ])
+        };
+
+        assert_eq!(super::initial_rating(&player, &Mania4k), mu_from_rank(1500, Mania4k));
+        assert_eq!(super::initial_rating(&player, &Mania7k), mu_from_rank(2500, Mania7k));
+    }
+
+    #[test]
     fn test_mania4k_mania7k_initial_rating_logic() {
         use crate::model::structures::ruleset::Ruleset::*;
 
-        // Test case 1: Player with ManiaOther earliest_global_rank - should be preferred
+        // Test case 1: Player with ManiaOther earliest_global_rank and no variant
+        // earliest_global_rank - ManiaOther's is preferred over the variants' current ranks
         let player_with_mania_other_earliest = Player {
             id: 1,
             username: Some("TestPlayer1".to_string()),
@@ -398,8 +424,7 @@ mod tests {
         assert_eq!(mania4k_rating, expected_rating_from_mania_other);
         assert_eq!(mania7k_rating, expected_rating_from_mania_other_7k);
 
-        // Test case 2: Player without ManiaOther earliest_global_rank - should use the
-        // respective ruleset's own rank, preferring the earliest-known rank
+        // Test case 2: Player with each variant's own earliest_global_rank - should use it
         let player_without_mania_other_earliest = Player {
             id: 2,
             username: Some("TestPlayer2".to_string()),
