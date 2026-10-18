@@ -1183,6 +1183,53 @@ export const matches = pgTable(
   ]
 );
 
+/**
+ * A match deleted by a merge, recorded against the match that took its games.
+ * Its o!TR ID keeps the old page pointing at that match, and its osu! ID
+ * keeps it from being added again.
+ */
+export const matchMerges = pgTable(
+  'match_merges',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity({
+      name: 'match_merges_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      maxValue: 2147483647,
+      cache: 1,
+    }),
+    matchId: integer('match_id').notNull(),
+    mergedMatchId: integer('merged_match_id').notNull(),
+    osuId: bigint('osu_id', { mode: 'number' }).notNull(),
+    isLazer: boolean('is_lazer').notNull(),
+    name: varchar({ length: 512 }).default('').notNull(),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('ix_match_merges_match_id').using(
+      'btree',
+      table.matchId.asc().nullsLast().op('int4_ops')
+    ),
+    uniqueIndex('ix_match_merges_merged_match_id').using(
+      'btree',
+      table.mergedMatchId.asc().nullsLast().op('int4_ops')
+    ),
+    uniqueIndex('ix_match_merges_osu_id_is_lazer').using(
+      'btree',
+      table.osuId.asc().nullsLast().op('int8_ops'),
+      table.isLazer.asc().nullsLast().op('bool_ops')
+    ),
+    foreignKey({
+      columns: [table.matchId],
+      foreignColumns: [matches.id],
+      name: 'fk_match_merges_matches_match_id',
+    }).onDelete('cascade'),
+  ]
+);
+
 export const playerAdminNotes = pgTable(
   'player_admin_notes',
   {

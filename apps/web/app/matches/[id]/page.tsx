@@ -11,11 +11,12 @@ import { SectionHeader } from '@/components/kit/layout/SectionHeader';
 import { NotInRatings } from '@/components/kit/status/NotInRatings';
 import MatchHero from '@/components/matches/MatchHero';
 import MatchStatsView from '@/components/matches/MatchStatsView';
+import MergedMatchStatus from '@/components/matches/MergedMatchStatus';
 import { getMatchDisplayName } from '@/components/matches/matchName';
 import { parseMatchTab } from '@/components/matches/matchTabs';
 import { getCountryNames } from '@/lib/kit/format/country';
 import { formatCountOf } from '@/lib/kit/format/number';
-import { getMatchCached } from '@/lib/orpc/queries/match';
+import { getMatchCached, getMatchMergeCached } from '@/lib/orpc/queries/match';
 import {
   fetchOrpcOptional,
   fetchOrpcOrNotFound,
@@ -46,17 +47,27 @@ export async function generateMetadata({
     getMatchCached(parsedParams.data.id)
   );
 
-  if (!match) {
-    return { title: 'Match not found' };
+  if (match) {
+    return { title: getMatchDisplayName(match) };
   }
 
-  return { title: getMatchDisplayName(match) };
+  const merge = await fetchOrpcOptional(() =>
+    getMatchMergeCached(parsedParams.data.id)
+  );
+
+  return { title: merge ? 'Match merged' : 'Match not found' };
 }
 
 export default async function Page({ params, searchParams }: PageProps) {
   const { id } = parseParamsOrNotFound(matchPageParamsSchema, await params);
   const tab = parseMatchTab((await searchParams).tab);
-  const match = await fetchOrpcOrNotFound(() => getMatchCached(id));
+  const match = await fetchOrpcOptional(() => getMatchCached(id));
+
+  if (!match) {
+    const merge = await fetchOrpcOrNotFound(() => getMatchMergeCached(id));
+    return <MergedMatchStatus merge={merge} />;
+  }
+
   const games = match.games ?? [];
   const players = match.players ?? [];
   // Worked out here, so the score cards' flags never name a country with

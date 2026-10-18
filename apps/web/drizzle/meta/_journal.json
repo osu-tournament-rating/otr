@@ -267,6 +267,13 @@
       "when": 1792298124726,
       "tag": "0037_tournament_forum_posts",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792345714180,
+      "tag": "0038_match_merges",
+      "breakpoints": true
     }
   ]
 }

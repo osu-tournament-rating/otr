@@ -1,12 +1,15 @@
 import { ORPCError } from '@orpc/server';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
-import { withAuditUserId } from '@otr/core/db';
+import { syncTournamentDateRange, withAuditUserId } from '@otr/core/db';
 import { cascadeMatchRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeMatchVerification } from '@otr/core/db/verification-cascade';
 import { resolveMatchVerification } from '@otr/core/db/verification-resolve';
-import type { MatchAdminUpdateInput } from '@/lib/orpc/schema/match';
+import type {
+  MatchAdminMergeInput,
+  MatchAdminUpdateInput,
+} from '@/lib/orpc/schema/match';
 import type { DatabaseClient } from '@/lib/db';
 import { MatchWarningFlags, VerificationStatus } from '@otr/core/osu';
 
@@ -112,4 +115,116 @@ export async function updateMatchAdminHandler({
   );
 
   return { success: true } as const;
+}
+
+export interface MergeMatchAdminArgs {
+  input: MatchAdminMergeInput;
+  context: UpdateMatchAdminContext;
+}
+
+export async function mergeMatchAdminHandler({
+  input,
+  context,
+}: MergeMatchAdminArgs) {
+  const { adminUserId } = ensureAdminSession(context.session);
+
+  const childIds = Array.from(new Set(input.childMatchIds));
+
+  if (childIds.includes(input.id)) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'Cannot merge a match into itself',
+    });
+  }
+
+  if (childIds.length === 0) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'At least one child match is required',
+    });
+  }
+
+  return context.db.transaction((tx) =>
+    withAuditUserId(tx, adminUserId, async () => {
+      const parentMatch = await tx.query.matches.findFirst({
+        columns: {
+          id: true,
+          tournamentId: true,
+        },
+        where: eq(schema.matches.id, input.id),
+      });
+
+      if (!parentMatch) {
+        throw new ORPCError('NOT_FOUND', {
+          message: 'Parent match not found',
+        });
+      }
+
+      const childMatches = await tx.query.matches.findMany({
+        columns: {
+          id: true,
+          osuId: true,
+          isLazer: true,
+          name: true,
+          tournamentId: true,
+        },
+        where: inArray(schema.matches.id, childIds),
+      });
+
+      if (childMatches.length !== childIds.length) {
+        const foundIds = new Set(childMatches.map((match) => match.id));
+        const missingIds = childIds.filter((id) => !foundIds.has(id));
+
+        throw new ORPCError('NOT_FOUND', {
+          message: `Matches not found: ${missingIds.join(', ')}`,
+        });
+      }
+
+      const mismatchedTournament = childMatches.find(
+        (match) => match.tournamentId !== parentMatch.tournamentId
+      );
+
+      if (mismatchedTournament) {
+        throw new ORPCError('BAD_REQUEST', {
+          message:
+            'All child matches must belong to the same tournament as the parent match to merge',
+        });
+      }
+
+      const reassignedGames = await tx
+        .update(schema.games)
+        .set({ matchId: parentMatch.id })
+        .where(inArray(schema.games.matchId, childIds))
+        .returning({ id: schema.games.id });
+
+      // Matches merged into a child earlier now lead to the parent, which
+      // holds their games.
+      await tx
+        .update(schema.matchMerges)
+        .set({ matchId: parentMatch.id })
+        .where(inArray(schema.matchMerges.matchId, childIds));
+
+      await tx.insert(schema.matchMerges).values(
+        childMatches.map((match) => ({
+          matchId: parentMatch.id,
+          mergedMatchId: match.id,
+          osuId: match.osuId,
+          isLazer: match.isLazer,
+          name: match.name,
+        }))
+      );
+
+      await tx
+        .delete(schema.matches)
+        .where(inArray(schema.matches.id, childIds));
+
+      if (parentMatch.tournamentId != null) {
+        await syncTournamentDateRange(tx, parentMatch.tournamentId);
+      }
+
+      return {
+        success: true,
+        mergedMatchCount: childIds.length,
+        rehomedGameCount: reassignedGames.length,
+      } as const;
+    })
+  );
 }
