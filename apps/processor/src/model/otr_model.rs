@@ -21,7 +21,6 @@ use openskill::{
     rating::{Rating, TeamRating}
 };
 use std::{collections::HashMap, ops::Sub, slice::from_ref};
-use strum::IntoEnumIterator;
 use tracing::{debug, error, info, warn};
 use tracing_indicatif::span_ext::IndicatifSpanExt;
 
@@ -235,7 +234,7 @@ impl OtrModel {
     /// If a player doesn't have an existing rating for the game's ruleset,
     /// we use the fallback initial rating to allow them to participate.
     fn rate(&self, game: &Game, ruleset: &Ruleset) -> HashMap<i32, Rating> {
-        let mut player_ratings = Vec::new();
+        let mut model_input = Vec::new();
         let mut placements = Vec::new();
         let mut player_ids = Vec::new();
 
@@ -246,7 +245,10 @@ impl OtrModel {
 
         for score in &game.scores {
             let rating = match self.rating_tracker.get_rating(score.player_id, *ruleset) {
-                Some(r) => r.clone(),
+                Some(r) => Rating {
+                    mu: r.rating,
+                    sigma: r.volatility
+                },
                 None => {
                     // Player is present in the score, but not in the rating tracker.
                     // This means they are in the system but have not yet been picked up
@@ -258,35 +260,18 @@ impl OtrModel {
                         ruleset = ?ruleset,
                         "Using fallback rating for player"
                     );
-                    PlayerRating {
-                        id: 0,
-                        player_id: score.player_id,
-                        ruleset: *ruleset,
-                        rating: FALLBACK_RATING,
-                        volatility: DEFAULT_VOLATILITY,
-                        percentile: 0.0,
-                        global_rank: 0,
-                        country_rank: 0,
-                        adjustments: vec![]
+                    Rating {
+                        mu: FALLBACK_RATING,
+                        sigma: DEFAULT_VOLATILITY
                     }
                 }
             };
 
-            player_ratings.push(rating);
+            // OpenSkill rates teams; each player is a team of one
+            model_input.push(vec![rating]);
             placements.push(score.placement as usize);
             player_ids.push(score.player_id);
         }
-
-        // Convert to OpenSkill format
-        let model_input = player_ratings
-            .iter()
-            .map(|r| {
-                vec![Rating {
-                    mu: r.rating,
-                    sigma: r.volatility
-                }]
-            })
-            .collect_vec();
 
         // Calculate new ratings
         let model_result = self.model.rate(model_input, placements);
@@ -403,22 +388,13 @@ impl OtrModel {
             return;
         }
 
-        // Collect ALL ratings from ALL rulesets into a single Vec.
-        // This ensures decay is applied uniformly across all rulesets in one pass,
-        // rather than consuming all Wednesdays on the first ruleset.
-        let mut all_ratings: Vec<PlayerRating> = Ruleset::iter()
-            .flat_map(|ruleset| self.rating_tracker.get_leaderboard(ruleset))
-            .collect();
-
-        if all_ratings.is_empty() {
+        // Leave the Wednesdays pending until there is someone to decay
+        if self.rating_tracker.is_empty() {
             return;
         }
 
-        let count = self.decay_system.apply_decay(&mut all_ratings);
-
-        if count > 0 {
-            self.rating_tracker.insert_or_update(&all_ratings);
-        }
+        // Decay every rating in every ruleset in one pass, in place
+        self.decay_system.apply_decay(self.rating_tracker.ratings_mut());
     }
 
     /// Ensures all match participants have ratings in the tracker.
@@ -464,25 +440,27 @@ impl OtrModel {
     /// Updates the RatingTracker with the results of the rating calculation
     fn apply_results(&mut self, match_: &Match, rating_calc_result: &HashMap<i32, Rating>) {
         for (k, v) in rating_calc_result {
-            // Get their current rating or create a new one with fallback values
-            let mut player_rating = match self.rating_tracker.get_rating(*k, match_.ruleset) {
-                Some(r) => r.clone(),
-                None => {
-                    // Player was processed but doesn't exist in tracker yet
-                    // Create initial rating with fallback values
-                    PlayerRating {
-                        id: 0,
-                        player_id: *k,
-                        ruleset: match_.ruleset,
-                        rating: FALLBACK_RATING,
-                        volatility: DEFAULT_VOLATILITY,
-                        percentile: 0.0,
-                        global_rank: 0,
-                        country_rank: 0,
-                        adjustments: vec![]
-                    }
-                }
-            };
+            if self.rating_tracker.get_rating(*k, match_.ruleset).is_none() {
+                // Player was processed but doesn't exist in tracker yet
+                // Create initial rating with fallback values
+                self.rating_tracker.insert_or_update(&[PlayerRating {
+                    id: 0,
+                    player_id: *k,
+                    ruleset: match_.ruleset,
+                    rating: FALLBACK_RATING,
+                    volatility: DEFAULT_VOLATILITY,
+                    percentile: 0.0,
+                    global_rank: 0,
+                    country_rank: 0,
+                    adjustments: vec![]
+                }]);
+            }
+
+            // Update the tracked rating in place
+            let player_rating = self
+                .rating_tracker
+                .get_rating_mut(*k, match_.ruleset)
+                .expect("rating was just ensured");
 
             // Create the adjustment
             let match_time = match_.rating_timestamp();
@@ -503,9 +481,6 @@ impl OtrModel {
             // Update the player_rating values
             player_rating.rating = v.mu;
             player_rating.volatility = v.sigma;
-
-            // Save
-            self.rating_tracker.insert_or_update(&[player_rating])
         }
     }
 }

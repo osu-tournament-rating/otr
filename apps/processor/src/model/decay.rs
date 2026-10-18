@@ -11,13 +11,14 @@ use super::{
     constants::{
         decay_start_date, DECAY_DAYS, DECAY_MINIMUM, DECAY_RATE, DECAY_VOLATILITY_GROWTH_RATE, VOLATILITY_DECAY_CAP
     },
-    structures::rating_adjustment_type::RatingAdjustmentType
+    structures::{rating_adjustment_type::RatingAdjustmentType, ruleset::Ruleset}
 };
 use crate::{
     database::db_structs::{PlayerRating, RatingAdjustment},
     model::structures::rating_adjustment_type::RatingAdjustmentType::{Decay, VolatilityDecay}
 };
 use chrono::{DateTime, Duration, FixedOffset};
+use std::collections::HashMap;
 use tracing::{debug, trace, warn};
 
 /// Unified decay system that combines rating decay (for inactive players)
@@ -33,14 +34,78 @@ use tracing::{debug, trace, warn};
 /// If it returns true, call `apply_decay(player_ratings)` to apply the decay.
 pub struct UnifiedDecaySystem {
     last_processed_wednesday: Option<DateTime<FixedOffset>>,
-    pending_wednesdays: Vec<DateTime<FixedOffset>>
+    pending_wednesdays: Vec<DateTime<FixedOffset>>,
+    histories: HashMap<(i32, Ruleset), DecayHistory>
+}
+
+/// What decay needs from one player's adjustments, kept up to date as
+/// adjustments are added so a Wednesday never rescans the whole history.
+///
+/// Wednesdays only move forward, so an adjustment dated on or before one
+/// stays eligible for every later Wednesday. An adjustment dated after the
+/// current Wednesday, such as an Initial adjustment dated just before the
+/// player's first match, waits in `future` until a Wednesday reaches it.
+#[derive(Default)]
+struct DecayHistory {
+    /// How many of the player's adjustments have been read.
+    read: usize,
+    /// The highest `rating_after` of every adjustment read, whatever its date.
+    peak_rating: Option<f64>,
+    /// The adjustment that sets the player's state: the latest eligible one,
+    /// and of those dated the same, the last added.
+    latest: Option<(DateTime<FixedOffset>, usize)>,
+    /// The timestamp of the latest eligible Match adjustment.
+    last_match: Option<DateTime<FixedOffset>>,
+    /// Indexes of adjustments read but dated after the Wednesday they were read at.
+    future: Vec<usize>
+}
+
+impl DecayHistory {
+    /// Reads the adjustments added since the last call and makes every
+    /// adjustment dated on or before `wednesday` eligible.
+    fn advance_to(&mut self, adjustments: &[RatingAdjustment], wednesday: DateTime<FixedOffset>) {
+        if adjustments.len() < self.read {
+            // A different history; start over rather than trust stale indexes.
+            *self = Self::default();
+        }
+
+        for index in std::mem::take(&mut self.future) {
+            self.read_adjustment(adjustments, index, wednesday);
+        }
+
+        for index in self.read..adjustments.len() {
+            let rating_after = adjustments[index].rating_after;
+            self.peak_rating = Some(self.peak_rating.map_or(rating_after, |peak| peak.max(rating_after)));
+            self.read_adjustment(adjustments, index, wednesday);
+        }
+        self.read = adjustments.len();
+    }
+
+    fn read_adjustment(&mut self, adjustments: &[RatingAdjustment], index: usize, wednesday: DateTime<FixedOffset>) {
+        let adjustment = &adjustments[index];
+        if adjustment.timestamp > wednesday {
+            self.future.push(index);
+            return;
+        }
+
+        if self.latest.is_none_or(|latest| (adjustment.timestamp, index) > latest) {
+            self.latest = Some((adjustment.timestamp, index));
+        }
+
+        if adjustment.adjustment_type == RatingAdjustmentType::Match
+            && self.last_match.is_none_or(|last| adjustment.timestamp > last)
+        {
+            self.last_match = Some(adjustment.timestamp);
+        }
+    }
 }
 
 impl UnifiedDecaySystem {
     pub fn new() -> Self {
         Self {
             last_processed_wednesday: None,
-            pending_wednesdays: Vec::new()
+            pending_wednesdays: Vec::new(),
+            histories: HashMap::new()
         }
     }
 
@@ -132,16 +197,28 @@ impl UnifiedDecaySystem {
     /// Returns the number of adjustments created.
     ///
     /// **Note**: Call `prepare_decay_pass(up_to)` first to compute the pending Wednesdays.
-    pub fn apply_decay(&mut self, player_ratings: &mut [PlayerRating]) -> usize {
+    ///
+    /// The system remembers what it has read of each player's adjustments, so
+    /// between passes a player's adjustments may only be added to, never
+    /// changed or removed.
+    pub fn apply_decay<'a>(&mut self, player_ratings: impl IntoIterator<Item = &'a mut PlayerRating>) -> usize {
         if self.pending_wednesdays.is_empty() {
             return 0;
         }
 
         let mut total_adjustments = 0;
 
-        for wednesday in &self.pending_wednesdays.clone() {
-            for player_rating in player_ratings.iter_mut() {
-                if let Some(adjustment) = self.create_decay_adjustment(player_rating, *wednesday) {
+        // A player's decay depends only on their own history, so each player
+        // can take every pending Wednesday in turn.
+        for player_rating in player_ratings {
+            let history = self
+                .histories
+                .entry((player_rating.player_id, player_rating.ruleset))
+                .or_default();
+
+            for &wednesday in &self.pending_wednesdays {
+                history.advance_to(&player_rating.adjustments, wednesday);
+                if let Some(adjustment) = Self::create_decay_adjustment(player_rating, history, wednesday) {
                     // Update player state
                     player_rating.rating = adjustment.rating_after;
                     player_rating.volatility = adjustment.volatility_after;
@@ -168,18 +245,31 @@ impl UnifiedDecaySystem {
     /// Creates a decay adjustment for a player at the given Wednesday, if needed.
     ///
     /// Returns None if no changes are needed (player at both caps).
+    /// `history` must have been advanced to `wednesday`.
     fn create_decay_adjustment(
-        &self,
         player_rating: &PlayerRating,
+        history: &DecayHistory,
         wednesday: DateTime<FixedOffset>
     ) -> Option<RatingAdjustment> {
         // Get the player's state as of this Wednesday
-        let (current_rating, current_volatility) = Self::get_state_as_of(player_rating, wednesday);
+        let (current_rating, current_volatility) = match history.latest {
+            Some((_, index)) => {
+                let adjustment = &player_rating.adjustments[index];
+                (adjustment.rating_after, adjustment.volatility_after)
+            }
+            None => (player_rating.rating, player_rating.volatility)
+        };
 
-        // Check conditions
-        let is_inactive = Self::is_inactive_as_of(player_rating, wednesday);
+        // Check conditions. A player with no match yet has only an Initial
+        // rating and never decays.
+        let is_inactive = history
+            .last_match
+            .is_some_and(|last_match| (wednesday - last_match).num_days() >= DECAY_DAYS as i64);
         let at_volatility_cap = current_volatility >= VOLATILITY_DECAY_CAP;
-        let decay_floor = Self::calculate_decay_floor(player_rating);
+        let peak_rating = history
+            .peak_rating
+            .map_or(player_rating.rating, |peak| peak.max(player_rating.rating));
+        let decay_floor = Self::decay_floor(peak_rating);
         let at_rating_floor = current_rating <= decay_floor;
 
         // Skip if nothing to do
@@ -248,43 +338,6 @@ impl UnifiedDecaySystem {
         })
     }
 
-    /// Gets the player's rating and volatility as of a specific timestamp.
-    /// Returns the state after the last adjustment at or before the timestamp.
-    fn get_state_as_of(player_rating: &PlayerRating, timestamp: DateTime<FixedOffset>) -> (f64, f64) {
-        let last_adj = player_rating
-            .adjustments
-            .iter()
-            .filter(|adj| adj.timestamp <= timestamp)
-            .max_by_key(|adj| adj.timestamp);
-
-        match last_adj {
-            Some(adj) => (adj.rating_after, adj.volatility_after),
-            None => (player_rating.rating, player_rating.volatility)
-        }
-    }
-
-    /// Determines if a player is inactive as of the given Wednesday.
-    /// A player is inactive if their last Match adjustment was more than DECAY_DAYS ago.
-    fn is_inactive_as_of(player_rating: &PlayerRating, wednesday: DateTime<FixedOffset>) -> bool {
-        let last_match = player_rating
-            .adjustments
-            .iter()
-            .filter(|adj| adj.adjustment_type == RatingAdjustmentType::Match)
-            .filter(|adj| adj.timestamp <= wednesday)
-            .max_by_key(|adj| adj.timestamp);
-
-        match last_match {
-            Some(adj) => {
-                let days_inactive = (wednesday - adj.timestamp).num_days();
-                days_inactive >= DECAY_DAYS as i64
-            }
-            None => {
-                // No matches yet - player only has Initial rating, no decay
-                false
-            }
-        }
-    }
-
     /// Calculates the minimum rating (floor) for a player based on their peak rating.
     pub fn calculate_decay_floor(player_rating: &PlayerRating) -> f64 {
         let peak_rating = player_rating
@@ -293,6 +346,11 @@ impl UnifiedDecaySystem {
             .map(|adj| adj.rating_after)
             .fold(player_rating.rating, f64::max);
 
+        Self::decay_floor(peak_rating)
+    }
+
+    /// The minimum rating decay can bring a player with this peak rating to.
+    fn decay_floor(peak_rating: f64) -> f64 {
         DECAY_MINIMUM.max(0.5 * (DECAY_MINIMUM + peak_rating))
     }
 
