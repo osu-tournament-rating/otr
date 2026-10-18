@@ -78,7 +78,6 @@ export const e2eTestAuthPlugin = () =>
                 email: `e2e-player-${playerId}@otr.local`,
                 emailVerified: true,
                 playerId,
-                role: admin ? 'admin' : null,
               })
               .returning();
           }
@@ -100,7 +99,6 @@ export const e2eTestAuthPlugin = () =>
             ok: true,
             userId: authUser.id,
             playerId,
-            role: authUser.role,
           });
         }
       ),

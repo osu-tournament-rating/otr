@@ -1,18 +1,14 @@
 import { db } from '@/lib/db';
 import {
   betterAuth,
+  type BetterAuthPlugin,
   type GenericEndpointContext,
   type Session,
 } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey } from '@better-auth/api-key';
-import {
-  admin as adminPlugin,
-  customSession,
-  genericOAuth,
-} from 'better-auth/plugins';
-import { ac, admin, superadmin, ADMIN_ROLES } from './auth-roles';
+import { customSession, genericOAuth } from 'better-auth/plugins';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { legacyOAuthCallbackURL } from './osu-callback';
 import { nextCookies } from 'better-auth/next-js';
@@ -183,8 +179,24 @@ const ensurePlayerAndAppUser = async (params: EnsurePlayerParams) => {
   };
 };
 
-const bannedLoginRedirectPlugin = () => ({
+const bannedLoginRedirectPlugin = (): BetterAuthPlugin => ({
   id: 'otr-banned-redirect',
+  // Better Auth returns only the user fields it knows about, so the ban
+  // columns are declared here for the session hook below to read.
+  schema: {
+    user: {
+      fields: {
+        banned: {
+          type: 'boolean',
+          defaultValue: false,
+          required: false,
+          input: false,
+        },
+        banReason: { type: 'string', required: false, input: false },
+        banExpires: { type: 'date', required: false, input: false },
+      },
+    },
+  },
   init() {
     return {
       options: {
@@ -442,29 +454,12 @@ const ensureOsuAccountLink = async (
       return null;
     }
 
-    const { player, appUser } = ensured;
+    const { player } = ensured;
 
-    const scopes = appUser?.scopes ?? [];
-    const hasAdminScope = scopes.includes('admin');
-
-    const updatePayload: Partial<typeof schema.auth_users.$inferInsert> = {};
-
-    if (!authUser.playerId || authUser.playerId !== player.id) {
-      updatePayload.playerId = player.id;
-    }
-
-    if (
-      hasAdminScope &&
-      authUser.role !== 'admin' &&
-      authUser.role !== 'superadmin'
-    ) {
-      updatePayload.role = 'admin';
-    }
-
-    if (Object.keys(updatePayload).length > 0) {
+    if (authUser.playerId !== player.id) {
       await db
         .update(schema.auth_users)
-        .set(updatePayload)
+        .set({ playerId: player.id })
         .where(eq(schema.auth_users.id, authUser.id));
     }
 
@@ -573,15 +568,6 @@ export const auth = betterAuth({
   },
   plugins: [
     bannedLoginRedirectPlugin(),
-    adminPlugin({
-      ac,
-      roles: {
-        admin,
-        superadmin,
-      },
-      adminRoles: [...ADMIN_ROLES],
-      defaultRole: 'user',
-    }),
     apiKey({
       rateLimit: {
         enabled: true,
