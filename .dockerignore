@@ -31,6 +31,8 @@ coverage
 apps/web/playwright-report
 apps/web/test-results
 apps/web/e2e
+# Imports from apps/web/e2e, so `next build` would fail to type-check it.
+apps/web/playwright.config.ts
 apps/data-worker/tests
 # The processor image builds with apps/processor as its own context.
 apps/processor
