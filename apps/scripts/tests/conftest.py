@@ -29,7 +29,6 @@ config_module.config = types.SimpleNamespace(
     gcs_public_bucket="public",
     gcs_prod_bucket="production",
     gcs_sa_json_path=Path("/tmp/sa.json"),
-    rabbitmq_url="amqp://localhost",
     template_db_container="otr-template-test-db",
     template_db_port=5434,
     template_db_user="postgres",

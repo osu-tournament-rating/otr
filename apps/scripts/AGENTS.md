@@ -64,9 +64,10 @@ configured application database.
   and drops only connections to the target database. `--skip-migrations` skips
   the `migrate` service, for the dev tier, which has none: `dev-db.sh` migrates
   the restored seed itself.
-- `processor` runs the configured image against configured PostgreSQL and
-  RabbitMQ. Do not treat it as a test command. It requires image `2026.10.09`
-  or newer, because it passes `DATABASE_URL` and `RABBITMQ_AMQP_URL`.
+- `processor` runs the configured image against configured PostgreSQL. Do not
+  treat it as a test command. It passes only `DATABASE_URL`, so it requires an
+  image that queues stats jobs in the database; older images also need a
+  RabbitMQ URL.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task
@@ -79,7 +80,7 @@ configured application database.
   `drop` removes an instance, and `list` shows instances and sizes. Names match
   `^[a-z][a-z0-9_]{0,30}$`.
 - Confirm environment, image tag, database container and name, web directory,
-  bucket mapping, and RabbitMQ URL before a live operation.
+  and bucket mapping before a live operation.
 - Keep CLI contracts in `src/lib/cli.py`, configuration in `src/lib/config.py`,
   and operations in `src/lib/`.
 - Prefer argument lists for subprocesses. Preserve upstream failure and quote

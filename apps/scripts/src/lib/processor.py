@@ -31,12 +31,8 @@ def run() -> bool:
 
     conn_str = f"postgresql://{config.db_user}:{config.db_password}@localhost:{config.db_port}/{config.db_name}"
     rust_log = "info"
-    rabbit = config.rabbitmq_url
 
-    # Images 2026.10.09 and newer read DATABASE_URL and RABBITMQ_AMQP_URL. Only the
-    # container's names changed: the host .env still sets RABBITMQ_URL, which
-    # config.rabbitmq_url reads.
-    run_cmd = f"docker run --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} -e RABBITMQ_AMQP_URL={rabbit} {image}".split()
+    run_cmd = f"docker run --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
 
     logger.info("Running processor")
     if (code := _stream(run_cmd)) != 0:

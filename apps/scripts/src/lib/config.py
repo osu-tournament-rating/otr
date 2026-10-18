@@ -23,7 +23,6 @@ class Config:
     gcs_public_bucket: str
     gcs_prod_bucket: str
     gcs_sa_json_path: Path
-    rabbitmq_url: str
     template_db_container: str
     template_db_port: int
     template_db_user: str
@@ -72,7 +71,6 @@ def init() -> Config:
         _env_or_throw("GCS_PUBLIC_BUCKET"),
         _env_or_throw("GCS_PROD_BUCKET"),
         Path(_env_or_throw("GCS_SA_JSON_PATH")).expanduser(),
-        _env_or_throw("RABBITMQ_URL"),
         _env_or_default("TEMPLATE_DB_CONTAINER", "otr-template-db"),
         int(_env_or_default("TEMPLATE_DB_PORT", "5434")),
         _env_or_default("TEMPLATE_DB_USER", "postgres"),
