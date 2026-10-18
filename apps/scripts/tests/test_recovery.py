@@ -210,9 +210,9 @@ def test_recovery_prunes_only_after_a_successful_restore(monkeypatch, tmp_path):
     assert keep.exists()
 
 
-def fake_storage(monkeypatch, download):
+def fake_storage(monkeypatch, download, names: tuple[str, ...] = (KEEP,)):
     client = SimpleNamespace(
-        list_blobs=lambda bucket: [SimpleNamespace(name=KEEP)],
+        list_blobs=lambda bucket: [SimpleNamespace(name=name) for name in names],
         download_blob_to_file=download,
     )
     monkeypatch.setattr(gcs_utils, "storage_client", client)
@@ -230,6 +230,20 @@ def test_download_writes_to_a_temporary_name_then_renames(monkeypatch, tmp_path)
     assert gcs_utils.download_latest("dev", tmp_path) == tmp_path / KEEP
     assert seen == [f"{KEEP}.{os.getpid()}.part"]
     assert [path.name for path in tmp_path.iterdir()] == [KEEP]
+
+
+def test_download_fetches_the_newest_archive(monkeypatch, tmp_path):
+    downloaded = []
+
+    # Listed out of order, so neither the first nor the last blob is the newest.
+    fake_storage(
+        monkeypatch,
+        lambda blob, f: downloaded.append(blob.name),
+        names=(KEEP, NEWER, OLDER),
+    )
+
+    assert gcs_utils.download_latest("dev", tmp_path) == tmp_path / NEWER
+    assert downloaded == [NEWER]
 
 
 def test_failed_download_leaves_nothing_behind(monkeypatch, tmp_path):
