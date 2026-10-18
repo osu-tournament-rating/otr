@@ -27,7 +27,7 @@ import {
   calculateBeatmapListModDistribution,
   filterBeatmapModDistribution,
 } from '@/lib/utils/mods';
-import { publicProcedure } from './base';
+import { publicProcedure, withSearchRateLimit } from './base';
 import {
   buildBeatmapRulesetCondition,
   collectRulesets,
@@ -37,6 +37,7 @@ const DEFAULT_MAX_SR = 200;
 
 export const listBeatmaps = publicProcedure
   .input(BeatmapListRequestSchema)
+  .use(withSearchRateLimit, (input) => input.searchQuery)
   .output(BeatmapListResponseSchema)
   .route({
     summary: 'List beatmaps with filtering and pagination',

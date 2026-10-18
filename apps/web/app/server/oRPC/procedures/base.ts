@@ -17,6 +17,9 @@ import {
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { orpcProcedureCalls, orpcProcedureDuration } from '@/lib/metrics';
+import type { RpcCaller } from '@/lib/rpc/access';
+import { resolveClientIp } from '@/lib/rpc/client-ip';
+import { checkRateLimit, rateLimitedError } from '@/lib/rpc/rate-limit';
 
 import type { RequestLoggingContext } from './logging/types';
 import {
@@ -43,6 +46,10 @@ const base = os.$context<
   {
     headers: Headers;
     requestUrl?: string;
+    /** Set by the `/rpc` gate; absent on the public API. */
+    rpc?: RpcCaller;
+    /** Headers to add to the response, where the handler supports them. */
+    resHeaders?: Headers;
     // Set only by the REST API route, never by /rpc
     apiKeyRequired?: boolean;
     /** The build a call through /rpc came from; null when it sent none. */
@@ -588,6 +595,7 @@ const withLoggingContext = base.middleware(async ({ context, path, next }) => {
     'otr.access_method': actor.accessMethod,
     'otr.player_id': actor.playerId ?? undefined,
     'otr.request_path': requestPath ?? undefined,
+    'otr.rpc_caller': context.rpc?.kind,
   });
 
   const logger = rootLogger.child({
@@ -671,6 +679,8 @@ const withRequestLogging = base.middleware(
 
       if (statusCode === 404) {
         logging.logger.debug('procedure not found', logContext);
+      } else if (statusCode === 429) {
+        logging.logger.info('procedure rate limited', logContext);
       } else {
         logging.logger.warn('procedure failed', logContext);
       }
@@ -704,11 +714,14 @@ const withMetrics = base.middleware(async (options) => {
       .observe((Date.now() - start) / 1000);
     return result;
   } catch (error) {
+    const code = resolveErrorStatus(error as ProcedureError);
     orpcProcedureCalls
       .labels({
         procedure: procedureName,
-        status: 'error',
-        code: String(resolveErrorStatus(error as ProcedureError)),
+        // Refused, not failed: the dashboard's error rates count
+        // status="error", so a scraper over its limit stays out of them
+        status: code === 429 ? 'rate_limited' : 'error',
+        code: String(code),
         accessMethod,
       })
       .inc();
@@ -788,6 +801,57 @@ export const protectedProcedure = base
   .use(withMetrics)
   .use(withRequestLogging)
   .use(withErrorBoundary);
+
+const requestPathname = (requestUrl?: string): string | null => {
+  if (!requestUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(requestUrl).pathname;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Limits searches with a term, the costliest reads, wherever they come from:
+ * the header search in the browser, a list page's server render (charged to
+ * the visitor through the cookie and IP the render forwards), or the public
+ * API without a verified key. A verified key has its own limit. Attach after
+ * `.input()` with a function that picks the term out of the input.
+ */
+export const withSearchRateLimit = base.middleware(
+  async ({ context, path, next }, term: string | undefined) => {
+    if (!term?.trim() || context.apiKey) {
+      return next();
+    }
+
+    const { session } = context as typeof context & {
+      session?: { user?: { id?: string | null } | null } | null;
+    };
+    const userId = session?.user?.id;
+    const clientIp = context.rpc?.clientIp ?? resolveClientIp(context.headers);
+    const key = userId ? `user:${userId}` : clientIp ? `ip:${clientIp}` : null;
+
+    const { allowed, retryAfterSeconds } = checkRateLimit('search', key, {
+      caller: context.rpc?.kind ?? 'api',
+      path: requestPathname(context.requestUrl),
+      procedure: formatProcedurePath(path),
+    });
+
+    if (!allowed) {
+      context.resHeaders?.set('retry-after', String(retryAfterSeconds));
+      setActiveSpanAttributes({
+        'otr.rate_limited': true,
+        'otr.rate_limit_bucket': 'search',
+      });
+      throw rateLimitedError(retryAfterSeconds);
+    }
+
+    return next();
+  }
+);
 
 // Keeps the public archives consistent with what the processor runs against (#763)
 export const withMaintenanceWindowGuard = base.middleware(

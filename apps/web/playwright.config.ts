@@ -42,6 +42,8 @@ export default defineConfig({
         E2E_TEST_AUTH: 'true',
         // The maintenance-window spec forces the window per-request instead
         MAINTENANCE_WINDOW_ENABLED: 'false',
+        // The whole suite calls /rpc from one IP, faster than any person
+        RPC_RATE_LIMIT: 'off',
         // Sign-in goes through the fake osu! server, which returns to this
         // server's OAuth callback.
         BETTER_AUTH_URL: 'http://localhost:3001',
