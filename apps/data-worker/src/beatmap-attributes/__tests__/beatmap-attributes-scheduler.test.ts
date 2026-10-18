@@ -1,11 +1,18 @@
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-
 import {
-  MessagePriority,
-  type ProcessBeatmapAttributesMessage,
-} from '@otr/core';
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
+import { is, sql, SQL } from 'drizzle-orm';
+import { PgDialect } from 'drizzle-orm/pg-core';
+
+import { MessagePriority } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { enqueueJob, JobQueue, JobStatus } from '@otr/core/jobs';
 import { Mods, Ruleset, VerificationStatus } from '@otr/core/osu';
 
 import type { DatabaseClient } from '../../db';
@@ -28,28 +35,11 @@ const EVERYTHING = 10_000_000;
 const MAINTENANCE = new Date('2026-10-13T12:00:00Z');
 const OUTSIDE_MAINTENANCE = new Date('2026-10-14T12:00:00Z');
 
-class FakePublisher {
-  readonly published: Array<{ beatmapId: number; priority?: number }> = [];
-  countCalls = 0;
+const dialect = new PgDialect();
 
-  constructor(private readonly queued = 0) {}
-
-  async messageCount() {
-    this.countCalls += 1;
-    return this.queued;
-  }
-
-  async publish(
-    payload: { beatmapId: number; checksum?: string },
-    options?: { metadata?: { priority?: MessagePriority } }
-  ) {
-    this.published.push({
-      beatmapId: payload.beatmapId,
-      priority: options?.metadata?.priority,
-    });
-    return payload as unknown as ProcessBeatmapAttributesMessage;
-  }
-}
+// The sweep's check for a ready attribute job, which reads the jobs table.
+const isReadyJobCheck = (query: unknown) =>
+  is(query, SQL) && dialect.sqlToQuery(query).sql.includes('from jobs');
 
 const unusedDb = new Proxy(
   {},
@@ -61,40 +51,18 @@ const unusedDb = new Proxy(
 ) as DatabaseClient;
 
 describe('BeatmapAttributesScheduler guards', () => {
-  const sweep = (
-    publisher: FakePublisher,
-    options: { now: Date; maintenanceWindowEnabled?: boolean }
-  ) =>
-    new BeatmapAttributesScheduler({
-      db: unusedDb,
-      logger: silentLogger,
-      publisher,
-      maintenanceWindowEnabled: options.maintenanceWindowEnabled ?? true,
-      now: () => options.now,
-    }).sweep();
-
   it('skips inside the maintenance window', async () => {
-    const publisher = new FakePublisher();
-
-    expect(await sweep(publisher, { now: MAINTENANCE })).toMatchObject({
+    // Any query, including the check for ready jobs, reads unusedDb and throws.
+    expect(
+      await new BeatmapAttributesScheduler({
+        db: unusedDb,
+        logger: silentLogger,
+        maintenanceWindowEnabled: true,
+        now: () => MAINTENANCE,
+      }).sweep()
+    ).toMatchObject({
       skipped: 'maintenance',
     });
-    expect(publisher.countCalls).toBe(0);
-  });
-
-  it('skips while the queue still holds messages', async () => {
-    const publisher = new FakePublisher(1);
-
-    expect(
-      await sweep(publisher, {
-        now: MAINTENANCE,
-        maintenanceWindowEnabled: false,
-      })
-    ).toMatchObject({ skipped: 'queue_not_empty' });
-    expect(await sweep(publisher, { now: OUTSIDE_MAINTENANCE })).toMatchObject({
-      skipped: 'queue_not_empty',
-    });
-    expect(publisher.published).toEqual([]);
   });
 
   it('looks for beatmaps needing attributes again only an hour after finding none', async () => {
@@ -102,18 +70,22 @@ describe('BeatmapAttributesScheduler guards', () => {
     const answers = [[1], [], [], [], [], [], []];
     let queries = 0;
     const db = {
-      execute: async () => {
+      execute: async (query: unknown) => {
+        if (isReadyJobCheck(query)) {
+          return { rows: [{ ready: false }] };
+        }
         queries += 1;
         return {
           rows: (answers.shift() ?? []).map((id) => ({ beatmap_id: id })),
         };
       },
+      // The sweep queues the jobs it found in a transaction of their own.
+      transaction: async () => {},
     } as unknown as DatabaseClient;
     let now = OUTSIDE_MAINTENANCE.getTime();
     const scheduler = new BeatmapAttributesScheduler({
       db,
       logger: silentLogger,
-      publisher: new FakePublisher(),
       maintenanceWindowEnabled: true,
       now: () => new Date(now),
     });
@@ -236,7 +208,16 @@ describe.skipIf(!url)('beatmap attribute sweep', () => {
     notMissing.push((await seed.beatmap()).id);
   });
 
+  const clearJobs = async () => {
+    await db.execute(
+      sql`DELETE FROM jobs WHERE queue = ${JobQueue.BeatmapAttributes}`
+    );
+  };
+
+  beforeEach(clearJobs);
+
   afterAll(async () => {
+    await clearJobs();
     await seed.remove();
     await pool.end();
   });
@@ -263,7 +244,51 @@ describe.skipIf(!url)('beatmap attribute sweep', () => {
     expect(seeded(found, all)).toEqual([...missingFirst, ...missingLater]);
   });
 
-  it('queues up to a batch at low priority, attributes first', async () => {
+  const sweep = () =>
+    new BeatmapAttributesScheduler({
+      db,
+      logger: silentLogger,
+      maintenanceWindowEnabled: true,
+      now: () => OUTSIDE_MAINTENANCE,
+    }).sweep();
+
+  /** Attribute jobs in the order the runner claims them. */
+  const queuedJobs = async () => {
+    const { rows } = await db.execute<{
+      beatmap_id: number;
+      priority: number;
+      max_attempts: number;
+    }>(sql`
+      SELECT (payload->>'beatmapId')::integer AS beatmap_id, priority, max_attempts
+      FROM jobs
+      WHERE queue = ${JobQueue.BeatmapAttributes} AND status = ${JobStatus.Pending}
+      ORDER BY priority DESC, run_after, id`);
+    return rows;
+  };
+
+  it.each([
+    ['a ready job', JobStatus.Pending, 0, true],
+    ['a retry in its backoff', JobStatus.Pending, 60 * 60_000, false],
+    ['a running job', JobStatus.Running, 0, false],
+  ] as const)(
+    'skips only while an attribute job is ready: %s',
+    async (_name, status, delayMs, skipped) => {
+      await enqueueJob(db, JobQueue.BeatmapAttributes, {
+        payload: { beatmapId: needing[0]! },
+        // Left to the database's clock when the job is due now.
+        runAfter: delayMs > 0 ? new Date(Date.now() + delayMs) : undefined,
+      });
+      await db.execute(
+        sql`UPDATE jobs SET status = ${status} WHERE queue = ${JobQueue.BeatmapAttributes}`
+      );
+
+      const result = await sweep();
+
+      expect(result.skipped === 'queue_not_empty').toBe(skipped);
+    }
+  );
+
+  it('queues up to a batch at low priority with one attempt, attributes first', async () => {
     const needingAttributes = await findBeatmapsNeedingAttributes(
       db,
       SWEEP_BATCH_SIZE
@@ -272,27 +297,23 @@ describe.skipIf(!url)('beatmap attribute sweep', () => {
       db,
       SWEEP_BATCH_SIZE - needingAttributes.length
     );
-    const publisher = new FakePublisher();
 
-    const result = await new BeatmapAttributesScheduler({
-      db,
-      logger: silentLogger,
-      publisher,
-      maintenanceWindowEnabled: true,
-      now: () => OUTSIDE_MAINTENANCE,
-    }).sweep();
+    const result = await sweep();
+    const queued = await queuedJobs();
 
     expect(result).toEqual({
       needingAttributes: needingAttributes.length,
       missingFiles: missingFiles.length,
     });
-    expect(publisher.published.map((job) => job.beatmapId)).toEqual([
+    expect(queued.map((job) => job.beatmap_id)).toEqual([
       ...needingAttributes,
       ...missingFiles,
     ]);
-    expect(publisher.published.length).toBeLessThanOrEqual(SWEEP_BATCH_SIZE);
+    expect(queued.length).toBeLessThanOrEqual(SWEEP_BATCH_SIZE);
     expect(
-      publisher.published.every((job) => job.priority === MessagePriority.Low)
+      queued.every(
+        (job) => job.priority === MessagePriority.Low && job.max_attempts === 1
+      )
     ).toBe(true);
   });
 });

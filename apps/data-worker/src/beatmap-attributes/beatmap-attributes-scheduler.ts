@@ -1,11 +1,11 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { ProcessBeatmapAttributesMessage } from '@otr/core';
 import { MessagePriority } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { enqueueJob, JobQueue, JobStatus } from '@otr/core/jobs';
 import { isWithinMaintenanceWindow } from '@otr/core/maintenance';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
-import type { RabbitMqPublisher } from '@otr/core/queues';
+import { withoutTracing } from '@otr/core/tracing';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
@@ -19,7 +19,7 @@ const SWEEP_INTERVAL_MS = 10 * 60_000;
 export const NEEDING_ATTRIBUTES_RECHECK_MS = 60 * 60_000;
 // Keeps the sweep's queries out of startup.
 const FIRST_SWEEP_DELAY_MS = 60_000;
-// The QueueDepthHigh alert fires above 1,000 messages.
+// The JobQueueDepthHigh alert fires above 1,000 jobs.
 export const SWEEP_BATCH_SIZE = 1_000;
 
 type QueryExecutor = Pick<DatabaseClient, 'execute'>;
@@ -98,18 +98,28 @@ export const findBeatmapsMissingFiles = (db: QueryExecutor, limit: number) => {
   );
 };
 
+/**
+ * Whether an attribute job is waiting to run now. Running jobs and retries
+ * still in their backoff don't count.
+ */
+const hasReadyJob = async (db: QueryExecutor) => {
+  const { rows } = await db.execute<{ ready: boolean }>(
+    sql`select exists (
+      select 1 from jobs
+      where queue = ${JobQueue.BeatmapAttributes}
+        and status = ${JobStatus.Pending}
+        and run_after <= now()
+    ) as ready`
+  );
+  return rows[0]?.ready === true;
+};
+
 type IntervalHandle = ReturnType<typeof setInterval> | null;
 type TimeoutHandle = ReturnType<typeof setTimeout> | null;
-
-type PublisherContract = Pick<
-  RabbitMqPublisher<ProcessBeatmapAttributesMessage>,
-  'publish' | 'messageCount'
->;
 
 interface BeatmapAttributesSchedulerOptions {
   db: DatabaseClient;
   logger: Logger;
-  publisher: PublisherContract;
   maintenanceWindowEnabled: boolean;
   now?: () => Date;
 }
@@ -121,15 +131,15 @@ export interface BeatmapAttributesSweepResult {
 }
 
 /**
- * Every 10 minutes, while the queue is empty, queues low-priority jobs for
- * beatmaps whose attributes are missing or from another calculator, then for
- * beatmaps with no stored file. Fetch-hook jobs run first, at normal priority.
- * A failed sweep job is not retried: the next sweep finds the beatmap again.
+ * Every 10 minutes, while no attribute job is ready to run, queues
+ * low-priority jobs for beatmaps whose attributes are missing or from another
+ * calculator, then for beatmaps with no stored file. Fetch-hook jobs run
+ * first, at normal priority. A sweep job gets one attempt, and its handler
+ * drops it on failure: the next sweep finds the beatmap again.
  */
 export class BeatmapAttributesScheduler {
   private readonly db: DatabaseClient;
   private readonly logger: Logger;
-  private readonly publisher: PublisherContract;
   private readonly maintenanceWindowEnabled: boolean;
   private readonly now: () => Date;
 
@@ -143,7 +153,6 @@ export class BeatmapAttributesScheduler {
   constructor(options: BeatmapAttributesSchedulerOptions) {
     this.db = options.db;
     this.logger = options.logger;
-    this.publisher = options.publisher;
     this.maintenanceWindowEnabled = options.maintenanceWindowEnabled;
     this.now = options.now ?? (() => new Date());
   }
@@ -208,9 +217,9 @@ export class BeatmapAttributesScheduler {
       return { skipped: 'maintenance', needingAttributes: 0, missingFiles: 0 };
     }
 
-    // Only ready messages count. Fetch jobs waiting in the retry queue may
-    // come back as duplicates, which do no harm.
-    if ((await this.publisher.messageCount()) > 0) {
+    // A sweep job merges into a waiting or running job for the same beatmap,
+    // so jobs still in a retry's backoff can't come back as duplicates.
+    if (await hasReadyJob(this.db)) {
       return {
         skipped: 'queue_not_empty',
         needingAttributes: 0,
@@ -240,10 +249,21 @@ export class BeatmapAttributesScheduler {
           )
         : [];
 
-    for (const beatmapId of [...needingAttributes, ...missingFiles]) {
-      await this.publisher.publish(
-        { beatmapId },
-        { metadata: { priority: MessagePriority.Low } }
+    // One job per statement keeps the jobs in this order, which is the order
+    // they run in. One transaction commits them together and wakes the
+    // runner once. Untraced, so a sweep is not a thousand spans.
+    const queued = [...needingAttributes, ...missingFiles];
+    if (queued.length > 0) {
+      await withoutTracing(() =>
+        this.db.transaction(async (tx) => {
+          for (const beatmapId of queued) {
+            await enqueueJob(tx, JobQueue.BeatmapAttributes, {
+              payload: { beatmapId },
+              priority: MessagePriority.Low,
+              maxAttempts: 1,
+            });
+          }
+        })
       );
     }
 

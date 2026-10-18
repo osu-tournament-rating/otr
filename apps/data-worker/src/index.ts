@@ -2,10 +2,11 @@
 import './tracing';
 
 import {
-  QueueConstants,
-  type ProcessBeatmapAttributesMessage,
-} from '@otr/core';
-import { enqueueJobs, getJobQueueSummary, JobQueue } from '@otr/core/jobs';
+  enqueueJob,
+  enqueueJobs,
+  getJobQueueSummary,
+  JobQueue,
+} from '@otr/core/jobs';
 import { withoutTracing } from '@otr/core/tracing';
 
 import { databaseUrl, db } from './db';
@@ -16,8 +17,6 @@ import {
 } from './metrics';
 import { dataWorkerEnv } from './env';
 import { consoleLogger } from './logging/logger';
-import { RabbitMqConsumer } from './queue/rabbitmq-consumer';
-import { RabbitMqPublisher } from '@otr/core/queues';
 import { FixedWindowRateLimiter } from './rate-limiter';
 import {
   BeatmapFetchService,
@@ -58,6 +57,7 @@ import { JobRunner } from './jobs/runner';
 import { JobListener } from './jobs/listener';
 import { JobPruner } from './jobs/pruner';
 import {
+  beatmapAttributesJobFromMessage,
   osuFetchJobFromMessage,
   osuTrackJobFromMessage,
   RabbitMqBridge,
@@ -69,24 +69,24 @@ import { captureOsuRetryAfter } from './osu/retry-after';
 
 const logger = consoleLogger;
 
-// Every started consumer; the health check fails while any is unsubscribed.
-const consumers: Array<{ readonly isConsuming: boolean }> = [];
-
 const API_REQUEST_STATS_FLUSH_MS = 60_000;
 
 const runner = new JobRunner({ db, logger: consoleLogger });
+
+// Moves messages left in RabbitMQ into the jobs table. Set once it has
+// started, so the health check doesn't wait on its first drain.
+let rabbitMqBridge: RabbitMqBridge | null = null;
 
 // osu!'s Retry-After on a 429 or 503 decides when a fetch job runs again.
 globalThis.fetch = captureOsuRetryAfter(globalThis.fetch);
 
 /**
- * Starts the attribute job consumer and the sweep, or returns null and leaves
- * them off when nothing is configured, the settings are wrong, or the store
- * fails its probe. The other consumers keep running in each of those cases.
+ * Registers the attribute job handler and returns the sweep, or returns null
+ * and leaves both off when nothing is configured, the settings are wrong, or
+ * the store fails its probe. Runs after every other queue has started, so a
+ * slow store holds up only the attribute queue.
  */
-const startBeatmapAttributes = async (
-  publisher: RabbitMqPublisher<ProcessBeatmapAttributesMessage> | null
-) => {
+const registerBeatmapAttributes = async () => {
   const { config, error } = dataWorkerEnv.beatmapFiles;
 
   if (error) {
@@ -94,7 +94,7 @@ const startBeatmapAttributes = async (
     return null;
   }
 
-  if (!config || !publisher) {
+  if (!config) {
     logger.info(
       'Beatmap file storage is off: neither BEATMAP_FILES_BUCKET nor BEATMAP_FILES_DIR is set'
     );
@@ -113,16 +113,7 @@ const startBeatmapAttributes = async (
     return null;
   }
 
-  const consumer = new RabbitMqConsumer<ProcessBeatmapAttributesMessage>({
-    url: dataWorkerEnv.amqpUrl,
-    queue: QueueConstants.attributes.beatmaps,
-    // The service relies on one job at a time.
-    prefetch: 1,
-    logger,
-  });
-
   const worker = new BeatmapAttributesWorker({
-    queue: consumer,
     service: new BeatmapAttributesService({
       db,
       logger,
@@ -133,25 +124,18 @@ const startBeatmapAttributes = async (
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
   });
 
-  const scheduler = new BeatmapAttributesScheduler({
-    db,
-    logger,
-    publisher,
-    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
-  });
-
-  await worker.start();
-  consumers.push(consumer);
-  scheduler.start();
-
+  runner.register(worker.registration());
   logger.info('Beatmap file storage is on', { location: store.location });
 
-  return { worker, scheduler };
+  return new BeatmapAttributesScheduler({
+    db,
+    logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
 };
 
 startMetricsServer(
-  () =>
-    consumers.every((consumer) => consumer.isConsuming) && runner.isHealthy()
+  () => runner.isHealthy() && (rabbitMqBridge?.isConsuming ?? true)
 );
 
 const bootstrap = async () => {
@@ -173,18 +157,6 @@ const bootstrap = async () => {
 
   const dataCompletion = new TournamentDataCompletionService({ db, logger });
 
-  // Exists before the osu! consumer starts, so no beatmap fetch drops its
-  // job. With a store configured, jobs queue even while the store fails its
-  // probe, and wait for a start that passes it.
-  const beatmapAttributesPublisher = dataWorkerEnv.beatmapFiles.config
-    ? new RabbitMqPublisher<ProcessBeatmapAttributesMessage>({
-        url: dataWorkerEnv.amqpUrl,
-        queue: QueueConstants.attributes.beatmaps,
-      })
-    : null;
-  let beatmapAttributes: Awaited<ReturnType<typeof startBeatmapAttributes>> =
-    null;
-
   const beatmapService = new BeatmapFetchService({
     db,
     api: osuApiClient,
@@ -200,9 +172,11 @@ const bootstrap = async () => {
         }))
       );
     },
-    publishBeatmapAttributes: beatmapAttributesPublisher
+    // With a store configured, jobs queue even while the store fails its
+    // probe, and wait for a start that passes it.
+    publishBeatmapAttributes: dataWorkerEnv.beatmapFiles.config
       ? async (payload) => {
-          await beatmapAttributesPublisher.publish(payload);
+          await enqueueJob(db, JobQueue.BeatmapAttributes, { payload });
         }
       : undefined,
   });
@@ -324,7 +298,7 @@ const bootstrap = async () => {
   });
 
   // Moves messages for queues that now run from the jobs table.
-  const rabbitMqBridge = new RabbitMqBridge({
+  const bridge = new RabbitMqBridge({
     url: dataWorkerEnv.amqpUrl,
     db,
     logger,
@@ -338,6 +312,10 @@ const bootstrap = async () => {
       {
         queue: JobQueue.TournamentChecks,
         toJob: tournamentChecksJobFromMessage,
+      },
+      {
+        queue: JobQueue.BeatmapAttributes,
+        toJob: beatmapAttributesJobFromMessage,
       },
     ],
   });
@@ -359,26 +337,29 @@ const bootstrap = async () => {
   runner.start();
   jobPruner.start();
   strandedFetchSweep.start();
-  await rabbitMqBridge.start();
-  consumers.push(rabbitMqBridge);
+  await bridge.start();
+  rabbitMqBridge = bridge;
 
   await playerRefetchScheduler.start();
   await forumPostBackfill.run();
 
+  let beatmapAttributesScheduler: Awaited<
+    ReturnType<typeof registerBeatmapAttributes>
+  > = null;
+
   const shutdown = async () => {
     logger.info('Shutting down data worker services');
     clearInterval(apiRequestStatsFlush);
+    // Everything that runs or queues jobs stops before the bridge and the
+    // database listener.
     await Promise.allSettled([
       runner.stop(),
       jobPruner.stop(),
       strandedFetchSweep.stop(),
-      rabbitMqBridge.stop(),
       playerRefetchScheduler.stop(),
-      beatmapAttributes?.worker.stop(),
-      beatmapAttributes?.scheduler.stop(),
+      beatmapAttributesScheduler?.stop(),
     ]);
-    // Closed after the job runner and the sweep stop, since both publish to it.
-    await beatmapAttributesPublisher?.close();
+    await bridge.stop();
     await Promise.allSettled([
       jobListener.stop(),
       withoutTracing(() => apiRequestStats.flush(db)),
@@ -389,7 +370,8 @@ const bootstrap = async () => {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  beatmapAttributes = await startBeatmapAttributes(beatmapAttributesPublisher);
+  beatmapAttributesScheduler = await registerBeatmapAttributes();
+  beatmapAttributesScheduler?.start();
 };
 
 bootstrap().catch((error) => {

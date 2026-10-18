@@ -7,6 +7,7 @@ import {
   JobStatus,
   type EnqueueJob,
 } from '@otr/core/jobs';
+import { MessagePriority } from '@otr/core';
 import { failedQueueName } from '@otr/core/queues';
 
 import type { DatabaseClient } from '../db';
@@ -143,6 +144,32 @@ export const tournamentChecksJobFromMessage = (
         ...messageMetadata(envelope),
         tournamentId,
       };
+};
+
+/**
+ * The job for a beatmap attributes message a beatmap fetch or the sweep used
+ * to publish: `{ requestedAt, correlationId, priority, beatmapId, checksum? }`.
+ * A sweep's low-priority job gets one attempt, as the sweep now queues it.
+ */
+export const beatmapAttributesJobFromMessage = (
+  envelope: Record<string, unknown>
+): EnqueueJob<JobQueue.BeatmapAttributes> | null => {
+  const beatmapId = positiveId(envelope.beatmapId);
+  if (beatmapId === null) {
+    return null;
+  }
+
+  const metadata = messageMetadata(envelope);
+  return {
+    payload: {
+      beatmapId,
+      ...(typeof envelope.checksum === 'string'
+        ? { checksum: envelope.checksum }
+        : {}),
+    },
+    ...metadata,
+    ...(metadata.priority === MessagePriority.Low ? { maxAttempts: 1 } : {}),
+  };
 };
 
 const FAILED_IN_RABBITMQ =

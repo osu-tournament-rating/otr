@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import { JobQueue, JobStatus } from '@otr/core/jobs';
 
 import {
+  beatmapAttributesJobFromMessage,
   insertFailedJob,
   osuFetchJobFromMessage,
   osuTrackJobFromMessage,
@@ -133,6 +134,37 @@ describe('tournamentChecksJobFromMessage', () => {
     expect(
       tournamentChecksJobFromMessage({ overrideVerifiedState: true })
     ).toBeNull();
+  });
+});
+
+describe('beatmapAttributesJobFromMessage', () => {
+  it("keeps a beatmap fetch's checksum and retries", () => {
+    const message = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"fetch-1","priority":5,"beatmapId":42,"checksum":"0123456789abcdef0123456789abcdef"}'
+    );
+
+    expect(beatmapAttributesJobFromMessage(message)).toEqual({
+      payload: { beatmapId: 42, checksum: '0123456789abcdef0123456789abcdef' },
+      priority: 5,
+      correlationId: 'fetch-1',
+    });
+  });
+
+  it("gives a sweep's job one attempt, as the sweep now queues it", () => {
+    const message = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"sweep-1","priority":0,"beatmapId":43}'
+    );
+
+    expect(beatmapAttributesJobFromMessage(message)).toEqual({
+      payload: { beatmapId: 43 },
+      priority: 0,
+      correlationId: 'sweep-1',
+      maxAttempts: 1,
+    });
+  });
+
+  it('drops a message without a beatmap id', () => {
+    expect(beatmapAttributesJobFromMessage({ checksum: 'abc' })).toBeNull();
   });
 });
 

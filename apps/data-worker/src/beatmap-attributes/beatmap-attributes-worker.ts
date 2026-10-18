@@ -1,11 +1,10 @@
-import {
-  MessagePriority,
-  type ProcessBeatmapAttributesMessage,
-} from '@otr/core';
+import { MessagePriority } from '@otr/core';
+import { JobQueue } from '@otr/core/jobs';
 
+import { DiscardJobError, PermanentJobError } from '../jobs/errors';
+import { pauseForMaintenanceWindow } from '../jobs/maintenance';
+import type { ClaimedJob, QueueRegistration } from '../jobs/types';
 import type { Logger } from '../logging/logger';
-import type { QueueConsumer, QueueMessage } from '@otr/core/queues';
-import { deferIfMaintenanceWindow } from '../maintenance/gate';
 import type { BeatmapAttributesService } from './beatmap-attributes-service';
 
 type BeatmapAttributesServiceContract = Pick<
@@ -14,72 +13,67 @@ type BeatmapAttributesServiceContract = Pick<
 >;
 
 interface BeatmapAttributesWorkerOptions {
-  /** Must consume with prefetch 1; see BeatmapAttributesService. */
-  queue: QueueConsumer<ProcessBeatmapAttributesMessage>;
   service: BeatmapAttributesServiceContract;
   logger: Logger;
   maintenanceWindowEnabled: boolean;
 }
 
+/**
+ * Runs processing.attributes.beatmaps jobs. The runner runs one job of a
+ * queue at a time, which BeatmapAttributesService relies on.
+ */
 export class BeatmapAttributesWorker {
-  private readonly queue: QueueConsumer<ProcessBeatmapAttributesMessage>;
   private readonly service: BeatmapAttributesServiceContract;
   private readonly logger: Logger;
   private readonly maintenanceWindowEnabled: boolean;
 
   constructor(options: BeatmapAttributesWorkerOptions) {
-    this.queue = options.queue;
     this.service = options.service;
     this.logger = options.logger;
     this.maintenanceWindowEnabled = options.maintenanceWindowEnabled;
   }
 
-  async start() {
-    await this.queue.start((message) => this.handleMessage(message));
+  registration(): QueueRegistration<JobQueue.BeatmapAttributes> {
+    return {
+      queue: JobQueue.BeatmapAttributes,
+      handler: (job) => this.handle(job),
+      // Downloads hit osu!, which the maintenance window keeps quiet.
+      pausedUntil: pauseForMaintenanceWindow(this.maintenanceWindowEnabled),
+    };
   }
 
-  async stop() {
-    await this.queue.stop();
-  }
+  async handle(job: ClaimedJob<JobQueue.BeatmapAttributes>) {
+    const { beatmapId, checksum } = job.payload;
 
-  private async handleMessage(
-    message: QueueMessage<ProcessBeatmapAttributesMessage>
-  ) {
-    const { beatmapId, checksum } = message.payload;
-    const msgLogger = this.logger.child({
-      correlationId: message.metadata.correlationId,
+    if (!Number.isInteger(beatmapId)) {
+      throw new PermanentJobError(
+        `The job has no beatmap id: ${JSON.stringify(job.payload)}`
+      );
+    }
+
+    const jobLogger = this.logger.child({
+      correlationId: job.correlationId,
       beatmapId,
     });
 
-    // Downloads hit osu!, which the maintenance window keeps quiet.
-    const deferred = await deferIfMaintenanceWindow({
-      enabled: this.maintenanceWindowEnabled,
-      message,
-      logger: msgLogger,
-    });
-    if (deferred) {
-      return;
-    }
-
     try {
       await this.service.process({ beatmapId, checksum });
-      await message.ack();
     } catch (error) {
       // A sweep job carries nothing the next sweep would not find again, so
-      // retrying and parking it would only fill the failed queue with copies
-      // during an outage. It is acknowledged instead, and the rethrow still
-      // counts the failure as an error. A fetch job may carry osu!'s new
-      // checksum, so it gets the usual retries.
-      if (message.metadata.priority === MessagePriority.Low) {
-        msgLogger.error(
+      // retrying or failing it would only pile up copies during an outage.
+      // It is dropped instead. A fetch job may carry osu!'s new checksum, so
+      // it gets the usual retries.
+      if (job.priority === MessagePriority.Low) {
+        jobLogger.error(
           'failed to process beatmap attributes, leaving it to the next sweep',
           { error }
         );
-        await message.ack();
-        throw error;
+        throw new DiscardJobError(
+          `Left to the next sweep: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
 
-      msgLogger.error('failed to process beatmap attributes', { error });
+      jobLogger.error('failed to process beatmap attributes', { error });
       throw error;
     }
   }
