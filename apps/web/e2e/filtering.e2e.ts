@@ -72,14 +72,11 @@ test.describe('Tournament Registrant Filtering', () => {
       await page.waitForLoadState('networkidle');
 
       const ruleset = page.locator('[data-testid="filter-ruleset"]');
-      await expect(ruleset).toBeVisible({ timeout: 10000 });
+      await expect(ruleset).toHaveText('Select a ruleset', { timeout: 10000 });
       await ruleset.click();
 
-      const option = page.getByRole('option', { name: 'osu!', exact: true });
-      if (await option.isVisible({ timeout: 10000 }).catch(() => false)) {
-        await option.click();
-        await expect(ruleset).toContainText('osu!', { timeout: 10000 });
-      }
+      await page.getByRole('option', { name: 'taiko', exact: true }).click();
+      await expect(ruleset).toHaveText('taiko');
     });
 
     test('an empty form reports each field rule without submitting', async ({

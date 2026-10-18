@@ -510,12 +510,13 @@ test.describe('Tournaments', () => {
       ).toHaveAccessibleName(/^Matches\s*[\d,]+$/);
     });
 
-    test('page title is populated', async ({ page }) => {
+    test('page title is the tournament name', async ({ page }) => {
       await page.goto(ROUTES.tournament(TEST_PUBLIC_TOURNAMENT_ID));
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).not.toBeEmpty({ timeout: 10000 });
+      await expect(page).toHaveTitle(`${await heading.innerText()} | o!TR`);
     });
 
     test('matches tab lists matches', async ({ page }) => {

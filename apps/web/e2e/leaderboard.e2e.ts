@@ -128,8 +128,7 @@ test.describe('Leaderboard Page', () => {
       await page.goto(ROUTES.leaderboard);
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      await expect(page).toHaveTitle('Leaderboard | o!TR');
     });
   });
 

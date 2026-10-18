@@ -1001,8 +1001,7 @@ test.describe('Beatmaps Listing Page', () => {
       await page.goto(ROUTES.beatmaps);
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      await expect(page).toHaveTitle('Beatmaps | o!TR');
     });
   });
 
@@ -1716,8 +1715,15 @@ test.describe('Beatmap Detail Page', () => {
       await page.goto(ROUTES.beatmap(TEST_BEATMAP_OSU_ID));
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      // "Artist - Title [Difficulty] | o!TR", as the header shows them.
+      const header = page.getByTestId('beatmap-header');
+      const heading = header.getByRole('heading', { level: 1 });
+      await expect(heading).not.toBeEmpty({ timeout: 10000 });
+      const difficulty = heading.locator('xpath=following-sibling::p');
+      const artist = header.locator('span:has(> svg.lucide-music-2)');
+      await expect(page).toHaveTitle(
+        `${await artist.innerText()} - ${await heading.innerText()} ${await difficulty.innerText()} | o!TR`
+      );
     });
   });
 

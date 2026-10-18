@@ -1,9 +1,38 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
+import { ReportEntityType } from '@otr/core/osu';
 import { STORAGE_STATE, TEST_ADMIN_PLAYER_ID } from './fixtures/auth';
 import { createOrpcClientForRole } from './fixtures/orpc';
-import { ROUTES } from './fixtures/test-config';
+import { ROUTES, TEST_TOURNAMENT_ID } from './fixtures/test-config';
+import { ADMIN_REPORTS_PAGE_SIZE } from '../app/admin/reports/list-params';
 
-/** Admin dashboard and reports pages; read-only interactions only. */
+/** Files a pending report on the test tournament as the regular user. */
+async function createTournamentReport(): Promise<number> {
+  const userClient = createOrpcClientForRole('user');
+  const { templates } = await userClient.reports.templates({
+    entityType: ReportEntityType.Tournament,
+  });
+  const template = templates.at(0);
+  if (!template) {
+    throw new Error('No tournament report templates were returned');
+  }
+
+  const { reportId } = await userClient.reports.create({
+    entityType: ReportEntityType.Tournament,
+    entityId: TEST_TOURNAMENT_ID,
+    reasonKey: template.key,
+    additionalInformation: `E2E admin queue ${randomUUID()}`,
+  });
+  if (!reportId) {
+    throw new Error('The test report was not created');
+  }
+  return reportId;
+}
+
+/**
+ * Admin dashboard and reports pages. The reports tests file their own
+ * pending reports as the regular user; nothing else writes.
+ */
 test.describe('Admin pages', () => {
   test.describe('Admin role', () => {
     test.use({ storageState: STORAGE_STATE.admin });
@@ -156,6 +185,14 @@ test.describe('Admin pages', () => {
       });
 
       test('the sort and page live in the address', async ({ page }) => {
+        // Numbered pages appear only when the queue holds more than one page.
+        const { totalCount } = await createOrpcClientForRole(
+          'admin'
+        ).reports.list({ page: 1, pageSize: 1 });
+        for (let i = totalCount; i <= ADMIN_REPORTS_PAGE_SIZE; i++) {
+          await createTournamentReport();
+        }
+
         await page.goto(`${ROUTES.adminReports}?sort=resolvedAt&dir=asc`);
         await page.waitForLoadState('networkidle');
 
@@ -171,14 +208,8 @@ test.describe('Admin pages', () => {
 
         const pages = page.getByRole('navigation', { name: 'Report pages' });
         const rows = page.locator('[data-testid="admin-reports-row"]');
-        await expect(
-          rows.first().or(page.locator('[data-testid="admin-reports-empty"]'))
-        ).toBeVisible({ timeout: 15000 });
-
-        // Numbered pages appear only when the queue holds more than one page.
-        if (!(await pages.isVisible())) {
-          return;
-        }
+        await expect(rows.first()).toBeVisible({ timeout: 15000 });
+        await expect(pages).toBeVisible();
 
         const firstId = await rows.first().getAttribute('data-report-id');
         await pages.getByRole('link', { name: 'Page 2' }).click();
@@ -193,18 +224,15 @@ test.describe('Admin pages', () => {
       test('a report opens from its View button in the report details dialog', async ({
         page,
       }) => {
+        const reportId = await createTournamentReport();
+
         await page.goto(ROUTES.adminReports);
         await page.waitForLoadState('networkidle');
 
-        const row = page.locator('[data-testid="admin-reports-row"]').first();
-        const hasRow = await row
-          .isVisible({ timeout: 15000 })
-          .catch(() => false);
-        if (!hasRow) {
-          return;
-        }
-
-        const reportId = await row.getAttribute('data-report-id');
+        const row = page.locator(
+          `[data-testid="admin-reports-row"][data-report-id="${reportId}"]`
+        );
+        await expect(row).toBeVisible({ timeout: 15000 });
         await row
           .getByRole('button', { name: `View report #${reportId}` })
           .click();
@@ -252,39 +280,23 @@ test.describe('Admin pages', () => {
       test('a report entity link navigates to its entity page', async ({
         page,
       }) => {
+        const reportId = await createTournamentReport();
+        const href = ROUTES.tournament(TEST_TOURNAMENT_ID);
+
         await page.goto(ROUTES.adminReports);
         await page.waitForLoadState('networkidle');
 
-        const list = page.locator('[data-testid="admin-reports-list"]');
-        const hasList = await list
-          .isVisible({ timeout: 15000 })
-          .catch(() => false);
-
-        // Skip gracefully when no report rows exist in the dev database.
-        if (!hasList) {
-          return;
-        }
-
         const entityLink = page
-          .locator('[data-testid="admin-reports-entity-link"]')
-          .first();
-
-        const hasLink = await entityLink
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
-        if (!hasLink) {
-          return;
-        }
-
-        const href = await entityLink.getAttribute('href');
-        // Only follow real entity links (placeholder links resolve to '#').
-        if (!href || href === '#') {
-          return;
-        }
+          .locator(
+            `[data-testid="admin-reports-row"][data-report-id="${reportId}"]`
+          )
+          .getByTestId('admin-reports-entity-link');
+        await expect(entityLink).toHaveAttribute('href', href, {
+          timeout: 15000,
+        });
 
         await entityLink.click();
-        await page.waitForURL(`**${href}`, { timeout: 15000 });
-        expect(page.url()).toContain(href);
+        await expect(page).toHaveURL(href, { timeout: 15000 });
       });
     });
 
