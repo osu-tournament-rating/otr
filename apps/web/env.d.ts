@@ -15,5 +15,7 @@ declare namespace NodeJS {
     /** osu! origin for e2e runs; honored only when E2E_TEST_AUTH=true */
     E2E_OSU_URL?: string;
     RABBITMQ_AMQP_URL: string;
+    /** /rpc rate limits: enforced in production and off elsewhere by default */
+    RPC_RATE_LIMIT?: 'enforce' | 'observe' | 'off';
   }
 }

@@ -37,7 +37,7 @@ import {
   type AdminNoteRow,
 } from './adminNotesProcedures';
 
-import { publicProcedure } from './base';
+import { publicProcedure, withSearchRateLimit } from './base';
 import {
   Mods,
   Ruleset,
@@ -272,6 +272,7 @@ async function fetchTournamentListItems(
 
 export const listTournaments = publicProcedure
   .input(TournamentListRequestSchema)
+  .use(withSearchRateLimit, (input) => input.searchQuery)
   .output(TournamentListResponseSchema)
   .route({
     summary: 'List tournaments',
@@ -307,6 +308,7 @@ export const listTournaments = publicProcedure
  */
 export const listTournamentsPage = publicProcedure
   .input(TournamentListRequestSchema)
+  .use(withSearchRateLimit, (input) => input.searchQuery)
   .output(TournamentListPageResponseSchema)
   .route({
     summary: 'List one numbered page of tournaments with the total count',

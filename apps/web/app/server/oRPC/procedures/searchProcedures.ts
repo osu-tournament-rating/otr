@@ -21,7 +21,7 @@ import {
 import { buildTierProgress } from '@/lib/utils/tierProgress';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 
-import { publicProcedure } from './base';
+import { publicProcedure, withSearchRateLimit } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { buildTournamentRelevanceOrder } from './shared/tournamentListOrder';
 
@@ -49,6 +49,7 @@ export const buildHeaderSearchTournamentOrder = (
  */
 export const searchEntities = publicProcedure
   .input(SearchRequestSchema)
+  .use(withSearchRateLimit, (input) => input.searchKey)
   .output(SearchResponseSchema)
   .route({
     summary: 'Search entities',
