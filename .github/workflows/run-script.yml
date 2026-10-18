@@ -12,6 +12,11 @@ name: Run script
 # The job waits for the script to finish and streams everything it prints,
 # including its logs and the output of the commands it runs. The job fails when
 # the script exits non-zero or the connection drops.
+#
+# A production run uses the production-ops environment rather than the
+# production one deploys use, so it can wait for a reviewer's approval while
+# deploys stay automatic. production-ops holds only SSH_USER; the run's other
+# secrets come from the repository and the organization.
 
 on:
   workflow_dispatch:
@@ -40,7 +45,7 @@ jobs:
   run:
     name: ${{ inputs.environment }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.environment == 'production' && 'production-ops' || inputs.environment }}
 
     steps:
       - name: Connect to tailscale
@@ -60,6 +65,7 @@ jobs:
           ARGS: ${{ inputs.args }}
         run: |
           set -euo pipefail
+          : "${SSH_USER:?no SSH user is configured for this environment}"
           : "${REMOTE_PATH:?no remote path is configured for this environment}"
           # ssh joins its arguments into one remote command line, which would
           # split the arguments again on the host, so they travel encoded.
