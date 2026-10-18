@@ -103,8 +103,19 @@ Traps that produce wrong numbers:
 - **Mods are bitflags.** Test them with `mods & 8 <> 0`, never with `=`.
   Scores may carry mods the game doesn't (freemod).
 - **Some columns are empty.** `game_scores.pp` is null for every verified
-  score, `beatmap_attributes` (star rating with mods) has no rows, and some
-  beatmaps have `sr = 0`. Check a column's null rate before you build on it.
+  score, and some beatmaps have `sr = 0`. Check a column's null rate before
+  you build on it.
+- **Star rating with mods is partial.** `beatmap_attributes` covers only
+  osu! standard beatmaps: `mods = 0` (NM) plus each mod key that any score in
+  a verified game played, rejected scores included. A key keeps only EZ, HD, HR, and DT, with
+  NC counted as DT, so join a score on its key, never on raw mods. With
+  `m = games.mods | game_scores.mods`, the key is null when `m & 9604 <> 0`
+  (HT, FL, TD, RX, or AP, which have no row), and otherwise
+  `(m | CASE WHEN m & 512 <> 0 THEN 64 ELSE 0 END) & 90`, as in
+  `packages/otr-core/src/osu/attribute-mods.ts`. `calculator` names the
+  rosu-pp-js release behind each row: its values can differ from osu!'s
+  `beatmaps.sr`, and rows from two releases coexist while a recalculation
+  runs. An older copy may have no rows at all.
 - **Match cost has a ceiling.** In 1v1 it tops out at about 1.468, so a
   "best match cost" record ties in every 1v1 tournament. Look at the spread
   of the maximum, not just the average.

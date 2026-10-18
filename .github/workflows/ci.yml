@@ -87,9 +87,14 @@ jobs:
       matrix:
         task: [test, lint, typecheck, format]
     env:
-      # Dummy value needed so build-time imports that require DATABASE_URL do not throw.
-      DATABASE_URL: postgresql://dummy:dummy@127.0.0.1:5432/dummy
+      # The test task's database, which the osu! sign-up test signs up into.
+      # The other tasks only need a value so imports that require it do not
+      # throw.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/otr_test
       SEARCH_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/otr_test
+      # The sign-up test fakes osu!, but Better Auth still needs a client.
+      WEB_OSU_CLIENT_ID: '1'
+      WEB_OSU_CLIENT_SECRET: ci
       # Secrets cannot appear in `if:`, so the Docker Hub sign-in checks this.
       # Pull requests from forks get no secrets, so they pull anonymously.
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}

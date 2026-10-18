@@ -1,5 +1,5 @@
 {
-  "id": "61e6d877-39b5-4604-9208-0bc77a78b53f",
+  "id": "5d52b4f5-e75a-4104-82aa-3d6d7f900579",
   "prevId": "c6665be8-24a8-4262-9adb-e96685972239",
   "version": "7",
   "dialect": "postgresql",
@@ -777,6 +777,36 @@
           "primaryKey": false,
           "notNull": true
         },
+        "ar": {
+          "name": "ar",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cs": {
+          "name": "cs",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "od": {
+          "name": "od",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hp": {
+          "name": "hp",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calculator": {
+          "name": "calculator",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "beatmap_id": {
           "name": "beatmap_id",
           "type": "integer",
@@ -789,6 +819,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "CURRENT_TIMESTAMP"
+        },
+        "updated": {
+          "name": "updated",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1024,6 +1060,65 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.beatmap_files": {
+      "name": "beatmap_files",
+      "schema": "",
+      "columns": {
+        "beatmap_id": {
+          "name": "beatmap_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fetch_status": {
+          "name": "fetch_status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created": {
+          "name": "created",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated": {
+          "name": "updated",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fk_beatmap_files_beatmaps_beatmap_id": {
+          "name": "fk_beatmap_files_beatmaps_beatmap_id",
+          "tableFrom": "beatmap_files",
+          "tableTo": "beatmaps",
+          "columnsFrom": ["beatmap_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "pk_beatmap_files": {
+          "name": "pk_beatmap_files",
+          "columns": ["beatmap_id"]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -5559,6 +5654,13 @@
           "notNull": true,
           "default": "''"
         },
+        "default_ruleset": {
+          "name": "default_ruleset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "osu_last_fetch": {
           "name": "osu_last_fetch",
           "type": "timestamp with time zone",
@@ -6487,6 +6589,20 @@
             "cache": "1",
             "cycle": false
           }
+        },
+        "default_ruleset": {
+          "name": "default_ruleset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "default_ruleset_is_controlled": {
+          "name": "default_ruleset_is_controlled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "user_id": {
           "name": "user_id",

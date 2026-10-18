@@ -1,5 +1,12 @@
-/** Test-only endpoint exposed by {@link e2eTestAuthPlugin}. */
+/** Test-only endpoints exposed by {@link e2eTestAuthPlugin}. */
 export const E2E_SIGN_IN_PATH = '/api/auth/e2e/sign-in';
+export const E2E_DELETE_PLAYER_PATH = '/api/auth/e2e/delete-player';
+
+/**
+ * The e2e suite signs up fake osu! users from this id up. Real osu! ids are
+ * far lower, so the delete endpoint refuses anything below it.
+ */
+export const E2E_FAKE_OSU_ID_FLOOR = 2_000_000_000;
 
 /** Sessions are minted from these players; the endpoint provisions their user rows. */
 export const E2E_ADMIN_PLAYER_ID = 3616;

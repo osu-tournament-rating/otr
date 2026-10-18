@@ -1,4 +1,4 @@
-import { not } from 'drizzle-orm';
+import { inArray, not } from 'drizzle-orm';
 import type { API } from 'osu-api-v2-js';
 
 import { withApiErrorHandling, withApiMetrics } from '../api-helpers';
@@ -32,6 +32,13 @@ interface BeatmapFetchServiceOptions {
   logger: Logger;
   dataCompletion: TournamentDataCompletionService;
   publishPlayerFetch: (osuPlayerId: number) => Promise<void>;
+  /** Absent while beatmap file storage is off. */
+  publishBeatmapAttributes?: (payload: BeatmapAttributesJob) => Promise<void>;
+}
+
+interface BeatmapAttributesJob {
+  beatmapId: number;
+  checksum?: string;
 }
 
 /**
@@ -65,6 +72,8 @@ export class BeatmapFetchService {
   private readonly logger: Logger;
   private readonly dataCompletion: TournamentDataCompletionService;
   private readonly publishPlayerFetch: (osuPlayerId: number) => Promise<void>;
+  private readonly publishBeatmapAttributes:
+    ((payload: BeatmapAttributesJob) => Promise<void>) | undefined;
 
   constructor(options: BeatmapFetchServiceOptions) {
     this.db = options.db;
@@ -73,6 +82,7 @@ export class BeatmapFetchService {
     this.logger = options.logger;
     this.dataCompletion = options.dataCompletion;
     this.publishPlayerFetch = options.publishPlayerFetch;
+    this.publishBeatmapAttributes = options.publishBeatmapAttributes;
   }
 
   async fetchAndPersist(
@@ -244,7 +254,7 @@ export class BeatmapFetchService {
         }
       }
 
-      const affectedBeatmapIds: number[] = [];
+      const affectedBeatmaps: BeatmapAttributesJob[] = [];
 
       for (const beatmap of beatmapRows) {
         const ruleset = convertRuleset(beatmap.mode_int ?? beatmap.mode);
@@ -292,7 +302,10 @@ export class BeatmapFetchService {
           continue;
         }
 
-        affectedBeatmapIds.push(row.id);
+        affectedBeatmaps.push({
+          beatmapId: row.id,
+          checksum: beatmap.checksum ?? undefined,
+        });
 
         for (const ownerId of beatmapOwnerIds(beatmap)) {
           const beatmapCreatorId = await getOrCreatePlayerId(tx, ownerId);
@@ -309,7 +322,7 @@ export class BeatmapFetchService {
 
       return {
         beatmapsetId: beatmapsetRow.id,
-        affectedBeatmapIds,
+        affectedBeatmaps,
       };
     });
 
@@ -318,7 +331,9 @@ export class BeatmapFetchService {
       osuBeatmapId,
     });
 
-    const beatmapIds = new Set<number>(result.affectedBeatmapIds);
+    const beatmapIds = new Set<number>(
+      result.affectedBeatmaps.map((beatmap) => beatmap.beatmapId)
+    );
     beatmapIds.add(beatmapId);
 
     for (const id of beatmapIds) {
@@ -330,6 +345,72 @@ export class BeatmapFetchService {
       );
     }
 
+    if (this.publishBeatmapAttributes) {
+      await this.queueBeatmapAttributes(
+        this.publishBeatmapAttributes,
+        { beatmapId, checksum: apiBeatmap.checksum ?? undefined },
+        result.affectedBeatmaps
+      );
+    }
+
     return true;
+  }
+
+  /**
+   * Queues the requested beatmap, and any other beatmap of the set whose
+   * stored file osu! has since replaced. The rest of the set gets its files
+   * from the sweep. Failures are logged and never fail the fetch.
+   */
+  private async queueBeatmapAttributes(
+    publish: (payload: BeatmapAttributesJob) => Promise<void>,
+    requested: BeatmapAttributesJob,
+    affected: BeatmapAttributesJob[]
+  ) {
+    const jobs = [requested];
+    const others = affected.filter(
+      (beatmap) =>
+        beatmap.beatmapId !== requested.beatmapId &&
+        beatmap.checksum !== undefined
+    );
+
+    if (others.length > 0) {
+      try {
+        const files = await this.db.query.beatmapFiles.findMany({
+          where: inArray(
+            schema.beatmapFiles.beatmapId,
+            others.map((beatmap) => beatmap.beatmapId)
+          ),
+          columns: { beatmapId: true, checksum: true },
+        });
+        const stored = new Map(
+          files.map((file) => [file.beatmapId, file.checksum])
+        );
+
+        for (const beatmap of others) {
+          if (
+            stored.has(beatmap.beatmapId) &&
+            stored.get(beatmap.beatmapId) !== beatmap.checksum
+          ) {
+            jobs.push(beatmap);
+          }
+        }
+      } catch (error) {
+        this.logger.error('Failed to read stored beatmap files', {
+          beatmapIds: others.map((beatmap) => beatmap.beatmapId),
+          error,
+        });
+      }
+    }
+
+    for (const job of jobs) {
+      try {
+        await publish(job);
+      } catch (error) {
+        this.logger.error('Failed to enqueue beatmap attributes', {
+          beatmapId: job.beatmapId,
+          error,
+        });
+      }
+    }
   }
 }

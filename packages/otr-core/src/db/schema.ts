@@ -1890,10 +1890,19 @@ export const beatmapAttributes = pgTable(
     }),
     mods: integer().notNull(),
     sr: doublePrecision().notNull(),
+    // AR and OD include the clock rate of DT; CS and HP only EZ and HR.
+    ar: doublePrecision().notNull(),
+    cs: doublePrecision().notNull(),
+    od: doublePrecision().notNull(),
+    hp: doublePrecision().notNull(),
+    // Calculator release that produced the row, e.g. rosu-pp-js@4.0.1. Rows
+    // from another release are recalculated.
+    calculator: varchar({ length: 64 }).notNull(),
     beatmapId: integer('beatmap_id').notNull(),
     created: timestamp({ withTimezone: true, mode: 'string' })
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
+    updated: timestamp({ withTimezone: true, mode: 'string' }),
   },
   (table) => [
     uniqueIndex('ix_beatmap_attributes_beatmap_id_mods').using(
@@ -1905,6 +1914,34 @@ export const beatmapAttributes = pgTable(
       columns: [table.beatmapId],
       foreignColumns: [beatmaps.id],
       name: 'fk_beatmap_attributes_beatmaps_beatmap_id',
+    }).onDelete('cascade'),
+  ]
+);
+
+/** The beatmap's stored .osu file, which its attributes are calculated from. */
+export const beatmapFiles = pgTable(
+  'beatmap_files',
+  {
+    beatmapId: integer('beatmap_id').notNull(),
+    // MD5 of the stored file, which names its object. Null when no stored
+    // object is known.
+    checksum: varchar({ length: 32 }),
+    // DataFetchStatus. Fetched: the stored file is usable. NotFound: no file
+    // is stored and osu! served nothing on the last download. Error: no file
+    // is stored and osu! served something unusable on the last download, or
+    // the calculator rejected the stored file.
+    fetchStatus: integer('fetch_status').notNull(),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updated: timestamp({ withTimezone: true, mode: 'string' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.beatmapId], name: 'pk_beatmap_files' }),
+    foreignKey({
+      columns: [table.beatmapId],
+      foreignColumns: [beatmaps.id],
+      name: 'fk_beatmap_files_beatmaps_beatmap_id',
     }).onDelete('cascade'),
   ]
 );

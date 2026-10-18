@@ -1,6 +1,6 @@
 {
-  "id": "da809db4-d4cf-4d9f-95d4-22dd798fdf3d",
-  "prevId": "61e6d877-39b5-4604-9208-0bc77a78b53f",
+  "id": "4cbbcc9a-e78a-4ead-805d-dc6121b90c2c",
+  "prevId": "5d52b4f5-e75a-4104-82aa-3d6d7f900579",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -777,6 +777,36 @@
           "primaryKey": false,
           "notNull": true
         },
+        "ar": {
+          "name": "ar",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cs": {
+          "name": "cs",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "od": {
+          "name": "od",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hp": {
+          "name": "hp",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calculator": {
+          "name": "calculator",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "beatmap_id": {
           "name": "beatmap_id",
           "type": "integer",
@@ -789,6 +819,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "CURRENT_TIMESTAMP"
+        },
+        "updated": {
+          "name": "updated",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1024,6 +1060,65 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.beatmap_files": {
+      "name": "beatmap_files",
+      "schema": "",
+      "columns": {
+        "beatmap_id": {
+          "name": "beatmap_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fetch_status": {
+          "name": "fetch_status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created": {
+          "name": "created",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated": {
+          "name": "updated",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fk_beatmap_files_beatmaps_beatmap_id": {
+          "name": "fk_beatmap_files_beatmaps_beatmap_id",
+          "tableFrom": "beatmap_files",
+          "tableTo": "beatmaps",
+          "columnsFrom": ["beatmap_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "pk_beatmap_files": {
+          "name": "pk_beatmap_files",
+          "columns": ["beatmap_id"]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -6487,18 +6582,6 @@
             "cache": "1",
             "cycle": false
           }
-        },
-        "profile_ruleset": {
-          "name": "profile_ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "browsing_ruleset": {
-          "name": "browsing_ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "user_id": {
           "name": "user_id",

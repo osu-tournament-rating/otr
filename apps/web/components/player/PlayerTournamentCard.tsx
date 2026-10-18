@@ -11,6 +11,7 @@ import { RulesetName } from '@/components/kit/format/RulesetName';
 import { RowListItem } from '@/components/kit/layout/RowList';
 import { typeScale } from '@/components/kit/layout/Typography';
 import { Badge } from '@/components/kit/status/Badge';
+import { NotInRatings } from '@/components/kit/status/NotInRatings';
 import { VerificationStatusIcon } from '@/components/kit/status/VerificationStatusIcon';
 import { EntityLink } from '@/components/kit/tables/EntityLink';
 import { MissingValue } from '@/components/kit/tables/MissingValue';
@@ -18,7 +19,7 @@ import { formatLobbySize, formatRankRange } from '@/lib/kit/format/fields';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { getRejectionReasonTexts } from '@/lib/kit/status/reasons';
 import type { PlayerRatingAdjustment } from '@/lib/orpc/schema/playerStats';
-import type { PlayerTournamentListItem } from '@/lib/orpc/schema/tournament';
+import type { PlayerTournamentHistoryItem } from '@/lib/orpc/schema/tournament';
 import { cn } from '@/lib/utils';
 
 import PlayerTournamentMatchTable from './PlayerTournamentMatchTable';
@@ -36,17 +37,23 @@ function RowStat({ label, children }: { label: string; children: ReactNode }) {
 /**
  * One tournament in a player's history: its name, status and facts, the
  * player's match record and rating change, and a Matches button that
- * expands the tournament's matches in place.
+ * expands the tournament's matches in place. Without stats for the player
+ * there is no record, so the row stops at its name, status and facts.
  */
 export default function PlayerTournamentCard({
   tournament,
   adjustments,
 }: {
-  tournament: PlayerTournamentListItem;
+  tournament: PlayerTournamentHistoryItem;
   adjustments: PlayerRatingAdjustment[];
 }) {
   const [isMatchesVisible, setIsMatchesVisible] = useState(false);
   const matchesId = useId();
+
+  const record =
+    tournament.matchesWon !== null && tournament.matchesLost !== null
+      ? { won: tournament.matchesWon, lost: tournament.matchesLost }
+      : null;
 
   const tournamentAdjustments = adjustments.filter(
     (adjustment) => adjustment.match?.tournamentId === tournament.id
@@ -85,6 +92,7 @@ export default function PlayerTournamentCard({
               reviewer={tournament.verifiedByUsername}
               tooltip="tap"
             />
+            <NotInRatings status={tournament.verificationStatus} />
             {tournament.isLazer ? (
               <Badge variant="outline" size="sm">
                 lazer
@@ -100,64 +108,68 @@ export default function PlayerTournamentCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 sm:justify-end">
-          <dl className="flex items-center gap-4">
-            {/* "Record", as the match pages call a won–lost pair; the
-                Matches button beside it opens the matches themselves. */}
-            <RowStat label="Record">
-              <span className="sr-only">{`${formatCountOf(tournament.matchesWon, 'win')} and ${formatCountOf(tournament.matchesLost, 'loss', 'losses')}`}</span>
-              <span aria-hidden="true">
-                {formatCount(tournament.matchesWon)}–
-                {formatCount(tournament.matchesLost)}
-              </span>
-            </RowStat>
-            <RowStat label="Rating change">
-              {tournamentAdjustments.length > 0 ? (
-                <RatingDelta value={totalRatingDelta} />
-              ) : (
-                <MissingValue />
-              )}
-            </RowStat>
-          </dl>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-expanded={isMatchesVisible}
-            aria-controls={matchesId}
-            aria-label={`Matches in ${tournament.name}`}
-            onClick={() => setIsMatchesVisible((visible) => !visible)}
-            className="gap-1"
-          >
-            Matches
-            <ChevronDown
-              aria-hidden
-              className={cn(
-                'transition-transform',
-                isMatchesVisible && 'rotate-180'
-              )}
-            />
-          </Button>
-        </div>
-      </div>
-
-      {/* Stays mounted for aria-controls; hidden keeps it out of the layout. */}
-      <div id={matchesId} hidden={!isMatchesVisible} className="border-t">
-        {isMatchesVisible ? (
-          tournamentAdjustments.length > 0 ? (
-            <PlayerTournamentMatchTable
-              adjustments={tournamentAdjustments}
-              tournamentName={tournament.name}
-            />
-          ) : (
-            <EmptyState
-              size="compact"
-              icon={Swords}
-              title="No matches"
-              titleAs="p"
-            />
-          )
+        {record ? (
+          <div className="flex items-center justify-between gap-4 sm:justify-end">
+            <dl className="flex items-center gap-4">
+              {/* "Record", as the match pages call a won–lost pair; the
+                  Matches button beside it opens the matches themselves. */}
+              <RowStat label="Record">
+                <span className="sr-only">{`${formatCountOf(record.won, 'win')} and ${formatCountOf(record.lost, 'loss', 'losses')}`}</span>
+                <span aria-hidden="true">
+                  {formatCount(record.won)}–{formatCount(record.lost)}
+                </span>
+              </RowStat>
+              <RowStat label="Rating change">
+                {tournamentAdjustments.length > 0 ? (
+                  <RatingDelta value={totalRatingDelta} />
+                ) : (
+                  <MissingValue />
+                )}
+              </RowStat>
+            </dl>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={isMatchesVisible}
+              aria-controls={matchesId}
+              aria-label={`Matches in ${tournament.name}`}
+              onClick={() => setIsMatchesVisible((visible) => !visible)}
+              className="gap-1"
+            >
+              Matches
+              <ChevronDown
+                aria-hidden
+                className={cn(
+                  'transition-transform',
+                  isMatchesVisible && 'rotate-180'
+                )}
+              />
+            </Button>
+          </div>
         ) : null}
       </div>
+
+      {/* Mounted with the Matches button for aria-controls; hidden keeps it
+          out of the layout. */}
+      {record ? (
+        <div id={matchesId} hidden={!isMatchesVisible} className="border-t">
+          {isMatchesVisible ? (
+            tournamentAdjustments.length > 0 ? (
+              <PlayerTournamentMatchTable
+                adjustments={tournamentAdjustments}
+                tournamentName={tournament.name}
+              />
+            ) : (
+              <EmptyState
+                size="compact"
+                icon={Swords}
+                title="No matches"
+                titleAs="p"
+              />
+            )
+          ) : null}
+        </div>
+      ) : null}
     </RowListItem>
   );
 }
