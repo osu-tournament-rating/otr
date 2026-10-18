@@ -31,8 +31,9 @@ already fine, ignore the framing and judge the change on its own.
      and callers the diff did not update.
    - **Contracts.** Renumbered or reordered enums, bitflags compared with
      equality, verification statuses compared with `<`, SQL table or column
-     names and queue message shapes the processor depends on, writes to
-     generated or identity columns, and changes to `public` procedures.
+     names, job queue names, and job payload shapes the processor depends
+     on, writes to generated or identity columns, and changes to `public`
+     procedures.
    - **Repository rules.** Admin writes outside `adminMutationProcedure`,
      authorization in middleware, query parameters or user input on spans,
      edited merged migrations, and the UI conventions in `AGENTS.md`.
