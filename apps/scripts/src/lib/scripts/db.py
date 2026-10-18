@@ -51,6 +51,10 @@ dev_secret_columns = {
     "public.o_auth_clients": ("secret",),
 }
 
+# Dev archives keep these tables' schema but none of their rows. Queued jobs
+# belong to production, and a dev data worker would run them again.
+dev_excluded_table_data = ["public.jobs"]
+
 # Redacted values are text keyed on the row id, keeping NOT NULL and UNIQUE.
 _redactable_types = {"text", "character varying", "character"}
 
@@ -352,7 +356,9 @@ def _dev_export_command(columns_by_table: dict[str, list[Column]], dest: Path) -
             _pg_dump_command(
                 [
                     "--section=data",
-                    *_pg_dump_options("--exclude-table-data", tables),
+                    *_pg_dump_options(
+                        "--exclude-table-data", [*tables, *dev_excluded_table_data]
+                    ),
                 ],
                 clean=False,
             ),

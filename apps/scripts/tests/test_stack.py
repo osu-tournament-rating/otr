@@ -1,6 +1,8 @@
 import os
 import re
+import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -183,3 +185,122 @@ def test_process_records_reject_reused_pids(tmp_path):
 
     record.write_text(f'{{"pid": {pid}, "started": {started + 1}, "env": "x"}}')
     assert procs.load(record) is None
+
+
+@pytest.fixture
+def otr(tmp_path, monkeypatch):
+    """Runs `otr up` with every docker, bun, and process call replaced by a
+    recorder. Each run returns the steps it took, in order."""
+    main, worktree, root = tmp_path / "main", tmp_path / "wt", tmp_path / "stacks"
+    main.mkdir()
+    worktree.mkdir()
+    (main / ".env").write_text("A=1\n")
+    monkeypatch.setenv("OTR_STACKS_DIR", str(root))
+    stack.allocate(root, worktree, free=lambda port: True)
+    steps = []
+    running = set()
+
+    def clone(base, target):
+        steps.append("copy")
+        target.mkdir()
+        return {"image": "postgres:17", "created": "2026-10-18T00:00:00+00:00"}
+
+    def compose(entry, creds, *args):
+        if args[0] == "up":
+            steps.append("start db")
+        return "db-container\n" if args[:2] == ("ps", "-q") else ""
+
+    def stop(record):
+        if record.stem not in running:
+            return False
+        running.discard(record.stem)
+        steps.append(("stop", record.stem))
+        return True
+
+    monkeypatch.setattr(
+        stack, "find_checkout", lambda start: stack.Checkout(worktree, main)
+    )
+    monkeypatch.setattr(stack, "install_dependencies", lambda path: None)
+    monkeypatch.setattr(stack.snapshot, "ensure", lambda base, creds, force: {})
+    monkeypatch.setattr(stack.snapshot, "clone", clone)
+    monkeypatch.setattr(
+        stack.snapshot, "remove", lambda root, image, target: shutil.rmtree(target)
+    )
+    monkeypatch.setattr(stack, "compose", compose)
+    monkeypatch.setattr(
+        stack.snapshot,
+        "psql",
+        lambda container, creds, sql: steps.append(("sql", container, sql)) or "",
+    )
+    monkeypatch.setattr(stack.procs, "stop", stop)
+    monkeypatch.setattr(stack, "migrate", lambda path, url: steps.append("migrate"))
+    monkeypatch.setattr(
+        stack,
+        "sync_processes",
+        lambda entry, managed, wanted: steps.append(("processes", sorted(wanted))),
+    )
+    monkeypatch.setattr(stack, "describe", lambda *args, **kwargs: None)
+
+    def up(fresh=False):
+        steps.clear()
+        stack.up(worktree, set(), web=False, fresh=fresh)
+        return list(steps)
+
+    return SimpleNamespace(up=up, running=running)
+
+
+CLEAR_JOBS = ("sql", "db-container", stack.CLEAR_COPIED_JOBS)
+
+
+def test_a_new_copy_clears_its_jobs_before_migrations_and_processes(otr):
+    assert otr.up() == [
+        "copy",
+        "start db",
+        CLEAR_JOBS,
+        "migrate",
+        ("processes", []),
+    ]
+
+
+def test_restarting_a_stack_keeps_its_jobs_until_a_fresh_copy(otr):
+    otr.up()
+    otr.running.add("worker")
+
+    restarted = otr.up()
+
+    assert CLEAR_JOBS not in restarted
+    assert ("stop", "worker") not in restarted
+    assert CLEAR_JOBS in otr.up(fresh=True)
+
+
+def test_a_copy_whose_up_failed_clears_its_jobs_on_the_next_up(otr, monkeypatch):
+    working = stack.compose
+
+    def port_taken(entry, creds, *args):
+        if args[0] == "up":
+            raise StackError("port is already allocated")
+        return working(entry, creds, *args)
+
+    monkeypatch.setattr(stack, "compose", port_taken)
+    with pytest.raises(StackError):
+        otr.up()
+    monkeypatch.setattr(stack, "compose", working)
+
+    retried = otr.up()
+
+    assert "copy" not in retried
+    assert CLEAR_JOBS in retried
+
+
+def test_a_fresh_copy_restarts_a_running_worker_only_after_clearing_jobs(otr):
+    otr.up()
+    otr.running.add("worker")
+
+    assert otr.up(fresh=True) == [
+        "copy",
+        ("stop", "worker"),
+        "start db",
+        CLEAR_JOBS,
+        "migrate",
+        ("processes", ["worker"]),
+    ]

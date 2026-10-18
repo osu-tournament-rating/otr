@@ -132,6 +132,11 @@ class Stack:
         return self.root / "locks" / f"{self.name}.lock"
 
     @property
+    def new_copy(self) -> Path:
+        """Marks a database copy that still holds the local database's jobs."""
+        return self.dir / "new-copy"
+
+    @property
     def ports(self) -> Ports:
         return Ports.for_slot(self.slot)
 
@@ -360,10 +365,32 @@ def provision(stack: Stack, creds: Credentials, fresh: bool) -> Stack:
         snapshot.remove(stack.root, stack.image, stack.pgdata)
 
     print(f"otr: copying the base into {stack.name}")
+    # Marked before copying, so a copy that an interrupted `up` leaves behind
+    # still has its jobs cleared by the next one.
+    stack.dir.mkdir(parents=True, exist_ok=True)
+    stack.new_copy.touch()
     meta = snapshot.clone(base, stack.pgdata)
     stack = replace(stack, image=meta["image"], base_created=meta["created"])
     stack.save()
     return stack
+
+
+# The guard lets this run on copies made before the jobs table existed.
+CLEAR_COPIED_JOBS = (
+    "DO $$ BEGIN IF to_regclass('public.jobs') IS NOT NULL THEN "
+    "DELETE FROM public.jobs; END IF; END $$"
+)
+
+
+def clear_copied_jobs(stack: Stack, creds: Credentials) -> None:
+    """Deletes the jobs a new copy brought from the local database, which the
+    stack's worker would otherwise claim and run a second time. A stack that
+    only restarts keeps the jobs it queued itself."""
+    if not stack.new_copy.exists():
+        return
+    container = compose(stack, creds, "ps", "-q", "db").strip()
+    snapshot.psql(container, creds, CLEAR_COPIED_JOBS)
+    stack.new_copy.unlink()
 
 
 def up(start: Path, components: set[str], web: bool, fresh: bool) -> None:
@@ -386,6 +413,10 @@ def up(start: Path, components: set[str], web: bool, fresh: bool) -> None:
     with locked(stack.lock):
         install_dependencies(checkout.root)
         stack = provision(stack, creds, fresh)
+        if stack.new_copy.exists() and procs.stop(stack.record("worker")):
+            # A worker left running would claim the copied jobs before they
+            # are cleared, so it starts again only after that.
+            wanted.add("worker")
 
         monitoring = "monitoring" in wanted or "monitoring" in running_services(
             stack, creds
@@ -396,6 +427,8 @@ def up(start: Path, components: set[str], web: bool, fresh: bool) -> None:
         services = ["db", *(s for s in SERVICES if s in wanted)]
         print(f"otr: starting {', '.join(services)}")
         compose(stack, creds, "up", "-d", "--wait", "--wait-timeout", "180", *services)
+        # Before migrating, so jobs the branch's own migrations queue survive.
+        clear_copied_jobs(stack, creds)
         migrate(checkout.root, managed["DATABASE_URL"])
         sync_processes(stack, managed, wanted)
 
