@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,10 +26,17 @@ describe('classify_journal', () => {
   test.each([
     ['identical journals', list(first, second), list(first, second), 'match'],
     ['applied behind expected', list(first), list(first, second), 'behind'],
-    ['applied ahead of expected', list(first, second), list(first), 'diverged'],
+    ['applied ahead of expected', list(first, second), list(first), 'ahead'],
+    ['ahead by two', list(first, second, third), list(first), 'ahead'],
     [
       'same count, rewritten entry',
       list(first, '2000 xxx'),
+      list(first, second),
+      'diverged',
+    ],
+    [
+      'longer with a rewritten prefix',
+      list(first, '2000 xxx', third),
       list(first, second),
       'diverged',
     ],
@@ -237,6 +244,77 @@ describe('provenance_field', () => {
     expect(call('provenance_field', stamped, 'generation')).toBe('1756000000');
     expect(call('provenance_field', stamped, 'pr')).toBe('');
     expect(call('provenance_field', '', 'generation')).toBe('');
+  });
+});
+
+describe('dev-db.sh', () => {
+  // Every case fails before dev-db.sh reaches docker. The restore, the
+  // migrator and the container are disarmed anyway, so a regression cannot
+  // run the real recovery script on a developer's machine.
+  function run(args: string[], env: Record<string, string> = {}) {
+    const directory = mkdtempSync(join(tmpdir(), 'dev-db-'));
+    const result = Bun.spawnSync({
+      cmd: [script, ...args],
+      cwd: directory,
+      env: {
+        ...process.env,
+        DEV_DB_LOCK_FILE: join(directory, 'dev-db.lock'),
+        DEV_DB_CONTAINER: 'otr-dev-db-unit-test',
+        DEV_RESTORE_COMMAND: 'false',
+        DEV_MIGRATOR_COMMAND: 'false',
+        OTR_SCRIPTS_DIR: directory,
+        EXPECTED_JOURNAL: first,
+        ...env,
+      },
+    });
+    return {
+      exitCode: result.exitCode,
+      stdout: result.stdout.toString(),
+      stderr: result.stderr.toString(),
+    };
+  }
+
+  function archiveWithoutJournal() {
+    const directory = mkdtempSync(join(tmpdir(), 'dev-db-archive-'));
+    mkdirSync(join(directory, 'apps/web/drizzle'), { recursive: true });
+    writeFileSync(
+      join(directory, 'apps/web/drizzle/0000_one.sql'),
+      'select 1;\n'
+    );
+    const packed = Bun.spawnSync({
+      cmd: ['tar', '-czf', 'migrations.tar.gz', 'apps'],
+      cwd: directory,
+    });
+    expect(packed.exitCode).toBe(0);
+    return join(directory, 'migrations.tar.gz');
+  }
+
+  test('reports API version 3', () => {
+    expect(run(['capabilities']).stdout).toContain('version=3');
+  });
+
+  test.each(['sync', 'restore'])(
+    '%s refuses an archive without the journal before restoring',
+    (command) => {
+      const result = run([command], {
+        MIGRATIONS_ARCHIVE: archiveWithoutJournal(),
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(
+        'MIGRATIONS_ARCHIVE has no apps/web/drizzle/meta/_journal.json'
+      );
+      expect(result.stdout + result.stderr).not.toContain('restoring');
+    }
+  );
+
+  test('sync refuses an archive it cannot read without naming the path', () => {
+    const missing = join(tmpdir(), 'dev-db-missing', 'migrations.tar.gz');
+    const result = run(['sync'], { MIGRATIONS_ARCHIVE: missing });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'MIGRATIONS_ARCHIVE is not a readable file'
+    );
+    expect(result.stderr).not.toContain(missing);
   });
 });
 
