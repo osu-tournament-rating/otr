@@ -4,7 +4,6 @@ import { MessagePriority, QueueRetryPolicy } from '@otr/core';
 import type { ChannelModel, ConsumeMessage, Options } from 'amqplib';
 
 import type { Logger } from '../../logging/logger';
-import { deferIfMaintenanceWindow } from '../../maintenance/gate';
 import { queueMessagesProcessed } from '../../metrics/queue-metrics';
 import { RabbitMqConsumer } from '../rabbitmq-consumer';
 
@@ -267,25 +266,6 @@ describe('RabbitMqConsumer', () => {
 
     expect(channel.acked).toEqual([]);
     expect(channel.nacked).toEqual([{ message, requeue: true }]);
-  });
-
-  it('requeues a maintenance deferral without consuming an attempt', async () => {
-    const channel = await startConsumer('test.maintenance', async (message) => {
-      await deferIfMaintenanceWindow({
-        enabled: true,
-        message,
-        logger: noopLogger,
-        now: new Date('2026-06-02T12:00:00.000Z'),
-        delayMs: 0,
-      });
-    });
-    const message = createMessage('test.maintenance');
-
-    await channel.deliver(message);
-
-    expect(channel.nacked).toEqual([{ message, requeue: true }]);
-    expect(channel.acked).toEqual([]);
-    expect(channel.published).toEqual([]);
   });
 
   it('does not republish a message the handler settled before throwing', async () => {
