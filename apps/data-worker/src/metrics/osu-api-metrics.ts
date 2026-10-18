@@ -32,6 +32,11 @@ export const osuTrackApiDuration = new Histogram({
 });
 
 export type OsuApiEndpoint =
-  'getMatch' | 'getUser' | 'getBeatmap' | 'getBeatmapset' | 'getRoomEvents';
+  | 'getMatch'
+  | 'getUser'
+  | 'getBeatmap'
+  | 'getBeatmapset'
+  | 'getRoomEvents'
+  | 'getForumTopic';
 
 export type OsuApiStatus = 'success' | 'not_found' | 'unauthorized' | 'error';

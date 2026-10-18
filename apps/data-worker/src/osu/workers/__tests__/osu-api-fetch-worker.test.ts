@@ -64,6 +64,9 @@ describe('OsuApiFetchWorker', () => {
         beatmapService: { fetchAndPersist: fetchAndPersistBeatmap },
         matchService: { fetchAndPersist: fetchAndPersistMatch },
         playerService: { fetchAndPersist: fetchAndPersistPlayer },
+        forumTopicService: {
+          fetchAndPersist: mock(() => Promise.resolve(true)),
+        },
         logger,
         maintenanceWindowEnabled: false,
       });
@@ -90,6 +93,9 @@ describe('OsuApiFetchWorker', () => {
         beatmapService: { fetchAndPersist: fetchAndPersistBeatmap },
         matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
         playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
+        forumTopicService: {
+          fetchAndPersist: mock(() => Promise.resolve(true)),
+        },
         logger,
         maintenanceWindowEnabled: false,
       });
@@ -120,6 +126,9 @@ describe('OsuApiFetchWorker', () => {
         beatmapService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
         matchService: { fetchAndPersist: fetchAndPersistMatch },
         playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
+        forumTopicService: {
+          fetchAndPersist: mock(() => Promise.resolve(true)),
+        },
         logger,
         maintenanceWindowEnabled: false,
       });
@@ -149,6 +158,9 @@ describe('OsuApiFetchWorker', () => {
         beatmapService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
         matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
         playerService: { fetchAndPersist: fetchAndPersistPlayer },
+        forumTopicService: {
+          fetchAndPersist: mock(() => Promise.resolve(true)),
+        },
         logger,
         maintenanceWindowEnabled: false,
       });
@@ -159,6 +171,38 @@ describe('OsuApiFetchWorker', () => {
       await consumer.emit(message);
 
       expect(fetchAndPersistPlayer).toHaveBeenCalledWith(12345);
+      expect(message.ack).toHaveBeenCalled();
+    });
+  });
+
+  describe('forum topic messages', () => {
+    it('routes forum topic fetches with the request time', async () => {
+      const consumer = createMockConsumer();
+      const logger = createMockLogger();
+      const fetchAndPersistForumTopic = mock(() => Promise.resolve(true));
+
+      const worker = new OsuApiFetchWorker({
+        queue: consumer,
+        beatmapService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
+        matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
+        playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
+        forumTopicService: { fetchAndPersist: fetchAndPersistForumTopic },
+        logger,
+        maintenanceWindowEnabled: false,
+      });
+
+      await worker.start();
+
+      const message = createMockMessage({
+        type: 'forumTopic',
+        topicId: 2212242,
+      });
+      await consumer.emit(message);
+
+      expect(fetchAndPersistForumTopic).toHaveBeenCalledWith(
+        2212242,
+        message.metadata.requestedAt
+      );
       expect(message.ack).toHaveBeenCalled();
     });
   });
@@ -176,6 +220,9 @@ describe('OsuApiFetchWorker', () => {
         beatmapService: { fetchAndPersist: fetchAndPersistBeatmap },
         matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
         playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
+        forumTopicService: {
+          fetchAndPersist: mock(() => Promise.resolve(true)),
+        },
         logger,
         maintenanceWindowEnabled: false,
       });

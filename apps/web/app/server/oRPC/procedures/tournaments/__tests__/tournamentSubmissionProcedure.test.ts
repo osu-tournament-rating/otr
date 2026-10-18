@@ -182,6 +182,13 @@ const noopPublishers: QueuePublisherRegistry = {
     correlationId: 'noop',
     priority: MessagePriority.Normal,
   }),
+  fetchForumTopic: async ({ topicId }) => ({
+    type: 'forumTopic' as const,
+    topicId,
+    requestedAt: new Date().toISOString(),
+    correlationId: 'noop',
+    priority: MessagePriority.Normal,
+  }),
   processAutomationCheck: async ({ tournamentId, overrideVerifiedState }) => ({
     tournamentId,
     overrideVerifiedState,
@@ -240,6 +247,43 @@ describe('submitTournamentHandler', () => {
       { osuMatchId: 202, isLazer: false },
     ]);
     expect(queuedBeatmaps).toEqual([303]);
+  });
+
+  it.each([
+    ['https://osu.ppy.sh/community/forums/topics/123?n=1', [123]],
+    ['https://osu.ppy.sh/wiki/en/Tournaments/TT/2026', []],
+  ])('queues the forum topic fetch for %s', async (forumUrl, expected) => {
+    const queuedTopics: number[] = [];
+
+    setQueuePublishersForTesting({
+      ...noopPublishers,
+      fetchForumTopic: async ({ topicId }) => {
+        queuedTopics.push(topicId);
+        return noopPublishers.fetchForumTopic({ topicId });
+      },
+    });
+
+    await submitTournamentHandler({
+      input: {
+        name: 'Test Tournament',
+        abbreviation: 'TT',
+        forumUrl,
+        ruleset: 0,
+        rankRangeLowerBound: 1,
+        lobbySize: 4,
+        rejectionReason: 0,
+        isLazer: false,
+        ids: [101],
+        beatmapIds: [],
+      },
+      context: {
+        db: new SubmitTournamentTestDb() as unknown as DatabaseClient,
+        session: createSession(),
+      },
+      errors: createErrors(),
+    });
+
+    expect(queuedTopics).toEqual(expected);
   });
 
   it('returns a warning when queue publishing fails', async () => {

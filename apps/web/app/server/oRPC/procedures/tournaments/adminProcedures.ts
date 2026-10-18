@@ -7,6 +7,7 @@ import { cascadeTournamentVerification } from '@otr/core/db/verification-cascade
 import { resolveTournamentVerification } from '@otr/core/db/verification-resolve';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { withAuditUserId } from '@otr/core/db';
+import { parseForumTopicId } from '@otr/core/osu/forum';
 import {
   TournamentAdminMutationResponseSchema,
   TournamentAdminUpdateInputSchema,
@@ -26,6 +27,7 @@ import { getCorrelationId } from '../logging/helpers';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 import {
   publishFetchBeatmapMessage,
+  publishFetchForumTopicMessage,
   publishFetchMatchMessage,
   publishProcessTournamentAutomationCheckMessage,
 } from '@/lib/queue/publishers';
@@ -306,6 +308,7 @@ export async function updateTournamentAdminHandler({
       verifiedByUserId: true,
       verificationStatus: true,
       ruleset: true,
+      forumUrl: true,
     },
     where: eq(schema.tournaments.id, input.id),
   });
@@ -322,6 +325,8 @@ export async function updateTournamentAdminHandler({
   const newStatusRequiresReviewer =
     input.verificationStatus === VerificationStatus.Verified ||
     input.verificationStatus === VerificationStatus.Rejected;
+
+  const forumUrlChanged = input.forumUrl !== existing.forumUrl;
 
   const shouldPropagateManiaVariant =
     existing.ruleset === Ruleset.ManiaOther &&
@@ -347,6 +352,8 @@ export async function updateTournamentAdminHandler({
           name: input.name,
           abbreviation: input.abbreviation,
           forumUrl: input.forumUrl,
+          // The worker links the new URL's post once it is fetched.
+          ...(forumUrlChanged ? { forumPostId: null } : {}),
           rankRangeLowerBound: input.rankRangeLowerBound,
           ruleset: input.ruleset,
           lobbySize: input.lobbySize,
@@ -383,6 +390,24 @@ export async function updateTournamentAdminHandler({
       }
     })
   );
+
+  const topicId = forumUrlChanged ? parseForumTopicId(input.forumUrl) : null;
+  if (topicId !== null) {
+    const correlationId = getCorrelationId(context);
+    try {
+      await publishFetchForumTopicMessage(
+        { topicId },
+        correlationId ? { metadata: { correlationId } } : undefined
+      );
+    } catch (error) {
+      // The data worker's startup backfill queues it again.
+      console.error('Failed to publish forum topic fetch message', {
+        tournamentId: input.id,
+        topicId,
+        error,
+      });
+    }
+  }
 
   return { success: true } as const;
 }

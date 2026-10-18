@@ -6,6 +6,7 @@ import {
 } from '@otr/core/queues';
 import {
   type FetchBeatmapPayload,
+  type FetchForumTopicPayload,
   type FetchMatchPayload,
   type FetchOsuMessage,
   type FetchPlayerPayload,
@@ -16,6 +17,7 @@ import {
 type FetchBeatmapInput = Omit<FetchBeatmapPayload, 'type'>;
 type FetchMatchInput = Omit<FetchMatchPayload, 'type'>;
 type FetchPlayerInput = Omit<FetchPlayerPayload, 'type'>;
+type FetchForumTopicInput = Omit<FetchForumTopicPayload, 'type'>;
 
 export interface QueuePublisherRegistry {
   fetchBeatmap: (
@@ -28,6 +30,10 @@ export interface QueuePublisherRegistry {
   ) => Promise<FetchOsuMessage>;
   fetchPlayer: (
     payload: FetchPlayerInput,
+    options?: QueuePublishOptions
+  ) => Promise<FetchOsuMessage>;
+  fetchForumTopic: (
+    payload: FetchForumTopicInput,
     options?: QueuePublishOptions
   ) => Promise<FetchOsuMessage>;
   processAutomationCheck: QueuePublisher<ProcessTournamentAutomationCheckMessage>['publish'];
@@ -61,6 +67,8 @@ const createDefaultPublishers = (): QueuePublisherRegistry => {
       osuPublisher.publish({ type: 'match', ...payload }, options),
     fetchPlayer: (payload, options) =>
       osuPublisher.publish({ type: 'player', ...payload }, options),
+    fetchForumTopic: (payload, options) =>
+      osuPublisher.publish({ type: 'forumTopic', ...payload }, options),
     processAutomationCheck: (payload, options) =>
       automationPublisher.publish(payload, options),
   };
@@ -92,6 +100,11 @@ export const publishFetchPlayerMessage = (
   payload: FetchPlayerInput,
   options?: QueuePublishOptions
 ) => getQueuePublishers().fetchPlayer(payload, options);
+
+export const publishFetchForumTopicMessage = (
+  payload: FetchForumTopicInput,
+  options?: QueuePublishOptions
+) => getQueuePublishers().fetchForumTopic(payload, options);
 
 export const publishProcessTournamentAutomationCheckMessage = (
   payload: { tournamentId: number; overrideVerifiedState: boolean },

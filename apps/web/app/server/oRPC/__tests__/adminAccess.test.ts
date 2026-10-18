@@ -83,6 +83,7 @@ describe('admin procedures', () => {
       fetchBeatmap: refusePublish,
       fetchMatch: refusePublish,
       fetchPlayer: refusePublish,
+      fetchForumTopic: refusePublish,
       processAutomationCheck: refusePublish,
     });
   });
