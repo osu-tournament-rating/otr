@@ -23,37 +23,6 @@ interface MatchRow {
   isLazer: boolean;
 }
 
-interface GameRow {
-  matchId: number;
-  beatmapId: number | null;
-}
-
-interface JoinRow {
-  pooledBeatmapsId: number;
-  tournamentsPooledInId: number;
-}
-
-interface BeatmapRow {
-  id: number;
-  osuId: number;
-  dataFetchStatus: number;
-}
-
-const extractColumnName = (condition: unknown): string | undefined => {
-  if (
-    condition &&
-    typeof condition === 'object' &&
-    'queryChunks' in condition &&
-    Array.isArray((condition as { queryChunks: unknown[] }).queryChunks)
-  ) {
-    const chunk = (condition as { queryChunks: Array<{ name?: string }> })
-      .queryChunks[1];
-    return chunk?.name;
-  }
-
-  return undefined;
-};
-
 const extractNumbers = (condition: unknown): number[] => {
   if (
     !condition ||
@@ -115,23 +84,9 @@ const extractNumbers = (condition: unknown): number[] => {
 
 class RefetchMatchDataTestDb {
   public matches: MatchRow[];
-  public games: GameRow[];
-  public joins: JoinRow[];
-  public beatmaps: Map<number, BeatmapRow>;
 
-  constructor(options: {
-    matches: MatchRow[];
-    games: GameRow[];
-    joins: JoinRow[];
-    beatmaps: BeatmapRow[];
-  }) {
+  constructor(options: { matches: MatchRow[] }) {
     this.matches = options.matches.map((row) => ({ ...row }));
-    this.games = options.games.map((row) => ({ ...row }));
-    this.joins = options.joins.map((row) => ({ ...row }));
-    this.beatmaps = new Map<number, BeatmapRow>();
-    options.beatmaps.forEach((row) => {
-      this.beatmaps.set(row.id, { ...row });
-    });
   }
 
   async transaction<T>(
@@ -147,7 +102,6 @@ class RefetchMatchDataTestDb {
     return {
       execute: async () => undefined,
       update: (table: unknown) => this.update(table),
-      select: () => this.select(),
     };
   }
 
@@ -176,59 +130,7 @@ class RefetchMatchDataTestDb {
       };
     }
 
-    if (table === schema.beatmaps) {
-      return {
-        set: (values: Partial<BeatmapRow>) => ({
-          where: (condition: unknown) => {
-            const ids = extractNumbers(condition);
-            ids.forEach((id) => {
-              const beatmap = this.beatmaps.get(id);
-              if (beatmap && typeof values.dataFetchStatus === 'number') {
-                beatmap.dataFetchStatus = values.dataFetchStatus;
-              }
-            });
-            return undefined;
-          },
-        }),
-      };
-    }
-
     throw new Error('Unsupported update table in test');
-  }
-
-  select() {
-    return {
-      from: (table: unknown) => ({
-        where: (condition: unknown) => {
-          const column = extractColumnName(condition);
-          const numbers = extractNumbers(condition);
-
-          if (table === schema.games && column === 'match_id') {
-            return this.games
-              .filter((game) => numbers.includes(game.matchId))
-              .map((game) => ({ beatmapId: game.beatmapId }));
-          }
-
-          if (
-            table === schema.joinPooledBeatmaps &&
-            column === 'tournaments_pooled_in_id'
-          ) {
-            return this.joins
-              .filter((join) => numbers.includes(join.tournamentsPooledInId))
-              .map((join) => ({ beatmapId: join.pooledBeatmapsId }));
-          }
-
-          if (table === schema.beatmaps && column === 'id') {
-            return numbers
-              .map((id) => this.beatmaps.get(id))
-              .filter((row): row is BeatmapRow => Boolean(row))
-              .map((row) => ({ osuId: row.osuId }));
-          }
-
-          return [];
-        },
-      }),
-    };
   }
 }
 
@@ -278,7 +180,7 @@ afterEach(() => {
 });
 
 describe('refetchTournamentMatchDataHandler', () => {
-  it('queues match and beatmap fetches for the tournament', async () => {
+  it('queues a fetch for every match in the tournament', async () => {
     const db = new RefetchMatchDataTestDb({
       matches: [
         {
@@ -302,21 +204,6 @@ describe('refetchTournamentMatchDataHandler', () => {
           dataFetchStatus: DataFetchStatus.Fetched,
           isLazer: false,
         },
-      ],
-      games: [
-        { matchId: 1, beatmapId: 10 },
-        { matchId: 2, beatmapId: 11 },
-        { matchId: 3, beatmapId: 12 },
-      ],
-      joins: [
-        { pooledBeatmapsId: 20, tournamentsPooledInId: 100 },
-        { pooledBeatmapsId: 30, tournamentsPooledInId: 200 },
-      ],
-      beatmaps: [
-        { id: 10, osuId: 1000, dataFetchStatus: DataFetchStatus.Fetched },
-        { id: 11, osuId: 1100, dataFetchStatus: DataFetchStatus.Fetched },
-        { id: 20, osuId: 2000, dataFetchStatus: DataFetchStatus.Fetched },
-        { id: 30, osuId: 3000, dataFetchStatus: DataFetchStatus.Fetched },
       ],
     });
 
@@ -358,11 +245,6 @@ describe('refetchTournamentMatchDataHandler', () => {
           dataFetchStatus: DataFetchStatus.Fetched,
           isLazer: false,
         },
-      ],
-      games: [{ matchId: 1, beatmapId: 10 }],
-      joins: [],
-      beatmaps: [
-        { id: 10, osuId: 1000, dataFetchStatus: DataFetchStatus.Fetched },
       ],
     });
 

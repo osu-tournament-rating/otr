@@ -34,54 +34,14 @@ mod tests {
     use crate::model::structures::ruleset::Ruleset;
     use strum::IntoEnumIterator;
 
+    /// The database stores rulesets as numbers, so each one must read back as itself
     #[test]
-    fn test_convert_osu() {
-        assert_eq!(Ruleset::try_from(0), Ok(Ruleset::Osu));
-    }
+    fn test_try_from_round_trip() {
+        for ruleset in Ruleset::iter() {
+            assert_eq!(Ruleset::try_from(ruleset as i32), Ok(ruleset));
+        }
 
-    #[test]
-    fn test_convert_taiko() {
-        assert_eq!(Ruleset::try_from(1), Ok(Ruleset::Taiko));
-    }
-
-    #[test]
-    fn test_convert_catch() {
-        assert_eq!(Ruleset::try_from(2), Ok(Ruleset::Catch));
-    }
-
-    #[test]
-    fn test_convert_mania_other() {
-        assert_eq!(Ruleset::try_from(3), Ok(Ruleset::ManiaOther));
-    }
-
-    #[test]
-    fn test_convert_mania4k() {
-        assert_eq!(Ruleset::try_from(4), Ok(Ruleset::Mania4k));
-    }
-
-    #[test]
-    fn test_convert_mania7k() {
-        assert_eq!(Ruleset::try_from(5), Ok(Ruleset::Mania7k))
-    }
-
-    #[test]
-    fn test_convert_invalid() {
+        assert_eq!(Ruleset::try_from(-1), Err(()));
         assert_eq!(Ruleset::try_from(6), Err(()));
-    }
-
-    #[test]
-    fn test_enumerate() {
-        let rulesets = Ruleset::iter().collect::<Vec<_>>();
-        assert_eq!(
-            rulesets,
-            vec![
-                Ruleset::Osu,
-                Ruleset::Taiko,
-                Ruleset::Catch,
-                Ruleset::ManiaOther,
-                Ruleset::Mania4k,
-                Ruleset::Mania7k
-            ]
-        );
     }
 }

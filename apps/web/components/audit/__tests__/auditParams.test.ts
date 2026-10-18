@@ -2,6 +2,8 @@ import { describe, expect, it } from 'bun:test';
 import { AuditEntityType } from '@otr/core/osu';
 
 import {
+  clearListFilters,
+  countActiveFilters,
   getDefaultListState,
   listStateHref,
   parseListState,
@@ -50,7 +52,14 @@ describe('AUDIT_LOG_PARAMS', () => {
   });
 
   it('counts the system switch as a scope, not a filter', () => {
-    expect(AUDIT_LOG_PARAMS.system.role).toBe('scope');
+    const state = parseListState(
+      AUDIT_LOG_PARAMS,
+      'action=updated&system=true'
+    );
+
+    // One filter on the Filters button, and Clear all keeps the switch.
+    expect(countActiveFilters(AUDIT_LOG_PARAMS, state)).toBe(1);
+    expect(clearListFilters(AUDIT_LOG_PARAMS, state).system).toBe(true);
   });
 });
 

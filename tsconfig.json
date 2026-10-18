@@ -36,6 +36,7 @@
     "apps/web/**/*.tsx",
     "apps/data-worker/env.d.ts",
     "apps/data-worker/src/**/*.ts",
+    "apps/data-worker/tests/**/*.ts",
     "packages/**/*.ts",
     "lib/**/*.ts"
   ],

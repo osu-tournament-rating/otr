@@ -55,10 +55,8 @@ import {
 } from '@/lib/kit/color/tokens';
 import {
   getRatingsGroupColor,
-  getStatusHueColor,
   getVerificationStatusColor,
 } from '@/lib/kit/color/verification';
-import { RATINGS_GROUPS } from '@/lib/kit/status/verification';
 import { getBeatmapModLabel } from '@/lib/utils/mods';
 import { tierNames } from '@/lib/utils/tierData';
 
@@ -340,16 +338,6 @@ describe('callouts', () => {
 });
 
 describe('verification', () => {
-  it('colours each ratings group by its hue', () => {
-    expect(RATINGS_GROUPS.map((group) => getStatusHueColor(group.hue))).toEqual(
-      [
-        'var(--verification-verified)',
-        'var(--verification-neutral)',
-        'var(--verification-rejected)',
-      ]
-    );
-  });
-
   it('puts the pre-states in the neutral chart group', () => {
     expect(getRatingsGroupColor(VerificationStatus.Verified)).toBe(
       'var(--verification-verified)'

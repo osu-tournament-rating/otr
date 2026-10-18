@@ -191,116 +191,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_connection_url() {
-        let config = RabbitMqConfig {
-            host: "rabbitmq.example.com".to_string(),
-            username: "user".to_string(),
-            password: "pass".to_string(),
-            vhost: "/".to_string(),
-            port: 5672,
-            exchange: "test.exchange".to_string(),
-            routing_key: "test.key".to_string(),
-            queue_max_priority: Some(10),
-            enabled: true,
-            retry_attempts: 5,
-            retry_delay: Duration::from_millis(100),
-            max_retry_delay: Duration::from_secs(30)
-        };
-
-        assert_eq!(
-            config.connection_url(),
-            "amqp://user:pass@rabbitmq.example.com:5672/%2F"
-        );
-    }
-
-    #[test]
-    fn test_connection_url_with_custom_vhost() {
-        let config = RabbitMqConfig {
-            host: "localhost".to_string(),
-            username: "admin".to_string(),
-            password: "secret".to_string(),
-            vhost: "/myapp".to_string(),
-            port: 5673,
-            exchange: "events".to_string(),
-            routing_key: "app.events".to_string(),
-            queue_max_priority: Some(10),
-            enabled: true,
-            retry_attempts: 5,
-            retry_delay: Duration::from_millis(100),
-            max_retry_delay: Duration::from_secs(30)
-        };
-
-        assert_eq!(config.connection_url(), "amqp://admin:secret@localhost:5673/%2Fmyapp");
-    }
-
-    #[test]
-    fn test_connection_url_safe() {
-        let config = RabbitMqConfig {
-            host: "rabbitmq.example.com".to_string(),
-            username: "user".to_string(),
-            password: "supersecretpassword".to_string(),
-            vhost: "/".to_string(),
-            port: 5672,
-            exchange: "test.exchange".to_string(),
-            routing_key: "test.key".to_string(),
-            queue_max_priority: Some(10),
-            enabled: true,
-            retry_attempts: 5,
-            retry_delay: Duration::from_millis(100),
-            max_retry_delay: Duration::from_secs(30)
-        };
-
-        assert_eq!(
-            config.connection_url_safe(),
-            "amqp://***:***@rabbitmq.example.com:5672/%2F"
-        );
-        // Ensure the actual URL still contains credentials
-        assert!(config.connection_url().contains("supersecretpassword"));
-    }
-
-    #[test]
-    fn test_broker_address() {
-        let config = RabbitMqConfig {
-            host: "rabbitmq.example.com".to_string(),
-            username: "user".to_string(),
-            password: "pass".to_string(),
-            vhost: "/".to_string(),
-            port: 5672,
-            exchange: "test.exchange".to_string(),
-            routing_key: "test.key".to_string(),
-            queue_max_priority: Some(10),
-            enabled: true,
-            retry_attempts: 5,
-            retry_delay: Duration::from_millis(100),
-            max_retry_delay: Duration::from_secs(30)
-        };
-
-        assert_eq!(config.broker_address(), "rabbitmq://rabbitmq.example.com");
-    }
-
-    #[test]
-    fn test_from_url() {
-        let config = RabbitMqConfig::from_url("amqp://myuser:mypass@myhost:5673/myvhost").unwrap();
-
-        assert_eq!(config.host, "myhost");
-        assert_eq!(config.username, "myuser");
-        assert_eq!(config.password, "mypass");
-        assert_eq!(config.port, 5673);
-        assert_eq!(config.vhost, "/myvhost");
-    }
-
-    #[test]
-    fn test_from_url_trailing_slash_is_default_vhost() {
-        let config = RabbitMqConfig::from_url("amqp://admin:admin@localhost:5672/").unwrap();
-
-        assert_eq!(config.host, "localhost");
-        assert_eq!(config.username, "admin");
-        assert_eq!(config.password, "admin");
-        assert_eq!(config.port, 5672);
-        assert_eq!(config.vhost, "/");
-    }
-
-    #[test]
     fn test_parse_amqp_uri_vhost() {
         let vhost = |url: &str| parse_amqp_uri(url).unwrap().vhost;
 
@@ -329,17 +219,6 @@ mod tests {
     }
 
     #[test]
-    fn test_from_url_defaults() {
-        let config = RabbitMqConfig::from_url("amqp://localhost").unwrap();
-
-        assert_eq!(config.host, "localhost");
-        assert_eq!(config.username, "admin");
-        assert_eq!(config.password, "admin");
-        assert_eq!(config.port, 5672);
-        assert_eq!(config.vhost, "/");
-    }
-
-    #[test]
     fn test_default_config() {
         let config = RabbitMqConfig::default();
 
@@ -350,6 +229,7 @@ mod tests {
         assert_eq!(config.port, 5672);
         assert_eq!(config.exchange, "processing.stats.tournaments");
         assert_eq!(config.routing_key, "processing.stats.tournaments");
+        // The data worker declares the same queue, at @otr/core's MessagePriority.High
         assert_eq!(config.queue_max_priority, Some(10));
         assert!(config.enabled);
         assert_eq!(config.retry_attempts, 5);

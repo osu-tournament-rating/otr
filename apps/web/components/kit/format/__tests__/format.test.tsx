@@ -69,9 +69,10 @@ describe('dates', () => {
         className="text-xs"
       />
     );
-    expect(html).toMatch(
-      /^<span class="whitespace-nowrap text-xs" data-testid="event-card-timestamp"><button[^>]*><time /
-    );
+    const root = html.match(/^<span [^>]*>/)?.[0] ?? '';
+    expect(root).toContain('data-testid="event-card-timestamp"');
+    expect(root).toMatch(/class="[^"]*\btext-xs\b/);
+    expect(html).toMatch(/^<span [^>]*><button[^>]*><time /);
 
     expect(render(<RelativeTime date={null} data-testid="when" />)).toContain(
       'data-testid="when"'
@@ -165,9 +166,7 @@ describe('AuditFieldChange', () => {
     );
 
     expect(html).toStartWith('<dl');
-    expect(html).toContain(
-      '<dt class="text-xs font-medium text-muted-foreground">Mods</dt>'
-    );
+    expect(html).toMatch(/<dt[^>]*>Mods<\/dt>/);
     expect(html).toMatch(/<del[^>]*>HD, HR<\/del>/);
     expect(html).toMatch(/<ins[^>]*>HD<\/ins>/);
     expect(html).toContain('<span class="sr-only">changed to</span>');

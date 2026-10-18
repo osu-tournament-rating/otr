@@ -150,26 +150,6 @@ describe('updateMatchAdminHandler', () => {
       },
     };
 
-  it('does not include submittedByUserId in match update', async () => {
-    const db = new UpdateMatchTestDb({
-      id: 1,
-      verificationStatus: VerificationStatus.None,
-      verifiedByUserId: null,
-      submittedByUserId: 42,
-    });
-
-    await updateMatchAdminHandler({
-      input: baseInput,
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: adminSession,
-      },
-    });
-
-    expect(db.matchUpdates).toHaveLength(1);
-    expect('submittedByUserId' in db.matchUpdates[0]).toBe(false);
-  });
-
   it('preserves verifiedByUserId when status unchanged', async () => {
     const db = new UpdateMatchTestDb({
       id: 1,

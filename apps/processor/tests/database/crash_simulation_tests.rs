@@ -6,7 +6,7 @@ use std::{
 };
 use tokio_postgres::Client;
 
-use super::test_helpers::TestDatabase;
+use super::test_helpers::{row_count, snapshot, TestDatabase};
 use crate::common::init_test_env;
 
 /// Upper bound on each wait, so a regression fails the test instead of hanging it.
@@ -55,26 +55,6 @@ fn processor(binary: &str, test_db: &TestDatabase) -> Command {
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
     command
-}
-
-/// Every row of `table` as text in a stable order, so snapshots compare by content.
-async fn snapshot(client: &Client, table: &str) -> String {
-    client
-        .query_one(
-            &format!("SELECT COALESCE(string_agg(t::text, E'\\n' ORDER BY t::text), '') FROM {table} t"),
-            &[]
-        )
-        .await
-        .expect("Failed to snapshot table")
-        .get(0)
-}
-
-async fn row_count(client: &Client, table: &str) -> i64 {
-    client
-        .query_one(&format!("SELECT COUNT(*) FROM {table}"), &[])
-        .await
-        .expect("Failed to count rows")
-        .get(0)
 }
 
 /// Waits for a backend blocked by `lock_pid`, returning its pid, its statement,

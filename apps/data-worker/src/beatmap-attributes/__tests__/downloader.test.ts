@@ -121,8 +121,8 @@ describe('BeatmapFileDownloader', () => {
     expect(await downloader.download(1)).toEqual({ status: 'not_found' });
   });
 
-  it('throws on another 4xx so the queue retries', async () => {
-    for (const status of [401, 403, 408, 451]) {
+  it('throws on another 4xx or a 5xx so the queue retries', async () => {
+    for (const status of [401, 403, 408, 451, 502]) {
       const { downloader } = createHarness(
         new Response('<!DOCTYPE html><html></html>', {
           status,
@@ -212,26 +212,16 @@ describe('BeatmapFileDownloader', () => {
     expect(sleeps).toEqual([8_000, 16_000, 32_000]);
   });
 
-  it('treats a Retry-After date as absent', async () => {
+  it('treats a Retry-After date as absent and waits at most 60 seconds', async () => {
     const { downloader, sleeps } = createHarness(
       tooManyRequests('Wed, 21 Oct 2026 07:28:00 GMT'),
-      new Response(OSU_FILE)
-    );
-
-    await downloader.download(1);
-
-    expect(sleeps).toEqual([8_000]);
-  });
-
-  it('waits at most 60 seconds', async () => {
-    const { downloader, sleeps } = createHarness(
       tooManyRequests('600'),
       new Response(OSU_FILE)
     );
 
     await downloader.download(1);
 
-    expect(sleeps).toEqual([60_000]);
+    expect(sleeps).toEqual([8_000, 60_000]);
   });
 
   it('throws after three retries that are all rate limited', async () => {
@@ -248,16 +238,6 @@ describe('BeatmapFileDownloader', () => {
     expect(requests).toHaveLength(4);
     expect(rateLimiter.calls).toBe(4);
     expect(sleeps).toEqual([1_000, 1_000, 1_000]);
-  });
-
-  it('throws on a 5xx so the queue retries', async () => {
-    const { downloader } = createHarness(
-      new Response('Bad Gateway', { status: 502 })
-    );
-
-    await expect(downloader.download(1)).rejects.toThrow(
-      'Downloading https://osu.ppy.sh/osu/1 failed: HTTP 502'
-    );
   });
 
   it('throws on a network error or timeout', async () => {

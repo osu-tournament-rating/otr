@@ -64,36 +64,21 @@ describe('parseBeatmapFilesEnv', () => {
     ).toEqual({ config: { kind: 'local', dir: '/tmp/beatmap-files' } });
   });
 
-  it('names the missing access ID', () => {
-    const result = parseBeatmapFilesEnv({
-      ...gcsSource,
-      BEATMAP_FILES_ACCESS_KEY_ID: '',
-    });
+  it('names only the missing HMAC settings', () => {
+    const accessId = 'BEATMAP_FILES_ACCESS_KEY_ID';
+    const secret = 'BEATMAP_FILES_SECRET_ACCESS_KEY';
+    const named = (env: Parameters<typeof parseBeatmapFilesEnv>[0]) => {
+      const result = parseBeatmapFilesEnv(env);
+      expect(result.config).toBeNull();
+      return [accessId, secret].filter((name) => result.error?.includes(name));
+    };
 
-    expect(result.config).toBeNull();
-    expect(result.error).toContain('BEATMAP_FILES_ACCESS_KEY_ID');
-    expect(result.error).not.toContain('BEATMAP_FILES_SECRET_ACCESS_KEY');
-  });
-
-  it('names the missing secret', () => {
-    const result = parseBeatmapFilesEnv({
-      ...gcsSource,
-      BEATMAP_FILES_SECRET_ACCESS_KEY: undefined,
-    });
-
-    expect(result.config).toBeNull();
-    expect(result.error).toContain('BEATMAP_FILES_SECRET_ACCESS_KEY');
-    expect(result.error).not.toContain('BEATMAP_FILES_ACCESS_KEY_ID');
-  });
-
-  it('names both missing settings', () => {
-    const result = parseBeatmapFilesEnv({
-      BEATMAP_FILES_BUCKET: 'bucket-value',
-    });
-
-    expect(result.config).toBeNull();
-    expect(result.error).toContain('BEATMAP_FILES_ACCESS_KEY_ID');
-    expect(result.error).toContain('BEATMAP_FILES_SECRET_ACCESS_KEY');
+    expect(named({ ...gcsSource, [accessId]: '' })).toEqual([accessId]);
+    expect(named({ ...gcsSource, [secret]: undefined })).toEqual([secret]);
+    expect(named({ BEATMAP_FILES_BUCKET: 'bucket-value' })).toEqual([
+      accessId,
+      secret,
+    ]);
   });
 
   it('rejects a bucket and a directory together', () => {

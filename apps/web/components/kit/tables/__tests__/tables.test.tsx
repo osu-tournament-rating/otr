@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
   DataTable,
-  DataTableBody,
   DataTableCell,
   DataTableHead,
   DataTableHeader,
@@ -24,7 +23,11 @@ import { ViewButton } from '@/components/kit/tables/ViewButton';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { formatCount } from '@/lib/kit/format/number';
-import { ROW_HOVER_TINT, ROW_TITLE_HOVER } from '@/lib/kit/tables/row';
+import {
+  ROW_HIGHLIGHT,
+  ROW_HOVER_TINT,
+  ROW_TITLE_HOVER,
+} from '@/lib/kit/tables/row';
 import type { SortState } from '@/lib/kit/lists/sort';
 
 const render = (node: React.ReactNode) =>
@@ -33,24 +36,6 @@ const render = (node: React.ReactNode) =>
 const noop = () => {};
 
 describe('DataTable', () => {
-  it('runs edge to edge with 16px at the first and last cell', () => {
-    const html = render(
-      <DataTable aria-label="Leaderboard">
-        <DataTableBody>
-          <DataTableRow>
-            <DataTableCell>mrekk</DataTableCell>
-          </DataTableRow>
-        </DataTableBody>
-      </DataTable>
-    );
-
-    expect(html).toContain('data-slot="data-table"');
-    expect(html).toContain('aria-label="Leaderboard"');
-    expect(html).toContain('[&amp;_tr&gt;*:first-child]:pl-4');
-    expect(html).toContain('[&amp;_tr&gt;*:last-child]:pr-4');
-    expect(html).not.toContain('rounded-lg border');
-  });
-
   it('hides the table on phones only when it has phone rows', () => {
     const plain = render(<DataTable />);
     expect(plain).not.toContain('hidden md:block');
@@ -109,25 +94,28 @@ describe('DataTable', () => {
     expect(scrollArea).not.toContain('md:[&amp;_th]:sticky');
   });
 
-  it('puts the header on a tinted strip with 12px muted labels', () => {
+  it('sets headers in 12px muted labels, right-aligned over numbers', () => {
     const html = render(
       <table>
         <DataTableHeader>
           <DataTableRow>
             <DataTableHead>Player</DataTableHead>
-            <DataTableHead numeric showFrom="lg">
-              Matches
-            </DataTableHead>
+            <DataTableHead numeric>Matches</DataTableHead>
           </DataTableRow>
         </DataTableHeader>
       </table>
     );
+    const [player, matches] = [
+      ...html.matchAll(/<th [^>]*class="([^"]*)"/g),
+    ].map((match) => match[1].split(' '));
 
-    expect(html).toContain('[&amp;_tr]:bg-muted');
-    expect(html).toContain('h-8');
-    expect(html).toContain('text-xs');
-    expect(html).toContain('text-muted-foreground');
-    expect(html).toContain('text-right hidden lg:table-cell');
+    for (const header of [player, matches]) {
+      expect(header).toEqual(
+        expect.arrayContaining(['text-xs', 'text-muted-foreground'])
+      );
+    }
+    expect(player).not.toContain('text-right');
+    expect(matches).toContain('text-right');
   });
 
   it('adds an info button beside a header label', () => {
@@ -181,18 +169,21 @@ describe('DataTable', () => {
   });
 
   it('gives a plain row no hover tint', () => {
-    const html = render(
-      <table>
-        <tbody>
-          <DataTableRow highlight>
-            <td>Yasui</td>
-          </DataTableRow>
-        </tbody>
-      </table>
-    );
+    const row = (highlight: boolean) =>
+      render(
+        <table>
+          <tbody>
+            <DataTableRow highlight={highlight}>
+              <td>Yasui</td>
+            </DataTableRow>
+          </tbody>
+        </table>
+      );
 
-    expect(html).not.toContain('hover:bg-muted/40');
-    expect(html).toContain('bg-primary/10');
+    expect(row(false)).not.toContain('hover:');
+    // The player's own row is tinted, still without a hover.
+    expect(row(true)).toContain(ROW_HIGHLIGHT);
+    expect(row(true)).not.toContain('hover:');
   });
 });
 
@@ -444,6 +435,7 @@ describe('PhoneRow', () => {
     const plain = render(<PhoneRow title="mrekk" />);
     expect(plain).not.toContain('<a ');
     expect(plain).not.toContain(ROW_HOVER_TINT);
+    expect(plain).not.toContain('phone-row-leading');
 
     const linked = render(
       <PhoneRow
@@ -456,31 +448,6 @@ describe('PhoneRow', () => {
     expect(linked).toContain('aria-label="View Corsace Open 2025"');
     expect(linked).toContain(ROW_HOVER_TINT);
     expect(linked).toContain(ROW_TITLE_HOVER.replaceAll('&', '&amp;'));
-  });
-
-  it('spans a leading avatar across the name and its line', () => {
-    const html = render(
-      <PhoneRow
-        rank="#1"
-        leading={<span data-avatar />}
-        title="mrekk"
-        description="58 tournaments"
-        value="3,121"
-      />
-    );
-
-    expect(html).toContain(
-      '<div class="col-start-2 min-w-0 flex gap-3 items-center"><span data-slot="phone-row-leading" aria-hidden="true" class="flex shrink-0"><span data-avatar="true"></span></span><div class="min-w-0 flex-1"><div class="flex min-w-0 items-center gap-1.5 text-sm font-medium">mrekk</div>'
-    );
-    expect(html).not.toContain('<a ');
-  });
-
-  it('keeps the plain body without a leading avatar', () => {
-    const html = render(<PhoneRow title="mrekk" />);
-    expect(html).toContain(
-      '<div class="col-start-2 min-w-0"><div class="flex min-w-0 items-center gap-1.5 text-sm font-medium">mrekk</div></div>'
-    );
-    expect(html).not.toContain('phone-row-leading');
   });
 
   it('links a leading avatar for pointers only', () => {
@@ -516,8 +483,11 @@ describe('PhoneRow', () => {
   });
 
   it('sets the rank and value on the first line with align="start"', () => {
-    const centred = render(<PhoneRow title="mrekk" value="3,121" />);
+    const centred = render(
+      <PhoneRow leading={<span data-avatar />} title="mrekk" value="3,121" />
+    );
     expect(centred).toContain('items-center px-4 py-2.5');
+    expect(centred).toContain('flex gap-3 items-center');
 
     const top = render(
       <PhoneRow

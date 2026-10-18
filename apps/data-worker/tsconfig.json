@@ -9,6 +9,6 @@
       "@otr/core/queues": ["../../packages/otr-core/src/queues/index.ts"]
     }
   },
-  "include": ["env.d.ts", "src/**/*.ts"],
+  "include": ["env.d.ts", "src/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules"]
 }

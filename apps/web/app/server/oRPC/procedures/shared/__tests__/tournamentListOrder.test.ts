@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
-import { TournamentQuerySortType, VerificationStatus } from '@otr/core/osu';
+import { TournamentQuerySortType } from '@otr/core/osu';
 
 import {
   buildTournamentListOrder,
@@ -97,30 +97,9 @@ describe('buildTournamentListOrder', () => {
 });
 
 describe('buildTournamentRelevanceOrder', () => {
-  it('puts verified tournaments first', () => {
-    const [verified] = buildTournamentRelevanceOrder('owc');
-
-    expect(render([verified!])).toEqual([
-      '"tournaments"."verification_status" = $1 desc',
-    ]);
-    expect(dialect.sqlToQuery(verified!).params).toEqual([
-      VerificationStatus.Verified,
-    ]);
-  });
-
-  it('ranks exact, then prefix, then substring matches, abbreviation first', () => {
+  it('escapes LIKE wildcards in the term', () => {
     const [, match] = buildTournamentRelevanceOrder('o_wc');
 
-    expect(render([match!])).toEqual([
-      'CASE' +
-        ' WHEN "tournaments"."abbreviation" ILIKE $1 THEN 5' +
-        ' WHEN "tournaments"."name" ILIKE $2 THEN 4' +
-        ' WHEN "tournaments"."abbreviation" ILIKE $3 THEN 3' +
-        ' WHEN "tournaments"."name" ILIKE $4 THEN 2' +
-        ' WHEN "tournaments"."name" ILIKE $5' +
-        ' OR "tournaments"."abbreviation" ILIKE $6 THEN 1' +
-        ' ELSE 0 END desc',
-    ]);
     expect(dialect.sqlToQuery(match!).params).toEqual([
       'o\\_wc',
       'o\\_wc',

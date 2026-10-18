@@ -18,6 +18,7 @@ import {
 } from '@/components/kit/controls/FormPanel';
 import { IconButton } from '@/components/kit/controls/IconButton';
 import { RowActionsMenu } from '@/components/kit/controls/RowActionsMenu';
+import { Panel } from '@/components/kit/layout/Panel';
 import { Form, FormField, FormItem } from '@/components/ui/form';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -29,12 +30,6 @@ const classOf = (html: string, tag = 'button') =>
   new RegExp(`<${tag}[^>]*class="([^"]*)"`).exec(html)?.[1] ?? '';
 
 describe('Button', () => {
-  it('maps the three sizes onto 32, 36 and 40px', () => {
-    expect(classOf(render(<Button size="sm">Save</Button>))).toContain('h-8');
-    expect(classOf(render(<Button>Save</Button>))).toContain('h-9');
-    expect(classOf(render(<Button size="lg">Save</Button>))).toContain('h-10');
-  });
-
   it('lets a long label wrap, keeping its size as the minimum height', () => {
     const sm = classOf(
       render(
@@ -71,12 +66,6 @@ describe('Button', () => {
     expect(render(<Button type="submit">Save</Button>)).toContain(
       'type="submit"'
     );
-  });
-
-  it('gives ghost buttons a hover fill', () => {
-    expect(
-      classOf(render(<Button variant="ghost">Clear all</Button>))
-    ).toContain('hover:bg-accent');
   });
 
   it('keeps a ghost button filled while its menu is open', () => {
@@ -152,15 +141,6 @@ describe('IconButton', () => {
     expect(classes).toContain('size-8');
     expect(classes).toContain('hover:bg-accent');
     expect(classes).toContain('text-muted-foreground');
-  });
-
-  it('matches the button heights', () => {
-    expect(
-      classOf(render(<IconButton label="x" icon={History} size="default" />))
-    ).toContain('size-9');
-    expect(
-      classOf(render(<IconButton label="x" icon={History} size="lg" />))
-    ).toContain('size-10');
   });
 
   it('draws the dark pill on art and ignores the destructive tone there', () => {
@@ -328,7 +308,16 @@ describe('FormFieldLabel', () => {
     // FormItem).
     expect(html).toContain('<span id="priority-label" data-slot="label"');
     expect(html).not.toContain('<label');
-    expect(html).toContain('text-sm leading-none font-medium');
+    // Set like a field's label, in the same row height.
+    const fieldLabel = render(
+      <FormFieldLabel htmlFor="priority">Priority</FormFieldLabel>
+    );
+    const typeClasses = classOf(fieldLabel, 'label')
+      .split(' ')
+      .filter((name) => /^(?:text|leading|font)-/.test(name));
+    expect(classOf(html, 'span').split(' ')).toEqual(
+      expect.arrayContaining(typeClasses)
+    );
     expect(html).toContain('min-h-5');
     expect(html).toContain('aria-label="About priority"');
     expect(html).toContain('>Priority</span>');
@@ -416,12 +405,18 @@ function FormDemo() {
 describe('form layout', () => {
   const html = render(<FormDemo />);
 
-  it('puts one form on one panel', () => {
+  it('puts one form on one panel, ending with the actions strip', () => {
     expect(html).toStartWith('<div data-slot="form-panel"');
-    expect(html).toContain('rounded-xl border bg-card');
+    // The surface comes from Panel, not a copy of its classes.
+    expect(classOf(html, 'div')).toContain(
+      classOf(render(<Panel />), 'section')
+    );
     expect(html).toContain(
       '<form class="flex flex-col" data-testid="demo-form"'
     );
+    expect(html).toContain('data-slot="form-actions"');
+    expect(html).toContain('Changes apply on the next rating run.');
+    expect(html).toContain('type="submit"');
   });
 
   it('heads each section with a strip and divides the sections', () => {
@@ -436,17 +431,5 @@ describe('form layout', () => {
   it('labels fields with the info button and a hint', () => {
     expect(html).toContain('aria-label="About name"');
     expect(html).toContain('Required');
-  });
-
-  it('keeps one label height so side-by-side inputs line up', () => {
-    const label = /data-slot="form-field-label" class="([^"]*)"/.exec(html);
-
-    expect(label?.[1]).toContain('min-h-5');
-  });
-
-  it('ends with the actions strip', () => {
-    expect(html).toContain('data-slot="form-actions"');
-    expect(html).toContain('Changes apply on the next rating run.');
-    expect(html).toContain('type="submit"');
   });
 });

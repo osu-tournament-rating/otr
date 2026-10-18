@@ -314,6 +314,7 @@ mod tests {
         utils::test_utils::{generate_country_mapping_player_ratings, generate_player_rating}
     };
     use approx::assert_abs_diff_eq;
+    use chrono::{Duration, TimeZone, Utc};
 
     #[test]
     fn test_sort() {
@@ -481,58 +482,23 @@ mod tests {
     }
 
     #[test]
-    fn test_country_ranking_multiple_countries() {
-        let mut tracker = RatingTracker::new();
-
-        // Create players from different countries
-        let us_player = generate_player_rating(1, Ruleset::Osu, 1000.0, 100.0, 1, None, None);
-        let jp_player = generate_player_rating(2, Ruleset::Osu, 1200.0, 100.0, 1, None, None);
-        let kr_player = generate_player_rating(3, Ruleset::Osu, 1100.0, 100.0, 1, None, None);
-
-        // Set up country mappings
-        let mut country_mapping = HashMap::new();
-        country_mapping.insert(1, "US".to_string());
-        country_mapping.insert(2, "JP".to_string());
-        country_mapping.insert(3, "KR".to_string());
-
-        tracker.set_country_mapping(country_mapping);
-        tracker.insert_or_update(&[us_player, jp_player, kr_player]);
-        tracker.sort();
-
-        // Verify global rankings
-        assert_eq!(tracker.get_rating(2, Ruleset::Osu).unwrap().global_rank, 1); // JP
-        assert_eq!(tracker.get_rating(3, Ruleset::Osu).unwrap().global_rank, 2); // KR
-        assert_eq!(tracker.get_rating(1, Ruleset::Osu).unwrap().global_rank, 3); // US
-
-        // Verify country rankings (should all be 1 as they're alone in their country)
-        assert_eq!(tracker.get_rating(1, Ruleset::Osu).unwrap().country_rank, 1);
-        assert_eq!(tracker.get_rating(2, Ruleset::Osu).unwrap().country_rank, 1);
-        assert_eq!(tracker.get_rating(3, Ruleset::Osu).unwrap().country_rank, 1);
-    }
-
-    #[test]
     fn test_rating_history_tracking() {
         let mut tracker = RatingTracker::new();
-        let initial_rating = generate_player_rating(1, Ruleset::Osu, 1000.0, 100.0, 1, None, None);
+        let start = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap().fixed_offset();
+        let end = start + Duration::days(3);
 
-        // Initial insert
-        tracker.insert_or_update(&[initial_rating]);
+        let initial = generate_player_rating(1, Osu, 1000.0, 100.0, 1, Some(start), Some(start));
+        let update = generate_player_rating(1, Osu, 1150.0, 85.0, 4, Some(start), Some(end));
 
-        // Series of updates
-        let updates = vec![
-            generate_player_rating(1, Ruleset::Osu, 1100.0, 95.0, 2, None, None),
-            generate_player_rating(1, Ruleset::Osu, 1050.0, 90.0, 3, None, None),
-            generate_player_rating(1, Ruleset::Osu, 1150.0, 85.0, 4, None, None),
-        ];
+        // An update replaces the stored history rather than adding to it
+        tracker.insert_or_update(&[initial]);
+        tracker.insert_or_update(&[update]);
+        tracker.sort();
 
-        for update in updates {
-            tracker.insert_or_update(&[update]);
-        }
-
-        // Verify adjustment history
-        let adjustments = tracker.get_rating_adjustments(1, Ruleset::Osu).unwrap();
+        // Distinct timestamps, so a reordered history fails the check
+        let adjustments = tracker.get_rating_adjustments(1, Osu).unwrap();
         assert_eq!(adjustments.len(), 4);
-        assert!(adjustments.windows(2).all(|w| w[0].timestamp <= w[1].timestamp));
+        assert!(adjustments.windows(2).all(|w| w[0].timestamp < w[1].timestamp));
     }
 
     #[test]

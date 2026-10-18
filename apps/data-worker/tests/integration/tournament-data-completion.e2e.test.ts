@@ -42,9 +42,11 @@ interface JoinRow {
 }
 
 const noopLogger: Logger = {
+  debug: () => {},
   info: () => {},
   warn: () => {},
   error: () => {},
+  child: () => noopLogger,
 };
 
 const dialect = new PgDialect();
@@ -447,7 +449,7 @@ describe('TournamentDataCompletionService', () => {
     const afterSecond = db.tournaments.get(200);
     expect(afterSecond?.startTime).toBe('2024-03-01T12:00:00.000Z');
     expect(afterSecond?.endTime).toBe('2024-03-05T15:30:00.000Z');
-    expect(afterSecond?.updated).toBeDefined();
+    expect(afterSecond?.updated).toBeString();
   });
 
   it('clears tournament date range when no matches remain', async () => {
@@ -473,6 +475,6 @@ describe('TournamentDataCompletionService', () => {
     const updated = db.tournaments.get(300);
     expect(updated?.startTime).toBeNull();
     expect(updated?.endTime).toBeNull();
-    expect(updated?.updated).toBeDefined();
+    expect(updated?.updated).toBeString();
   });
 });

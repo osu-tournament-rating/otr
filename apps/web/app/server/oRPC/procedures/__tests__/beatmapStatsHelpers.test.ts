@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { Mods } from '@otr/core/osu';
 
-import { getTierFromRating, tierData } from '@/lib/utils/tierData';
+import { getTierFromRating, tierData, tierNames } from '@/lib/utils/tierData';
 import {
   TIER_BREAKDOWN_MAX_TIER_INDEX,
   TIER_RATING_BOUNDARIES,
@@ -263,34 +263,32 @@ describe('summarizeRankRangeMods', () => {
 });
 
 describe('TIER_RATING_BOUNDARIES', () => {
-  test('is every tierData baseRating above Bronze, ascending', () => {
-    expect([...TIER_RATING_BOUNDARIES]).toEqual([
-      400, 700, 1000, 1300, 1600, 1900, 2200, 2500,
-    ]);
-    expect(TIER_RATING_BOUNDARIES).toHaveLength(tierData.length - 1);
+  // width_bucket needs ascending thresholds, and its index picks from tierNames
+  test('ascends, one boundary per tier above Bronze', () => {
+    for (let index = 1; index < TIER_RATING_BOUNDARIES.length; index++) {
+      expect(TIER_RATING_BOUNDARIES[index]).toBeGreaterThan(
+        TIER_RATING_BOUNDARIES[index - 1]
+      );
+    }
+    expect(TIER_RATING_BOUNDARIES).toHaveLength(tierNames.length - 1);
   });
 });
 
 // Parity with the tier breakdown query's width_bucket arithmetic
 describe('tierNameFromRatingArithmetic', () => {
-  const ratings = [
-    0, 99, 100, 399, 400, 699, 700, 999, 1000, 1299, 1300, 1599, 1600, 1899,
-    1900, 2199, 2200, 2499, 2500, 3200,
-  ];
+  test('matches getTierFromRating at and just below every boundary', () => {
+    // The ends of the scale, and Bronze's base rating, which is not a boundary
+    const ratings = [
+      0,
+      99,
+      100,
+      3200,
+      ...TIER_RATING_BOUNDARIES.flatMap((bound) => [bound - 1, bound]),
+    ];
 
-  test.each(ratings)('matches getTierFromRating at %p', (rating) => {
-    expect(tierNameFromRatingArithmetic(rating)).toBe(
-      getTierFromRating(rating).tier
-    );
-  });
-
-  test('every boundary promotes exactly at its threshold', () => {
-    for (const bound of TIER_RATING_BOUNDARIES) {
-      expect(tierNameFromRatingArithmetic(bound)).toBe(
-        getTierFromRating(bound).tier
-      );
-      expect(tierNameFromRatingArithmetic(bound - 1)).toBe(
-        getTierFromRating(bound - 1).tier
+    for (const rating of ratings) {
+      expect(tierNameFromRatingArithmetic(rating)).toBe(
+        getTierFromRating(rating).tier
       );
     }
   });
