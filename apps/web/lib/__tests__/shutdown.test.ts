@@ -43,6 +43,19 @@ describe('drain', () => {
     });
     expect(exits).toEqual([0]);
   });
+
+  // An unreachable trace collector must not hold the process past Docker's
+  // stop grace period.
+  it('exits when the cleanup before it never finishes', async () => {
+    const exits: number[] = [];
+    await drain({
+      seconds: 0,
+      wait: async () => {},
+      beforeExit: () => new Promise(() => {}),
+      exit: (code) => exits.push(code),
+    });
+    expect(exits).toEqual([0]);
+  });
 });
 
 describe('drainOnSignal', () => {

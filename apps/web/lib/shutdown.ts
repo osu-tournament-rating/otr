@@ -11,6 +11,12 @@ const logger = createLogger('otr-web');
 const DEFAULT_DRAIN_SECONDS = 10;
 
 /**
+ * The longest the cleanup before exit may take. Flushing traces to a collector
+ * that is down would otherwise outlast the container's stop grace period.
+ */
+const CLEANUP_TIMEOUT_MS = 5_000;
+
+/**
  * The reverse proxy sends this header when it health-checks /api/health, and
  * a draining server answers it with 503. Requests without it still get 200,
  * since open tabs and uptime checks read /api/health through the proxy. A
@@ -48,7 +54,8 @@ type DrainHooks = {
  * Stops the server without cutting off anyone using it. The proxy's
  * readiness check fails at once, so it sends new requests to the other web
  * container, while this one keeps serving whatever still reaches it. Once the
- * drain time is up, `beforeExit` runs and the process exits.
+ * drain time is up, `beforeExit` gets CLEANUP_TIMEOUT_MS to run and the
+ * process exits.
  */
 export async function drain({
   seconds,
@@ -62,9 +69,14 @@ export async function drain({
   setDraining(true);
   logger.info('Draining before shutdown', { seconds });
   await wait(seconds * 1000);
-  await beforeExit().catch((error) =>
-    logger.error('Cleanup before shutdown failed', { error })
-  );
+  await Promise.race([
+    beforeExit().catch((error) =>
+      logger.error('Cleanup before shutdown failed', { error })
+    ),
+    wait(CLEANUP_TIMEOUT_MS).then(() =>
+      logger.warn('Cleanup before shutdown timed out')
+    ),
+  ]);
   exit(0);
 }
 
