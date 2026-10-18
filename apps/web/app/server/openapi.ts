@@ -1,9 +1,15 @@
-import { OpenAPIGenerator } from '@orpc/openapi';
+import { OpenAPIGenerator, type OpenAPI } from '@orpc/openapi';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
+import type { Context } from '@orpc/server';
+import type {
+  StandardHandlerOptions,
+  StandardHandlerPlugin,
+} from '@orpc/server/standard';
 import {
   experimental_ZodSmartCoercionPlugin as ZodSmartCoercionPlugin,
   ZodToJsonSchemaConverter,
 } from '@orpc/zod/zod4';
+import { z } from 'zod';
 
 import { router } from '@/app/server/oRPC/router';
 import { LeaderboardEntrySchema } from '@/lib/orpc/schema/leaderboard';
@@ -213,10 +219,63 @@ const openAPIGenerator = new OpenAPIGenerator({
   schemaConverters,
 });
 
-export const openAPIHandler = new OpenAPIHandler(router, {
-  plugins: [new ZodSmartCoercionPlugin()],
-  filter: (args) => isPublicProcedure(args),
-});
+const unwrapSchema = (schema: z.ZodType): z.ZodType =>
+  schema instanceof z.ZodOptional ||
+  schema instanceof z.ZodNullable ||
+  schema instanceof z.ZodDefault
+    ? unwrapSchema(schema.unwrap() as z.ZodType)
+    : schema;
+
+/**
+ * A query string carries a list of one as a plain value, `?tiers=gold`, which
+ * would fail a list's validation. This wraps such a value in a list.
+ */
+class QueryListPlugin<T extends Context> implements StandardHandlerPlugin<T> {
+  init(options: StandardHandlerOptions<T>) {
+    options.clientInterceptors ??= [];
+    options.clientInterceptors.unshift((interceptorOptions) => {
+      const { inputSchema, route } = interceptorOptions.procedure['~orpc'];
+      const { input } = interceptorOptions;
+
+      // Only GET reads its input from the query string; a JSON body keeps
+      // its own types
+      if (
+        route.method !== 'GET' ||
+        !(inputSchema instanceof z.ZodObject) ||
+        typeof input !== 'object' ||
+        input === null
+      ) {
+        return interceptorOptions.next();
+      }
+
+      const shape = inputSchema.shape as Record<string, z.ZodType>;
+      const wrapped = Object.fromEntries(
+        Object.entries(input).map(([key, value]) => [
+          key,
+          typeof value === 'string' &&
+          shape[key] &&
+          unwrapSchema(shape[key]) instanceof z.ZodArray
+            ? [value]
+            : value,
+        ])
+      );
+
+      return interceptorOptions.next({ ...interceptorOptions, input: wrapped });
+    });
+  }
+}
+
+export const createOpenAPIHandler = <T extends Context>(
+  apiRouter: ConstructorParameters<typeof OpenAPIHandler<T>>[0]
+) =>
+  new OpenAPIHandler<T>(apiRouter, {
+    // Each plugin puts its interceptor first, so QueryListPlugin wraps a lone
+    // value before smart coercion converts the items of a list
+    plugins: [new ZodSmartCoercionPlugin(), new QueryListPlugin()],
+    filter: (args) => isPublicProcedure(args),
+  });
+
+export const openAPIHandler = createOpenAPIHandler(router);
 
 const API_SECURITY_SCHEME_NAME = 'ApiKeyAuth';
 const securityRequirement = [{ [API_SECURITY_SCHEME_NAME]: [] as string[] }];
@@ -250,8 +309,47 @@ const buildServers = () => {
   ];
 };
 
+/**
+ * oRPC gives every query parameter that is not a plain type, such as a list or
+ * an enum reference, the deepObject style, which OpenAPI defines only for
+ * objects. Clients then send a list in forms the API does not read. Such a
+ * parameter takes the default style instead, one repeated key per value.
+ */
+const dropDeepObjectFromNonObjectQueries = (spec: OpenAPI.Document) => {
+  const schemas = spec.components?.schemas ?? {};
+  const isObjectSchema = (schema: unknown): boolean => {
+    const node = asMutableSchema(schema);
+    if (typeof node?.$ref === 'string') {
+      return isObjectSchema(schemas[node.$ref.split('/').pop()!]);
+    }
+    return node?.type === 'object';
+  };
+
+  for (const pathItem of Object.values(spec.paths ?? {})) {
+    for (const operation of Object.values(pathItem ?? {})) {
+      const parameters = asMutableSchema(operation)?.parameters;
+      if (!Array.isArray(parameters)) {
+        continue;
+      }
+
+      for (const parameter of parameters.map(asMutableSchema)) {
+        if (
+          parameter?.in === 'query' &&
+          parameter.style === 'deepObject' &&
+          !isObjectSchema(parameter.schema)
+        ) {
+          delete parameter.style;
+          delete parameter.explode;
+        }
+      }
+    }
+  }
+
+  return spec;
+};
+
 export const generatePublicOpenAPISpec = async () => {
-  return openAPIGenerator.generate(router, {
+  const spec = await openAPIGenerator.generate(router, {
     info: {
       title: 'o!TR API',
       version: '1.0.0',
@@ -329,4 +427,6 @@ export const generatePublicOpenAPISpec = async () => {
     },
     filter: (args) => isPublicProcedure(args),
   });
+
+  return dropDeepObjectFromNonObjectQueries(spec);
 };
