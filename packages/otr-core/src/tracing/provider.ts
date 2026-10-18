@@ -1,4 +1,11 @@
-import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
+import {
+  context,
+  diag,
+  DiagConsoleLogger,
+  DiagLogLevel,
+  propagation,
+  trace,
+} from '@opentelemetry/api';
 import {
   CompositePropagator,
   W3CBaggagePropagator,
@@ -7,6 +14,8 @@ import {
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import {
   defaultResource,
+  detectResources,
+  envDetector,
   resourceFromAttributes,
 } from '@opentelemetry/resources';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -56,12 +65,16 @@ export function startTracing({
   }
 
   provider = new NodeTracerProvider({
-    resource: defaultResource().merge(
-      resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: resolveServiceName(serviceName),
-        [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: resolveEnvironment(),
-      })
-    ),
+    // OTEL_RESOURCE_ATTRIBUTES adds attributes such as service.instance.id,
+    // which tells apart containers that run the same service.
+    resource: defaultResource()
+      .merge(detectResources({ detectors: [envDetector] }))
+      .merge(
+        resourceFromAttributes({
+          [ATTR_SERVICE_NAME]: resolveServiceName(serviceName),
+          [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: resolveEnvironment(),
+        })
+      ),
     spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
   });
 
@@ -86,7 +99,15 @@ export function startTracing({
   return provider;
 }
 
+/**
+ * Flushes and stops the provider, and unregisters the globals startTracing set,
+ * so a later startTracing registers its own instead of being refused as a
+ * duplicate.
+ */
 export async function shutdownTracing(): Promise<void> {
   await provider?.shutdown();
   provider = null;
+  trace.disable();
+  propagation.disable();
+  context.disable();
 }
