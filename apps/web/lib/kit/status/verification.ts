@@ -21,7 +21,7 @@ export const VERIFICATION_STATUS_COPY: Record<
 > = {
   [VerificationStatus.Verified]: {
     name: 'Verified',
-    summary: 'Approved by an admin, counted in ratings',
+    summary: 'Approved by an admin, counts from the next Tuesday update',
   },
   [VerificationStatus.PreVerified]: {
     name: 'Pre-verified',

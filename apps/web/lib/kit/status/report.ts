@@ -44,7 +44,7 @@ export function getReportStatusCopy(status: ReportStatus): ReportStatusCopy {
   return REPORT_STATUS_COPY[status] ?? UNKNOWN_REPORT_STATUS_COPY;
 }
 
-/** The tooltip line, such as "Dismissed: an admin reviewed it and …". */
+/** The tooltip line, such as "Dismissed: Reviewed by an admin, …". */
 export function getReportStatusTooltip(status: ReportStatus): string {
   const { name, summary } = getReportStatusCopy(status);
   return `${name}: ${summary}`;
