@@ -320,8 +320,10 @@ const bootstrap = async () => {
     ],
   });
 
+  // Every queue, including the attribute queue while beatmap file storage is
+  // off, so jobs waiting for a handler still count toward the depth alert.
   setJobSummarySource({
-    queues: runner.queues,
+    queues: Object.values(JobQueue),
     read: () => withoutTracing(() => getJobQueueSummary(db)),
   });
 

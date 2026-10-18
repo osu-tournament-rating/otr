@@ -182,10 +182,6 @@ export class JobRunner {
     loop.done = this.runLoop(loop);
   }
 
-  get queues(): JobQueue[] {
-    return [...this.loops.keys()];
-  }
-
   start() {
     if (this.started) {
       throw new Error('JobRunner.start called more than once');
