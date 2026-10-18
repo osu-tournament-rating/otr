@@ -23,7 +23,13 @@ import { API as OsuApi } from 'osu-api-v2-js';
 import type { User } from 'osu-api-v2-js';
 
 const OSU_PROVIDER_ID = 'osu';
-const OSU_PROFILE_URL = 'https://osu.ppy.sh/api/v2/me';
+// The e2e suite points osu! at its fake server, e2e/fixtures/fake-osu-server.ts.
+const OSU_URL =
+  (isE2eAuthEnabled() && process.env.E2E_OSU_URL) || 'https://osu.ppy.sh';
+const OSU_PROFILE_URL = `${OSU_URL}/api/v2/me`;
+// osu! OAuth2 doesn't return email addresses, so each user gets a placeholder
+// built from their osu! id.
+const PLACEHOLDER_EMAIL_PREFIX = 'placeholder-';
 // The account create hook runs before defaults are coerced, so fields the
 // Drizzle type has as null arrive undefined.
 type AuthAccount = {
@@ -46,6 +52,11 @@ const parseOsuId = (value?: string | null) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+
+const osuIdFromPlaceholderEmail = (email: string) =>
+  email.startsWith(PLACEHOLDER_EMAIL_PREFIX)
+    ? parseOsuId(email.slice(PLACEHOLDER_EMAIL_PREFIX.length))
+    : null;
 
 const sanitizeUsername = (value: string | null | undefined) => {
   if (typeof value !== 'string') {
@@ -79,7 +90,11 @@ const mapPlaymodeToRuleset = (playmode?: string | null) => {
 // `setNewToken()`/`createAsync()` ever resolve it — construct from a user token
 // and it hangs unless we resolve it ourselves.
 const createUserOsuApiClient = (accessToken: string) => {
-  const api = new OsuApi({ access_token: accessToken, token_type: 'Bearer' });
+  const api = new OsuApi({
+    access_token: accessToken,
+    token_type: 'Bearer',
+    server: OSU_URL,
+  });
   (api as unknown as { token_promise: Promise<unknown> }).token_promise =
     Promise.resolve();
   return api;
@@ -517,7 +532,9 @@ export const auth = betterAuth({
     additionalFields: {
       playerId: {
         type: 'number',
-        required: true,
+        // The column is NOT NULL, but Better Auth checks `required` before
+        // the user create hook below can fill it in.
+        required: false,
         // Server-owned: the OAuth flow sets it, and sessions and admin
         // scopes resolve through it.
         input: false,
@@ -544,6 +561,34 @@ export const auth = betterAuth({
     modelName: 'auth_verification',
   },
   databaseHooks: {
+    user: {
+      create: {
+        // Better Auth ignores `input: false` fields in the provider profile,
+        // so getUserInfo can't hand a new user its playerId. getUserInfo has
+        // already created the player, so look it up by the osu! id.
+        before: async (user) => {
+          if (user.playerId) {
+            return;
+          }
+
+          const osuId = osuIdFromPlaceholderEmail(user.email);
+          const player =
+            osuId === null
+              ? undefined
+              : await db.query.players.findFirst({
+                  where: eq(schema.players.osuId, osuId),
+                });
+
+          if (!player) {
+            throw new APIError('INTERNAL_SERVER_ERROR', {
+              message: 'No player found for the new user',
+            });
+          }
+
+          return { data: { ...user, playerId: player.id } };
+        },
+      },
+    },
     account: {
       create: {
         after: async (account) => {
@@ -576,8 +621,8 @@ export const auth = betterAuth({
           providerId: OSU_PROVIDER_ID,
           clientId: process.env.WEB_OSU_CLIENT_ID,
           clientSecret: process.env.WEB_OSU_CLIENT_SECRET,
-          authorizationUrl: 'https://osu.ppy.sh/oauth/authorize',
-          tokenUrl: 'https://osu.ppy.sh/oauth/token',
+          authorizationUrl: `${OSU_URL}/oauth/authorize`,
+          tokenUrl: `${OSU_URL}/oauth/token`,
           userInfoUrl: OSU_PROFILE_URL,
           scopes: ['identify', 'public'],
           redirectURI: legacyOAuthCallbackURL(
@@ -606,14 +651,12 @@ export const auth = betterAuth({
               profile,
             });
 
-            // osu! OAuth2 doesn't return email addresses, so we use a placeholder
             return {
               id: profile.id.toString(),
-              email: `placeholder-${profile.id}`,
+              email: `${PLACEHOLDER_EMAIL_PREFIX}${profile.id}`,
               name: profile.username,
               image: profile.avatar_url,
               emailVerified: false,
-              playerId: ensured.player.id,
             };
           },
         },
