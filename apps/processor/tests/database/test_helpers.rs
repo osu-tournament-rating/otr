@@ -200,6 +200,26 @@ impl TestDatabase {
     }
 }
 
+/// Every row of `table` as text in a stable order, so snapshots compare by content.
+pub async fn snapshot(client: &Client, table: &str) -> String {
+    client
+        .query_one(
+            &format!("SELECT COALESCE(string_agg(t::text, E'\\n' ORDER BY t::text), '') FROM {table} t"),
+            &[]
+        )
+        .await
+        .expect("Failed to snapshot table")
+        .get(0)
+}
+
+pub async fn row_count(client: &Client, table: &str) -> i64 {
+    client
+        .query_one(&format!("SELECT COUNT(*) FROM {table}"), &[])
+        .await
+        .expect("Failed to count rows")
+        .get(0)
+}
+
 /// Builds the schema from otr's drizzle migrations, as `drizzle-kit migrate`
 /// does for a new database: every migration in journal order, inside one
 /// transaction, one statement-breakpoint chunk at a time. The processor reads

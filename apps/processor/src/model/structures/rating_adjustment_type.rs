@@ -26,34 +26,18 @@ impl TryFrom<i32> for RatingAdjustmentType {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::structures::rating_adjustment_type;
-    use rating_adjustment_type::RatingAdjustmentType;
+    use crate::model::structures::rating_adjustment_type::RatingAdjustmentType;
+    use strum::IntoEnumIterator;
 
     #[test]
-    fn test_convert_initial() {
-        assert_eq!(RatingAdjustmentType::try_from(0), Ok(RatingAdjustmentType::Initial));
-    }
+    fn test_try_from_round_trip() {
+        for adjustment_type in RatingAdjustmentType::iter() {
+            assert_eq!(
+                RatingAdjustmentType::try_from(adjustment_type as i32),
+                Ok(adjustment_type)
+            );
+        }
 
-    #[test]
-    fn test_convert_decay() {
-        assert_eq!(RatingAdjustmentType::try_from(1), Ok(RatingAdjustmentType::Decay));
-    }
-
-    #[test]
-    fn test_convert_match() {
-        assert_eq!(RatingAdjustmentType::try_from(2), Ok(RatingAdjustmentType::Match));
-    }
-
-    #[test]
-    fn test_convert_volatility_decay() {
-        assert_eq!(
-            RatingAdjustmentType::try_from(3),
-            Ok(RatingAdjustmentType::VolatilityDecay)
-        );
-    }
-
-    #[test]
-    fn test_convert_error() {
         assert_eq!(RatingAdjustmentType::try_from(4), Err(()));
     }
 }
