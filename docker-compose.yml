@@ -100,10 +100,11 @@ services:
 
   # The site runs in two containers so a deploy can replace one while the
   # other serves. The Caddy reverse proxy in front of the host sends every
-  # request to `web` while it is healthy and to `web-standby` while it is not, so the in-memory rate limits
-  # see one server at a time. A deploy restarts `web-standby` first, then
-  # `web`, and waits for each to pass its health check before moving on.
-  web: &web
+  # request to `web` while it is healthy and to `web-standby` while it is
+  # not, so the in-memory rate limits see one server at a time. A deploy
+  # restarts `web-standby` first, then `web`, and waits for each to pass its
+  # health check before moving on.
+  web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -133,12 +134,15 @@ services:
       METRICS_AUTH_TOKEN: ${METRICS_AUTH_TOKEN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otr-alloy:4318
       OTEL_SERVICE_NAME: otr-web
+      # Tells the two containers' traces apart; they share the service name.
+      OTEL_RESOURCE_ATTRIBUTES: service.instance.id=otr-web
       # On SIGTERM the server fails Caddy's readiness check, keeps serving
       # for SHUTDOWN_DRAIN_SECONDS while Caddy moves traffic to the other
       # container, then exits (apps/web/lib/shutdown.ts).
       NEXT_MANUAL_SIG_HANDLE: 'true'
       SHUTDOWN_DRAIN_SECONDS: '15'
-    # Longer than the drain, so Docker never kills a container mid-drain.
+    # Longer than the drain plus the 5s cleanup before exit, so Docker never
+    # kills a container that is still draining.
     stop_grace_period: 30s
     deploy:
       resources:
@@ -160,10 +164,14 @@ services:
       start_interval: 2s
 
   web-standby:
-    <<: *web
+    extends: web
+    # Runs the image `web` builds; building it twice would race on the tag.
+    build: !reset null
     container_name: otr-web-standby
-    ports:
+    ports: !override
       - '${WEB_STANDBY_PORT:-3002}:3000'
+    environment:
+      OTEL_RESOURCE_ATTRIBUTES: service.instance.id=otr-web-standby
 
   data-worker:
     build:
