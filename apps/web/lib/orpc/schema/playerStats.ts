@@ -5,7 +5,11 @@ import {
   playerSelectSchema,
   ratingAdjustmentSelectSchema,
 } from './base';
-import { RatingAdjustmentTypeSchema, RulesetSchema } from './constants';
+import {
+  DefaultRulesetSchema,
+  RatingAdjustmentTypeSchema,
+  RulesetSchema,
+} from './constants';
 import { TierProgressSchema } from './leaderboard';
 
 const playerCompactBaseSchema = playerSelectSchema
@@ -14,10 +18,9 @@ const playerCompactBaseSchema = playerSelectSchema
     osuId: true,
     username: true,
     country: true,
-    defaultRuleset: true,
   })
   .extend({
-    defaultRuleset: RulesetSchema,
+    defaultRuleset: DefaultRulesetSchema,
   });
 
 export const PlayerCompactSchema = playerCompactBaseSchema;

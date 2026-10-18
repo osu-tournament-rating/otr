@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { STORAGE_STATE } from './fixtures/auth';
+import { STORAGE_STATE, TEST_NONADMIN_PLAYER_ID } from './fixtures/auth';
+import { createOrpcClientForRole } from './fixtures/orpc';
 import { ROUTES } from './fixtures/test-config';
 
 const API_KEY_TEST_NAME = 'E2E generate-key spec';
@@ -168,6 +169,85 @@ test.describe('Settings', () => {
       await expect(
         section.getByRole('row').filter({ hasText: API_KEY_TEST_NAME })
       ).toHaveCount(0);
+    });
+  });
+
+  test.describe('Default ruleset', () => {
+    // Both tests change the same user's settings.
+    test.describe.configure({ mode: 'serial' });
+    test.use({ storageState: STORAGE_STATE.user });
+
+    // Back to most played, so other specs see the user's derived defaults.
+    const resetSettings = async () => {
+      await createOrpcClientForRole('user').users.updateSettings({
+        profileRuleset: null,
+        browsingRuleset: null,
+      });
+    };
+    test.beforeEach(resetSettings);
+    test.afterEach(resetSettings);
+
+    async function chooseSetting(page: Page, label: string, option: string) {
+      await page.goto(ROUTES.settings);
+      await page.waitForLoadState('networkidle');
+
+      const section = page.getByTestId('settings-default-ruleset-section');
+      const select = section.getByRole('combobox', { name: label });
+      await expect(select).toHaveText(/^Most played/, { timeout: 10000 });
+      await select.click();
+      await page.getByRole('option', { name: option, exact: true }).click();
+      await expect(page.getByText('Saved')).toBeVisible({ timeout: 10000 });
+      await expect(select).toBeEnabled();
+    }
+
+    test('the profile setting picks the ruleset the profile opens in', async ({
+      page,
+    }) => {
+      await chooseSetting(page, 'Your profile', 'taiko');
+
+      await page.reload();
+      await expect(
+        page
+          .getByTestId('settings-default-ruleset-section')
+          .getByRole('combobox', { name: 'Your profile' })
+      ).toHaveText('taiko', { timeout: 10000 });
+
+      await page.goto(ROUTES.playerProfile(TEST_NONADMIN_PLAYER_ID));
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByRole('radio', { name: 'taiko' })).toBeChecked({
+        timeout: 10000,
+      });
+    });
+
+    test('the browsing setting picks the ruleset the lists open in', async ({
+      page,
+    }) => {
+      await chooseSetting(page, 'Leaderboard and tournaments', 'catch');
+
+      // The leaderboard's first-visit dialog would hide the page behind it.
+      await page.addInitScript(() => {
+        window.localStorage.setItem(
+          'otr-leaderboard-first-visit-dismissed',
+          'true'
+        );
+      });
+      await page.goto(ROUTES.leaderboard);
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByRole('radio', { name: 'catch' })).toBeChecked({
+        timeout: 10000,
+      });
+      expect(new URL(page.url()).searchParams.has('ruleset')).toBe(false);
+
+      await page.goto(ROUTES.tournaments);
+      await page.waitForLoadState('networkidle');
+      const rulesets = page.getByRole('group', { name: 'Filter by ruleset' });
+      await expect(
+        rulesets.getByRole('button', { name: 'catch', exact: true })
+      ).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+
+      // Every ruleset differs from this visitor's default, so it is written.
+      await rulesets.getByRole('button', { name: 'All', exact: true }).click();
+      await page.waitForURL((url) => url.searchParams.get('ruleset') === 'all');
     });
   });
 });

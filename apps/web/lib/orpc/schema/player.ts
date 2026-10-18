@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 import { playerSelectSchema } from './base';
-import { CreatedUpdatedOmit, RulesetSchema } from './constants';
+import { CreatedUpdatedOmit, DefaultRulesetSchema } from './constants';
 
 export const PlayerSchema = playerSelectSchema.omit(CreatedUpdatedOmit).extend({
-  defaultRuleset: RulesetSchema,
+  defaultRuleset: DefaultRulesetSchema,
   userId: z.number().int().nullable().optional(),
 });
 

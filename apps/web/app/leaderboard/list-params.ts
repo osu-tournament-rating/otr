@@ -60,6 +60,10 @@ export const LEADERBOARD_MATCHES_SCALE = tieredScale({
  * Everything that changes what the leaderboard shows. The URL keys are the
  * ones the page has always used (`friend`, `tiers`, `minRating`, ...), so
  * old links keep working; `q`, `sort` and `dir` are the kit's.
+ *
+ * `ruleset` has no default: an address without one shows the visitor's
+ * browsing ruleset, which the page resolves (osu! when signed out). A link
+ * that means a ruleset names it, osu! included.
  */
 export const LEADERBOARD_LIST_PARAMS = defineListParams({
   q: searchParam({
@@ -67,7 +71,7 @@ export const LEADERBOARD_LIST_PARAMS = defineListParams({
     maxLength: LEADERBOARD_SEARCH_MAX_LENGTH,
   }),
   sort: sortParam(leaderboardSortKeys, DEFAULT_LEADERBOARD_SORT),
-  ruleset: enumParam(RATED_RULESETS, { default: Ruleset.Osu, role: 'scope' }),
+  ruleset: enumParam(RATED_RULESETS, { role: 'scope' }),
   friend: booleanParam({ role: 'scope' }),
   // A trimmed string, as the search is: a country code such as `US`.
   country: searchParam({ minLength: 2, maxLength: 4, role: 'filter' }),
@@ -119,18 +123,26 @@ const toFraction = (percent: number | undefined) =>
   percent === undefined ? undefined : percent / 100;
 
 /**
- * The procedures' input for a list state. The default sort is left out, so
- * the server keeps its global rank order; `friend` picks the procedure and
- * is not part of the input.
+ * The ruleset an address without one shows when the visitor has no browsing
+ * ruleset: signed out, or most played in an unrated ruleset.
+ */
+export const DEFAULT_LEADERBOARD_RULESET = Ruleset.Osu;
+
+/**
+ * The procedures' input for a list state. `defaultRuleset` is the visitor's
+ * browsing ruleset, shown when the address names none. The default sort is
+ * left out, so the server keeps its global rank order; `friend` picks the
+ * procedure and is not part of the input.
  */
 export function toLeaderboardRequest(
-  state: LeaderboardListState
+  state: LeaderboardListState,
+  defaultRuleset: Ruleset
 ): Omit<LeaderboardRequest, 'friend' | 'userId'> {
   const sorted = !sortStatesEqual(state.sort, DEFAULT_LEADERBOARD_SORT);
 
   return {
     page: state.page,
-    ruleset: state.ruleset,
+    ruleset: state.ruleset ?? defaultRuleset,
     searchQuery: state.q || undefined,
     sort: sorted ? state.sort.key : undefined,
     descending: sorted ? state.sort.direction === 'desc' : undefined,

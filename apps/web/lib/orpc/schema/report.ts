@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { ReportEntityType, ReportStatus } from '@otr/core/osu/enums';
 
 import { dataReportSelectSchema } from './base';
-import { RulesetSchema } from './constants';
 
 export const ReportReasonSchema = z.object({
   key: z.string().min(1),
@@ -77,7 +76,6 @@ const reportPlayerSchema = z.object({
   osuId: z.number().int().positive(),
   username: z.string(),
   country: z.string(),
-  defaultRuleset: RulesetSchema,
 });
 
 const reportUserSchema = z.object({

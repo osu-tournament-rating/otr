@@ -22,6 +22,7 @@ import {
 } from '@otr/core/osu';
 
 import { publicProcedure } from './base';
+import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolveMatchId } from './shared/keyType';
 import { deriveVerifiedWinRecord } from './shared/winRecord';
 
@@ -231,7 +232,7 @@ export const getMatch = publicProcedure
         beatmapsetCreatorOsuId: schema.players.osuId,
         beatmapsetCreatorUsername: schema.players.username,
         beatmapsetCreatorCountry: schema.players.country,
-        beatmapsetCreatorDefaultRuleset: schema.players.defaultRuleset,
+        beatmapsetCreatorDefaultRuleset: defaultRulesetSql(schema.players.id),
         beatmapsetCreatorOsuLastFetch: schema.players.osuLastFetch,
         beatmapsetCreatorOsuTrackLastFetch: schema.players.osuTrackLastFetch,
         beatmapsetCreatorOsuTrackDataFetchStatus:
@@ -267,7 +268,7 @@ export const getMatch = publicProcedure
             osuId: schema.players.osuId,
             username: schema.players.username,
             country: schema.players.country,
-            defaultRuleset: schema.players.defaultRuleset,
+            defaultRuleset: defaultRulesetSql(schema.players.id),
             osuLastFetch: schema.players.osuLastFetch,
             osuTrackLastFetch: schema.players.osuTrackLastFetch,
             osuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
@@ -325,7 +326,7 @@ export const getMatch = publicProcedure
             playerOsuId: schema.players.osuId,
             playerUsername: schema.players.username,
             playerCountry: schema.players.country,
-            playerDefaultRuleset: schema.players.defaultRuleset,
+            playerDefaultRuleset: defaultRulesetSql(schema.players.id),
             playerOsuLastFetch: schema.players.osuLastFetch,
             playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
             playerOsuTrackDataFetchStatus:
@@ -448,7 +449,7 @@ export const getMatch = publicProcedure
         playerOsuId: schema.players.osuId,
         playerUsername: schema.players.username,
         playerCountry: schema.players.country,
-        playerDefaultRuleset: schema.players.defaultRuleset,
+        playerDefaultRuleset: defaultRulesetSql(schema.players.id),
         playerOsuLastFetch: schema.players.osuLastFetch,
         playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
         playerOsuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
@@ -504,7 +505,7 @@ export const getMatch = publicProcedure
             playerOsuId: schema.players.osuId,
             playerUsername: schema.players.username,
             playerCountry: schema.players.country,
-            playerDefaultRuleset: schema.players.defaultRuleset,
+            playerDefaultRuleset: defaultRulesetSql(schema.players.id),
             playerOsuLastFetch: schema.players.osuLastFetch,
             playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
             playerOsuTrackDataFetchStatus:
@@ -563,7 +564,7 @@ export const getMatch = publicProcedure
             osuId: schema.players.osuId,
             username: schema.players.username,
             country: schema.players.country,
-            defaultRuleset: schema.players.defaultRuleset,
+            defaultRuleset: defaultRulesetSql(schema.players.id),
             osuLastFetch: schema.players.osuLastFetch,
             osuTrackLastFetch: schema.players.osuTrackLastFetch,
             osuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,

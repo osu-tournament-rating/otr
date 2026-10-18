@@ -246,6 +246,13 @@
       "when": 1792287545217,
       "tag": "0034_lazer_mods",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792288632443,
+      "tag": "0035_default_ruleset_settings",
+      "breakpoints": true
     }
   ]
 }

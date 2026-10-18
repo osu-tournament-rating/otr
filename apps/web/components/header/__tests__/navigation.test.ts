@@ -170,14 +170,20 @@ describe('active state', () => {
 
 describe('getSeeAllHref', () => {
   it('opens each list with the term as its search', () => {
-    expect(getSeeAllHref('tournaments', 'world cup')).toBe(
-      '/tournaments?q=world+cup'
-    );
     expect(getSeeAllHref('beatmaps', 'KAC 2012')).toBe('/beatmaps?q=KAC+2012');
     expect(getSeeAllHref('players', 'Stage')).toBe('/leaderboard?q=Stage');
   });
 
+  // The search found every ruleset's tournaments, so the list must not open
+  // on the visitor's browsing ruleset.
+  it('opens the tournament list on every ruleset', () => {
+    expect(getSeeAllHref('tournaments', 'world cup')).toBe(
+      '/tournaments?q=world+cup&ruleset=all'
+    );
+  });
+
   it('drops a term too short to search', () => {
-    expect(getSeeAllHref('tournaments', 'a')).toBe('/tournaments');
+    expect(getSeeAllHref('beatmaps', 'a')).toBe('/beatmaps');
+    expect(getSeeAllHref('tournaments', 'a')).toBe('/tournaments?ruleset=all');
   });
 });

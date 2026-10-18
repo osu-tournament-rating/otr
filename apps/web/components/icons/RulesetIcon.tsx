@@ -33,3 +33,23 @@ export default function RulesetIcon({
     />
   );
 }
+
+/**
+ * The all-rulesets glyph in its text colour, for a slot that takes a lucide
+ * icon (`KitIcon`), such as a SectionHeader's.
+ */
+export function AllRulesetsIcon({
+  className,
+  ...props
+}: {
+  className?: string;
+  'aria-hidden'?: boolean;
+}) {
+  return (
+    <RulesetIcon
+      ruleset="all"
+      className={cn('fill-current', className)}
+      {...props}
+    />
+  );
+}

@@ -18,12 +18,16 @@ import { cn } from '@/lib/utils';
 
 /**
  * The rulesets a tournament can be in. Admin pickers also offer
- * `mania (other)`, which the rated lists leave out.
+ * `mania (other)`, which the rated lists leave out. `leading` goes above the
+ * rulesets, such as the settings page's "Most played" option and a
+ * `SelectSeparator`.
  */
 export function RulesetSelectContent({
   includeManiaOther = false,
+  leading,
 }: {
   includeManiaOther?: boolean;
+  leading?: React.ReactNode;
 }) {
   const rulesets = includeManiaOther
     ? [...RATED_RULESETS, Ruleset.ManiaOther]
@@ -31,6 +35,7 @@ export function RulesetSelectContent({
 
   return (
     <SelectContent>
+      {leading}
       {rulesets.map((ruleset) => (
         <SelectItem key={ruleset} value={String(ruleset)}>
           <RulesetIcon

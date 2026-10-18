@@ -1,8 +1,6 @@
 import { CurrentUserSchema, type CurrentUser } from '@/lib/orpc/schema/user';
 
-export type SessionUser = CurrentUser & {
-  player: CurrentUser['player'] & { defaultRuleset: number };
-};
+export type SessionUser = CurrentUser;
 
 export const mapAppSessionToUser = (session: unknown): SessionUser | null => {
   if (
@@ -20,7 +18,6 @@ export const mapAppSessionToUser = (session: unknown): SessionUser | null => {
       osuId: number | bigint;
       username: string;
       country: string;
-      defaultRuleset: number;
     };
     dbUser?: {
       id: number;
@@ -44,11 +41,5 @@ export const mapAppSessionToUser = (session: unknown): SessionUser | null => {
     return null;
   }
 
-  return {
-    ...parsed.data,
-    player: {
-      ...parsed.data.player,
-      defaultRuleset: dbPlayer.defaultRuleset,
-    },
-  } satisfies SessionUser;
+  return parsed.data;
 };

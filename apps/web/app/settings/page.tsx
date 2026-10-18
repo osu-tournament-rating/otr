@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 
 import AccountDeletionClient from '@/app/settings/AccountDeletionClient';
 import ApiKeySettingsClient from '@/app/settings/ApiKeySettingsClient';
+import DefaultRulesetClient from '@/app/settings/DefaultRulesetClient';
 import FriendsSyncClient from '@/app/settings/FriendsSyncClient';
 import ThemeHotkeyClient from '@/app/settings/ThemeHotkeyClient';
 import {
@@ -28,13 +29,17 @@ export default async function SettingsPage() {
     redirect('/unauthorized');
   }
 
-  const keys = await orpc.apiClients.getKeys();
+  const [keys, settings] = await Promise.all([
+    orpc.apiClients.getKeys(),
+    orpc.users.getSettings(),
+  ]);
 
   const playerId = appSession.dbPlayer?.id;
   const friendCount = playerId ? await getFriendCount(playerId) : 0;
 
   return (
     <SettingsFrame>
+      <DefaultRulesetClient settings={settings} />
       <Suspense fallback={<FriendsPanelSkeleton />}>
         <FriendsSyncClient friendCount={friendCount} />
       </Suspense>

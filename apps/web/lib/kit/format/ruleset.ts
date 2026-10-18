@@ -37,6 +37,11 @@ export const RATED_RULESETS: readonly Ruleset[] = [
   Ruleset.Mania7k,
 ];
 
+/** Whether `value` is one of `RATED_RULESETS`. */
+export function isRatedRuleset(value: unknown): value is Ruleset {
+  return isRuleset(value) && RATED_RULESETS.includes(value);
+}
+
 export function isRuleset(value: unknown): value is Ruleset {
   return typeof value === 'number' && value in RULESET_NAMES;
 }

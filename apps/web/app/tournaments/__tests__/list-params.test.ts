@@ -9,6 +9,7 @@ import {
 import {
   TOURNAMENT_LIST_PARAMS,
   legacyTournamentListHref,
+  rulesetsForAddress,
   toTournamentListRequest,
   tournamentListHref,
 } from '@/app/tournaments/list-params';
@@ -27,6 +28,39 @@ describe('tournament list params', () => {
     expect(
       tournamentListHref(getDefaultListState(TOURNAMENT_LIST_PARAMS))
     ).toBe('/tournaments');
+  });
+
+  // A bare address shows the visitor's browsing ruleset, so every ruleset
+  // needs a value of its own.
+  it('tells no ruleset apart from every ruleset', () => {
+    expect(parse('').ruleset).toBeUndefined();
+    expect(parse('ruleset=all').ruleset).toEqual([]);
+    expect(tournamentListHref({ ...parse(''), ruleset: [] })).toBe(
+      '/tournaments?ruleset=all'
+    );
+    expect(tournamentListHref(parse('ruleset=all&q=DAS'))).toBe(
+      '/tournaments?q=DAS&ruleset=all'
+    );
+  });
+
+  it('leaves the visitor’s own rulesets out of the address', () => {
+    expect(
+      rulesetsForAddress([Ruleset.Taiko], [Ruleset.Taiko])
+    ).toBeUndefined();
+    expect(rulesetsForAddress([], [])).toBeUndefined();
+    // Every ruleset over a visitor's default writes ruleset=all.
+    expect(rulesetsForAddress([], [Ruleset.Taiko])).toEqual([]);
+    expect(rulesetsForAddress([Ruleset.Osu], [])).toEqual([Ruleset.Osu]);
+    expect(
+      rulesetsForAddress([Ruleset.Osu, Ruleset.Taiko], [Ruleset.Taiko])
+    ).toEqual([Ruleset.Osu, Ruleset.Taiko]);
+  });
+
+  it('keeps every ruleset through Clear all', () => {
+    const state = parse('ruleset=all&status=4');
+    expect(
+      tournamentListHref(clearListFilters(TOURNAMENT_LIST_PARAMS, state))
+    ).toBe('/tournaments?ruleset=all');
   });
 
   it('keeps the keys old links used for rank, dates, lobby size and rulesets', () => {
@@ -69,7 +103,8 @@ describe('tournament list params', () => {
     const request = toTournamentListRequest(
       parse(
         'q=DAS&page=3&sort=startTime&dir=asc&ruleset=1&status=0&status=4&rejectionReason=6&minRankRange=500&dateMin=2024-07-20&dateMax=2024-08-03&verified=true'
-      )
+      ),
+      [Ruleset.Osu]
     );
 
     expect(request).toEqual({
@@ -95,9 +130,25 @@ describe('tournament list params', () => {
     });
   });
 
+  it('sends the default rulesets only when the address names none', () => {
+    const fresh = getDefaultListState(TOURNAMENT_LIST_PARAMS);
+    expect(toTournamentListRequest(fresh, [Ruleset.Catch]).rulesets).toEqual([
+      Ruleset.Catch,
+    ]);
+    expect(
+      toTournamentListRequest({ ...fresh, ruleset: [] }, [Ruleset.Catch])
+        .rulesets
+    ).toBeUndefined();
+    expect(
+      toTournamentListRequest({ ...fresh, ruleset: [Ruleset.Osu] }, [
+        Ruleset.Catch,
+      ]).rulesets
+    ).toEqual([Ruleset.Osu]);
+  });
+
   it('sends the default sort and nothing else for a fresh list', () => {
     expect(
-      toTournamentListRequest(getDefaultListState(TOURNAMENT_LIST_PARAMS))
+      toTournamentListRequest(getDefaultListState(TOURNAMENT_LIST_PARAMS), [])
     ).toMatchObject({
       page: 1,
       searchQuery: undefined,

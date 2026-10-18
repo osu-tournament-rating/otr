@@ -29,6 +29,7 @@ import {
 
 import { adminMutationProcedure } from './base';
 import { ensureAdminSession } from './shared/adminGuard';
+import { defaultRulesetSql } from './shared/defaultRuleset';
 import { Ruleset } from '@otr/core/osu';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
@@ -97,7 +98,7 @@ export const selectAdminNoteFields = (table: AdminNoteTable) => ({
   playerOsuId: schema.players.osuId,
   playerUsername: schema.players.username,
   playerCountry: schema.players.country,
-  playerDefaultRuleset: schema.players.defaultRuleset,
+  playerDefaultRuleset: defaultRulesetSql(schema.players.id),
   playerOsuLastFetch: schema.players.osuLastFetch,
   playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
   playerOsuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,

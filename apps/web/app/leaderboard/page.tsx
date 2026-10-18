@@ -12,7 +12,9 @@ import LeaderboardFirstVisitDialog from '@/components/leaderboard/LeaderboardFir
 import LeaderboardTable from '@/components/leaderboard/LeaderboardTable';
 import LeaderboardToolbar from '@/components/leaderboard/LeaderboardToolbar';
 import { auth } from '@/lib/auth/auth';
+import { db } from '@/lib/db';
 import { hasFriends } from '@/lib/db/player-friends';
+import { getBrowsingRuleset } from '@/lib/db/ruleset-settings';
 import { getCountryOptions } from '@/lib/kit/format/country';
 import { formatCountOf } from '@/lib/kit/format/number';
 import {
@@ -23,6 +25,7 @@ import {
 import { orpc } from '@/lib/orpc/orpc';
 
 import {
+  DEFAULT_LEADERBOARD_RULESET,
   LEADERBOARD_LIST_PARAMS,
   leaderboardHref,
   toLeaderboardRequest,
@@ -44,14 +47,20 @@ export default async function Page(props: {
 
   const session = await auth.api.getSession({ headers: await headers() });
   const playerId = session?.dbPlayer?.id ?? null;
-  const userHasFriends = playerId ? await hasFriends(playerId) : false;
+  const [userHasFriends, browsingRuleset] = await Promise.all([
+    playerId ? hasFriends(playerId) : false,
+    getBrowsingRuleset(db, playerId),
+  ]);
+  // An address without a ruleset shows this one. It is never written to the
+  // address, so a shared link shows each visitor their own.
+  const defaultRuleset = browsingRuleset ?? DEFAULT_LEADERBOARD_RULESET;
 
   // Friends needs a session and someone to compare with.
   if (state.friend && !userHasFriends) {
     redirect(leaderboardHref(state, { friend: false }));
   }
 
-  const request = toLeaderboardRequest(state);
+  const request = toLeaderboardRequest(state, defaultRuleset);
   const data = state.friend
     ? await orpc.leaderboard.friends(request)
     : await orpc.leaderboard.list(request);
@@ -77,6 +86,7 @@ export default async function Page(props: {
           countries={getCountryOptions()}
           signedIn={Boolean(session)}
           hasFriends={userHasFriends}
+          defaultRuleset={defaultRuleset}
         />
         {data.leaderboard.length > 0 ? (
           <LeaderboardTable

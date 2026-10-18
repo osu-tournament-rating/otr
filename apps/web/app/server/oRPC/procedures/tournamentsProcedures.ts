@@ -47,6 +47,7 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 
+import { defaultRulesetSql } from './shared/defaultRuleset';
 import { containsPattern } from './shared/likePattern';
 import {
   buildTournamentRulesetCondition,
@@ -442,7 +443,9 @@ export const getTournament = publicProcedure
           beatmapsetCreatorOsuId: beatmapsetCreator.osuId,
           beatmapsetCreatorUsername: beatmapsetCreator.username,
           beatmapsetCreatorCountry: beatmapsetCreator.country,
-          beatmapsetCreatorDefaultRuleset: beatmapsetCreator.defaultRuleset,
+          beatmapsetCreatorDefaultRuleset: defaultRulesetSql(
+            beatmapsetCreator.id
+          ),
           beatmapsetCreatorOsuLastFetch: beatmapsetCreator.osuLastFetch,
           beatmapsetCreatorOsuTrackLastFetch:
             beatmapsetCreator.osuTrackLastFetch,
@@ -516,7 +519,7 @@ export const getTournament = publicProcedure
               osuId: schema.players.osuId,
               username: schema.players.username,
               country: schema.players.country,
-              defaultRuleset: schema.players.defaultRuleset,
+              defaultRuleset: defaultRulesetSql(schema.players.id),
               osuLastFetch: schema.players.osuLastFetch,
               osuTrackLastFetch: schema.players.osuTrackLastFetch,
               osuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
@@ -832,7 +835,7 @@ export const getTournament = publicProcedure
           statsPlayerOsuId: schema.players.osuId,
           statsPlayerUsername: schema.players.username,
           statsPlayerCountry: schema.players.country,
-          statsPlayerDefaultRuleset: schema.players.defaultRuleset,
+          statsPlayerDefaultRuleset: defaultRulesetSql(schema.players.id),
           statsPlayerOsuLastFetch: schema.players.osuLastFetch,
           statsPlayerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
           statsPlayerDataFetchStatus: schema.players.dataFetchStatus,

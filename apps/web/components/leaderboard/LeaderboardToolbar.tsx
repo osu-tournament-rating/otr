@@ -1,5 +1,7 @@
 'use client';
 
+import type { Ruleset } from '@otr/core/osu';
+
 import {
   LEADERBOARD_LIST_PARAMS,
   LEADERBOARD_MATCHES_SCALE,
@@ -64,6 +66,7 @@ export default function LeaderboardToolbar({
   countries,
   signedIn,
   hasFriends,
+  defaultRuleset,
 }: {
   /** The player count, already formatted. */
   count: string;
@@ -75,6 +78,11 @@ export default function LeaderboardToolbar({
   /** All / Friends shows only to signed-in visitors. */
   signedIn: boolean;
   hasFriends: boolean;
+  /**
+   * The visitor's browsing ruleset, which an address without a ruleset
+   * shows. Choosing it leaves the ruleset out of the address.
+   */
+  defaultRuleset: Ruleset;
 }) {
   const list = useListState(LEADERBOARD_LIST_PARAMS);
   const { state, setState } = list;
@@ -183,8 +191,12 @@ export default function LeaderboardToolbar({
       }
       rulesets={
         <RulesetSwitch
-          value={state.ruleset}
-          onValueChange={(ruleset) => setState({ ruleset })}
+          value={state.ruleset ?? defaultRuleset}
+          onValueChange={(ruleset) =>
+            setState({
+              ruleset: ruleset === defaultRuleset ? undefined : ruleset,
+            })
+          }
         />
       }
       count={count}
