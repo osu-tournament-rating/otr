@@ -19,6 +19,7 @@ import { RabbitMqPublisher } from '@otr/core/queues';
 import { FixedWindowRateLimiter } from './rate-limiter';
 import {
   BeatmapFetchService,
+  ForumTopicFetchService,
   MatchFetchService,
   OsuApiFetchWorker,
   PlayerFetchService,
@@ -42,6 +43,7 @@ import {
   TournamentStatsWorker,
 } from './stats';
 import { PlayerRefetchScheduler } from './players/player-refetch-scheduler';
+import { ForumPostBackfill } from './forum-posts/forum-post-backfill';
 import {
   checkBeatmapFileStore,
   createBeatmapFileStore,
@@ -243,6 +245,19 @@ const bootstrap = async () => {
     logger,
   });
 
+  const forumTopicService = new ForumTopicFetchService({
+    db,
+    api: osuApiClient,
+    rateLimiter: osuApiRateLimiter,
+    logger,
+  });
+
+  const forumPostBackfill = new ForumPostBackfill({
+    db,
+    logger,
+    osuPublisher,
+  });
+
   const playerRefetchScheduler = new PlayerRefetchScheduler({
     db,
     logger,
@@ -272,6 +287,7 @@ const bootstrap = async () => {
     beatmapService,
     matchService,
     playerService,
+    forumTopicService,
     logger,
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
   });
@@ -318,6 +334,7 @@ const bootstrap = async () => {
   ]);
 
   await playerRefetchScheduler.start();
+  await forumPostBackfill.run();
 
   const shutdown = async () => {
     logger.info('Shutting down data worker services');

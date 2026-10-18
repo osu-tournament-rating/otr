@@ -21,8 +21,17 @@ export type FetchPlayerPayload = {
   osuPlayerId: number;
 };
 
+/** Fetch a forum topic's opening post and link the tournaments whose forum URL points at it. */
+export type FetchForumTopicPayload = {
+  type: 'forumTopic';
+  topicId: number;
+};
+
 export type OsuApiPayload =
-  FetchBeatmapPayload | FetchMatchPayload | FetchPlayerPayload;
+  | FetchBeatmapPayload
+  | FetchMatchPayload
+  | FetchPlayerPayload
+  | FetchForumTopicPayload;
 
 /** Message type for the `data.osu` queue. */
 export type FetchOsuMessage = MessageEnvelope<OsuApiPayload>;

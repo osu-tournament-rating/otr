@@ -1,21 +1,31 @@
-import type { FetchOsuMessage, OsuApiPayload } from '@otr/core';
+import type {
+  FetchOsuMessage,
+  MessageMetadata,
+  OsuApiPayload,
+} from '@otr/core';
 
 import type { Logger } from '../../logging/logger';
 import type { QueueConsumer } from '@otr/core/queues';
 import { deferIfMaintenanceWindow } from '../../maintenance/gate';
 import type { BeatmapFetchService } from '../services/beatmap-fetch-service';
+import type { ForumTopicFetchService } from '../services/forum-topic-fetch-service';
 import type { MatchFetchService } from '../services/match-fetch-service';
 import type { PlayerFetchService } from '../services/player-fetch-service';
 
 type BeatmapFetchServiceContract = Pick<BeatmapFetchService, 'fetchAndPersist'>;
 type MatchFetchServiceContract = Pick<MatchFetchService, 'fetchAndPersist'>;
 type PlayerFetchServiceContract = Pick<PlayerFetchService, 'fetchAndPersist'>;
+type ForumTopicFetchServiceContract = Pick<
+  ForumTopicFetchService,
+  'fetchAndPersist'
+>;
 
 interface OsuApiFetchWorkerOptions {
   queue: QueueConsumer<FetchOsuMessage>;
   beatmapService: BeatmapFetchServiceContract;
   matchService: MatchFetchServiceContract;
   playerService: PlayerFetchServiceContract;
+  forumTopicService: ForumTopicFetchServiceContract;
   logger: Logger;
   maintenanceWindowEnabled: boolean;
 }
@@ -25,6 +35,7 @@ export class OsuApiFetchWorker {
   private readonly beatmapService: BeatmapFetchServiceContract;
   private readonly matchService: MatchFetchServiceContract;
   private readonly playerService: PlayerFetchServiceContract;
+  private readonly forumTopicService: ForumTopicFetchServiceContract;
   private readonly logger: Logger;
   private readonly maintenanceWindowEnabled: boolean;
 
@@ -33,6 +44,7 @@ export class OsuApiFetchWorker {
     this.beatmapService = options.beatmapService;
     this.matchService = options.matchService;
     this.playerService = options.playerService;
+    this.forumTopicService = options.forumTopicService;
     this.logger = options.logger;
     this.maintenanceWindowEnabled = options.maintenanceWindowEnabled;
   }
@@ -57,7 +69,7 @@ export class OsuApiFetchWorker {
       msgLogger.info('processing osu! API fetch', { type: payload.type });
 
       try {
-        await this.routeMessage(payload, msgLogger);
+        await this.routeMessage(payload, message.metadata, msgLogger);
         await message.ack();
       } catch (error) {
         msgLogger.error('failed to process osu! API fetch', { error });
@@ -68,6 +80,7 @@ export class OsuApiFetchWorker {
 
   private async routeMessage(
     payload: OsuApiPayload,
+    metadata: MessageMetadata,
     msgLogger: Logger
   ): Promise<void> {
     switch (payload.type) {
@@ -100,6 +113,16 @@ export class OsuApiFetchWorker {
         const { osuPlayerId } = payload;
         msgLogger.info('processing player fetch', { osuPlayerId });
         await this.playerService.fetchAndPersist(osuPlayerId);
+        break;
+      }
+
+      case 'forumTopic': {
+        const { topicId } = payload;
+        msgLogger.info('processing forum topic fetch', { topicId });
+        await this.forumTopicService.fetchAndPersist(
+          topicId,
+          metadata.requestedAt
+        );
         break;
       }
 
