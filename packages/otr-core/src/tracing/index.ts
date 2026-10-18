@@ -6,8 +6,15 @@ export {
   recordException,
   setActiveSpanAttributes,
   activeTraceId,
+  withoutTracing,
 } from './tracer';
 export { instrumentPgPool } from './database';
 export { instrumentFetch } from './http';
-export { injectTraceHeaders, tracePublish, traceConsume } from './messaging';
+export {
+  injectTraceHeaders,
+  injectTraceContext,
+  tracePublish,
+  traceEnqueue,
+  traceConsume,
+} from './messaging';
 export type { MessageHeaders } from './messaging';

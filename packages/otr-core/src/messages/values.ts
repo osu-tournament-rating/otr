@@ -1,4 +1,4 @@
-/** RabbitMQ priority values, shared between applications. */
+/** Job priorities, persisted in jobs.priority; higher runs first. */
 export enum MessagePriority {
   Low = 0,
   Normal = 5,
