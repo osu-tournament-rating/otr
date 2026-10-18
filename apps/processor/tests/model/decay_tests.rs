@@ -227,3 +227,91 @@ fn test_decay_stops_at_floor_halfway_between_minimum_and_peak() {
     );
     assert_abs_diff_eq!(ratings[0].rating, 1400.0, epsilon = RATING_TOLERANCE);
 }
+
+#[test]
+fn test_match_between_decay_passes_restarts_inactivity() {
+    // Last match 2023-02-01, far more than 184 days before January 2024.
+    let mut ratings = vec![rating_with_history(
+        1,
+        &[
+            (Initial, noon(2023, 1, 4), 1300.0, 300.0),
+            (Match, noon(2023, 2, 1), 1500.0, 200.0)
+        ]
+    )];
+
+    // One system across both passes, as when the model processes matches.
+    // 2024-01-01 is a Monday, so the first pass ticks on Wednesday 2024-01-03.
+    let mut system = UnifiedDecaySystem::new();
+    assert!(!system.prepare_decay_pass(noon(2024, 1, 1)));
+    assert!(system.prepare_decay_pass(noon(2024, 1, 3)));
+    system.apply_decay(&mut ratings);
+
+    // The player returns on Friday 2024-01-05.
+    let rating = &mut ratings[0];
+    rating.adjustments.push(RatingAdjustment {
+        player_id: 1,
+        ruleset: Ruleset::Osu,
+        match_id: None,
+        rating_before: rating.rating,
+        rating_after: 1600.0,
+        volatility_before: rating.volatility,
+        volatility_after: 180.0,
+        timestamp: noon(2024, 1, 5),
+        adjustment_type: Match
+    });
+    rating.rating = 1600.0;
+    rating.volatility = 180.0;
+
+    assert!(system.prepare_decay_pass(noon(2024, 1, 10)));
+    system.apply_decay(&mut ratings);
+
+    let steps = decay_adjustments(&ratings[0]);
+    assert_eq!(steps.len(), 2);
+    // Inactive: 1500 - 3 = 1497, sqrt(200^2 + 500) = sqrt(40500) = 201.2461
+    assert_decay_step(steps[0], noon(2024, 1, 3), Decay, (1500.0, 1497.0), (200.0, 201.2461));
+    // The 2024-01-05 match is 5 days old, so only volatility grows, from the
+    // match's result: sqrt(180^2 + 500) = sqrt(32900) = 181.3836
+    assert_decay_step(
+        steps[1],
+        noon(2024, 1, 10),
+        VolatilityDecay,
+        (1600.0, 1600.0),
+        (180.0, 181.3836)
+    );
+}
+
+#[test]
+fn test_decay_starts_from_latest_adjustment_on_or_before_each_wednesday() {
+    // The 2024-01-09 match is dated between the two ticks, so the first tick
+    // must ignore it and the second must start from it.
+    let mut ratings = vec![rating_with_history(
+        1,
+        &[
+            (Initial, noon(2023, 12, 1), 1300.0, 300.0),
+            (Match, noon(2024, 1, 2), 1500.0, 200.0),
+            (Match, noon(2024, 1, 9), 1450.0, 190.0)
+        ]
+    )];
+
+    // Ticks on Wednesdays 2024-01-03 and 2024-01-10.
+    decay_between(&mut ratings, noon(2024, 1, 1), noon(2024, 1, 10));
+
+    let steps = decay_adjustments(&ratings[0]);
+    assert_eq!(steps.len(), 2);
+    // From the 2024-01-02 match: sqrt(200^2 + 500) = sqrt(40500) = 201.2461
+    assert_decay_step(
+        steps[0],
+        noon(2024, 1, 3),
+        VolatilityDecay,
+        (1500.0, 1500.0),
+        (200.0, 201.2461)
+    );
+    // From the 2024-01-09 match: sqrt(190^2 + 500) = sqrt(36600) = 191.3113
+    assert_decay_step(
+        steps[1],
+        noon(2024, 1, 10),
+        VolatilityDecay,
+        (1450.0, 1450.0),
+        (190.0, 191.3113)
+    );
+}
