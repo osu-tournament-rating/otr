@@ -31,22 +31,6 @@ services:
       timeout: 5s
       retries: 120
 
-  rabbitmq:
-    profiles: [rabbitmq]
-    image: rabbitmq:4-management
-    restart: 'no'
-    ports:
-      - '127.0.0.1:${OTR_STACK_RABBITMQ_PORT}:5672'
-      - '127.0.0.1:${OTR_STACK_RABBITMQ_UI_PORT}:15672'
-    environment:
-      RABBITMQ_DEFAULT_USER: '${OTR_STACK_RABBITMQ_USER}'
-      RABBITMQ_DEFAULT_PASS: '${OTR_STACK_RABBITMQ_PASSWORD}'
-    healthcheck:
-      test: ['CMD-SHELL', 'rabbitmq-diagnostics -q ping']
-      interval: 2s
-      timeout: 5s
-      retries: 60
-
   # Grafana with Tempo, Loki, and Prometheus behind one OTLP endpoint. otr
   # points the stack's web app and worker at it only while it runs.
   monitoring:

@@ -127,7 +127,6 @@ export const dataWorkerEnv = {
   osuClientSecret: requireEnv('DATA_WORKER_OSU_CLIENT_SECRET'),
   osuApiRateLimit,
   osuTrackRateLimit,
-  amqpUrl: requireEnv('RABBITMQ_AMQP_URL'),
   maintenanceWindowEnabled: parseBooleanEnvWithDefault(
     'MAINTENANCE_WINDOW_ENABLED',
     true

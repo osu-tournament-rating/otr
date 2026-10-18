@@ -1,7 +1,7 @@
 name: E2E Tests
 
-# Nightly on master, and by hand on any branch: spins up Postgres + RabbitMQ
-# in the runner, restores the redacted dev archive via apps/scripts, and runs
+# Nightly on master, and by hand on any branch: spins up Postgres in the
+# runner, restores the redacted dev archive via apps/scripts, and runs
 # playwright. PR previews and the dev tier restore the same archive.
 on:
   schedule:
@@ -23,21 +23,17 @@ jobs:
       DOCKER_POSTGRES_USER: postgres
       DOCKER_POSTGRES_PASSWORD: password
       DOCKER_POSTGRES_DB: postgres
-      DOCKER_RABBITMQ_USER: admin
-      DOCKER_RABBITMQ_PASSWORD: admin
       DOCKER_DATABASE_URL: postgresql://postgres:password@db:5432/postgres
-      DOCKER_RABBITMQ_AMQP_URL: amqp://admin:admin@rabbitmq:5672/
 
       # Host-side connection strings for migrations + Playwright web server.
       DATABASE_URL: postgresql://postgres:password@localhost:5432/postgres
-      RABBITMQ_AMQP_URL: amqp://admin:admin@localhost:5672/
 
       NEXT_PUBLIC_APP_BASE_URL: http://localhost:3001
       BETTER_AUTH_SECRET: e2e-test-secret
       BETTER_AUTH_URL: http://localhost:3001
 
       # Staging dir for apps/scripts. Holds a stripped compose file that
-      # only declares db + rabbitmq, so the recovery script's
+      # only declares db, so the recovery script's
       # `docker compose down` / `up -d` cycle doesn't try to start web
       # and data-worker (Playwright launches its own web on 3001).
       OTR_COMPOSE_DIR: ${{ github.workspace }}/.e2e-compose
@@ -82,7 +78,7 @@ jobs:
 
       - name: Stage minimal compose for apps/scripts
         # The recovery script runs `docker compose down/up` in OTR_WEB_DIR.
-        # Point it at this dir which only declares the two services we
+        # Point it at this dir which only declares the database we
         # actually need for E2E. Recovery also runs the `migrate` service
         # after restoring, and fails without one. Here it does nothing:
         # the "Run database migrations" step below applies this checkout's
@@ -107,20 +103,6 @@ jobs:
                 timeout: 5s
                 retries: 20
                 start_period: 5s
-            rabbitmq:
-              image: rabbitmq:4-management
-              container_name: otr-rabbitmq
-              ports:
-                - '5672:5672'
-                - '15672:15672'
-              environment:
-                RABBITMQ_DEFAULT_USER: admin
-                RABBITMQ_DEFAULT_PASS: admin
-              healthcheck:
-                test: ['CMD-SHELL', 'rabbitmq-diagnostics -q ping']
-                interval: 10s
-                timeout: 5s
-                retries: 12
             migrate:
               image: postgres:17
               profiles:
@@ -147,13 +129,11 @@ jobs:
           GCS_PUBLIC_BUCKET=otr-public-replica
           GCS_PROD_BUCKET=otr-prod-dumps
           GCS_SA_JSON_PATH=${HOME}/.gcs/sa.json
-          RABBITMQ_URL=amqp://admin:admin@localhost:5672/
           EOF
 
       # The recovery script starts the compose file above, which pulls
-      # PostgreSQL and RabbitMQ from Docker Hub. Signed in, the pulls count
-      # against the account's quota rather than the runner's shared anonymous
-      # limit.
+      # PostgreSQL from Docker Hub. Signed in, the pulls count against the
+      # account's quota rather than the runner's shared anonymous limit.
       - name: Log in to Docker Hub
         if: env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3

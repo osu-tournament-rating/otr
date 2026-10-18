@@ -1,6 +1,6 @@
 name: Dev tier
 
-# The shared database and queue that PR previews read from. Deliberately kept
+# The shared database that PR previews read from. Deliberately kept
 # out of deploy.yml: this tier has no application images and no migrate
 # service, so it does not fit that workflow's build-and-migrate shape.
 #
@@ -193,11 +193,6 @@ jobs:
             cd "$1"
             docker compose pull
             docker compose up -d --remove-orphans
-            # Nothing consumes these queues without a data worker, so let idle
-            # ones delete themselves after a day.
-            until docker exec otr-dev-rabbitmq rabbitmq-diagnostics -q ping </dev/null; do sleep 3; done
-            docker exec otr-dev-rabbitmq rabbitmqctl set_policy preview-expiry \
-              '.*' '{"expires":86400000}' --apply-to queues </dev/null
           EOF
 
       - name: Install the operations scripts

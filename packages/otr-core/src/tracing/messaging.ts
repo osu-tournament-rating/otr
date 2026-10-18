@@ -7,50 +7,14 @@ import {
 
 import { withSpan } from './tracer';
 
-const MESSAGING_SYSTEM = 'rabbitmq';
-const JOBS_SYSTEM = 'otr_jobs';
-
-export type MessageHeaders = Record<string, unknown>;
+/** Background work runs from the Postgres jobs table, with no message broker. */
+const MESSAGING_SYSTEM = 'otr_jobs';
 
 const queueAttributes = (queue: string, extra?: Attributes): Attributes => ({
   'messaging.system': MESSAGING_SYSTEM,
   'messaging.destination.name': queue,
   ...extra,
 });
-
-/** Serialises the active trace into AMQP headers so the consumer can continue it. */
-export function injectTraceHeaders(
-  headers: MessageHeaders = {}
-): MessageHeaders {
-  propagation.inject(context.active(), headers);
-  return headers;
-}
-
-export function tracePublish<T>(
-  queue: string,
-  run: () => Promise<T>
-): Promise<T> {
-  return withSpan(
-    `publish ${queue}`,
-    {
-      kind: SpanKind.PRODUCER,
-      attributes: queueAttributes(queue, {
-        'messaging.operation.name': 'publish',
-      }),
-    },
-    run
-  );
-}
-
-/**
- * Continues the publisher's trace, so a queued job shows up under whatever
- * enqueued it rather than as an unrelated root span.
- */
-// amqplib hands back long strings as Buffers, which the propagator can't read.
-const asStrings = (headers: MessageHeaders): Record<string, string> =>
-  Object.fromEntries(
-    Object.entries(headers).map(([key, value]) => [key, String(value)])
-  );
 
 /** Producer span around queueing jobs, whose rows carry its trace context. */
 export function traceEnqueue<T>(
@@ -61,11 +25,9 @@ export function traceEnqueue<T>(
     `enqueue ${queue}`,
     {
       kind: SpanKind.PRODUCER,
-      attributes: {
-        'messaging.system': JOBS_SYSTEM,
-        'messaging.destination.name': queue,
+      attributes: queueAttributes(queue, {
         'messaging.operation.name': 'publish',
-      },
+      }),
     },
     run
   );
@@ -78,16 +40,17 @@ export function injectTraceContext(): Record<string, string> {
   return carrier;
 }
 
+/**
+ * Continues the trace a job row carries, so the job shows up under whatever
+ * enqueued it rather than as an unrelated root span.
+ */
 export function traceConsume<T>(
   queue: string,
-  headers: MessageHeaders | undefined,
+  traceContext: Record<string, string> | undefined,
   run: () => Promise<T>,
   extraAttributes?: Attributes
 ): Promise<T> {
-  const parent = propagation.extract(
-    context.active(),
-    headers ? asStrings(headers) : {}
-  );
+  const parent = propagation.extract(context.active(), traceContext ?? {});
 
   return context.with(parent, () =>
     withSpan(

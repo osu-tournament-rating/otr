@@ -53,28 +53,6 @@ services:
       retries: 20
       start_period: 5s
 
-  rabbitmq:
-    # Pinned like db above. Changing this line restarts the broker in
-    # production, so change it on purpose and in its own pull request.
-    image: rabbitmq:4.3.6-management@sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58
-    container_name: otr-rabbitmq
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:5672:5672'
-      - '127.0.0.1:15672:15672'
-    environment:
-      RABBITMQ_DEFAULT_USER: ${DOCKER_RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${DOCKER_RABBITMQ_PASSWORD}
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    command: >
-      bash -c "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"
-    healthcheck:
-      test: ['CMD-SHELL', 'rabbitmq-diagnostics -q ping']
-      interval: 10s
-      timeout: 5s
-      retries: 12
-
   migrate:
     build:
       context: .
@@ -95,7 +73,6 @@ services:
       - ./.env
     environment:
       DATABASE_URL: ${DOCKER_DATABASE_URL}
-      RABBITMQ_AMQP_URL: ${DOCKER_RABBITMQ_AMQP_URL}
     command: ['./scripts/run-migrations.sh']
 
   # The site runs in two containers so a deploy can replace one while the
@@ -120,13 +97,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     env_file:
       - ./.env
     environment:
       DATABASE_URL: ${DOCKER_DATABASE_URL}
-      RABBITMQ_AMQP_URL: ${DOCKER_RABBITMQ_AMQP_URL}
       # Server components call the site's own /rpc. Each container calls
       # itself, so a page is never rendered half by one build and half by
       # another, and never fails because the other container is restarting.
@@ -187,13 +161,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     env_file:
       - ./.env
     environment:
       DATABASE_URL: ${DOCKER_DATABASE_URL}
-      RABBITMQ_AMQP_URL: ${DOCKER_RABBITMQ_AMQP_URL}
       METRICS_PORT: '9091'
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otr-alloy:4318
       OTEL_SERVICE_NAME: otr-data-worker
@@ -371,7 +342,6 @@ services:
 
 volumes:
   postgres-data:
-  rabbitmq-data:
   prometheus-data:
   alertmanager-data:
   grafana-data:

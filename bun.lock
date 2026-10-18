@@ -22,7 +22,6 @@
       "name": "data-worker",
       "dependencies": {
         "@otr/core": "workspace:*",
-        "amqplib": "^2.2.0",
         "drizzle-orm": "^0.45.4",
         "osu-api-v2-js": "^3.0.5",
         "pg": "^8.23.1",
@@ -32,7 +31,6 @@
       "devDependencies": {
         "@eslint/eslintrc": "^3.3.7",
         "@eslint/js": "^10.0.1",
-        "@types/amqplib": "^0.10.8",
         "@typescript-eslint/eslint-plugin": "^8.71.1",
         "@typescript-eslint/parser": "^8.71.1",
         "bun-types": "^1.4.3",
@@ -73,7 +71,6 @@
         "@radix-ui/react-toggle-group": "^1.1.20",
         "@radix-ui/react-tooltip": "^1.3.0",
         "@scalar/nextjs-api-reference": "0.12.9",
-        "amqplib": "^2.2.0",
         "better-auth": "^1.7.7",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -107,7 +104,6 @@
         "@svgr/plugin-svgo": "^8.1.0",
         "@svgr/webpack": "^8.1.0",
         "@tailwindcss/postcss": "^4.3.3",
-        "@types/amqplib": "^0.10.8",
         "@types/d3-interpolate": "^3.0.4",
         "@types/d3-scale": "^4.0.9",
         "@types/node": "^26.6.5",
@@ -137,11 +133,7 @@
         "@opentelemetry/sdk-trace-base": "^2.12.0",
         "@opentelemetry/sdk-trace-node": "^2.12.0",
         "@opentelemetry/semantic-conventions": "^1.43.0",
-        "amqplib": "^2.2.0",
         "pino": "^10.4.0",
-      },
-      "devDependencies": {
-        "@types/amqplib": "^0.10.8",
       },
       "peerDependencies": {
         "drizzle-orm": "^0.45.4",
@@ -897,8 +889,6 @@
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.4", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A=="],
 
-    "@types/amqplib": ["@types/amqplib@0.10.8", "", { "dependencies": { "@types/node": "*" } }, "sha512-vtDp8Pk1wsE/AuQ8/Rgtm6KUZYqcnTgNvEHwzCkX8rL7AGsC6zqAfKAAJhUZXFhM/Pp++tbnUHiam/8vVpPztA=="],
-
     "@types/d3-array": ["@types/d3-array@3.2.2", "", {}, "sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw=="],
 
     "@types/d3-color": ["@types/d3-color@3.1.3", "", {}, "sha512-iO90scth9WAbmgv7ogoq57O9YpKmFBbmoEoCHDB2xMBY0+/KVrqAaCDyCE16dUspeOvIxFFRI+0sEtqDqy2b4A=="],
@@ -1004,8 +994,6 @@
     "acorn-jsx": ["acorn-jsx@5.3.2", "", { "peerDependencies": { "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ=="],
 
     "ajv": ["ajv@6.15.0", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw=="],
-
-    "amqplib": ["amqplib@2.2.0", "", {}, "sha512-VifzN9aHs/Q3zTruVHXh2yCisQyXexBN91CQ2E5iSyUKyNjH6ilYhJGte5AXZH/Bj1PaH7SwPhyuSf6Msd2udw=="],
 
     "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
 

@@ -56,14 +56,6 @@ import { BeatmapAttributesScheduler } from './beatmap-attributes/beatmap-attribu
 import { JobRunner } from './jobs/runner';
 import { JobListener } from './jobs/listener';
 import { JobPruner } from './jobs/pruner';
-import {
-  beatmapAttributesJobFromMessage,
-  osuFetchJobFromMessage,
-  osuTrackJobFromMessage,
-  RabbitMqBridge,
-  tournamentChecksJobFromMessage,
-  tournamentStatsJobFromMessage,
-} from './jobs/rabbitmq-bridge';
 import { StrandedFetchSweep } from './jobs/stranded-fetch-sweep';
 import { captureOsuRetryAfter } from './osu/retry-after';
 
@@ -72,10 +64,6 @@ const logger = consoleLogger;
 const API_REQUEST_STATS_FLUSH_MS = 60_000;
 
 const runner = new JobRunner({ db, logger: consoleLogger });
-
-// Moves messages left in RabbitMQ into the jobs table. Set once it has
-// started, so the health check doesn't wait on its first drain.
-let rabbitMqBridge: RabbitMqBridge | null = null;
 
 // osu!'s Retry-After on a 429 or 503 decides when a fetch job runs again.
 globalThis.fetch = captureOsuRetryAfter(globalThis.fetch);
@@ -134,9 +122,7 @@ const registerBeatmapAttributes = async () => {
   });
 };
 
-startMetricsServer(
-  () => runner.isHealthy() && (rabbitMqBridge?.isConsuming ?? true)
-);
+startMetricsServer(() => runner.isHealthy());
 
 const bootstrap = async () => {
   const osuApiClient = await createOsuApiClient();
@@ -297,29 +283,6 @@ const bootstrap = async () => {
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
   });
 
-  // Moves messages for queues that now run from the jobs table.
-  const bridge = new RabbitMqBridge({
-    url: dataWorkerEnv.amqpUrl,
-    db,
-    logger,
-    queues: [
-      {
-        queue: JobQueue.TournamentStats,
-        toJob: tournamentStatsJobFromMessage,
-      },
-      { queue: JobQueue.OsuFetch, toJob: osuFetchJobFromMessage },
-      { queue: JobQueue.OsuTrackFetch, toJob: osuTrackJobFromMessage },
-      {
-        queue: JobQueue.TournamentChecks,
-        toJob: tournamentChecksJobFromMessage,
-      },
-      {
-        queue: JobQueue.BeatmapAttributes,
-        toJob: beatmapAttributesJobFromMessage,
-      },
-    ],
-  });
-
   // Every queue, including the attribute queue while beatmap file storage is
   // off, so jobs waiting for a handler still count toward the depth alert.
   setJobSummarySource({
@@ -339,8 +302,6 @@ const bootstrap = async () => {
   runner.start();
   jobPruner.start();
   strandedFetchSweep.start();
-  await bridge.start();
-  rabbitMqBridge = bridge;
 
   await playerRefetchScheduler.start();
   await forumPostBackfill.run();
@@ -352,8 +313,7 @@ const bootstrap = async () => {
   const shutdown = async () => {
     logger.info('Shutting down data worker services');
     clearInterval(apiRequestStatsFlush);
-    // Everything that runs or queues jobs stops before the bridge and the
-    // database listener.
+    // Everything that runs or queues jobs stops before the database listener.
     await Promise.allSettled([
       runner.stop(),
       jobPruner.stop(),
@@ -361,7 +321,6 @@ const bootstrap = async () => {
       playerRefetchScheduler.stop(),
       beatmapAttributesScheduler?.stop(),
     ]);
-    await bridge.stop();
     await Promise.allSettled([
       jobListener.stop(),
       withoutTracing(() => apiRequestStats.flush(db)),

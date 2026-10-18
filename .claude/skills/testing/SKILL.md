@@ -104,7 +104,7 @@ test needs the two to match.
 | Authorization and write guards | Signed-out, non-admin, and stale-build callers are refused. Admin writes go through `adminMutationProcedure`.                                                                                                                                                                                           |
 | SQL that filters data          | Verification status, ruleset, and scoping filters, run against the test database rather than a fake query builder. A fake ignores the WHERE clause.                                                                                                                                                     |
 | Published data                 | No auth, session, or API-key table reaches a public export. Recovery restores the newest archive.                                                                                                                                                                                                       |
-| Contracts                      | Enum numbers, queue names and arguments, and message shapes. Pin them to literal values, or check them against the other side's definition, as the processor's contract tests check the enums in `@otr/core`.                                                                                           |
+| Contracts                      | Enum numbers, job queue names, and job payload shapes. Pin them to literal values, or check them against the other side's definition, as the processor's contract tests check the enums in `@otr/core`.                                                                                                 |
 
 ## What not to test
 

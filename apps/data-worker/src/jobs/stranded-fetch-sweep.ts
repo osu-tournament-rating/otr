@@ -28,7 +28,7 @@ interface StrandedFetchSweepOptions {
 
 /**
  * Hourly: queues a fetch for every match and beatmap still waiting to be
- * fetched with no job to do it, such as one whose message RabbitMQ lost
+ * fetched with no job to do it, such as one whose queue message was lost
  * before the move to the jobs table. Low priority, so a backlog waits behind
  * new submissions.
  */

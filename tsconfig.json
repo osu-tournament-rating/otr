@@ -23,8 +23,7 @@
       "@/*": ["./apps/web/*"],
       "@otr/core": ["./packages/otr-core/src/index.ts"],
       "@otr/core/*": ["./packages/otr-core/src/*"],
-      "@otr/core/osu": ["./packages/otr-core/src/osu/enums.ts"],
-      "@otr/core/queues": ["./packages/otr-core/src/queues/index.ts"]
+      "@otr/core/osu": ["./packages/otr-core/src/osu/enums.ts"]
     }
   },
   "include": [

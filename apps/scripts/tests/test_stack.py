@@ -10,7 +10,7 @@ from lib.stack import envfile, procs, stack
 from lib.stack.base import Credentials
 from lib.stack.common import StackError
 
-CREDS = Credentials("post gres", "p@ss:word/#", "otr", "admin", "admin")
+CREDS = Credentials("post gres", "p@ss:word/#", "otr")
 
 
 def test_parse_reads_quotes_exports_and_comments():
@@ -92,7 +92,8 @@ def test_stack_names_are_compose_safe_and_unique_per_path():
 
 
 def test_slots_own_ten_ports_each():
-    assert stack.Ports.for_slot(1).all() == list(range(20010, 20018))
+    # 20012 and 20013 were RabbitMQ's; every other port keeps its number.
+    assert stack.Ports.for_slot(1).all() == [20010, 20011, 20014, 20015, 20016, 20017]
     assert stack.Ports.for_slot(2).web == 20020
 
 
@@ -127,7 +128,6 @@ def test_managed_env_escapes_credentials_and_toggles_tracing(tmp_path):
     assert off["DATABASE_URL"] == (
         "postgresql://post%20gres:p%40ss%3Aword%2F%23@127.0.0.1:20011/otr"
     )
-    assert off["RABBITMQ_AMQP_URL"] == "amqp://admin:admin@127.0.0.1:20012/"
     assert off["NEXT_PUBLIC_APP_BASE_URL"] == "http://127.0.0.1:20010"
     assert off["OTEL_EXPORTER_OTLP_ENDPOINT"] is None
     assert on["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://127.0.0.1:20016"

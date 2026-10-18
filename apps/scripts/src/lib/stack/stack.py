@@ -1,8 +1,8 @@
 """Per-worktree o!TR stacks for agents.
 
 Each linked worktree gets one stack: its own PostgreSQL container holding a
-copy of the local database, the worktree's web app, and on request RabbitMQ,
-the data worker, and monitoring. Stacks share nothing with each other or with
+copy of the local database, the worktree's web app, and on request the data
+worker and monitoring. Stacks share nothing with each other or with
 the main checkout's services.
 
 State lives outside the worktrees, under ~/.local/share/otr/stacks (or
@@ -36,9 +36,9 @@ HOST = "127.0.0.1"
 PORT_BASE = 20000
 SLOTS = range(1, 100)
 
-SERVICES = ("rabbitmq", "monitoring")
+SERVICES = ("monitoring",)
 PROCESSES = ("web", "worker")
-COMPONENTS = ("web", "rabbitmq", "worker", "monitoring")
+COMPONENTS = ("web", "worker", "monitoring")
 
 
 def stacks_root() -> Path:
@@ -90,8 +90,6 @@ def stack_name(worktree: Path) -> str:
 class Ports:
     web: int
     db: int
-    rabbitmq: int
-    rabbitmq_ui: int
     worker_metrics: int
     grafana: int
     otlp_http: int
@@ -100,7 +98,16 @@ class Ports:
     @classmethod
     def for_slot(cls, slot: int) -> Ports:
         first = PORT_BASE + slot * 10
-        return cls(*range(first, first + 8))
+        # +2 and +3 were RabbitMQ's and stay unused, so every other port keeps
+        # the number a stack's .env and running processes already have.
+        return cls(
+            web=first,
+            db=first + 1,
+            worker_metrics=first + 4,
+            grafana=first + 5,
+            otlp_http=first + 6,
+            otlp_grpc=first + 7,
+        )
 
     def all(self) -> list[int]:
         return list(asdict(self).values())
@@ -209,11 +216,9 @@ def managed_env(
     ports = stack.ports
     web = f"http://{HOST}:{ports.web}"
     pg_auth = f"{quote(creds.pg_user, safe='')}:{quote(creds.pg_password, safe='')}"
-    mq_auth = f"{quote(creds.mq_user, safe='')}:{quote(creds.mq_password, safe='')}"
     return {
         "DATABASE_URL": f"postgresql://{pg_auth}@{HOST}:{ports.db}/"
         + quote(creds.pg_db, safe=""),
-        "RABBITMQ_AMQP_URL": f"amqp://{mq_auth}@{HOST}:{ports.rabbitmq}/",
         "NEXT_PUBLIC_APP_BASE_URL": web,
         "BETTER_AUTH_URL": web,
         "INTERNAL_APP_BASE_URL": web,
@@ -243,10 +248,6 @@ def compose(stack: Stack, creds: Credentials, *args: str) -> str:
         "OTR_STACK_PGDATA": str(stack.pgdata),
         "OTR_STACK_WORKTREE": str(stack.worktree),
         "OTR_STACK_DB_PORT": str(ports.db),
-        "OTR_STACK_RABBITMQ_PORT": str(ports.rabbitmq),
-        "OTR_STACK_RABBITMQ_UI_PORT": str(ports.rabbitmq_ui),
-        "OTR_STACK_RABBITMQ_USER": creds.mq_user,
-        "OTR_STACK_RABBITMQ_PASSWORD": creds.mq_password,
         "OTR_STACK_GRAFANA_PORT": str(ports.grafana),
         "OTR_STACK_OTLP_HTTP_PORT": str(ports.otlp_http),
         "OTR_STACK_OTLP_GRPC_PORT": str(ports.otlp_grpc),
@@ -404,8 +405,6 @@ def up(start: Path, components: set[str], web: bool, fresh: bool) -> None:
     env_path = envfile.ensure(checkout.root, checkout.main)
     creds = Credentials.from_env(envfile.parse(env_path.read_text()))
     wanted = set(components) | ({"web"} if web else set())
-    if "worker" in wanted:
-        wanted.add("rabbitmq")
 
     root = stacks_root()
     root.mkdir(parents=True, exist_ok=True)
@@ -466,8 +465,6 @@ def down(start: Path, components: set[str]) -> None:
             )
             return
 
-        if "rabbitmq" in components:
-            components = components | {"worker"}
         for process in PROCESSES:
             if process in components and procs.stop(stack.record(process)):
                 print(f"otr: stopped {process}")
@@ -522,13 +519,6 @@ def describe(stack: Stack, creds: Credentials, current: bool = False) -> None:
         f"  db         {HOST}:{ports.db}{base}"
         if db
         else "  db         stopped (otr up)"
-    )
-    print(
-        line(
-            "rabbitmq",
-            "rabbitmq" in services,
-            f"{HOST}:{ports.rabbitmq}   management http://{HOST}:{ports.rabbitmq_ui}",
-        )
     )
     print(
         line(

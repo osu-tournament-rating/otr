@@ -394,7 +394,6 @@ export class JobRunner {
         job.traceContext ?? undefined,
         () => registration.handler(job),
         {
-          'messaging.system': 'otr_jobs',
           'messaging.message.id': String(job.id),
           'otr.job.attempt': job.attempts,
         }

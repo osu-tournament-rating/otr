@@ -14,9 +14,9 @@ this file.
 - `apps/web`: the Next.js site. It also serves the API: an internal oRPC
   endpoint for the site itself, and a public REST API with an OpenAPI
   reference.
-- `apps/data-worker`: a Bun service that consumes RabbitMQ jobs. It fetches
-  data from osu! and osu!track, runs automated data checks, and computes
-  match and tournament stats.
+- `apps/data-worker`: a Bun service that runs the jobs queued in Postgres. It
+  fetches data from osu! and osu!track, runs automated data checks, and
+  computes match and tournament stats.
 - `apps/processor`: the Rust rating engine. It rebuilds every rating from
   scratch once a week.
 - `apps/scripts`: Python operations scripts. They cover database archives and
@@ -28,7 +28,7 @@ this file.
   published ratings for a past date from a public database replica and the
   processor release of that time. It never touches production.
 - `packages/otr-core` (`@otr/core`): the shared contract layer. It holds the
-  database schema, domain enums, queue names and messages, logging, tracing, and
+  database schema, domain enums, job queues and payloads, logging, tracing, and
   maintenance windows. Never duplicate any of these inside an app.
 - `scripts/` (root) and `monitoring/` hold deployment tooling and production
   observability config. Never invoke anything in them. Don't confuse root
@@ -39,11 +39,12 @@ toolchain and its own `AGENTS.md`; read that file before working there.
 
 ## How the pieces talk
 
-PostgreSQL is the only shared state and RabbitMQ is the only messaging. There is
-no Redis and no service-to-service HTTP. A tournament's life:
+PostgreSQL is the only shared state, and its `jobs` table carries all background
+work. There is no message broker, no Redis, and no service-to-service HTTP. A
+tournament's life:
 
 1. A user submits a tournament on the site. The web app writes it to Postgres
-   and queues fetch jobs for its matches.
+   and, in the same transaction, queues fetch jobs for its matches.
 2. The data worker fetches matches, beatmaps, and players from the osu! API, and
    rank history from osu!track. Once a tournament is fully fetched, the worker
    runs automated checks that mark its data pre-verified or pre-rejected.
@@ -51,12 +52,14 @@ no Redis and no service-to-service HTTP. A tournament's life:
    rejection cascades down from tournament to match to game to score.
 4. On Tuesdays at 12:00 UTC, a cron on the production host uses `apps/scripts`
    to run the processor. The processor rebuilds all ratings from verified data
-   in one transaction, then queues stats jobs that the data worker picks up.
+   in one transaction, which also queues stats jobs for the data worker.
 5. The site reads Postgres directly through Drizzle.
 
-A failed queue job is retried after a delay and moved to a `.failed` queue after
-five attempts. A weekly maintenance window, Tuesdays 11:45–12:15 UTC, protects
-the rating run: admin writes return 503 and the worker defers osu! fetches.
+A failed job is retried after about 1 minute, 5 minutes, 30 minutes, and 2
+hours, then marked failed. Finished jobs are deleted after 14 days; their daily
+totals stay in `job_stats_daily`. A weekly maintenance window, Tuesdays
+11:45–12:15 UTC, protects the rating run: admin writes return 503 and the
+worker defers osu! fetches.
 
 ## Tech stack
 
@@ -65,7 +68,7 @@ the rating run: admin writes return 503 and the worker defers osu! fetches.
   react-hook-form with zod, Recharts, and SWR. oRPC with zod schemas serves
   both the internal endpoint and the public OpenAPI. better-auth provides osu!
   OAuth sign-in, sessions, admin roles, and API keys.
-- Data: PostgreSQL 17 through Drizzle ORM, and RabbitMQ 4.
+- Data: PostgreSQL 17 through Drizzle ORM.
 - Processor: Rust, with an OpenSkill (Plackett–Luce) rating model plus decay.
 - Scripts and replay: Python 3.14 with uv. Archives are stored in Google Cloud
   Storage.
@@ -100,7 +103,7 @@ must start from the latest `master`.
 ## Your stack
 
 Work in a linked worktree runs against its own disposable stack, never the main
-checkout's services on ports 5432, 5672, and 3000. This is a rule.
+checkout's services on ports 5432 and 3000. This is a rule.
 
 - Run `apps/scripts/otr up` before anything that needs a database or the
   running site: database tests, migrations, the processor, or a look at a page.
@@ -109,9 +112,9 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
 - `otr up` points this worktree's `.env` at the stack, so ordinary commands
   such as `bunx drizzle-kit migrate` and `cargo run` use it too. Don't edit
   the block it writes. The `.env` itself comes from the main checkout.
-- Only the database and web app start by default. Add `worker`, `rabbitmq`, or
-  `monitoring` (Grafana with traces) to `otr up` when a task needs them;
-  `--no-web` skips the site.
+- Only the database and web app start by default. Add `worker` or `monitoring`
+  (Grafana with traces) to `otr up` when a task needs them; `--no-web` skips
+  the site.
 - osu! sign-in does not work on a stack's port. Sign in with
   `POST /api/auth/e2e/sign-in` and a body of `{"playerId": <id>, "admin": true}`.
 - A manual call to `/rpc` needs `-H 'origin: <the stack's web URL>'`.
@@ -128,7 +131,7 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
   meaning, so never compare them with `<`.
 - The processor reads and writes tables with raw SQL, so TypeScript cannot catch
   a broken contract. Treat SQL table and column names, and the JSON shape of
-  queue messages, as contracts with the processor.
+  job payloads, as contracts with the processor.
 - The schema lives in `packages/otr-core/src/db/schema.ts`, but migrations are
   generated into `apps/web/drizzle`. Run `bunx drizzle-kit generate` from the
   root, read the emitted SQL, and commit the schema, SQL, snapshot, and journal
@@ -158,8 +161,6 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
 - Configuration comes from one root `.env`, which the web app, worker,
   migrations, and processor all load. `apps/scripts` reads only its own `.env`.
   Variables already set in the shell win over `.env`.
-- Changing a queue's declared arguments, such as its priority, requires deleting
-  that queue on every broker.
 - Each workspace declares every package it imports or runs, including in config
   files and tests. Bun hoists packages, and a worktree resolves anything it
   lacks from the main checkout, so an undeclared package passes locally and
@@ -223,7 +224,7 @@ skill in `.claude/skills/testing/SKILL.md`.
 ## Tracing
 
 Every oRPC call gets a span, and each database statement becomes a child span.
-Queue messages carry the trace into the data worker. Nothing is exported unless
+Job rows carry the trace into the data worker. Nothing is exported unless
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Logs carry `traceId`. Never put query
 parameters or user input on a span.
 

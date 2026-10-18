@@ -18,12 +18,12 @@ uv sync --locked
 
 `otr` gives each linked worktree of this repository its own disposable
 stack: a copy of the database on localhost:5432 and the worktree's web app,
-plus the data worker, RabbitMQ, or Grafana on request. Copies share disk blocks with one
+plus the data worker or Grafana on request. Copies share disk blocks with one
 another on btrfs or XFS, so each takes about a second to make.
 
 ```
 ./otr up                  # database and web app
-./otr up worker           # add RabbitMQ and the data worker
+./otr up worker           # add the data worker
 ./otr up monitoring       # add Grafana, Tempo, Loki, and Prometheus
 ./otr down                # dispose the whole stack
 ./otr status              # every stack on this machine

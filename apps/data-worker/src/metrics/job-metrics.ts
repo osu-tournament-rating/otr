@@ -87,10 +87,3 @@ export const jobsReclaimed = new Counter({
   labelNames: ['queue'] as const,
   registers: [metricsRegistry],
 });
-
-export const rabbitMqBridged = new Counter({
-  name: 'data_worker_rabbitmq_bridged_total',
-  help: 'RabbitMQ messages moved into the jobs table',
-  labelNames: ['queue'] as const,
-  registers: [metricsRegistry],
-});
