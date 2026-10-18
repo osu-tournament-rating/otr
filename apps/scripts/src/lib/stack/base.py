@@ -30,8 +30,6 @@ class Credentials:
     pg_user: str
     pg_password: str
     pg_db: str
-    mq_user: str
-    mq_password: str
 
     @classmethod
     def from_env(cls, values: dict[str, str]) -> Credentials:
@@ -41,8 +39,6 @@ class Credentials:
             values.get("DOCKER_POSTGRES_USER") or "postgres",
             values.get("DOCKER_POSTGRES_PASSWORD") or "password",
             values.get("DOCKER_POSTGRES_DB") or "postgres",
-            values.get("DOCKER_RABBITMQ_USER") or "admin",
-            values.get("DOCKER_RABBITMQ_PASSWORD") or "admin",
         )
 
 

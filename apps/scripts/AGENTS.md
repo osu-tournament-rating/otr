@@ -115,14 +115,15 @@ without syncing the venv. It refuses to run in the main checkout.
   keeps its jobs.
 - Each `up` runs `bun install --frozen-lockfile` and the worktree's pending
   migrations. The web app and worker run on the host from the worktree's code,
-  in their own process groups. RabbitMQ and monitoring (`grafana/otel-lgtm`)
-  run in the stack's Compose project, from `src/lib/stack/compose.yml`.
+  in their own process groups. Monitoring (`grafana/otel-lgtm`) runs in the
+  stack's Compose project, from `src/lib/stack/compose.yml`.
 - State lives in `~/.local/share/otr/stacks` (or `$OTR_STACKS_DIR`): `base/`,
   one directory per stack with its data, registry entry, and process records,
   and `locks/`. Logs go to the worktree's `.tmp/otr/`.
 - Stack slot `n` owns ports `20000 + 10n` through `+9`: web `+0`, PostgreSQL
-  `+1`, RabbitMQ `+2`, its management UI `+3`, worker health `+4`, Grafana
-  `+5`, and OTLP over HTTP `+6` and gRPC `+7`. Everything binds to loopback.
+  `+1`, worker health `+4`, Grafana `+5`, and OTLP over HTTP `+6` and gRPC
+  `+7`. `+2` and `+3` were RabbitMQ's and stay unused, so no port moves.
+  Everything binds to loopback.
 - `up` writes a marked block into the worktree's `.env`. It holds the stack's
   URLs and ports. It turns on test sign-in (`E2E_TEST_AUTH`), and turns off
   scheduled player refetches and the maintenance window. It blanks

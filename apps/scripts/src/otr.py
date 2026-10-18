@@ -1,7 +1,7 @@
 """otr: a disposable o!TR stack for the worktree this script lives in.
 
-    otr up [rabbitmq|worker|monitoring ...] [--no-web] [--fresh]
-    otr down [web|rabbitmq|worker|monitoring ...]
+    otr up [worker|monitoring ...] [--no-web] [--fresh]
+    otr down [web|worker|monitoring ...]
     otr down --orphans
     otr status
 
@@ -37,7 +37,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
         "components",
         nargs="*",
         choices=stack.COMPONENTS,
-        help="extra components; worker also starts rabbitmq",
+        help="extra components",
     )
     up.add_argument("--no-web", action="store_true", help="do not start the web app")
     up.add_argument(
