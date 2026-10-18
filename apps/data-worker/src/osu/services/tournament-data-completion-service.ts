@@ -5,6 +5,7 @@ import type { Logger } from '../../logging/logger';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { syncTournamentDateRange } from '@otr/core/db';
+import { enqueueJob, JobQueue } from '@otr/core/jobs';
 
 type Executor =
   DatabaseClient | Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
@@ -15,26 +16,15 @@ const COMPLETION_LOCK_CLASS = 1201;
 interface TournamentDataCompletionServiceOptions {
   db: DatabaseClient;
   logger: Logger;
-  publishAutomationCheck?: (options: {
-    tournamentId: number;
-    overrideVerifiedState: boolean;
-  }) => Promise<void>;
 }
 
 export class TournamentDataCompletionService {
   private readonly db: DatabaseClient;
   private readonly logger: Logger;
-  private readonly publishAutomationCheck?: (options: {
-    tournamentId: number;
-    overrideVerifiedState: boolean;
-  }) => Promise<void>;
-
-  private readonly pendingAutomation = new Set<number>();
 
   constructor(options: TournamentDataCompletionServiceOptions) {
     this.db = options.db;
     this.logger = options.logger;
-    this.publishAutomationCheck = options.publishAutomationCheck;
   }
 
   /**
@@ -155,16 +145,14 @@ export class TournamentDataCompletionService {
    * Queues automated checks once every match and beatmap of the tournament
    * has finished fetching, whether it succeeded or not. Callers that just
    * changed a status hold the tournament's lock, so two of them finishing a
-   * tournament's last items can't each miss the other's change.
+   * tournament's last items can't each miss the other's change. The job is
+   * queued on `db`, so it commits with the status change or not at all, and
+   * merges into a check already waiting or running for the tournament.
    */
   async checkAndTriggerAutomationChecksIfComplete(
     tournamentId: number,
     db: Executor = this.db
   ): Promise<boolean> {
-    if (this.pendingAutomation.has(tournamentId)) {
-      return false;
-    }
-
     const matches = await db
       .select({
         id: schema.matches.id,
@@ -233,33 +221,15 @@ export class TournamentDataCompletionService {
       }
     }
 
-    this.pendingAutomation.add(tournamentId);
-
-    if (this.publishAutomationCheck) {
-      try {
-        await this.publishAutomationCheck({
-          tournamentId,
-          overrideVerifiedState: false,
-        });
-      } catch (error) {
-        this.pendingAutomation.delete(tournamentId);
-        throw error;
-      }
-    } else {
-      this.logger.info(
-        'Tournament ready for automation checks (no publisher)',
-        {
-          tournamentId,
-        }
-      );
-      this.pendingAutomation.delete(tournamentId);
-    }
+    await enqueueJob(db, JobQueue.TournamentChecks, {
+      payload: { tournamentId, overrideVerifiedState: false },
+      tournamentId,
+    });
+    this.logger.info('Tournament ready for automation checks', {
+      tournamentId,
+    });
 
     return true;
-  }
-
-  clearPendingAutomationCheck(tournamentId: number): void {
-    this.pendingAutomation.delete(tournamentId);
   }
 }
 

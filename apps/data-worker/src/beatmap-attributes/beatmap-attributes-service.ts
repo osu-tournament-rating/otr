@@ -53,9 +53,10 @@ const calculate = (bytes: Uint8Array, mods: number[]): CalculationResult => {
 /**
  * Stores a beatmap's .osu file and keeps its attribute rows current.
  *
- * Correct only with a single consumer at prefetch 1: nothing locks the
- * beatmap between reading its rows and writing them. A duplicate job is
- * harmless, because a job with nothing to do returns early.
+ * Correct only while one job runs at a time, as the job runner's loop for the
+ * queue does in the one data worker: nothing locks the beatmap between
+ * reading its rows and writing them. A duplicate job is harmless, because a
+ * job with nothing to do returns early.
  */
 export class BeatmapAttributesService {
   private readonly db: DatabaseClient;

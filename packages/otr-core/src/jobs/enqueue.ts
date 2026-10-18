@@ -129,8 +129,9 @@ const statementBatches = (rows: Row[]) => {
 };
 
 // A merge never lowers priority or attempts and never drops payload fields.
-// Only an explicit request moves a waiting job forward or asks a running one
-// to run again.
+// Only an explicit request moves a waiting job forward. A running job runs
+// again for an explicit request, or for one that changes its payload, such as
+// a newer checksum, which the running attempt never saw.
 const mergeSet = (explicit: boolean) => sql`
   priority = GREATEST(jobs.priority, EXCLUDED.priority),
   max_attempts = GREATEST(jobs.max_attempts, EXCLUDED.max_attempts),
@@ -140,7 +141,8 @@ const mergeSet = (explicit: boolean) => sql`
       ? sql`run_after = CASE WHEN jobs.status = 0 THEN LEAST(jobs.run_after, EXCLUDED.run_after) ELSE jobs.run_after END,
   attempts = CASE WHEN jobs.status = 0 THEN 0 ELSE jobs.attempts END,
   rerun_requested = jobs.rerun_requested OR jobs.status = 1,`
-      : sql``
+      : sql`rerun_requested = jobs.rerun_requested
+    OR (jobs.status = 1 AND jobs.payload || EXCLUDED.payload IS DISTINCT FROM jobs.payload),`
   }
   updated = now()`;
 

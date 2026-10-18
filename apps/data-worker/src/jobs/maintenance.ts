@@ -4,8 +4,8 @@ import {
 } from '@otr/core/maintenance';
 
 /**
- * For queues that call osu!: pauses claiming until the weekly maintenance
- * window ends, so the rating run sees no new data.
+ * For queues that call osu! or change verification statuses: pauses claiming
+ * until the weekly maintenance window ends, so the rating run sees no new data.
  */
 export const pauseForMaintenanceWindow =
   (enabled: boolean) =>

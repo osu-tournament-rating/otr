@@ -2,8 +2,11 @@ import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import { JobQueue, JobStatus } from '@otr/core/jobs';
 
 import {
+  beatmapAttributesJobFromMessage,
   insertFailedJob,
   osuFetchJobFromMessage,
+  osuTrackJobFromMessage,
+  tournamentChecksJobFromMessage,
   tournamentStatsJobFromMessage,
 } from '../rabbitmq-bridge';
 import {
@@ -80,6 +83,88 @@ describe('osuFetchJobFromMessage', () => {
     expect(
       osuFetchJobFromMessage({ type: 'match', isLazer: false })
     ).toBeNull();
+  });
+});
+
+describe('osuTrackJobFromMessage', () => {
+  it('keeps the player, priority and correlation id the refetch scheduler published', () => {
+    const message = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"refetch-1","priority":0,"osuPlayerId":4567}'
+    );
+
+    expect(osuTrackJobFromMessage(message)).toEqual({
+      payload: { osuPlayerId: 4567 },
+      priority: 0,
+      correlationId: 'refetch-1',
+    });
+  });
+
+  it('drops a message without a player id', () => {
+    expect(osuTrackJobFromMessage({ correlationId: 'refetch-1' })).toBeNull();
+    expect(osuTrackJobFromMessage({ osuPlayerId: 0 })).toBeNull();
+  });
+});
+
+describe('tournamentChecksJobFromMessage', () => {
+  it('keeps the tournament, override flag, priority and correlation id', () => {
+    const fromSite = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"reset-1","priority":5,"tournamentId":123,"overrideVerifiedState":true}'
+    );
+    const fromWorker = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"fetch-1","priority":5,"tournamentId":124,"overrideVerifiedState":false}'
+    );
+
+    expect([fromSite, fromWorker].map(tournamentChecksJobFromMessage)).toEqual([
+      {
+        payload: { tournamentId: 123, overrideVerifiedState: true },
+        priority: 5,
+        correlationId: 'reset-1',
+        tournamentId: 123,
+      },
+      {
+        payload: { tournamentId: 124, overrideVerifiedState: false },
+        priority: 5,
+        correlationId: 'fetch-1',
+        tournamentId: 124,
+      },
+    ]);
+  });
+
+  it('drops a message without a tournament id', () => {
+    expect(
+      tournamentChecksJobFromMessage({ overrideVerifiedState: true })
+    ).toBeNull();
+  });
+});
+
+describe('beatmapAttributesJobFromMessage', () => {
+  it("keeps a beatmap fetch's checksum and retries", () => {
+    const message = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"fetch-1","priority":5,"beatmapId":42,"checksum":"0123456789abcdef0123456789abcdef"}'
+    );
+
+    expect(beatmapAttributesJobFromMessage(message)).toEqual({
+      payload: { beatmapId: 42, checksum: '0123456789abcdef0123456789abcdef' },
+      priority: 5,
+      correlationId: 'fetch-1',
+    });
+  });
+
+  it("gives a sweep's job one attempt, as the sweep now queues it", () => {
+    const message = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"sweep-1","priority":0,"beatmapId":43}'
+    );
+
+    expect(beatmapAttributesJobFromMessage(message)).toEqual({
+      payload: { beatmapId: 43 },
+      priority: 0,
+      correlationId: 'sweep-1',
+      maxAttempts: 1,
+    });
+  });
+
+  it('drops a message without a beatmap id', () => {
+    expect(beatmapAttributesJobFromMessage({ checksum: 'abc' })).toBeNull();
   });
 });
 

@@ -1,34 +1,11 @@
 import { describe, expect, it } from 'bun:test';
-import {
-  MessagePriority,
-  type ProcessTournamentAutomationCheckMessage,
-} from '@otr/core';
+import { MessagePriority } from '@otr/core';
+import { JobQueue } from '@otr/core/jobs';
 
+import type { ClaimedJob } from '../../jobs/types';
 import { TournamentAutomationCheckWorker } from '../tournament-automation-check-worker';
 import type { TournamentAutomationCheckService } from '../tournament-automation-check-service';
-import type { QueueConsumer, QueueMessage } from '@otr/core/queues';
-import type { TournamentDataCompletionService } from '../../osu/services/tournament-data-completion-service';
 import type { Logger } from '../../logging/logger';
-
-class StubQueue<T> implements QueueConsumer<T> {
-  handler: ((message: QueueMessage<T>) => Promise<void>) | null = null;
-
-  async start(handler: (message: QueueMessage<T>) => Promise<void>) {
-    this.handler = handler;
-  }
-
-  async stop() {
-    this.handler = null;
-  }
-
-  async emit(message: QueueMessage<T>) {
-    if (!this.handler) {
-      throw new Error('Queue handler not registered');
-    }
-
-    await this.handler(message);
-  }
-}
 
 const noopLogger: Logger = {
   info: () => {},
@@ -38,124 +15,68 @@ const noopLogger: Logger = {
   child: () => noopLogger,
 };
 
-describe('TournamentAutomationCheckWorker', () => {
-  const baseMessage: QueueMessage<ProcessTournamentAutomationCheckMessage> = {
-    payload: {
-      tournamentId: 123,
-      overrideVerifiedState: false,
-      correlationId: 'test-correlation',
-      requestedAt: new Date().toISOString(),
-      priority: MessagePriority.Normal,
-    },
-    metadata: {
-      correlationId: 'test-correlation',
-      priority: MessagePriority.Normal,
-      requestedAt: new Date().toISOString(),
-    },
-    ack: async () => {},
-    nack: async () => {},
-  };
+const job = (
+  overrideVerifiedState: boolean
+): ClaimedJob<JobQueue.TournamentChecks> => ({
+  id: 1,
+  queue: JobQueue.TournamentChecks,
+  payload: { tournamentId: 123, overrideVerifiedState },
+  priority: MessagePriority.Normal,
+  attempts: 1,
+  maxAttempts: 5,
+  correlationId: 'test-correlation',
+  tournamentId: 123,
+  requestedByUserId: null,
+  traceContext: null,
+  created: new Date().toISOString(),
+});
 
-  it('acknowledges successful automation runs and clears pending state', async () => {
-    const queue = new StubQueue<ProcessTournamentAutomationCheckMessage>();
-
-    let processed = false;
-    const service: Pick<
-      TournamentAutomationCheckService,
-      'processAutomationChecks'
-    > = {
-      async processAutomationChecks() {
-        processed = true;
-        return true;
-      },
-    };
-
-    let clearedId: number | null = null;
-    const dataCompletion: Pick<
-      TournamentDataCompletionService,
-      'clearPendingAutomationCheck'
-    > = {
-      clearPendingAutomationCheck(id) {
-        clearedId = id;
-      },
-    };
-
-    let acked = 0;
-    let nacked = 0;
-
-    const worker = new TournamentAutomationCheckWorker({
-      queue,
-      service: service as TournamentAutomationCheckService,
-      dataCompletion: dataCompletion as TournamentDataCompletionService,
-      logger: noopLogger,
-    });
-
-    await worker.start();
-
-    await queue.emit({
-      ...baseMessage,
-      ack: async () => {
-        acked += 1;
-      },
-      nack: async () => {
-        nacked += 1;
-      },
-    });
-
-    expect(processed).toBe(true);
-    expect(acked).toBe(1);
-    expect(nacked).toBe(0);
-    expect(clearedId === 123).toBe(true);
+const createWorker = (
+  service: Pick<TournamentAutomationCheckService, 'processAutomationChecks'>,
+  maintenanceWindowEnabled = false
+) =>
+  new TournamentAutomationCheckWorker({
+    service,
+    logger: noopLogger,
+    maintenanceWindowEnabled,
   });
 
-  it('leaves a thrown failure to the consumer retry policy and clears pending state', async () => {
-    const queue = new StubQueue<ProcessTournamentAutomationCheckMessage>();
+describe('TournamentAutomationCheckWorker', () => {
+  it("runs the checks for the job's tournament", async () => {
+    const calls: Array<[number, boolean]> = [];
+    const worker = createWorker({
+      async processAutomationChecks(tournamentId, overrideVerifiedState) {
+        calls.push([tournamentId, overrideVerifiedState ?? false]);
+        return true;
+      },
+    });
 
-    const service: Pick<
-      TournamentAutomationCheckService,
-      'processAutomationChecks'
-    > = {
+    await worker.handle(job(false));
+    await worker.handle(job(true));
+
+    expect(calls).toEqual([
+      [123, false],
+      [123, true],
+    ]);
+  });
+
+  it('leaves a thrown failure to the runner retry policy', async () => {
+    const worker = createWorker({
       async processAutomationChecks() {
         throw new Error('boom');
       },
-    };
-
-    let cleared = 0;
-    const dataCompletion: Pick<
-      TournamentDataCompletionService,
-      'clearPendingAutomationCheck'
-    > = {
-      clearPendingAutomationCheck() {
-        cleared += 1;
-      },
-    };
-
-    let acked = 0;
-    let nacked = 0;
-
-    const worker = new TournamentAutomationCheckWorker({
-      queue,
-      service: service as TournamentAutomationCheckService,
-      dataCompletion: dataCompletion as TournamentDataCompletionService,
-      logger: noopLogger,
     });
 
-    await worker.start();
+    await expect(worker.handle(job(false))).rejects.toThrow('boom');
+  });
 
-    await expect(
-      queue.emit({
-        ...baseMessage,
-        ack: async () => {
-          acked += 1;
-        },
-        nack: async () => {
-          nacked += 1;
-        },
-      })
-    ).rejects.toThrow('boom');
+  it('pauses during the maintenance window', () => {
+    const pausedUntil = (enabled: boolean) =>
+      createWorker({ processAutomationChecks: async () => true }, enabled)
+        .registration()
+        .pausedUntil?.(new Date('2026-10-13T11:50:00Z'));
 
-    expect(acked).toBe(0);
-    expect(nacked).toBe(0);
-    expect(cleared).toBe(1);
+    expect(pausedUntil(true)).toEqual(new Date('2026-10-13T12:15:00Z'));
+    expect(pausedUntil(false)).toBeNull();
   });
 });

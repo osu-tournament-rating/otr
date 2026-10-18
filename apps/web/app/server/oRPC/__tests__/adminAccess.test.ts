@@ -1,10 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { isProcedure, ORPCError, type AnyProcedure } from '@orpc/server';
-
-import {
-  resetQueuePublishersForTesting,
-  setQueuePublishersForTesting,
-} from '@/lib/queue/publishers';
 
 import { router } from '../router';
 
@@ -72,22 +67,7 @@ const refusal = async (procedure: AnyProcedure, session: unknown) =>
     (error: unknown) => error
   );
 
-// Keeps an admin's call from reaching the broker in .env
-const refusePublish = async (): Promise<never> => {
-  throw new Error('queue publish in a test');
-};
-
 describe('admin procedures', () => {
-  beforeAll(() => {
-    setQueuePublishersForTesting({
-      processAutomationCheck: refusePublish,
-    });
-  });
-
-  afterAll(() => {
-    resetQueuePublishersForTesting();
-  });
-
   it('finds the admin procedures in the router', () => {
     const paths = adminProcedures.map(({ path }) => path);
 

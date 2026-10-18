@@ -1,13 +1,19 @@
-import { describe, expect, it, vi } from 'bun:test';
-import { type FetchPlayerOsuTrackMessage, MessagePriority } from '@otr/core';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { MessagePriority } from '@otr/core';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import * as schema from '@otr/core/db/schema';
+import { JobQueue } from '@otr/core/jobs';
 
+import {
+  createJobsTestDb,
+  testDatabaseUrl,
+} from '../../jobs/__tests__/test-db';
+import type { ClaimedJob, JobTransaction } from '../../jobs/types';
 import { OsuTrackClient } from '../client';
 import { OsuTrackPlayerWorker } from '../worker';
-import type { QueueConsumer, QueueMessage } from '@otr/core/queues';
 import type { RateLimiter } from '../../rate-limiter';
 import type { Logger } from '../../logging/logger';
-import type { DatabaseClient } from '../../db';
 
 class StubRateLimiter implements RateLimiter {
   public calls = 0;
@@ -15,32 +21,6 @@ class StubRateLimiter implements RateLimiter {
   async schedule<T>(task: () => Promise<T>): Promise<T> {
     this.calls += 1;
     return task();
-  }
-}
-
-class TestQueue implements QueueConsumer<FetchPlayerOsuTrackMessage> {
-  private handler:
-    | ((message: QueueMessage<FetchPlayerOsuTrackMessage>) => Promise<void>)
-    | null = null;
-
-  async start(
-    handler: (
-      message: QueueMessage<FetchPlayerOsuTrackMessage>
-    ) => Promise<void>
-  ) {
-    this.handler = handler;
-  }
-
-  async stop() {
-    this.handler = null;
-  }
-
-  async emit(message: QueueMessage<FetchPlayerOsuTrackMessage>) {
-    if (!this.handler) {
-      throw new Error('TestQueue.emit called before start');
-    }
-
-    await this.handler(message);
   }
 }
 
@@ -52,17 +32,27 @@ const noopLogger: Logger = {
   child: () => noopLogger,
 };
 
-const stubDb = {
-  update: () => ({
-    set: () => ({
-      where: vi.fn(),
-    }),
-  }),
-} as unknown as DatabaseClient;
+const job = (osuPlayerId: number): ClaimedJob<JobQueue.OsuTrackFetch> => ({
+  id: 1,
+  queue: JobQueue.OsuTrackFetch,
+  payload: { osuPlayerId },
+  priority: MessagePriority.Low,
+  attempts: 1,
+  maxAttempts: 5,
+  correlationId: 'test-correlation',
+  tournamentId: null,
+  requestedByUserId: null,
+  traceContext: null,
+  created: '2024-03-15T12:00:00.000Z',
+});
+
+const failingClient = () =>
+  new OsuTrackClient({
+    fetchImpl: async () => new Response('unavailable', { status: 503 }),
+  });
 
 describe('OsuTrackPlayerWorker', () => {
-  it('processes queue messages and emits parsed updates', async () => {
-    const queue = new TestQueue();
+  it('fetches every mode through the rate limiter and passes on the updates', async () => {
     const rateLimiter = new StubRateLimiter();
 
     const fetchImpl = async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -96,20 +86,18 @@ describe('OsuTrackPlayerWorker', () => {
     });
 
     const received: Array<{
-      message: FetchPlayerOsuTrackMessage;
+      osuPlayerId: number;
       results: Array<{ mode: number; updates: number }>;
     }> = [];
 
     const worker = new OsuTrackPlayerWorker({
-      queue,
       client,
       rateLimiter,
       logger: noopLogger,
-      db: stubDb,
       maintenanceWindowEnabled: false,
-      onPlayer: async ({ message, results }) => {
+      onPlayer: async ({ osuPlayerId, results }) => {
         received.push({
-          message,
+          osuPlayerId,
           results: results.map((entry) => ({
             mode: entry.mode,
             updates: entry.updates.length,
@@ -118,99 +106,132 @@ describe('OsuTrackPlayerWorker', () => {
       },
     });
 
-    await worker.start();
-
-    let acked = 0;
-    let nacked = 0;
-
-    const message: QueueMessage<FetchPlayerOsuTrackMessage> = {
-      payload: {
-        osuPlayerId: 7654321,
-        requestedAt: '2024-03-15T12:00:00.000Z',
-        correlationId: 'test-correlation',
-        priority: MessagePriority.Normal,
-      },
-      metadata: {
-        requestedAt: '2024-03-15T12:00:00.000Z',
-        correlationId: 'test-correlation',
-        priority: MessagePriority.Normal,
-      },
-      ack: async () => {
-        acked += 1;
-      },
-      nack: async () => {
-        nacked += 1;
-      },
-    };
-
-    await queue.emit(message);
+    await worker.handle(job(7654321));
 
     expect(rateLimiter.calls).toBe(4);
-    expect(acked).toBe(1);
-    expect(nacked).toBe(0);
     expect(received).toHaveLength(1);
-    expect(received[0]?.message.osuPlayerId).toBe(7654321);
+    expect(received[0]?.osuPlayerId).toBe(7654321);
     expect(received[0]?.results).toEqual([
       { mode: 0, updates: 1 },
       { mode: 1, updates: 1 },
       { mode: 2, updates: 1 },
       { mode: 3, updates: 1 },
     ]);
-
-    await worker.stop();
   });
 
-  it('marks the player fetch as failed and leaves the error to the consumer retry policy', async () => {
-    const queue = new TestQueue();
-    const client = new OsuTrackClient({
-      fetchImpl: async () => new Response('unavailable', { status: 503 }),
-    });
-
-    const updates: Array<Record<string, unknown>> = [];
-    const db = {
-      update: () => ({
-        set: (values: Record<string, unknown>) => {
-          updates.push(values);
-          return { where: async () => {} };
-        },
-      }),
-    } as unknown as DatabaseClient;
-
+  it('leaves a failed fetch to the runner retry policy', async () => {
+    let persisted = false;
     const worker = new OsuTrackPlayerWorker({
-      queue,
-      client,
+      client: failingClient(),
       rateLimiter: new StubRateLimiter(),
       logger: noopLogger,
-      db,
+      maintenanceWindowEnabled: false,
+      onPlayer: () => {
+        persisted = true;
+      },
+    });
+
+    await expect(worker.handle(job(7654321))).rejects.toThrow();
+    expect(persisted).toBe(false);
+  });
+
+  it('pauses during the maintenance window', () => {
+    const pausedUntil = (enabled: boolean) =>
+      new OsuTrackPlayerWorker({
+        client: failingClient(),
+        rateLimiter: new StubRateLimiter(),
+        logger: noopLogger,
+        maintenanceWindowEnabled: enabled,
+      })
+        .registration()
+        .pausedUntil?.(new Date('2026-10-13T11:50:00Z'));
+
+    expect(pausedUntil(true)).toEqual(new Date('2026-10-13T12:15:00Z'));
+    expect(pausedUntil(false)).toBeNull();
+  });
+});
+
+// Far above real osu! ids and other test files' ranges.
+const OSU_ID = 97_000_000_000;
+
+describe.skipIf(!testDatabaseUrl)(
+  'osu!track fetches that run out of attempts',
+  () => {
+    const { pool, db } = createJobsTestDb(testDatabaseUrl!);
+
+    const worker = new OsuTrackPlayerWorker({
+      client: failingClient(),
+      rateLimiter: new StubRateLimiter(),
+      logger: noopLogger,
       maintenanceWindowEnabled: false,
     });
 
-    await worker.start();
+    const giveUp = (osuPlayerId: number) =>
+      db.transaction((tx) =>
+        worker.registration().onGiveUp!(
+          { ...job(osuPlayerId), attempts: 5 },
+          tx as JobTransaction
+        )
+      );
 
-    let acked = 0;
-    let nacked = 0;
-    const metadata = {
-      requestedAt: '2024-03-15T12:00:00.000Z',
-      correlationId: 'test-correlation',
-      priority: MessagePriority.Normal,
+    const seededLastFetch = '2026-01-01T00:00:00.000Z';
+
+    const seedPlayer = (osuId: number, status: DataFetchStatus) =>
+      db.insert(schema.players).values({
+        osuId,
+        username: 'osu!track give-up test',
+        osuTrackDataFetchStatus: status,
+        osuTrackLastFetch: seededLastFetch,
+      });
+
+    const osuTrackState = async (osuId: number) => {
+      const [row] = await db
+        .select({
+          status: schema.players.osuTrackDataFetchStatus,
+          lastFetchMs:
+            sql<number>`extract(epoch from ${schema.players.osuTrackLastFetch}) * 1000`.mapWith(
+              Number
+            ),
+        })
+        .from(schema.players)
+        .where(eq(schema.players.osuId, osuId));
+      return row!;
     };
 
-    await expect(
-      queue.emit({
-        payload: { ...metadata, osuPlayerId: 7654321 },
-        metadata,
-        ack: async () => {
-          acked += 1;
-        },
-        nack: async () => {
-          nacked += 1;
-        },
-      })
-    ).rejects.toThrow();
+    const cleanUp = async () => {
+      await db
+        .delete(schema.players)
+        .where(inArray(schema.players.osuId, [OSU_ID + 1, OSU_ID + 2]));
+    };
 
-    expect(updates).toHaveLength(1);
-    expect(updates[0]?.osuTrackDataFetchStatus).toBe(DataFetchStatus.Error);
-    expect(acked).toBe(0);
-    expect(nacked).toBe(0);
-  });
-});
+    beforeEach(cleanUp);
+
+    afterAll(async () => {
+      await cleanUp();
+      await pool.end();
+    });
+
+    it("frees the player's lease and holds off the next refetch a full interval", async () => {
+      await seedPlayer(OSU_ID + 1, DataFetchStatus.Fetching);
+      // Postgres keeps microseconds; allow for the truncation to milliseconds.
+      const before = Date.now() - 1;
+
+      await giveUp(OSU_ID + 1);
+
+      const state = await osuTrackState(OSU_ID + 1);
+      expect(state.status).toBe(DataFetchStatus.Error);
+      expect(state.lastFetchMs).toBeGreaterThanOrEqual(before);
+    });
+
+    it('leaves a player whose fetch already finished alone', async () => {
+      await seedPlayer(OSU_ID + 2, DataFetchStatus.Fetched);
+
+      await giveUp(OSU_ID + 2);
+
+      expect(await osuTrackState(OSU_ID + 2)).toEqual({
+        status: DataFetchStatus.Fetched,
+        lastFetchMs: new Date(seededLastFetch).getTime(),
+      });
+    });
+  }
+);

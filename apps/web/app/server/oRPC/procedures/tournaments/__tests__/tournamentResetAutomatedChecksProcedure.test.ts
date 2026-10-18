@@ -1,83 +1,112 @@
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { sql } from 'drizzle-orm';
 
-import {
-  AUTOMATION_QUEUE_WARNING,
-  resetTournamentAutomatedChecksHandler,
-  type ResetAutomatedChecksArgs,
-} from '../adminProcedures';
-import {
-  resetQueuePublishersForTesting,
-  setQueuePublishersForTesting,
-} from '@/lib/queue/publishers';
+import { resetTournamentAutomatedChecksHandler } from '../adminProcedures';
 import type { DatabaseClient } from '@/lib/db';
-import { MessagePriority } from '@otr/core';
+import { enqueueJob, JobQueue } from '@otr/core/jobs';
 
-const createAdminSession = (): NonNullable<
-  ResetAutomatedChecksArgs['context']['session']
-> => ({
-  dbUser: {
-    id: 1,
-    scopes: ['admin'],
-  },
-});
+import {
+  adminSession,
+  backOffJobs,
+  createTestDb,
+  deleteJobs,
+  failingJobInserts,
+  removePlayers,
+  seedAdminUser,
+  testDatabaseUrl,
+} from '../../__tests__/test-utils';
 
-afterEach(() => {
-  resetQueuePublishersForTesting();
-});
+const USER_OSU_ID = 991_202_000;
+// The handler queues checks for any id; the worker skips one with no tournament.
+const TOURNAMENT_ID = 42;
 
-describe('resetTournamentAutomatedChecksHandler', () => {
-  it('enqueues the automated checks message', async () => {
-    const published: Array<{
-      tournamentId: number;
-      overrideVerifiedState: boolean;
-    }> = [];
+describe.skipIf(!testDatabaseUrl)(
+  'resetTournamentAutomatedChecksHandler',
+  () => {
+    const { pool, db } = createTestDb(testDatabaseUrl!);
+    let userId = 0;
 
-    setQueuePublishersForTesting({
-      processAutomationCheck: async ({
-        tournamentId,
-        overrideVerifiedState,
-      }) => {
-        published.push({ tournamentId, overrideVerifiedState });
-        return {
-          tournamentId,
-          overrideVerifiedState,
-          requestedAt: new Date().toISOString(),
-          correlationId: 'test',
-          priority: MessagePriority.Normal,
-        };
-      },
+    /** The automated checks jobs the admin asked for. */
+    const queuedChecks = async () => {
+      const { rows } = await db.execute<Record<string, unknown>>(sql`
+        SELECT dedup_key, payload, attempts, run_after, correlation_id, tournament_id
+        FROM jobs
+        WHERE queue = ${JobQueue.TournamentChecks}
+          AND requested_by_user_id = ${userId}
+        ORDER BY id`);
+      return rows.map((row) => ({
+        dedupKey: String(row.dedup_key),
+        payload: row.payload as Record<string, unknown>,
+        attempts: Number(row.attempts),
+        runAfter: new Date(row.run_after as string),
+        correlationId: String(row.correlation_id),
+        tournamentId: Number(row.tournament_id),
+      }));
+    };
+
+    beforeEach(async () => {
+      userId ||= await seedAdminUser(db, USER_OSU_ID);
+      await deleteJobs(db, userId);
     });
 
-    const result = await resetTournamentAutomatedChecksHandler({
-      input: { id: 42, overrideVerifiedState: true },
-      context: {
-        db: null as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
+    afterAll(async () => {
+      await deleteJobs(db, userId);
+      await removePlayers(db, [USER_OSU_ID]);
+      await pool.end();
     });
 
-    expect(result.success).toBe(true);
-    expect(result.warnings).toBeUndefined();
-    expect(published).toEqual([
-      { tournamentId: 42, overrideVerifiedState: true },
-    ]);
-  });
+    const reset = (
+      overrideVerifiedState: boolean,
+      client: DatabaseClient = db
+    ) =>
+      resetTournamentAutomatedChecksHandler({
+        input: { id: TOURNAMENT_ID, overrideVerifiedState },
+        context: {
+          db: client,
+          session: adminSession(userId),
+          logging: { correlationId: 'reset-request' },
+        } as Parameters<
+          typeof resetTournamentAutomatedChecksHandler
+        >[0]['context'],
+      });
 
-  it('returns warnings when publishing fails', async () => {
-    setQueuePublishersForTesting({
-      processAutomationCheck: async () => {
-        throw new Error('automation queue offline');
-      },
+    it('queues the checks the admin asked for', async () => {
+      const result = await reset(true);
+
+      expect(result).toEqual({ success: true });
+      expect(await queuedChecks()).toEqual([
+        expect.objectContaining({
+          dedupKey: `tournament:${TOURNAMENT_ID}:override`,
+          payload: { tournamentId: TOURNAMENT_ID, overrideVerifiedState: true },
+          correlationId: 'reset-request',
+          tournamentId: TOURNAMENT_ID,
+        }),
+      ]);
     });
 
-    const result = await resetTournamentAutomatedChecksHandler({
-      input: { id: 42, overrideVerifiedState: false },
-      context: {
-        db: null as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
+    it('runs a check waiting out a retry now', async () => {
+      await enqueueJob(db, JobQueue.TournamentChecks, {
+        payload: { tournamentId: TOURNAMENT_ID, overrideVerifiedState: false },
+        tournamentId: TOURNAMENT_ID,
+        requestedByUserId: userId,
+      });
+      await backOffJobs(db, userId);
+
+      await reset(false);
+
+      const checks = await queuedChecks();
+      expect(checks).toHaveLength(1);
+      expect(checks[0]!.attempts).toBe(0);
+      // The backoff put it an hour out.
+      expect(checks[0]!.runAfter.getTime()).toBeLessThan(Date.now() + 60_000);
     });
 
-    expect(result.warnings).toEqual([AUTOMATION_QUEUE_WARNING]);
-  });
-});
+    it('fails the call when the checks cannot be queued', async () => {
+      await expect(reset(false, failingJobInserts(db))).rejects.toThrow(
+        'job insert failed'
+      );
+
+      expect(await queuedChecks()).toEqual([]);
+    });
+  }
+);

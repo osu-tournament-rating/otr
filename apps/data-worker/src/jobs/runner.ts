@@ -145,15 +145,19 @@ export class JobRunner {
       `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`;
   }
 
+  /**
+   * Adds a queue; after start, its loop starts at once. Ignored once the
+   * runner is stopping.
+   */
   register<Q extends JobQueue>(registration: QueueRegistration<Q>) {
-    if (this.started) {
-      throw new Error('Register every queue before starting the runner');
+    if (this.stopping) {
+      return;
     }
     if (this.loops.has(registration.queue)) {
       throw new Error(`Queue ${registration.queue} is already registered`);
     }
 
-    this.loops.set(registration.queue, {
+    const loop: Loop = {
       registration: registration as unknown as QueueRegistration<JobQueue>,
       running: null,
       paused: false,
@@ -161,11 +165,21 @@ export class JobRunner {
       pendingWake: false,
       wake: null,
       done: null,
-    });
+    };
+    this.loops.set(registration.queue, loop);
+
+    if (this.started) {
+      this.startLoop(registration.queue, loop);
+    }
   }
 
-  get queues(): JobQueue[] {
-    return [...this.loops.keys()];
+  private startLoop(queue: JobQueue, loop: Loop) {
+    for (const status of ['success', 'error', 'parked', 'discarded']) {
+      queueMessagesProcessed.labels({ queue, status }).inc(0);
+    }
+    jobsReclaimed.labels({ queue }).inc(0);
+    loop.lastTick = Date.now();
+    loop.done = this.runLoop(loop);
   }
 
   start() {
@@ -175,12 +189,7 @@ export class JobRunner {
     this.started = true;
 
     for (const [queue, loop] of this.loops) {
-      for (const status of ['success', 'error', 'parked', 'discarded']) {
-        queueMessagesProcessed.labels({ queue, status }).inc(0);
-      }
-      jobsReclaimed.labels({ queue }).inc(0);
-      loop.lastTick = Date.now();
-      loop.done = this.runLoop(loop);
+      this.startLoop(queue, loop);
     }
 
     this.heartbeatTimer = setInterval(

@@ -1,65 +1,73 @@
-import type { ProcessTournamentAutomationCheckMessage } from '@otr/core';
+import { JobQueue } from '@otr/core/jobs';
 
+import { PermanentJobError } from '../jobs/errors';
+import { pauseForMaintenanceWindow } from '../jobs/maintenance';
+import type { ClaimedJob, QueueRegistration } from '../jobs/types';
 import type { Logger } from '../logging/logger';
-import type { QueueConsumer } from '@otr/core/queues';
-import type { TournamentDataCompletionService } from '../osu/services/tournament-data-completion-service';
-import { TournamentAutomationCheckService } from './tournament-automation-check-service';
+import type { TournamentAutomationCheckService } from './tournament-automation-check-service';
 
 interface TournamentAutomationCheckWorkerOptions {
-  queue: QueueConsumer<ProcessTournamentAutomationCheckMessage>;
-  service: TournamentAutomationCheckService;
-  dataCompletion: TournamentDataCompletionService;
+  service: Pick<TournamentAutomationCheckService, 'processAutomationChecks'>;
   logger: Logger;
+  maintenanceWindowEnabled: boolean;
 }
 
+/**
+ * Runs processing.checks.tournaments jobs. Checks write verification
+ * statuses that the weekly rating run reads, so the queue pauses during the
+ * maintenance window, as admin writes do.
+ */
 export class TournamentAutomationCheckWorker {
-  private readonly queue: QueueConsumer<ProcessTournamentAutomationCheckMessage>;
-  private readonly service: TournamentAutomationCheckService;
-  private readonly dataCompletion: TournamentDataCompletionService;
+  private readonly service: TournamentAutomationCheckWorkerOptions['service'];
   private readonly logger: Logger;
+  private readonly maintenanceWindowEnabled: boolean;
 
   constructor(options: TournamentAutomationCheckWorkerOptions) {
-    this.queue = options.queue;
     this.service = options.service;
-    this.dataCompletion = options.dataCompletion;
     this.logger = options.logger;
+    this.maintenanceWindowEnabled = options.maintenanceWindowEnabled;
   }
 
-  async start() {
-    await this.queue.start(async (message) => {
-      const { tournamentId, overrideVerifiedState } = message.payload;
-      const msgLogger = this.logger.child({
-        correlationId: message.metadata.correlationId,
-        tournamentId,
-      });
+  registration(): QueueRegistration<JobQueue.TournamentChecks> {
+    return {
+      queue: JobQueue.TournamentChecks,
+      handler: (job) => this.handle(job),
+      pausedUntil: pauseForMaintenanceWindow(this.maintenanceWindowEnabled),
+    };
+  }
 
-      msgLogger.info('processing tournament automation check');
+  async handle(job: ClaimedJob<JobQueue.TournamentChecks>) {
+    const { tournamentId, overrideVerifiedState } = job.payload;
 
-      try {
-        const success = await this.service.processAutomationChecks(
-          tournamentId,
-          overrideVerifiedState
-        );
+    if (!Number.isInteger(tournamentId)) {
+      throw new PermanentJobError(
+        `The job has no tournament id: ${JSON.stringify(job.payload)}`
+      );
+    }
 
-        if (success) {
-          msgLogger.info('tournament passed automation checks');
-        } else {
-          msgLogger.info('tournament failed automation checks');
-        }
-
-        await message.ack();
-      } catch (error) {
-        msgLogger.error('failed to process tournament automation checks', {
-          error,
-        });
-        throw error;
-      } finally {
-        this.dataCompletion.clearPendingAutomationCheck(tournamentId);
-      }
+    const jobLogger = this.logger.child({
+      correlationId: job.correlationId,
+      tournamentId,
     });
-  }
 
-  async stop() {
-    await this.queue.stop();
+    jobLogger.info('processing tournament automation check');
+
+    try {
+      const success = await this.service.processAutomationChecks(
+        tournamentId,
+        overrideVerifiedState === true
+      );
+
+      if (success) {
+        jobLogger.info('tournament passed automation checks');
+      } else {
+        jobLogger.info('tournament failed automation checks');
+      }
+    } catch (error) {
+      jobLogger.error('failed to process tournament automation checks', {
+        error,
+      });
+      throw error;
+    }
   }
 }

@@ -118,6 +118,21 @@ describe.skipIf(!testDatabaseUrl)('enqueueJobs', () => {
     expect(rows[0]!.rerun_requested).toBe(true);
   });
 
+  it('asks a running job to run again when automatic work brings new details', async () => {
+    await enqueueJob(db, JobQueue.BeatmapAttributes, {
+      payload: { beatmapId: 7, checksum: 'old' },
+    });
+    await db.execute(sql`UPDATE jobs SET status = ${JobStatus.Running}`);
+
+    await enqueueJob(db, JobQueue.BeatmapAttributes, {
+      payload: { beatmapId: 7, checksum: 'new' },
+    });
+
+    const [row] = await jobRows(db);
+    expect(row!.payload).toEqual({ beatmapId: 7, checksum: 'new' });
+    expect(row!.rerun_requested).toBe(true);
+  });
+
   it('queues new work once the earlier job has finished', async () => {
     await enqueueJob(db, JobQueue.OsuFetch, { payload: match(6) });
     await db.execute(

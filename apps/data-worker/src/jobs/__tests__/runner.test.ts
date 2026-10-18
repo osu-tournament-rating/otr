@@ -106,6 +106,24 @@ describe.skipIf(!testDatabaseUrl)('JobRunner', () => {
     });
   });
 
+  it('runs a queue registered after it started', async () => {
+    await enqueueJob(db, JobQueue.OsuTrackFetch, {
+      payload: { osuPlayerId: 1 },
+    });
+    const handled: number[] = [];
+    const started = startRunner({ handler: async () => {} });
+
+    started.register({
+      queue: JobQueue.OsuTrackFetch,
+      handler: async (job) => {
+        handled.push(job.payload.osuPlayerId);
+      },
+    });
+
+    await waitFor(async () => handled.length === 1);
+    expect(handled).toEqual([1]);
+  });
+
   it('runs higher priority jobs first and leaves jobs that are not due yet', async () => {
     const order: number[] = [];
     await enqueue(1, { priority: MessagePriority.Low });
