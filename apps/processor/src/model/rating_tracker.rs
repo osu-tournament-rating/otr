@@ -123,6 +123,22 @@ impl RatingTracker {
         self.leaderboard.get(&(player_id, ruleset))
     }
 
+    /// Returns a player's rating for a ruleset to change in place, or None if
+    /// the player has no rating for it
+    pub fn get_rating_mut(&mut self, player_id: i32, ruleset: Ruleset) -> Option<&mut PlayerRating> {
+        self.leaderboard.get_mut(&(player_id, ruleset))
+    }
+
+    /// Returns every rating, across all rulesets, to change in place
+    pub fn ratings_mut(&mut self) -> impl Iterator<Item = &mut PlayerRating> {
+        self.leaderboard.values_mut()
+    }
+
+    /// Returns true if no player has a rating in any ruleset
+    pub fn is_empty(&self) -> bool {
+        self.leaderboard.is_empty()
+    }
+
     /// Gets a player's country code
     pub fn get_country(&self, player_id: i32) -> Option<&String> {
         self.country_mapping.get(&player_id)
