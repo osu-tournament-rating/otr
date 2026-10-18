@@ -1,3 +1,4 @@
+import re
 import shlex
 from pathlib import Path
 
@@ -36,14 +37,16 @@ def dev_command() -> str:
     )
 
 
-def excluded_tables(command: str) -> set[str]:
+def option_values(command: str, option: str) -> set[str]:
     tokens = shlex.split(command)
 
     return {
-        tokens[index + 1]
-        for index, token in enumerate(tokens[:-1])
-        if token == "--exclude-table-data"
+        tokens[index + 1] for index, token in enumerate(tokens[:-1]) if token == option
     }
+
+
+def excluded_tables(command: str) -> set[str]:
+    return option_values(command, "--exclude-table-data")
 
 
 def test_dev_export_excludes_only_credential_table_data():
@@ -144,3 +147,31 @@ def test_public_export_is_unchanged():
     assert "--schema-only" in command
     assert "--data-only" in command
     assert "public.match_audits" not in command
+
+
+# Sign-in state, credentials, and accounts, whose rows must never be public.
+# The pattern also catches auth and API key tables added after this list.
+CREDENTIAL_TABLE_NAME = re.compile(r"^(o_)?auth_|api_?key", re.IGNORECASE)
+CREDENTIAL_TABLES = {
+    "public.api_keys",
+    "public.auth_accounts",
+    "public.auth_sessions",
+    "public.auth_users",
+    "public.auth_verifications",
+    "public.o_auth_client_admin_note",
+    "public.o_auth_clients",
+    "public.users",
+}
+
+
+def test_public_export_never_publishes_credential_tables():
+    published = option_values(db._export_command(buckets.PUBLIC, DEST), "--table")
+    denied = CREDENTIAL_TABLES | set(db.dev_secret_columns)
+
+    assert published
+    for table in published:
+        # Rejects pg_dump patterns such as public.*, which no name check catches.
+        _, name = db._split_table(table)
+
+        assert table not in denied
+        assert not CREDENTIAL_TABLE_NAME.search(name), table
