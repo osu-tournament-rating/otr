@@ -175,6 +175,31 @@ checkout's services on ports 5432, 5672, and 3000. This is a rule.
   `lib/deps/check-peer-imports.ts` reports those imports first. Neither checks
   hook commands, workflow steps, or FlatCompat plugin names.
 
+## Testing
+
+A test exists to fail when behavior breaks. Before you write, change, or
+delete a test, or decide what to do about a failing one, load the `testing`
+skill in `.claude/skills/testing/SKILL.md`.
+
+- A failing test is a report, not an obstacle. Never delete, skip, or weaken a
+  test, or copy the code's current output into its expected values, to make a
+  run pass.
+- When a test your change does not touch fails, compare it with `master` in
+  the same environment, as the skill describes. If `master` fails it too, open
+  an issue and leave the test alone. If it fails only with your change, fix
+  the code.
+- Change what an existing test expects only when the task changes that
+  behavior. List every such test under `## Tests changed` in the pull request.
+  CI fails a pull request that edits or deletes an existing test without one,
+  but it catches most such edits, not all.
+- Watch every new test fail before it passes: break the code it covers, run
+  the test, then undo the break. When you fix a bug, first write a test that
+  fails on `master`, then fix the code.
+- Test behavior that people or other programs depend on. Don't test markup,
+  one component's class strings, restated constants, or library behavior.
+  Contract values, such as persisted enum numbers, and the UI conventions
+  below, checked across the whole kit, are the exceptions.
+
 ## UI conventions
 
 - Before you build or change UI in `apps/web`, load the `web-design` skill.

@@ -36,7 +36,17 @@ already fine, ignore the framing and judge the change on its own.
    - **Repository rules.** Admin writes outside `adminMutationProcedure`,
      authorization in middleware, query parameters or user input on spans,
      edited merged migrations, and the UI conventions in `AGENTS.md`.
-   - **Tests and docs.** Is the risky path tested? Do the docs still match?
+   - **Tests and docs.** Is the risky path tested, as the `testing` skill
+     in `.claude/skills/testing/SKILL.md` describes? Do the docs still match?
+   - **Test integrity.** For each existing test the change edits or deletes,
+     did the requirement ask for that behavior to change? Flag a test that was
+     deleted, skipped, or weakened to make a run pass, and expected values
+     copied from the code's new output. Flag changes that stop a test from
+     running or checking: test commands in `ci.yml`, `bunfig.toml`,
+     `playwright.config.ts`, pytest options, Cargo test targets, test helpers
+     and fixtures, and added early returns, mocks of the code under test,
+     `should_panic`, or `cfg` gates. Also flag new tests that cannot fail,
+     using the skill's list of hollow patterns.
 4. Confirm each finding before you report it. Point to the line, and describe
    a concrete input or state that produces the wrong result. Drop anything you
    cannot back up this way. Do not report style preferences the repository's
@@ -48,9 +58,12 @@ and the project's tests.
 ## Severity
 
 - **High**: the requirement is not met, or the change causes wrong behavior,
-  data loss, a security hole, or a broken contract.
+  data loss, a security hole, or a broken contract. Also a test deleted,
+  skipped, or weakened when the requirement did not ask to change what it
+  checks.
 - **Medium**: a bug on a plausible edge case, a missing test for a risky path,
-  or a broken repository rule that users or operators would notice.
+  a new test that cannot fail, or a broken repository rule that users or
+  operators would notice.
 - **Low**: a minor defect or rule slip with little effect.
 
 ## Output
