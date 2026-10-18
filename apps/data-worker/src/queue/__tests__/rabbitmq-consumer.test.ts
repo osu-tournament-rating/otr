@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { EventEmitter } from 'node:events';
 import { MessagePriority, QueueRetryPolicy } from '@otr/core';
 import type { ChannelModel, ConsumeMessage, Options } from 'amqplib';
 
@@ -76,6 +77,14 @@ class FakeChannel {
       throw new Error('FakeChannel.deliver called before consume');
     }
     await this.onMessage(message);
+  }
+
+  /** Delivers the null message amqplib sends when the broker cancels. */
+  async deliverCancel() {
+    if (!this.onMessage) {
+      throw new Error('FakeChannel.deliverCancel called before consume');
+    }
+    await this.onMessage(null);
   }
 }
 
@@ -291,5 +300,165 @@ describe('RabbitMqConsumer', () => {
     expect(channel.acked).toEqual([message]);
     expect(channel.nacked).toEqual([]);
     expect(channel.published).toEqual([]);
+  });
+});
+
+class FakeConnection extends EventEmitter {
+  closed = false;
+
+  constructor(readonly channel: FakeChannel) {
+    super();
+  }
+
+  async createConfirmChannel() {
+    return this.channel;
+  }
+
+  async close() {
+    this.closed = true;
+  }
+}
+
+/** Starts a consumer whose every connection is recorded, newest last. */
+const startReconnectingConsumer = async (queue: string) => {
+  const connections: FakeConnection[] = [];
+  let reconnected = Promise.withResolvers<void>();
+  const consumer = new RabbitMqConsumer<unknown>({
+    url: 'amqp://unused',
+    queue,
+    logger: noopLogger,
+    reconnectDelayMs: () => 0,
+    connectionFactory: async () => {
+      const connection = new FakeConnection(new FakeChannel());
+      connections.push(connection);
+      if (connections.length > 1) {
+        queueMicrotask(() => reconnected.resolve());
+      }
+      return connection as unknown as ChannelModel;
+    },
+  });
+  await consumer.start(async (message) => {
+    await message.ack();
+  });
+
+  return {
+    consumer,
+    connections,
+    nextReconnect: async () => {
+      await reconnected.promise;
+      // Lets the new subscription finish before the test looks at it.
+      await Bun.sleep(0);
+      reconnected = Promise.withResolvers<void>();
+    },
+  };
+};
+
+describe('RabbitMqConsumer reconnects', () => {
+  it('consumes again after the broker closes the connection cleanly', async () => {
+    const { consumer, connections, nextReconnect } =
+      await startReconnectingConsumer('test.reconnect.close');
+
+    connections[0]!.emit('close');
+    expect(consumer.isConsuming).toBe(false);
+    await nextReconnect();
+
+    expect(connections).toHaveLength(2);
+    expect(consumer.isConsuming).toBe(true);
+    const message = createMessage('test.reconnect.close');
+    await connections[1]!.channel.deliver(message);
+    expect(connections[1]!.channel.acked).toEqual([message]);
+  });
+
+  it('consumes again after the broker cancels the consumer', async () => {
+    const { consumer, connections, nextReconnect } =
+      await startReconnectingConsumer('test.reconnect.cancel');
+
+    await connections[0]!.channel.deliverCancel();
+    expect(consumer.isConsuming).toBe(false);
+    await nextReconnect();
+
+    expect(connections).toHaveLength(2);
+    expect(connections[0]!.closed).toBe(true);
+    expect(consumer.isConsuming).toBe(true);
+  });
+
+  it('keeps retrying while the broker refuses connections', async () => {
+    let attempts = 0;
+    const channel = new FakeChannel();
+    const connection = new FakeConnection(channel);
+    const subscribed = Promise.withResolvers<void>();
+    const consumer = new RabbitMqConsumer<unknown>({
+      url: 'amqp://unused',
+      queue: 'test.reconnect.refused',
+      logger: noopLogger,
+      reconnectDelayMs: () => 0,
+      connectionFactory: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return connection as unknown as ChannelModel;
+        }
+        if (attempts < 4) {
+          throw new Error('connection refused');
+        }
+        queueMicrotask(() => subscribed.resolve());
+        return new FakeConnection(new FakeChannel()) as unknown as ChannelModel;
+      },
+    });
+    await consumer.start(async () => {});
+
+    connection.emit('close');
+    await subscribed.promise;
+    await Bun.sleep(0);
+
+    expect(attempts).toBe(4);
+    expect(consumer.isConsuming).toBe(true);
+  });
+
+  it('does not reconnect after stop', async () => {
+    const { consumer, connections } = await startReconnectingConsumer(
+      'test.reconnect.stop'
+    );
+
+    await consumer.stop();
+    connections[0]!.emit('close');
+    await Bun.sleep(5);
+
+    expect(connections).toHaveLength(1);
+    expect(consumer.isConsuming).toBe(false);
+  });
+});
+
+describe('RabbitMqConsumer reconnects once', () => {
+  it('starts one reconnect when the connection is lost during subscribe', async () => {
+    const connections: FakeConnection[] = [];
+    const consumer = new RabbitMqConsumer<unknown>({
+      url: 'amqp://unused',
+      queue: 'test.reconnect.during-consume',
+      logger: noopLogger,
+      reconnectDelayMs: () => 0,
+      connectionFactory: async () => {
+        const channel = new FakeChannel();
+        const connection = new FakeConnection(channel);
+        // The second connection's consume fails the way amqplib's does when
+        // the queue is deleted mid-subscribe: the channel closes, then the
+        // pending call rejects.
+        if (connections.length === 1) {
+          channel.consume = async () => {
+            connection.emit('close');
+            throw new Error('NOT_FOUND - no queue');
+          };
+        }
+        connections.push(connection);
+        return connection as unknown as ChannelModel;
+      },
+    });
+    await consumer.start(async () => {});
+
+    connections[0]!.emit('close');
+    await Bun.sleep(20);
+
+    expect(connections).toHaveLength(3);
+    expect(consumer.isConsuming).toBe(true);
+    await consumer.stop();
   });
 });

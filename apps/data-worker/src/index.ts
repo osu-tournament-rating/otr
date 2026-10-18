@@ -55,6 +55,9 @@ import { BeatmapAttributesScheduler } from './beatmap-attributes/beatmap-attribu
 
 const logger = consoleLogger;
 
+// Every started consumer; the health check fails while any is unsubscribed.
+const consumers: Array<{ readonly isConsuming: boolean }> = [];
+
 /**
  * Starts the attribute job consumer and the sweep, or returns null and leaves
  * them off when nothing is configured, the settings are wrong, or the store
@@ -117,6 +120,7 @@ const startBeatmapAttributes = async (
   });
 
   await worker.start();
+  consumers.push(consumer);
   scheduler.start();
 
   logger.info('Beatmap file storage is on', { location: store.location });
@@ -124,7 +128,7 @@ const startBeatmapAttributes = async (
   return { worker, scheduler };
 };
 
-startMetricsServer();
+startMetricsServer(() => consumers.every((consumer) => consumer.isConsuming));
 
 const bootstrap = async () => {
   const osuApiClient = await createOsuApiClient();
@@ -332,6 +336,12 @@ const bootstrap = async () => {
     automationWorker.start(),
     statsWorker.start(),
   ]);
+  consumers.push(
+    osuConsumer,
+    osuTrackConsumer,
+    automationConsumer,
+    statsConsumer
+  );
 
   await playerRefetchScheduler.start();
   await forumPostBackfill.run();

@@ -32,97 +32,203 @@ export interface RabbitMqConsumerOptions {
   prefetch?: number;
   logger?: Logger;
   connectionFactory?: () => Promise<ChannelModel>;
+  /** Wait before reconnect attempt `attempt` (1-based). */
+  reconnectDelayMs?: (attempt: number) => number;
 }
+
+const maxReconnectDelayMs = 30_000;
+
+const defaultReconnectDelayMs = (attempt: number) =>
+  Math.min(1000 * 2 ** (attempt - 1), maxReconnectDelayMs);
 
 export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
   private readonly options: RabbitMqConsumerOptions;
   private readonly logger: Logger;
+  private handler: QueueMessageHandler<TPayload> | null = null;
   private connection: ChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
   private consumerTag: string | null = null;
+  private stopped = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: RabbitMqConsumerOptions) {
     this.options = options;
     this.logger = options.logger ?? consoleLogger;
   }
 
+  /** True while subscribed to the queue; false while reconnecting or stopped. */
+  get isConsuming(): boolean {
+    return this.consumerTag !== null;
+  }
+
   async start(handler: QueueMessageHandler<TPayload>): Promise<void> {
-    if (this.connection) {
+    if (this.handler) {
       throw new Error('RabbitMqConsumer.start called more than once');
     }
 
-    const connection = await (this.options.connectionFactory?.() ??
-      connect(this.options.url));
-    // One confirm channel both consumes and republishes failures, so a
-    // republish is confirmed before the original delivery is acked.
-    const channel = await connection.createConfirmChannel();
-    await channel.assertQueue(this.options.queue, {
-      durable: true,
-      arguments: { ...QueuePriorityArguments },
-    });
-    // No x-max-priority here: classic priority queues expire messages only at
-    // the head of each priority level, so a low-priority retry could wait past
-    // its delay behind a newer high-priority one. The priority property rides
-    // along unchanged and the main queue honors it after dead-lettering.
-    await channel.assertQueue(retryQueueName(this.options.queue), {
-      durable: true,
-      arguments: {
-        'x-message-ttl': QueueRetryPolicy.retryDelayMs,
-        'x-dead-letter-exchange': '',
-        'x-dead-letter-routing-key': this.options.queue,
-      },
-    });
-    await channel.assertQueue(failedQueueName(this.options.queue), {
-      durable: true,
-    });
-    await channel.prefetch(this.options.prefetch ?? 1);
-
-    this.connection = connection;
-    this.channel = channel;
-
-    const consumer = await channel.consume(
-      this.options.queue,
-      (message) =>
-        this.handleMessage(message, handler).catch((error) => {
-          this.logger.error('Unhandled queue message error', { error });
-        }),
-      { noAck: false }
-    );
-
-    this.consumerTag = consumer.consumerTag;
-    this.logger.info('Subscribed to queue', { queue: this.options.queue });
+    this.handler = handler;
+    await this.subscribe();
   }
 
   async stop(): Promise<void> {
-    if (!this.connection || !this.channel) {
-      return;
+    this.stopped = true;
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
 
-    if (this.consumerTag) {
-      await this.channel.cancel(this.consumerTag);
-    }
-
-    await this.channel.close();
-    await this.connection.close();
-
+    const { connection, channel, consumerTag } = this;
     this.channel = null;
     this.connection = null;
     this.consumerTag = null;
+
+    if (!connection || !channel) {
+      return;
+    }
+
+    if (consumerTag) {
+      await channel.cancel(consumerTag);
+    }
+
+    await channel.close();
+    await connection.close();
+  }
+
+  private async subscribe(): Promise<void> {
+    const connection = await (this.options.connectionFactory?.() ??
+      connect(this.options.url));
+
+    // amqplib treats a clean broker close or a consumer cancel as normal, so
+    // nothing throws. Without these the worker would sit with no consumer.
+    const lost = (reason: string, error?: unknown) =>
+      this.handleLost(connection, reason, error);
+    connection.on('error', (error) => lost('connection error', error));
+    connection.on('close', () => lost('connection closed'));
+
+    try {
+      // One confirm channel both consumes and republishes failures, so a
+      // republish is confirmed before the original delivery is acked.
+      const channel = await connection.createConfirmChannel();
+      channel.on('error', (error) => lost('channel error', error));
+      channel.on('close', () => lost('channel closed'));
+      await channel.assertQueue(this.options.queue, {
+        durable: true,
+        arguments: { ...QueuePriorityArguments },
+      });
+      // No x-max-priority here: classic priority queues expire messages only at
+      // the head of each priority level, so a low-priority retry could wait past
+      // its delay behind a newer high-priority one. The priority property rides
+      // along unchanged and the main queue honors it after dead-lettering.
+      await channel.assertQueue(retryQueueName(this.options.queue), {
+        durable: true,
+        arguments: {
+          'x-message-ttl': QueueRetryPolicy.retryDelayMs,
+          'x-dead-letter-exchange': '',
+          'x-dead-letter-routing-key': this.options.queue,
+        },
+      });
+      await channel.assertQueue(failedQueueName(this.options.queue), {
+        durable: true,
+      });
+      await channel.prefetch(this.options.prefetch ?? 1);
+
+      this.connection = connection;
+      this.channel = channel;
+
+      const handler = this.handler!;
+      const consumer = await channel.consume(
+        this.options.queue,
+        (message) => {
+          if (!message) {
+            lost('consumer cancelled by the broker');
+            return;
+          }
+          return this.handleMessage(message, channel, handler).catch(
+            (error) => {
+              this.logger.error('Unhandled queue message error', { error });
+            }
+          );
+        },
+        { noAck: false }
+      );
+
+      if (this.connection !== connection) {
+        // Lost while subscribing; the reconnect is already scheduled.
+        return;
+      }
+
+      this.consumerTag = consumer.consumerTag;
+      this.logger.info('Subscribed to queue', { queue: this.options.queue });
+    } catch (error) {
+      await connection.close().catch(() => {});
+      throw error;
+    }
+  }
+
+  /** Drops a lost connection once, whichever of its events fires first. */
+  private handleLost(
+    connection: ChannelModel,
+    reason: string,
+    error?: unknown
+  ) {
+    if (this.connection !== connection) {
+      return;
+    }
+
+    this.logger.error('Lost the queue subscription; reconnecting', {
+      queue: this.options.queue,
+      reason,
+      error,
+    });
+
+    this.connection = null;
+    this.channel = null;
+    this.consumerTag = null;
+    // Unacked deliveries return to the queue once this connection is gone.
+    connection.close().catch(() => {});
+
+    this.scheduleReconnect(1);
+  }
+
+  private scheduleReconnect(attempt: number) {
+    // A loss during subscribe both schedules a reconnect and fails that
+    // subscribe, so the second request must not start another chain.
+    if (this.reconnectTimer) {
+      return;
+    }
+
+    const delay = (this.options.reconnectDelayMs ?? defaultReconnectDelayMs)(
+      attempt
+    );
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      if (this.stopped) {
+        return;
+      }
+
+      try {
+        await this.subscribe();
+      } catch (error) {
+        if (this.stopped) {
+          return;
+        }
+        this.logger.error('Failed to reconnect to the queue', {
+          queue: this.options.queue,
+          attempt,
+          error,
+        });
+        this.scheduleReconnect(attempt + 1);
+      }
+    }, delay);
   }
 
   private async handleMessage(
-    message: ConsumeMessage | null,
+    message: ConsumeMessage,
+    channel: ConfirmChannel,
     handler: QueueMessageHandler<TPayload>
   ) {
-    if (!message) {
-      return;
-    }
-
-    if (!this.channel) {
-      this.logger.error('Channel unavailable while handling message');
-      return;
-    }
-
     let envelope: MessageEnvelope<unknown>;
 
     try {
@@ -132,11 +238,10 @@ export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
         error,
         content: message.content.toString('utf-8'),
       });
-      this.channel.nack(message, false, false);
+      channel.nack(message, false, false);
       return;
     }
 
-    const channel = this.channel;
     let settled = false;
     const queueMessage: QueueMessage<TPayload> = {
       payload: envelope as unknown as TPayload,
