@@ -6,6 +6,9 @@ import {
   expect,
   it,
 } from 'bun:test';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { call, ORPCError } from '@orpc/server';
 import { eq, inArray, like } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -34,6 +37,10 @@ const NAME_PREFIX = 'match-merge-';
 const PLAYER_OSU_ID = 999_118_901;
 const MATCH_OSU_ID_BASE = 999_118_100;
 const GAME_OSU_ID_BASE = 999_118_200;
+const BACKFILL_MIGRATION = join(
+  import.meta.dir,
+  '../../../../../../drizzle/0039_backfill_match_merges.sql'
+);
 
 describe.skipIf(!url)('match merges', () => {
   const pool = new Pool({ connectionString: url });
@@ -272,5 +279,59 @@ describe.skipIf(!url)('match merges', () => {
       .from(schema.tournaments)
       .where(eq(schema.tournaments.name, `${NAME_PREFIX}resubmitted`));
     expect(rows).toEqual([]);
+  });
+
+  it('backfills merges made before they were recorded, through later merges of the parent, but not matches added again', async () => {
+    const [parent, child, grandchild] = matchIds as [number, number, number];
+    const readded = await seedMatch(3);
+
+    // A merge as it ran before merges were recorded: the audit triggers log
+    // the moved games and the deleted match in one transaction.
+    const mergeUnrecorded = (id: number, childId: number) =>
+      db.transaction(async (tx) => {
+        await tx
+          .update(schema.games)
+          .set({ matchId: id })
+          .where(eq(schema.games.matchId, childId));
+        await tx.delete(schema.matches).where(eq(schema.matches.id, childId));
+      });
+
+    await mergeUnrecorded(child, grandchild);
+    await mergeUnrecorded(parent, child);
+    await mergeUnrecorded(parent, readded);
+    await db.insert(schema.matches).values({
+      osuId: MATCH_OSU_ID_BASE + 3,
+      tournamentId,
+    });
+
+    await pool.query(await readFile(BACKFILL_MIGRATION, 'utf8'));
+
+    const merges = await db
+      .select({
+        matchId: schema.matchMerges.matchId,
+        mergedMatchId: schema.matchMerges.mergedMatchId,
+        osuId: schema.matchMerges.osuId,
+        name: schema.matchMerges.name,
+      })
+      .from(schema.matchMerges)
+      .where(
+        inArray(schema.matchMerges.mergedMatchId, [child, grandchild, readded])
+      )
+      .orderBy(schema.matchMerges.mergedMatchId);
+
+    expect(merges).toEqual([
+      {
+        matchId: parent,
+        mergedMatchId: child,
+        osuId: MATCH_OSU_ID_BASE + 1,
+        name: `${NAME_PREFIX}match-1`,
+      },
+      {
+        matchId: parent,
+        mergedMatchId: grandchild,
+        osuId: MATCH_OSU_ID_BASE + 2,
+        name: `${NAME_PREFIX}match-2`,
+      },
+    ]);
   });
 });
