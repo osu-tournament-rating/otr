@@ -10,11 +10,4 @@ export {
 } from './tracer';
 export { instrumentPgPool } from './database';
 export { instrumentFetch } from './http';
-export {
-  injectTraceHeaders,
-  injectTraceContext,
-  tracePublish,
-  traceEnqueue,
-  traceConsume,
-} from './messaging';
-export type { MessageHeaders } from './messaging';
+export { injectTraceContext, traceEnqueue, traceConsume } from './messaging';

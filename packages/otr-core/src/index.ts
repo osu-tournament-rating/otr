@@ -3,7 +3,6 @@ export * from './db/data-fetch-status';
 export * from './osu/enums';
 export * from './osu/lazer-mods';
 export * from './maintenance/window';
-export * from './queues/constants';
 export * from './messages/values';
 export * from './messages/types';
 export * from './osu-track/user-stat-update';
