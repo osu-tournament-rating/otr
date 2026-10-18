@@ -32,7 +32,8 @@ A failing test is a report. Work out what it reports before you touch it.
      `gh run list --workflow deploy.yml --branch master --event push --limit 3`,
      then `gh run view <id> --log-failed`. Master's CI never runs the
      Playwright suite; the nightly `e2e-tests.yml` workflow does, so check
-     `gh run list --workflow e2e-tests.yml --limit 3` for it. CI runs the
+     `gh run list --workflow e2e-tests.yml --branch master --event schedule --limit 3`
+     for it. CI runs the
      processor, scripts, and replay tests only when their app changes, and
      the processor's also when the schema, migrations, or persisted enums
      change.
