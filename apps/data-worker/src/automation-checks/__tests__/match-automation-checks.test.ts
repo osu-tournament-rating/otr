@@ -57,6 +57,33 @@ describe('MatchAutomationChecks', () => {
     expect(result & MatchRejectionReason.NoValidGames).not.toBe(0);
   });
 
+  it('rejects a match with fewer than three valid games', () => {
+    for (const count of [1, 2]) {
+      const games = Array.from({ length: count }, () => createGame({}));
+      const match = createMatch({ games, name: 'TT: Qualified Match' });
+      const tournament = createTournament({ matches: [match] });
+
+      expect(checker.process(match, tournament)).toBe(
+        MatchRejectionReason.UnexpectedGameCount
+      );
+    }
+  });
+
+  it('counts only valid games toward the game count', () => {
+    const games = [
+      createGame({}),
+      createGame({}),
+      createGame({ verificationStatus: VerificationStatus.PreRejected }),
+      createGame({ verificationStatus: VerificationStatus.Rejected }),
+    ];
+    const match = createMatch({ games, name: 'TT: Qualified Match' });
+    const tournament = createTournament({ matches: [match] });
+
+    expect(checker.process(match, tournament)).toBe(
+      MatchRejectionReason.UnexpectedGameCount
+    );
+  });
+
   it('applies warning when few games are valid', () => {
     const games = [createGame({}), createGame({}), createGame({})];
     const match = createMatch({ games, name: 'TT: Qualified Match' });
