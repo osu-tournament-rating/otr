@@ -310,7 +310,11 @@ test.describe('Player Profile Page', () => {
       await page.goto(ROUTES.playerProfile(TEST_PLAYER_ID));
       await page.waitForLoadState('networkidle');
 
-      const row = page.locator('[data-testid="player-tournament-row"]').first();
+      // Tournaments without the player's stats have no record.
+      const row = page
+        .locator('[data-testid="player-tournament-row"]')
+        .filter({ has: page.getByText('Record', { exact: true }) })
+        .first();
       await expect(row).toBeVisible({ timeout: 10000 });
       await expect(row.getByText('Record', { exact: true })).toBeVisible();
       await expect(

@@ -25,6 +25,7 @@ import {
   getPlayer,
   getPlayerBeatmaps,
   getPlayerStats,
+  getPlayerTournamentHistory,
   getPlayerTournaments,
 } from './procedures/playerProcedures';
 import { getPlayerRatings } from './procedures/playerRatingsProcedures';
@@ -201,6 +202,7 @@ export const router = base.router({
     beatmaps: getPlayerBeatmaps,
     stats: getPlayerStats,
     tournaments: getPlayerTournaments,
+    tournamentHistory: getPlayerTournamentHistory,
     ratings: getPlayerRatings,
     lookup: lookupPlayers,
   },
