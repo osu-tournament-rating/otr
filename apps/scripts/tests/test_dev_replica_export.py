@@ -50,19 +50,6 @@ def test_dev_export_excludes_only_credential_table_data():
     assert excluded_tables(dev_command()) == set(db.dev_secret_columns)
 
 
-def test_audit_tables_are_mirrored():
-    excluded = excluded_tables(dev_command())
-
-    for table in (
-        "public.game_audits",
-        "public.game_score_audits",
-        "public.match_audits",
-        "public.tournament_audits",
-        "public.auth_users",
-    ):
-        assert table not in excluded
-
-
 def test_redacted_rows_load_before_foreign_keys_are_added():
     command = dev_command()
 

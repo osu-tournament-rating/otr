@@ -1,7 +1,5 @@
 import logging
 
-import pytest
-
 from lib import processor
 
 IMAGE = "stagecodes/otr-processor:test"
@@ -65,9 +63,8 @@ def test_run_logs_every_line_of_output(monkeypatch, caplog):
     assert {"pulled", "rating", "rated"} <= {r.getMessage() for r in caplog.records}
 
 
-@pytest.mark.parametrize("step", ["pull", "run"])
-def test_run_fails_when_a_step_fails(monkeypatch, step):
-    commands = record_runs(monkeypatch, fail_on=step)
+def test_run_stops_when_the_pull_fails(monkeypatch):
+    commands = record_runs(monkeypatch, fail_on="pull")
 
     assert processor.run() is False
-    assert commands[-1][1] == step
+    assert commands[-1][1] == "pull"

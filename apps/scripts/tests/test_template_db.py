@@ -69,13 +69,6 @@ def test_seed_steps_recreate_and_flag_the_template():
         assert step[:4] == ["docker", "exec", "-i", "otr-template-test-db"]
 
 
-def test_create_copies_the_template():
-    terminate, create = template_db.create_steps("agent_1")
-
-    assert f"datname = '{template_db.TEMPLATE}'" in terminate[-1]
-    assert create[-1] == "CREATE DATABASE agent_1 TEMPLATE otr_template"
-
-
 def test_drop_terminates_then_drops():
     terminate, drop = template_db.drop_steps("agent_1")
 

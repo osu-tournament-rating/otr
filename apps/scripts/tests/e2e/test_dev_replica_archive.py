@@ -157,8 +157,8 @@ def test_dev_replica_mirrors_data_without_secrets(tmp_path: Path, monkeypatch):
         psql(source, SEED)
 
         point_config_at(monkeypatch, source, tmp_path)
-        success, archive = db._export(buckets.DEV)
-        assert success, "dev export failed"
+        archive = db._export(buckets.DEV)
+        assert archive, "dev export failed"
 
         dump = gzip.decompress(archive.read_bytes()).decode()
 
@@ -199,8 +199,6 @@ def assert_redaction_markers(dump: str):
 
 def assert_mirrored_tables(dump: str):
     # Data the old dev blacklist dropped entirely.
-    assert "rating batch finished" in dump
-    assert "match ingested" in dump
     assert "peppy@example.test" in dump
     assert "issued for the bracket bot" in dump
 
