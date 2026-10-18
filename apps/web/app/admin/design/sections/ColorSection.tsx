@@ -381,10 +381,9 @@ function MatchSurfaceDemo() {
  * tooltip surface, where muted text switches to its accent value.
  */
 function ThemeTextDemo() {
-  const preVerified = getVerificationStatusCopy(VerificationStatus.PreVerified);
-  // The summary normally follows "Pre-verified:"; on its own line it starts a sentence.
-  const summary =
-    preVerified.summary.charAt(0).toUpperCase() + preVerified.summary.slice(1);
+  const { name, summary } = getVerificationStatusCopy(
+    VerificationStatus.PreVerified
+  );
 
   return (
     <div className="@container">
@@ -413,7 +412,7 @@ function ThemeTextDemo() {
             ACCENT_SURFACE_CLASSES
           )}
         >
-          <p className="font-semibold">{preVerified.name}</p>
+          <p className="font-semibold">{name}</p>
           <p className="text-muted-foreground">{summary}</p>
         </div>
       </div>

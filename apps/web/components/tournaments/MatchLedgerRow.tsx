@@ -24,11 +24,11 @@ import { parseTeamNames, type MatchRow } from './matchRow';
 function getMissingResultText(status: VerificationStatus) {
   switch (status) {
     case VerificationStatus.Verified:
-      return 'No result yet — check back once stats are generated';
+      return 'No result yet, awaiting stats';
     case VerificationStatus.Rejected:
-      return 'No result — rejected matches are not counted in ratings';
+      return 'No result, match rejected';
     default:
-      return 'No result yet — the match is not verified';
+      return 'No result yet, awaiting verification';
   }
 }
 
@@ -78,8 +78,7 @@ function Scoreline({ match }: { match: MatchRow }) {
     return <span className="w-14 shrink-0">{pill}</span>;
   }
 
-  const explanation =
-    'Draw — some games may not have been counted, so this result is not accurate';
+  const explanation = 'Draw, some games may not be counted';
 
   return (
     <TapTooltip

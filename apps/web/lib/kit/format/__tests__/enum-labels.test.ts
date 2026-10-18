@@ -124,10 +124,7 @@ describe('filter failure reasons', () => {
       getSetFlags(value, FILTERING_FAIL_REASON_LABELS).map(
         (flag) => FILTERING_FAIL_REASON_DESCRIPTIONS[flag]
       )
-    ).toEqual([
-      "The player's rating is below the minimum threshold",
-      "The player's all-time peak rating exceeds the maximum allowed",
-    ]);
+    ).toEqual(['Rating below the minimum', 'Peak rating above the maximum']);
   });
 });
 

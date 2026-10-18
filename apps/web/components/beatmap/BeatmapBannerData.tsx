@@ -48,7 +48,7 @@ export default function BeatmapBannerData({
         asChild
         variant="outline"
         icon={ExternalLink}
-        label="View beatmap on osu! website"
+        label="View on osu!"
         className="ml-auto"
       >
         <a

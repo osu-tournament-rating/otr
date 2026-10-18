@@ -282,12 +282,7 @@ function IconButtons() {
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <IconButton
-              asChild
-              label="View beatmap on osu! website"
-              tooltip="View beatmap on osu!"
-              icon={ExternalLink}
-            >
+            <IconButton asChild label="View on osu!" icon={ExternalLink}>
               <a
                 href="https://osu.ppy.sh/beatmaps/1872396"
                 target="_blank"
@@ -563,7 +558,7 @@ function AdminMenuDemo() {
           <IconButton
             asChild
             variant="outline"
-            label="View tournament on osu! website"
+            label="View on osu!"
             icon={ExternalLink}
           >
             <a

@@ -42,7 +42,7 @@ describe('verification status copy', () => {
 
   it('writes each tooltip as "<name>: <plain-language line>"', () => {
     expect(getVerificationStatusTooltip(VerificationStatus.PreVerified)).toBe(
-      'Pre-verified: passed automated checks. Not counted in ratings until an admin verifies it.'
+      'Pre-verified: Passed automated checks, awaiting admin review'
     );
 
     for (const status of ALL_STATUSES) {
@@ -50,23 +50,25 @@ describe('verification status copy', () => {
       const tooltip = getVerificationStatusTooltip(status);
 
       expect(tooltip.startsWith(`${name}: `)).toBe(true);
-      expect(summary[0]).toBe(summary[0].toLowerCase());
-      expect(summary.endsWith('.')).toBe(true);
+      expect(summary[0]).toBe(summary[0].toUpperCase());
+      expect(summary.endsWith('.')).toBe(false);
     }
   });
 
-  it('says whether each state counts toward ratings', () => {
+  it('says what each waiting state awaits and who decided the others', () => {
+    expect(NOT_IN_RATINGS_YET_STATUSES).toHaveLength(3);
     for (const status of NOT_IN_RATINGS_YET_STATUSES) {
-      expect(getVerificationStatusTooltip(status)).toContain(
-        'Not counted in ratings'
+      expect(getVerificationStatusTooltip(status).toLowerCase()).toContain(
+        'awaiting'
       );
     }
-    expect(getVerificationStatusTooltip(VerificationStatus.Verified)).toContain(
-      'Counts toward ratings'
-    );
-    expect(getVerificationStatusTooltip(VerificationStatus.Rejected)).toContain(
-      'Not counted in ratings'
-    );
+    for (const status of [
+      VerificationStatus.Verified,
+      VerificationStatus.Rejected,
+    ]) {
+      expect(getVerificationStatusTooltip(status)).toContain('by an admin');
+      expect(getVerificationStatusTooltip(status)).not.toContain('awaiting');
+    }
   });
 
   it('falls back instead of throwing on an unknown value', () => {
@@ -74,7 +76,7 @@ describe('verification status copy', () => {
 
     expect(getVerificationStatusCopy(unknown).name).toBe('Unknown status');
     expect(getVerificationStatusTooltip(unknown)).toBe(
-      'Unknown status: this status is not recognised.'
+      'Unknown status: Not recognised'
     );
   });
 

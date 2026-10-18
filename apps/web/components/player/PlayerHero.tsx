@@ -62,7 +62,7 @@ export default function PlayerHero({
           asChild
           variant="outline"
           icon={ExternalLink}
-          label="View profile on osu! website"
+          label="View on osu!"
         >
           <a
             href={`https://osu.ppy.sh/u/${player.osuId}`}

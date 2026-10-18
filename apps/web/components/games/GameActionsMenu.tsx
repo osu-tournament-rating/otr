@@ -90,7 +90,7 @@ export default function GameActionsMenu({
             href: `/audit/${entityTypeToSlug(AuditEntityType.Game)}/${game.id}`,
           },
           Boolean(beatmapOsuId) && {
-            label: 'View beatmap on osu! website',
+            label: 'View beatmap on osu!',
             icon: Music2,
             href: `https://osu.ppy.sh/b/${beatmapOsuId}`,
             external: true,

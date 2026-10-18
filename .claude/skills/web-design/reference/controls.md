@@ -262,7 +262,7 @@ Props:
 - `label`: the tooltip, "Actions" by default.
 - `notification`: as AdminMenu's. It puts the one notification dot on the "…" button's corner and adds its text to the button's accessible name ("Actions for Game 3, Has admin notes"). Pair it with a count `Badge` as the matching item's `trailing`, so the menu says what is new.
 - Public items (report, audit history) are for everyone; gate only the admin items with `isAdmin &&`. With every admin item hidden, the menu still holds the public ones.
-- Order: the public items first, in the heroes' order ("Report an issue", "View audit history", "View … on osu! website"), then the admin items in their own `group: 'admin'` (edit, admin notes), then data operations, then the destructive group. The game and score menus (`components/games/GameActionsMenu.tsx`, `ScoreActionsMenu.tsx`) follow it.
+- Order: the public items first, in the heroes' order ("Report an issue", "View audit history", "View on osu!"), then the admin items in their own `group: 'admin'` (edit, admin notes), then data operations, then the destructive group. The game and score menus (`components/games/GameActionsMenu.tsx`, `ScoreActionsMenu.tsx`) follow it.
 - `onArt`: the round dark pill, for a card header on cover art (`components/games/GameCardHeader.tsx`).
 - `size`: `sm` (default) or `default`.
 
