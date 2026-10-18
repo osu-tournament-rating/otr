@@ -9,7 +9,7 @@ Here are a few scenarios that showcase exactly how data flows across application
 #### Tournament submission
 
 1. An admin submits a tournament.
-2. The web backend enqueues messages for each osu! beatmap and match ID provided.
+2. The web backend enqueues messages for each osu! beatmap and match ID provided, and for the forum topic when the forum URL links to one.
 3. The queues `data.osu.matches` and `data.osu.beatmaps` are now populated, so the data worker activates to empty these queues by fetching data from the osu! API.
 4. Once all queues are empty, the data worker enqueues a message to `processing.checks.tournaments` to run automated checks for that tournament.
 5. The `processing.checks.tournaments` queue sees a new message and runs automated checks for the tournament.
@@ -57,6 +57,17 @@ To roll out a star rating change once rosu-pp-js releases it:
 1. Merge the change, which deploys it. The sweep then recalculates every row from the stored files, with no downloads from osu!. At 1,000 jobs per sweep this takes hours, and until it finishes, rows from both releases coexist.
 
 Files the calculator rejected keep `fetch_status` 4 (Error) and are not recalculated. To try them with the new release, set `fetch_status` to 2 (Fetched) on the `beatmap_files` rows that have a checksum, and the sweep picks them up.
+
+#### Tournament forum posts
+
+The data worker stores the BBCode of each tournament's forum post in `tournament_forum_posts`, one row per osu! forum topic. It fetches the topic from `https://osu.ppy.sh/api/v2/forums/topics/{topic}` and keeps only the opening post, with the topic title and the post's last edit time. Each tournament links to its row through `tournaments.forum_post_id`, and tournaments that share a topic share a row. A tournament whose forum URL is a wiki page has no row.
+
+- A submission queues the topic's fetch. An admin's change to a tournament's forum URL clears the link and queues the new topic, and the worker links the tournament once the fetch is done.
+- On every start, the data worker links tournaments to topics it already stored, then queues one low-priority fetch for each topic that unlinked tournaments point at. The first start after the table was added backfills every tournament this way, and later starts catch fetches that never reached the queue.
+- A fetch requested before the topic was last fetched only updates links, so a backfill queued twice costs no extra osu! requests.
+- A topic osu! no longer serves is skipped without a retry. A post stored earlier stays, tournaments on the topic link to it, and the next start queues the topic again.
+- Organizers' later edits to a post are not picked up until the topic is fetched again.
+- `forum_post_id` is left out of tournament audits, because the worker derives it from the audited `forum_url`.
 
 ### Processor
 
