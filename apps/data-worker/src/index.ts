@@ -7,11 +7,16 @@ import {
   type FetchPlayerOsuTrackMessage,
   type ProcessBeatmapAttributesMessage,
   type ProcessTournamentAutomationCheckMessage,
-  type ProcessTournamentStatsMessage,
 } from '@otr/core';
+import { getJobQueueSummary, JobQueue } from '@otr/core/jobs';
+import { withoutTracing } from '@otr/core/tracing';
 
-import { db } from './db';
-import { startMetricsServer } from './metrics';
+import { databaseUrl, db } from './db';
+import {
+  apiRequestStats,
+  setJobSummarySource,
+  startMetricsServer,
+} from './metrics';
 import { dataWorkerEnv } from './env';
 import { consoleLogger } from './logging/logger';
 import { RabbitMqConsumer } from './queue/rabbitmq-consumer';
@@ -52,11 +57,22 @@ import { BeatmapFileDownloader } from './beatmap-attributes/downloader';
 import { BeatmapAttributesService } from './beatmap-attributes/beatmap-attributes-service';
 import { BeatmapAttributesWorker } from './beatmap-attributes/beatmap-attributes-worker';
 import { BeatmapAttributesScheduler } from './beatmap-attributes/beatmap-attributes-scheduler';
+import { JobRunner } from './jobs/runner';
+import { JobListener } from './jobs/listener';
+import { JobPruner } from './jobs/pruner';
+import {
+  RabbitMqBridge,
+  tournamentStatsJobFromMessage,
+} from './jobs/rabbitmq-bridge';
 
 const logger = consoleLogger;
 
 // Every started consumer; the health check fails while any is unsubscribed.
 const consumers: Array<{ readonly isConsuming: boolean }> = [];
+
+const API_REQUEST_STATS_FLUSH_MS = 60_000;
+
+const runner = new JobRunner({ db, logger: consoleLogger });
 
 /**
  * Starts the attribute job consumer and the sweep, or returns null and leaves
@@ -128,7 +144,10 @@ const startBeatmapAttributes = async (
   return { worker, scheduler };
 };
 
-startMetricsServer(() => consumers.every((consumer) => consumer.isConsuming));
+startMetricsServer(
+  () =>
+    consumers.every((consumer) => consumer.isConsuming) && runner.isHealthy()
+);
 
 const bootstrap = async () => {
   const osuApiClient = await createOsuApiClient();
@@ -195,13 +214,6 @@ const bootstrap = async () => {
       prefetch: 1,
       logger,
     });
-
-  const statsConsumer = new RabbitMqConsumer<ProcessTournamentStatsMessage>({
-    url: dataWorkerEnv.amqpUrl,
-    queue: QueueConstants.stats.tournaments,
-    prefetch: 1,
-    logger,
-  });
 
   // Exists before the osu! consumer starts, so no beatmap fetch drops its
   // job. With a store configured, jobs queue even while the store fails its
@@ -323,10 +335,47 @@ const bootstrap = async () => {
   });
 
   const statsWorker = new TournamentStatsWorker({
-    queue: statsConsumer,
     service: statsService,
     logger,
   });
+
+  runner.register(statsWorker.registration());
+
+  const jobListener = new JobListener({
+    connectionString: databaseUrl,
+    logger,
+    onReady: (queue) => runner.wake(queue),
+  });
+
+  const jobPruner = new JobPruner({
+    db,
+    logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
+
+  // Moves messages for queues that now run from the jobs table.
+  const rabbitMqBridge = new RabbitMqBridge({
+    url: dataWorkerEnv.amqpUrl,
+    db,
+    logger,
+    queues: [
+      {
+        queue: JobQueue.TournamentStats,
+        toJob: tournamentStatsJobFromMessage,
+      },
+    ],
+  });
+
+  setJobSummarySource({
+    queues: runner.queues,
+    read: () => withoutTracing(() => getJobQueueSummary(db)),
+  });
+
+  const apiRequestStatsFlush = setInterval(() => {
+    void withoutTracing(() => apiRequestStats.flush(db)).catch((error) => {
+      logger.error('Failed to save API request totals', { error });
+    });
+  }, API_REQUEST_STATS_FLUSH_MS);
 
   logger.info('Starting data worker services');
 
@@ -334,25 +383,28 @@ const bootstrap = async () => {
     osuWorker.start(),
     osuTrackWorker.start(),
     automationWorker.start(),
-    statsWorker.start(),
   ]);
-  consumers.push(
-    osuConsumer,
-    osuTrackConsumer,
-    automationConsumer,
-    statsConsumer
-  );
+  consumers.push(osuConsumer, osuTrackConsumer, automationConsumer);
+
+  await jobListener.start();
+  runner.start();
+  jobPruner.start();
+  await rabbitMqBridge.start();
+  consumers.push(rabbitMqBridge);
 
   await playerRefetchScheduler.start();
   await forumPostBackfill.run();
 
   const shutdown = async () => {
     logger.info('Shutting down data worker services');
+    clearInterval(apiRequestStatsFlush);
     await Promise.allSettled([
       osuWorker.stop(),
       osuTrackWorker.stop(),
       automationWorker.stop(),
-      statsWorker.stop(),
+      runner.stop(),
+      jobPruner.stop(),
+      rabbitMqBridge.stop(),
       playerRefetchScheduler.stop(),
       beatmapAttributes?.worker.stop(),
       beatmapAttributes?.scheduler.stop(),
@@ -362,6 +414,10 @@ const bootstrap = async () => {
     ]);
     // Closed after the osu! worker and the sweep stop, since both publish to it.
     await beatmapAttributesPublisher?.close();
+    await Promise.allSettled([
+      jobListener.stop(),
+      withoutTracing(() => apiRequestStats.flush(db)),
+    ]);
     process.exit(0);
   };
 

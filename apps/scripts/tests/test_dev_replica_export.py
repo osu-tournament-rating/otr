@@ -49,8 +49,22 @@ def excluded_tables(command: str) -> set[str]:
     return option_values(command, "--exclude-table-data")
 
 
-def test_dev_export_excludes_only_credential_table_data():
-    assert excluded_tables(dev_command()) == set(db.dev_secret_columns)
+def test_dev_export_excludes_only_credential_and_job_table_data():
+    assert excluded_tables(dev_command()) == set(db.dev_secret_columns) | {
+        "public.jobs"
+    }
+
+
+def test_dev_export_keeps_the_schema_of_tables_it_empties():
+    # Restores need an empty jobs table: its migration is already recorded,
+    # so nothing would create it again.
+    table_exclusion = re.compile(r"^(-T|--exclude-table(-and-children)?)(=|$)")
+
+    excluded = [
+        token for token in shlex.split(dev_command()) if table_exclusion.match(token)
+    ]
+
+    assert not excluded
 
 
 def test_redacted_rows_load_before_foreign_keys_are_added():
@@ -162,3 +176,11 @@ def test_public_export_never_publishes_credential_tables():
 
         assert table not in denied
         assert not CREDENTIAL_TABLE_NAME.search(name), table
+
+
+def test_public_export_never_publishes_job_rows():
+    # Job payloads, errors, and requesters are production state, not data.
+    published = option_values(db._export_command(buckets.PUBLIC, DEST), "--table")
+
+    assert published
+    assert "public.jobs" not in published

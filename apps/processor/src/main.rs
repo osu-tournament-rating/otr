@@ -1,8 +1,7 @@
 use clap::Parser;
 use otr_processor::{
-    args::{first_env, unset_blank_env, Args, ARGS_ENV_VARS, DATABASE_URL_VARS, RABBITMQ_URL_VARS},
+    args::{first_env, unset_blank_env, Args, ARGS_ENV_VARS, DATABASE_URL_VARS},
     database::db::DbClient,
-    messaging::RabbitMqPublisher,
     model::{otr_model::OtrModel, rating_utils::create_initial_ratings},
     utils::test_utils::generate_country_mapping_players
 };
@@ -30,18 +29,11 @@ async fn main() {
     // Initialize tracing with indicatif integration
     init_tracing(&args.log_level);
 
-    info!("Begin processing...");
+    // Every stats job this run queues carries the run id as its correlation id
+    let run_id = Uuid::new_v4().to_string();
+    info!(run_id, "Begin processing...");
 
     let client: DbClient = client().await;
-
-    // Initialize RabbitMQ publisher
-    let mut rabbitmq_publisher = match initialize_rabbitmq().await {
-        Ok(publisher) => Some(publisher),
-        Err(e) => {
-            warn!("Failed to initialize RabbitMQ: {}. Continuing without messaging.", e);
-            None
-        }
-    };
 
     let transaction_guard = client.begin_transaction().await.expect("Failed to begin transaction");
     info!("BEGIN TRANSACTION");
@@ -90,74 +82,53 @@ async fn main() {
         info!("Matches processed.");
 
         // 7. Save results in database
-        let track_rating_changes = rabbitmq_publisher.is_some();
-        if track_rating_changes {
-            client.snapshot_match_rating_adjustments().await?;
-        }
+        client.snapshot_match_rating_adjustments().await?;
 
         client.save_results(&results).await?;
         info!("Results saved to database.");
 
-        let rating_changed_tournament_ids = if track_rating_changes {
-            client.get_tournaments_with_changed_rating_adjustments().await?
-        } else {
-            Vec::new()
-        };
+        let rating_changed_tournament_ids = client.get_tournaments_with_changed_rating_adjustments().await?;
 
         // 8. Remove lingering stats and rosters for tournaments/matches/games rejected since the last run
         client.delete_rejected_player_stats().await?;
 
-        // 9. Emit messages for tournaments needing stats refresh
-        if let Some(ref mut publisher) = rabbitmq_publisher {
-            let mut tournaments_needing_refresh: BTreeSet<i32> = client
-                .get_tournaments_needing_stats_refresh(&all_tournament_ids)
-                .await?
+        // 9. Queue stats jobs for tournaments needing a refresh. They commit
+        // with the ratings, and a failed insert rolls back the whole run.
+        let mut tournaments_needing_refresh: BTreeSet<i32> = client
+            .get_tournaments_needing_stats_refresh(&all_tournament_ids)
+            .await?
+            .into_iter()
+            .collect();
+
+        let rating_change_count = rating_changed_tournament_ids.len();
+        let unavailable_rating_changes = rating_changed_tournament_ids
+            .iter()
+            .filter(|tournament_id| !tournament_info.contains_key(tournament_id))
+            .count();
+        tournaments_needing_refresh.extend(
+            rating_changed_tournament_ids
                 .into_iter()
-                .collect();
+                .filter(|tournament_id| tournament_info.contains_key(tournament_id))
+        );
 
-            let rating_change_count = rating_changed_tournament_ids.len();
-            let unavailable_rating_changes = rating_changed_tournament_ids
-                .iter()
-                .filter(|tournament_id| !tournament_info.contains_key(tournament_id))
-                .count();
-            tournaments_needing_refresh.extend(
-                rating_changed_tournament_ids
-                    .into_iter()
-                    .filter(|tournament_id| tournament_info.contains_key(tournament_id))
+        if unavailable_rating_changes > 0 {
+            warn!(
+                unavailable_rating_changes,
+                "Rating changes were detected for tournaments without currently processable matches"
             );
-
-            if unavailable_rating_changes > 0 {
-                warn!(
-                    unavailable_rating_changes,
-                    "Rating changes were detected for tournaments without currently processable matches"
-                );
-            }
-
-            let skipped = tournament_info.len().saturating_sub(tournaments_needing_refresh.len());
-            info!(
-                rating_changed_tournaments = rating_change_count,
-                "Enqueueing {} of {} tournaments for stats refresh ({} unchanged)",
-                tournaments_needing_refresh.len(),
-                tournament_info.len(),
-                skipped
-            );
-
-            for tournament_id in tournaments_needing_refresh {
-                if let Some(tournament_data) = tournament_info.get(&tournament_id) {
-                    let correlation_id = Some(Uuid::new_v4().to_string());
-
-                    if let Err(e) = publisher.ensure_connected().await {
-                        error!("Failed to ensure RabbitMQ connection: {}", e);
-                        continue;
-                    }
-
-                    match publisher.publish_tournament_stats(tournament_id, correlation_id).await {
-                        Ok(_) => info!("Enqueued stats: [{}] {}", tournament_id, tournament_data.name),
-                        Err(e) => error!("Failed to publish message for tournament {}: {}", tournament_id, e)
-                    }
-                }
-            }
         }
+
+        let skipped = tournament_info.len().saturating_sub(tournaments_needing_refresh.len());
+        info!(
+            rating_changed_tournaments = rating_change_count,
+            "Enqueueing {} of {} tournaments for stats refresh ({} unchanged)",
+            tournaments_needing_refresh.len(),
+            tournament_info.len(),
+            skipped
+        );
+
+        let tournament_ids: Vec<i32> = tournaments_needing_refresh.into_iter().collect();
+        client.enqueue_tournament_stats_jobs(&tournament_ids, &run_id).await?;
 
         Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
     }
@@ -169,7 +140,6 @@ async fn main() {
             // A failed COMMIT has already rolled the transaction back.
             if let Err(e) = transaction_guard.commit().await {
                 error!("Failed to commit transaction: {}", e);
-                cleanup_rabbitmq(&mut rabbitmq_publisher).await;
                 std::process::exit(1);
             }
             info!("COMMIT TRANSACTION");
@@ -185,13 +155,9 @@ async fn main() {
             } else {
                 error!("ROLLBACK TRANSACTION completed");
             }
-            cleanup_rabbitmq(&mut rabbitmq_publisher).await;
             std::process::exit(1);
         }
     }
-
-    // Clean up RabbitMQ connection
-    cleanup_rabbitmq(&mut rabbitmq_publisher).await;
 }
 
 async fn client() -> DbClient {
@@ -204,26 +170,6 @@ async fn client() -> DbClient {
             error!("Failed to connect to database: {}", e);
             error!("Application cannot start without a valid database connection");
             std::process::exit(1);
-        }
-    }
-}
-
-async fn initialize_rabbitmq() -> Result<RabbitMqPublisher, Box<dyn std::error::Error>> {
-    let rabbitmq_url = first_env(&RABBITMQ_URL_VARS).unwrap_or_else(|| "amqp://admin:admin@localhost:5672".to_string());
-
-    let routing_key =
-        std::env::var("RABBITMQ_ROUTING_KEY").unwrap_or_else(|_| "processing.stats.tournaments".to_string());
-
-    let mut publisher = RabbitMqPublisher::new(&rabbitmq_url, routing_key.clone(), routing_key);
-    publisher.connect().await?;
-
-    Ok(publisher)
-}
-
-async fn cleanup_rabbitmq(publisher: &mut Option<RabbitMqPublisher>) {
-    if let Some(mut publisher) = publisher.take() {
-        if let Err(e) = publisher.close().await {
-            error!("Failed to close RabbitMQ connection: {}", e);
         }
     }
 }

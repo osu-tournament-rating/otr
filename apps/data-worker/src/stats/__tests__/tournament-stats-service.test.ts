@@ -236,8 +236,8 @@ describe('TournamentStatsService', () => {
       calculator,
     });
 
-    const success = await service.processTournamentStats(tournament.id);
-    expect(success).toBe(true);
+    const outcome = await service.processTournamentStats(tournament.id);
+    expect(outcome).toEqual({ status: 'processed' });
 
     expect(db.transactions).toHaveLength(1);
     const [tx] = db.transactions;
@@ -263,7 +263,7 @@ describe('TournamentStatsService', () => {
     expect(tournamentStatsInsert?.values).toHaveLength(4);
   });
 
-  it('returns false when tournament is missing', async () => {
+  it('skips a missing tournament', async () => {
     const calculator = new TournamentStatsCalculator();
     const db = new StubDatabase(null);
 
@@ -273,12 +273,12 @@ describe('TournamentStatsService', () => {
       calculator,
     });
 
-    const success = await service.processTournamentStats(999);
-    expect(success).toBe(false);
+    const outcome = await service.processTournamentStats(999);
+    expect(outcome.status).toBe('skipped');
     expect(db.transactions).toHaveLength(0);
   });
 
-  it('returns false when calculator fails', async () => {
+  it('reports a failure when the calculator fails', async () => {
     const failingCalculator = {
       calculateAllStatistics(): StatsCalculationFailure {
         return { success: false, errorMessage: 'boom' };
@@ -294,8 +294,11 @@ describe('TournamentStatsService', () => {
       calculator: failingCalculator,
     });
 
-    const success = await service.processTournamentStats(tournament.id);
-    expect(success).toBe(false);
+    const outcome = await service.processTournamentStats(tournament.id);
+    expect(outcome).toEqual({
+      status: 'failed',
+      reason: 'Calculating statistics failed: boom',
+    });
     expect(db.transactions).toHaveLength(0);
   });
 });

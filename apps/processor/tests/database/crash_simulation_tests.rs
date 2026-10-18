@@ -43,14 +43,13 @@ fn processor_binary() -> &'static str {
     }
 }
 
-/// A processor run against the test database. Both URLs are set because dotenvy
-/// would otherwise load otr's root .env and reach the local services. The
-/// broker URL refuses connections, so the run continues without messaging.
+/// A processor run against the test database. `DATABASE_URL` is set because
+/// dotenvy would otherwise load it from otr's root .env and reach the local
+/// database.
 fn processor(binary: &str, test_db: &TestDatabase) -> Command {
     let mut command = Command::new(binary);
     command
         .env("DATABASE_URL", &test_db.connection_string)
-        .env("RABBITMQ_AMQP_URL", "amqp://127.0.0.1:1")
         .env("RUST_LOG", "warn")
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -130,6 +129,28 @@ async fn test_crash_leaves_database_consistent() {
     assert!(
         row_count(&check_client, "rating_adjustments").await > 0,
         "Run should save rating adjustments"
+    );
+
+    // The seeded tournament has no stats yet, so the run queues its stats job.
+    let tournament_id: i32 = check_client
+        .query_one("SELECT id FROM tournaments", &[])
+        .await
+        .expect("Failed to fetch tournament")
+        .get(0);
+    let queued: Vec<(Option<i32>, Option<String>)> = check_client
+        .query(
+            "SELECT tournament_id, payload->>'tournamentId' FROM jobs WHERE queue = 'processing.stats.tournaments'",
+            &[]
+        )
+        .await
+        .expect("Failed to read jobs")
+        .iter()
+        .map(|row| (row.get(0), row.get(1)))
+        .collect();
+    assert_eq!(
+        queued,
+        [(Some(tournament_id), Some(tournament_id.to_string()))],
+        "Run should queue one stats job for the seeded tournament"
     );
 
     // A stale placement makes the next run write before it reaches the lock below.

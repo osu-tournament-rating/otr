@@ -1,11 +1,13 @@
 import {
   SpanStatusCode,
+  context,
   trace,
   type Attributes,
   type Span,
   type SpanOptions,
   type Tracer,
 } from '@opentelemetry/api';
+import { suppressTracing } from '@opentelemetry/core';
 
 export const getTracer = (name = 'otr'): Tracer => trace.getTracer(name);
 
@@ -47,4 +49,9 @@ export function activeTraceId(): string | undefined {
   return context && trace.isSpanContextValid(context)
     ? context.traceId
     : undefined;
+}
+
+/** Runs `fn` without recording spans, for background polling that would flood traces. */
+export function withoutTracing<T>(fn: () => Promise<T>): Promise<T> {
+  return context.with(suppressTracing(context.active()), fn);
 }

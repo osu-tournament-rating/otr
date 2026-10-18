@@ -35,8 +35,8 @@ A failing test is a report. Work out what it reports before you touch it.
      `gh run list --workflow e2e-tests.yml --branch master --event schedule --limit 3`
      for it. CI runs the
      processor, scripts, and replay tests only when their app changes, and
-     the processor's also when the schema, migrations, or persisted enums
-     change.
+     the processor's also when the schema, migrations, persisted enums, or
+     job contracts change.
    - Run the test in your environment on a clean `master`:
      `git worktree add --detach <path> origin/master`, then
      `bun install --frozen-lockfile` there, then the test. Remove the worktree

@@ -8,6 +8,7 @@ import {
 import { withSpan } from './tracer';
 
 const MESSAGING_SYSTEM = 'rabbitmq';
+const JOBS_SYSTEM = 'otr_jobs';
 
 export type MessageHeaders = Record<string, unknown>;
 
@@ -51,10 +52,37 @@ const asStrings = (headers: MessageHeaders): Record<string, string> =>
     Object.entries(headers).map(([key, value]) => [key, String(value)])
   );
 
+/** Producer span around queueing jobs, whose rows carry its trace context. */
+export function traceEnqueue<T>(
+  queue: string,
+  run: () => Promise<T>
+): Promise<T> {
+  return withSpan(
+    `enqueue ${queue}`,
+    {
+      kind: SpanKind.PRODUCER,
+      attributes: {
+        'messaging.system': JOBS_SYSTEM,
+        'messaging.destination.name': queue,
+        'messaging.operation.name': 'publish',
+      },
+    },
+    run
+  );
+}
+
+/** The active trace as a carrier a job row stores for its consumer. */
+export function injectTraceContext(): Record<string, string> {
+  const carrier: Record<string, string> = {};
+  propagation.inject(context.active(), carrier);
+  return carrier;
+}
+
 export function traceConsume<T>(
   queue: string,
   headers: MessageHeaders | undefined,
-  run: () => Promise<T>
+  run: () => Promise<T>,
+  extraAttributes?: Attributes
 ): Promise<T> {
   const parent = propagation.extract(
     context.active(),
@@ -68,6 +96,7 @@ export function traceConsume<T>(
         kind: SpanKind.CONSUMER,
         attributes: queueAttributes(queue, {
           'messaging.operation.name': 'process',
+          ...extraAttributes,
         }),
       },
       run

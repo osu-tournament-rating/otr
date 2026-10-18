@@ -13,6 +13,7 @@ import {
   text,
   primaryKey,
   customType,
+  date,
 } from 'drizzle-orm/pg-core';
 import { sql, type SQL } from 'drizzle-orm';
 
@@ -2224,5 +2225,154 @@ export const dataReports = pgTable(
       foreignColumns: [users.id],
       name: 'fk_data_reports_users_resolved_by_user_id',
     }).onDelete('set null'),
+  ]
+);
+
+/**
+ * Background work the data worker claims and runs, one row per job. The
+ * processor inserts tournament stats jobs with raw SQL, so `queue`,
+ * `payload`, `tournament_id` and the column defaults are a contract with it.
+ * Rows that reach a terminal status are pruned after 14 days; the daily totals
+ * tables keep their history.
+ */
+export const jobs = pgTable(
+  'jobs',
+  {
+    id: bigint({ mode: 'number' }).primaryKey().generatedAlwaysAsIdentity({
+      name: 'jobs_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      cache: 1,
+    }),
+    // JobQueue.
+    queue: varchar({ length: 64 }).notNull(),
+    // Identifies the same work, so a second request merges into the active
+    // row instead of adding one. Null rows never merge.
+    dedupKey: varchar('dedup_key', { length: 128 }),
+    payload: jsonb().$type<Record<string, unknown>>().notNull(),
+    // MessagePriority. Higher runs first.
+    priority: integer().default(5).notNull(),
+    // JobStatus.
+    status: integer().default(0).notNull(),
+    // Claims so far, counted when a job is claimed, so a crash uses one up.
+    attempts: integer().default(0).notNull(),
+    maxAttempts: integer('max_attempts').default(5).notNull(),
+    // Someone asked for this work again while it ran, so it runs once more.
+    rerunRequested: boolean('rerun_requested').default(false).notNull(),
+    runAfter: timestamp('run_after', { withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    lockedBy: varchar('locked_by', { length: 128 }),
+    lockedUntil: timestamp('locked_until', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    lastError: text('last_error'),
+    // W3C trace context of whatever queued the job.
+    traceContext: jsonb('trace_context').$type<Record<string, string>>(),
+    correlationId: varchar('correlation_id', { length: 128 })
+      .default(sql`gen_random_uuid()::text`)
+      .notNull(),
+    // The tournament the work is for, when it is for one. No foreign key: a
+    // job never blocks or is blocked by a tournament delete.
+    tournamentId: integer('tournament_id'),
+    // users.id of whoever asked; null for system work. No foreign key.
+    requestedByUserId: integer('requested_by_user_id'),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updated: timestamp({ withTimezone: true, mode: 'string' }),
+    // The latest claim.
+    started: timestamp({ withTimezone: true, mode: 'string' }),
+    // When the job reached a terminal status.
+    finished: timestamp({ withTimezone: true, mode: 'string' }),
+  },
+  (table) => [
+    index('ix_jobs_claim')
+      .using(
+        'btree',
+        table.queue.asc().nullsLast().op('text_ops'),
+        table.priority.desc().nullsFirst().op('int4_ops'),
+        table.runAfter.asc().nullsLast().op('timestamptz_ops'),
+        table.id.asc().nullsLast().op('int8_ops')
+      )
+      .where(sql`status = 0`),
+    uniqueIndex('ix_jobs_queue_dedup_key_active')
+      .using(
+        'btree',
+        table.queue.asc().nullsLast().op('text_ops'),
+        table.dedupKey.asc().nullsLast().op('text_ops')
+      )
+      .where(sql`status IN (0, 1) AND dedup_key IS NOT NULL`),
+    // Keyed on id, not locked_until, so a lease renewal stays a HOT update.
+    index('ix_jobs_running')
+      .using('btree', table.id.asc().nullsLast().op('int8_ops'))
+      .where(sql`status = 1`),
+    index('ix_jobs_status_finished')
+      .using(
+        'btree',
+        table.status.asc().nullsLast().op('int4_ops'),
+        table.finished.asc().nullsLast().op('timestamptz_ops')
+      )
+      .where(sql`status IN (2, 3, 4)`),
+    index('ix_jobs_tournament_id')
+      .using('btree', table.tournamentId.asc().nullsLast().op('int4_ops'))
+      .where(sql`tournament_id IS NOT NULL`),
+  ]
+);
+
+/** Job totals per UTC day and queue. Never pruned. */
+export const jobStatsDaily = pgTable(
+  'job_stats_daily',
+  {
+    day: date({ mode: 'string' }).notNull(),
+    queue: varchar({ length: 64 }).notNull(),
+    // Jobs created that day. Requests merged into an active job don't count.
+    enqueued: integer().default(0).notNull(),
+    // Attempts that finished that day, by outcome.
+    succeeded: integer().default(0).notNull(),
+    retried: integer().default(0).notNull(),
+    failed: integer().default(0).notNull(),
+    discarded: integer().default(0).notNull(),
+    // Jobs an admin cancelled before they ran.
+    cancelled: integer().default(0).notNull(),
+    // Leases taken back from a worker that stopped renewing them.
+    reclaimed: integer().default(0).notNull(),
+    // Run time of the finished attempts.
+    totalDurationMs: bigint('total_duration_ms', { mode: 'number' })
+      .default(0)
+      .notNull(),
+    maxDurationMs: integer('max_duration_ms').default(0).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.day, table.queue],
+      name: 'pk_job_stats_daily',
+    }),
+  ]
+);
+
+/** Outbound osu! and osu!track API requests per UTC day. Never pruned. */
+export const apiRequestStatsDaily = pgTable(
+  'api_request_stats_daily',
+  {
+    day: date({ mode: 'string' }).notNull(),
+    // 'osu' or 'osutrack'.
+    service: varchar({ length: 32 }).notNull(),
+    endpoint: varchar({ length: 64 }).notNull(),
+    // The same status labels as the worker's request metrics.
+    status: varchar({ length: 32 }).notNull(),
+    count: integer().default(0).notNull(),
+    totalDurationMs: bigint('total_duration_ms', { mode: 'number' })
+      .default(0)
+      .notNull(),
+    maxDurationMs: integer('max_duration_ms').default(0).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.day, table.service, table.endpoint, table.status],
+      name: 'pk_api_request_stats_daily',
+    }),
   ]
 );

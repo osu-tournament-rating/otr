@@ -1,5 +1,6 @@
 import { APIError } from './client';
 import {
+  apiRequestStats,
   osuApiRequests,
   osuApiDuration,
   type OsuApiEndpoint,
@@ -62,7 +63,9 @@ export const withApiMetrics = async <T>(
     status = 'error';
     throw error;
   } finally {
+    const durationMs = Date.now() - start;
     osuApiRequests.labels({ endpoint, status }).inc();
-    osuApiDuration.labels({ endpoint }).observe((Date.now() - start) / 1000);
+    osuApiDuration.labels({ endpoint }).observe(durationMs / 1000);
+    apiRequestStats.record('osu', endpoint, status, durationMs);
   }
 };

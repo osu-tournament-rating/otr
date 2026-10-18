@@ -54,7 +54,9 @@ configured application database.
 - Public archives contain the full schema and only data from
   `public_data_table_whitelist`, publish a SHA-256 file, and refresh the HTML
   index. Dev archives mirror production data except `dev_secret_columns`, which
-  are reinserted redacted. Add every new credential column to that list.
+  are reinserted redacted. Add every new credential column to that list. They
+  also leave out the rows of `dev_excluded_table_data`, the queued jobs, whose
+  tables restore empty.
 - `recovery` stops services, replaces its configured database, and replays the
   deployed image's pending migrations through the Compose `migrate` profile
   before the stack returns; a failed migration fails the run. It removes only
@@ -107,6 +109,10 @@ without syncing the venv. It refuses to run in the main checkout.
   database is a `cp --reflink=auto` copy of the base, which is nearly instant
   and shares disk blocks on btrfs or XFS. `up --fresh` rebuilds the base and
   replaces the stack's copy.
+- A new copy's jobs are deleted before its migrations run, so the stack's
+  worker never runs jobs queued in the local database. A worker still running
+  when `up --fresh` replaces the copy is stopped until then. Restarting a stack
+  keeps its jobs.
 - Each `up` runs `bun install --frozen-lockfile` and the worktree's pending
   migrations. The web app and worker run on the host from the worktree's code,
   in their own process groups. RabbitMQ and monitoring (`grafana/otel-lgtm`)

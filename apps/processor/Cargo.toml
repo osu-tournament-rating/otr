@@ -35,12 +35,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-indicatif = "0.3"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 futures = "0.3.34"
-lapin = { version = "4.12.1", default-features = false, features = ["tokio"] }
-serde_json = "1.0.154"
-uuid = { version = "1.28", features = ["serde", "v4"] }
+uuid = { version = "1.28", features = ["v4"] }
 
 [dev-dependencies]
 approx = "0.5.1"
+serde_json = "1.0.154"
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serial_test = "4.0"

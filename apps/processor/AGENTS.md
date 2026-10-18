@@ -9,7 +9,7 @@ unstable options.
 This app owns rating calculation and full-rebuild SQL. The rest of otr owns
 the schema and migrations. Treat the boundary as a contract. Start task
 configuration from the root `.env.example`; never copy credentials, commit
-`.env`, or log a credentialed PostgreSQL or RabbitMQ URL.
+`.env`, or log a credentialed PostgreSQL URL.
 
 `dotenvy` looks for `.env` in the working directory, then in each parent, and
 loads the first one it finds without overriding variables already set. A run
@@ -17,33 +17,28 @@ from `apps/processor` therefore reads the root `.env` of its checkout. A `.env`
 in this directory would shadow the root one.
 
 Running the binary rewrites every rating in its target database, so run it only
-against your worktree's own stack. `apps/scripts/otr up rabbitmq --no-web`
-points the worktree's `DATABASE_URL` and `RABBITMQ_AMQP_URL` at that stack, and
-a run from this directory then uses both. `rabbitmq` gives the stats messages a
-broker; without it the processor logs the failed connection and continues
-without messaging. Never run the binary from the main checkout, whose `.env`
-targets the developer's database, or against production, the dev tier, or a
-template database. Testcontainers tests start their own databases.
+against your worktree's own stack. `apps/scripts/otr up --no-web` points the
+worktree's `DATABASE_URL` at that stack, and a run from this directory then
+uses it. The stats jobs a run queues wait in that database's `jobs` table until
+a data worker claims them. Never run the binary from the main checkout, whose
+`.env` targets the developer's database, or against production, the dev tier,
+or a template database. Testcontainers tests start their own databases.
 
 ## Commands
 
 - `cargo run -- --help` lists options. A run needs `DATABASE_URL`, or
-  `CONNECTION_STRING`, which the production cron still passes. RabbitMQ reads
-  `RABBITMQ_AMQP_URL`, then `RABBITMQ_URL`.
+  `CONNECTION_STRING`, which the production cron still passes, and nothing
+  else: it queues stats jobs in the same database, with no broker.
 - `cargo test` runs unit tests. Database tests use Testcontainers and Docker,
   and build each database from otr's drizzle migrations.
-  The real-broker tests are ignored by default. Run them with
-  `OTR_TEST_RABBITMQ_URL=<url> cargo test -- --ignored`, where `<url>` is the
-  stack's `RABBITMQ_AMQP_URL` after `apps/scripts/otr up rabbitmq --no-web`.
-  They fail when the variable is unset and never fall back to a default broker.
-  Never point it at the developer's broker on port 5672.
-  A test that spawns the binary sets `DATABASE_URL` and any broker URL itself;
-  otherwise the root `.env` supplies them.
+  A test that spawns the binary sets `DATABASE_URL` itself; otherwise the root
+  `.env` supplies it.
 - Before handoff: `cargo +nightly fmt -- --check`, `cargo clippy`, `cargo test`,
   and `git diff --check`. Report unavailable infrastructure as blocked.
 - CI runs fmt, clippy with `-D warnings`, and tests only when a change touches
   `apps/processor/**`, `apps/web/drizzle/**`, `packages/otr-core/src/db/**`,
-  or `packages/otr-core/src/osu/enums.ts`, and builds the image on such a
+  `packages/otr-core/src/jobs/**`, `packages/otr-core/src/osu/enums.ts`, or
+  `packages/otr-core/src/messages/values.ts`, and builds the image on such a
   pull request.
 - A release pushes `stagecodes/otr-processor:<release tag>` only when this
   directory changed since the previous release; release notes name the image
@@ -52,9 +47,9 @@ template database. Testcontainers tests start their own databases.
 ## Ownership
 
 `src/main.rs` orchestrates one recomputation transaction. Keep math in
-`src/model/`, persistence in `src/database/`, RabbitMQ behavior in
-`src/messaging/`, CLI or environment parsing in `src/args.rs`, and shared helpers
-in `src/utils/`. Use structured `tracing` fields for diagnostics.
+`src/model/`, persistence, including the stats jobs a run queues, in
+`src/database/`, CLI or environment parsing in `src/args.rs`, and shared
+helpers in `src/utils/`. Use structured `tracing` fields for diagnostics.
 
 Centralize rating constants in their existing domain modules. A constant change
 can rewrite all history; pair it with explicit impact analysis and deterministic
@@ -76,7 +71,7 @@ tests.
 - Use deterministic fixtures with explicit times and placements. Give float
   assertions a meaningful tolerance.
 
-## Database and messaging contracts
+## Database and job contracts
 
 - `src/database/` consumes the otr schema at
   `packages/otr-core/src/db/schema.ts`; migrations live in `apps/web/drizzle/`.
@@ -86,10 +81,23 @@ tests.
   update their seed data when a column they insert changes. Use additive
   migrations.
 - Keep recomputation writes on one connection inside the transaction guard.
-  Preserve rollback around truncation, `COPY`, score updates, and stale-stat
-  deletion.
-- The stats exchange, queue, routing key, AMQP properties, and camel-case
-  `ProcessTournamentStatsMessage` JSON are worker contracts.
-- Publishing can fail independently and occurs before database commit. Preserve
-  publish-failure logs and the current behavior that does not abort the rebuild.
-  Do not assume exactly-once delivery or committed data at publication time.
+  Preserve rollback around truncation, `COPY`, score updates, stale-stat
+  deletion, and stats job inserts.
+- Tournament stats jobs are rows in otr's `jobs` table, inserted inside the
+  rating transaction, so they commit or roll back with the ratings. A failed
+  insert fails the run. The one exception is a database with no `jobs` table,
+  such as an older public replica that otr-replay runs a newer release
+  against: the run logs a warning and queues nothing.
+- Never add a dedup key or `ON CONFLICT` to that insert. Under repeatable read,
+  a conflict with a row committed after the run's snapshot raises a
+  serialization failure and rolls back the whole run. Duplicate stats jobs are
+  harmless, since each rewrites the tournament's stats.
+- The queue name `processing.stats.tournaments`, the camel-case payload
+  `{"tournamentId": <id>}`, and the column defaults the insert relies on,
+  pending status and normal priority, are contracts with the data worker.
+  `tests/contracts/` checks the queue name, `JobStatus.Pending`, and
+  `MessagePriority.Normal` against `@otr/core`, and the database tests check the
+  payload against `packages/otr-core/src/jobs/__fixtures__/`, which the worker's
+  tests also read.
+- Every stats job a run queues carries the run id, logged when the run starts,
+  as its `correlation_id`.

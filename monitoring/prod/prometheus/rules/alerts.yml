@@ -124,6 +124,43 @@ groups:
         annotations:
           summary: '{{ $value }} more messages failed for good in {{ $labels.queue }}'
 
+  # The data worker's jobs table in PostgreSQL. The worker exports its counts
+  # by queue and state, and whether each queue's loop is claiming jobs.
+  - name: jobs
+    rules:
+      # Delayed jobs count: during an osu! outage, jobs waiting out a retry
+      # backoff are still backlog.
+      - alert: JobQueueDepthHigh
+        expr: sum by (queue) (data_worker_jobs{state=~"ready|delayed|running"}) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value }} jobs are waiting in {{ $labels.queue }}'
+
+      # A job is parked after five failed attempts, and nothing retries it.
+      # Only queues that run from the jobs table; RabbitMQ parks have their own alert.
+      - alert: JobsFailed
+        expr: increase(data_worker_queue_messages_processed_total{status="parked"}[15m]) > 0 and on (queue) group by (queue) (data_worker_jobs_loop_active)
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ printf "%.0f" $value }} more jobs failed for good in {{ $labels.queue }}'
+
+      # Errors and parked jobs count as finished, so an osu! outage doesn't
+      # fire this. The loop is inactive while stopped or paused for the
+      # maintenance window, which holds jobs back on purpose.
+      - alert: JobsStalled
+        expr: |
+          (sum by (queue) (data_worker_jobs{state="ready"}) > 0)
+          and on (queue) (sum by (queue) (increase(data_worker_queue_messages_processed_total[15m])) == 0)
+          and on (queue) (max by (queue) (data_worker_jobs_loop_active) == 1)
+        for: 20m
+        labels:
+          severity: critical
+        annotations:
+          summary: Jobs are ready in {{ $labels.queue }}, but the worker has finished none in 15 minutes
+
   - name: application
     rules:
       # Mostly down rather than always down, so a crash loop that answers the

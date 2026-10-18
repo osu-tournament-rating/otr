@@ -34,6 +34,8 @@ export interface RabbitMqConsumerOptions {
   connectionFactory?: () => Promise<ChannelModel>;
   /** Wait before reconnect attempt `attempt` (1-based). */
   reconnectDelayMs?: (attempt: number) => number;
+  /** The queue label on metrics, when it should differ from `queue`. */
+  metricsQueue?: string;
 }
 
 const maxReconnectDelayMs = 30_000;
@@ -260,7 +262,7 @@ export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
       },
     };
 
-    const labels = { queue: this.options.queue };
+    const labels = { queue: this.options.metricsQueue ?? this.options.queue };
     queueMessagesInFlight.labels(labels).inc();
     const startTime = Date.now();
 
@@ -296,6 +298,7 @@ export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
     error: unknown
   ) {
     const queue = this.options.queue;
+    const metricsQueue = this.options.metricsQueue ?? queue;
     const attempts = readAttempt(message.properties.headers) + 1;
     const park = attempts >= QueueRetryPolicy.maxAttempts;
     const target = park ? failedQueueName(queue) : retryQueueName(queue);
@@ -322,7 +325,9 @@ export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
           publishError,
         }
       );
-      queueMessagesProcessed.labels({ queue, status: 'error' }).inc();
+      queueMessagesProcessed
+        .labels({ queue: metricsQueue, status: 'error' })
+        .inc();
       channel.nack(message, false, true);
       return;
     }
@@ -334,14 +339,18 @@ export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
         ...context,
         target,
       });
-      queueMessagesProcessed.labels({ queue, status: 'parked' }).inc();
+      queueMessagesProcessed
+        .labels({ queue: metricsQueue, status: 'parked' })
+        .inc();
     } else {
       this.logger.warn('Queue message failed; scheduled a delayed retry', {
         ...context,
         target,
         retryDelayMs: QueueRetryPolicy.retryDelayMs,
       });
-      queueMessagesProcessed.labels({ queue, status: 'error' }).inc();
+      queueMessagesProcessed
+        .labels({ queue: metricsQueue, status: 'error' })
+        .inc();
     }
   }
 }

@@ -16,34 +16,12 @@ pub struct Args {
         value_parser = ["trace", "debug", "info", "warn", "error"],
         help = "Sets the logging verbosity"
     )]
-    pub log_level: String,
-
-    /// RabbitMQ connection URL
-    #[arg(
-        long,
-        env = "RABBITMQ_URL",
-        default_value = "amqp://guest:guest@localhost:5672",
-        help = "RabbitMQ connection URL"
-    )]
-    pub rabbitmq_url: String,
-
-    /// RabbitMQ routing key for tournament stats events
-    #[arg(
-        long,
-        env = "RABBITMQ_ROUTING_KEY",
-        default_value = "processing.stats.tournaments",
-        help = "RabbitMQ routing key for tournament stats events"
-    )]
-    pub rabbitmq_routing_key: String
+    pub log_level: String
 }
 
 /// Database URL variables, preferred first. `DATABASE_URL` is the name otr
 /// shares; the production cron still passes `CONNECTION_STRING`.
 pub const DATABASE_URL_VARS: [&str; 2] = ["DATABASE_URL", "CONNECTION_STRING"];
-
-/// RabbitMQ URL variables, preferred first. `RABBITMQ_AMQP_URL` is the name
-/// otr shares; the production cron still passes `RABBITMQ_URL`.
-pub const RABBITMQ_URL_VARS: [&str; 2] = ["RABBITMQ_AMQP_URL", "RABBITMQ_URL"];
 
 /// The value of the first variable in `names` that is set and not blank.
 pub fn first_env(names: &[&str]) -> Option<String> {
@@ -59,7 +37,7 @@ fn first_set(names: &[&str], lookup: impl Fn(&str) -> Option<String>) -> Option<
 
 /// Variables clap reads into [`Args`]. clap rejects a blank one instead of
 /// using the default, so [`unset_blank_env`] removes it before parsing.
-pub const ARGS_ENV_VARS: [&str; 3] = ["RUST_LOG", "RABBITMQ_URL", "RABBITMQ_ROUTING_KEY"];
+pub const ARGS_ENV_VARS: [&str; 1] = ["RUST_LOG"];
 
 /// Removes each variable in `names` that is set but blank, so `KEY=` reads as
 /// unset. Call it before [`Args::parse`].
@@ -100,9 +78,6 @@ mod tests {
     fn test_first_set_falls_back_to_the_legacy_name() {
         let vars = [("CONNECTION_STRING", "legacy")];
         assert_eq!(first_set(&DATABASE_URL_VARS, lookup(&vars)), Some("legacy".to_string()));
-
-        let vars = [("RABBITMQ_URL", "legacy")];
-        assert_eq!(first_set(&RABBITMQ_URL_VARS, lookup(&vars)), Some("legacy".to_string()));
     }
 
     #[test]
@@ -110,8 +85,8 @@ mod tests {
         let vars = [("DATABASE_URL", ""), ("CONNECTION_STRING", "legacy")];
         assert_eq!(first_set(&DATABASE_URL_VARS, lookup(&vars)), Some("legacy".to_string()));
 
-        let vars = [("RABBITMQ_AMQP_URL", "   "), ("RABBITMQ_URL", "legacy")];
-        assert_eq!(first_set(&RABBITMQ_URL_VARS, lookup(&vars)), Some("legacy".to_string()));
+        let vars = [("DATABASE_URL", "   "), ("CONNECTION_STRING", "legacy")];
+        assert_eq!(first_set(&DATABASE_URL_VARS, lookup(&vars)), Some("legacy".to_string()));
 
         let vars = [("DATABASE_URL", ""), ("CONNECTION_STRING", "")];
         assert_eq!(first_set(&DATABASE_URL_VARS, lookup(&vars)), None);
@@ -120,13 +95,10 @@ mod tests {
 
     #[test]
     fn test_blank_vars_finds_only_blank_values() {
-        let vars = [
-            ("RUST_LOG", ""),
-            ("RABBITMQ_URL", "   "),
-            ("RABBITMQ_ROUTING_KEY", "stats")
-        ];
-        assert_eq!(blank_vars(&ARGS_ENV_VARS, lookup(&vars)), ["RUST_LOG", "RABBITMQ_URL"]);
-        assert!(blank_vars(&ARGS_ENV_VARS, lookup(&[])).is_empty());
+        let names = ["EMPTY", "SPACES", "SET"];
+        let vars = [("EMPTY", ""), ("SPACES", "   "), ("SET", "value")];
+        assert_eq!(blank_vars(&names, lookup(&vars)), ["EMPTY", "SPACES"]);
+        assert!(blank_vars(&names, lookup(&[])).is_empty());
     }
 
     #[test]
@@ -154,7 +126,5 @@ mod tests {
 
         let args = args.expect("blank variables should fall back to the defaults");
         assert_eq!(args.log_level, "info");
-        assert_eq!(args.rabbitmq_url, "amqp://guest:guest@localhost:5672");
-        assert_eq!(args.rabbitmq_routing_key, "processing.stats.tournaments");
     }
 }

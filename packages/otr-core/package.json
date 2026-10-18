@@ -12,6 +12,8 @@
     "./osu/*": "./src/osu/*",
     "./maintenance": "./src/maintenance/window.ts",
     "./maintenance/*": "./src/maintenance/*",
+    "./jobs": "./src/jobs/index.ts",
+    "./jobs/*": "./src/jobs/*",
     "./queues": "./src/queues/index.ts",
     "./queues/*": "./src/queues/*",
     "./messages/*": "./src/messages/*",
