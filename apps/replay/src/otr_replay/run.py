@@ -30,8 +30,9 @@ from otr_replay.sandbox import (
 )
 
 RABBITMQ_NOTE = (
-    "The processor will warn that RabbitMQ is unreachable and continue; "
-    "this is expected, as a replay runs without messaging."
+    "Older processor releases warn that RabbitMQ is unreachable, and newer "
+    "ones may warn that the replica has no jobs table; either is expected, "
+    "as a replay queues no follow-up work."
 )
 
 

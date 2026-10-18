@@ -22,9 +22,10 @@ on:
 jobs:
   # Decides whether the processor, docs, scripts, and replay jobs run: only when
   # a file under apps/processor/, apps/docs/, apps/scripts/, or apps/replay/
-  # changed. The processor jobs also run when the schema, the migrations, or
-  # the enums the processor stores as numbers change, because its tests build
-  # their database from the migrations and check those enums. On a pull
+  # changed. The processor jobs also run when the schema, the migrations, the
+  # enums the processor stores as numbers, or the job queue, status, and
+  # priority values its stats jobs rely on change, because its tests build
+  # their database from the migrations and check those values. On a pull
   # request, CI checks out GitHub's trial merge of the pull request into
   # master, so comparing it with master lists exactly what the pull request
   # changes. When deploy.yml runs CI on a push to master, the job
@@ -68,7 +69,7 @@ jobs:
           # file moved out of apps/processor/ still counts.
           changed="$(git diff --name-only --no-renames "$base" HEAD)"
           processor=false
-          if grep -qE '^(apps/processor/|apps/web/drizzle/|packages/otr-core/src/db/|packages/otr-core/src/osu/enums\.ts$)' <<<"$changed"; then
+          if grep -qE '^(apps/processor/|apps/web/drizzle/|packages/otr-core/src/db/|packages/otr-core/src/jobs/|packages/otr-core/src/osu/enums\.ts$|packages/otr-core/src/messages/values\.ts$)' <<<"$changed"; then
             processor=true
           fi
           docs=false
