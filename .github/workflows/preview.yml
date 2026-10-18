@@ -1,7 +1,7 @@
 name: PR preview
 
 # Publishes a labelled PR to a private tailnet URL. Runs the website only:
-# the database and queue come from the shared dev tier, and no data worker
+# the database comes from the shared dev tier, and no data worker
 # means previews never call the osu! API.
 #
 # A preview runs pull-request code on the deployment host, which also hosts

@@ -1,5 +1,5 @@
 # Per-PR preview stack: website and its tailnet endpoint only.
-# The database and queue come from the shared dev tier (docker-compose-dev.yml);
+# The database comes from the shared dev tier (docker-compose-dev.yml);
 # the data worker deliberately does not run here, so previews make no osu! API
 # calls. Deploy with a per-PR project name: `docker compose -p otr-pr-<n> up -d`.
 # No service may declare container_name or previews would collide.
@@ -19,7 +19,6 @@ services:
       - ./.env
     environment:
       DATABASE_URL: ${DOCKER_DATABASE_URL}
-      RABBITMQ_AMQP_URL: ${DOCKER_RABBITMQ_AMQP_URL}
       BETTER_AUTH_URL: ${PREVIEW_URL}
       NEXT_PUBLIC_APP_BASE_URL: ${PREVIEW_URL}
       # The tailnet URL is served by the sidecar and is unreachable from this

@@ -1,7 +1,7 @@
-# Shared dev tier: database and queue only, used by every PR preview stack.
-# Preview stacks attach to the `otr-dev` network and reach these by alias.
+# Shared dev tier: database only, used by every PR preview stack.
+# Preview stacks attach to the `otr-dev` network and reach it by alias.
 #
-# The five variables below are the whole of the DEV_ENV secret. dev-db.sh
+# The three variables below are the whole of the DEV_ENV secret. dev-db.sh
 # sources the same .env for the postgres credentials, so they are defined once.
 name: otr-dev
 
@@ -58,33 +58,6 @@ services:
       retries: 20
       start_period: 5s
 
-  rabbitmq:
-    # Matches docker-compose.yml. A dev tier deploy restarts the broker when
-    # this line changes.
-    image: rabbitmq:4.3.6-management@sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58
-    container_name: otr-dev-rabbitmq
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:5872:5672'
-      - '127.0.0.1:15872:15672'
-    environment:
-      RABBITMQ_DEFAULT_USER: ${DOCKER_RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${DOCKER_RABBITMQ_PASSWORD}
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    networks:
-      otr-dev:
-        aliases:
-          - otr-dev-rabbitmq
-    healthcheck:
-      test: ['CMD-SHELL', 'rabbitmq-diagnostics -q ping']
-      interval: 10s
-      timeout: 5s
-      retries: 12
-
 networks:
   otr-dev:
     name: otr-dev
-
-volumes:
-  rabbitmq-data:
