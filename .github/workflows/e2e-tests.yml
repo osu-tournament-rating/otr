@@ -1,8 +1,8 @@
 name: E2E Tests
 
 # Nightly on master, and by hand on any branch: spins up Postgres + RabbitMQ
-# in the runner, restores a production-replica dump via apps/scripts, and runs
-# playwright.
+# in the runner, restores the redacted dev archive via apps/scripts, and runs
+# playwright. PR previews and the dev tier restore the same archive.
 on:
   schedule:
     - cron: '0 4 * * *'
@@ -132,7 +132,7 @@ jobs:
         working-directory: apps/scripts
         run: |
           cat > .env <<EOF
-          ENVIRONMENT=production
+          ENVIRONMENT=dev
           TAG=latest
           DUMP_DIR=/tmp/otr-dumps
           PUBLIC_HTML_DIR=/tmp/otr-public-html
@@ -161,9 +161,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Restore production-replica database via apps/scripts
+      - name: Restore dev archive via apps/scripts
         working-directory: apps/scripts
-        run: uv run python src/main.py -s recovery --recovery-bucket production
+        run: uv run python src/main.py -s recovery --recovery-bucket dev
 
       - name: Wait for db healthy
         run: |
@@ -194,7 +194,7 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report/
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload Playwright traces
         uses: actions/upload-artifact@v4
@@ -202,7 +202,7 @@ jobs:
         with:
           name: test-traces
           path: apps/web/test-results/
-          retention-days: 30
+          retention-days: 3
 
       - name: Tear down containers
         if: always()

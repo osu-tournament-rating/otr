@@ -31,9 +31,12 @@ A failing test is a report. Work out what it reports before you touch it.
    - See whether master's CI fails it. Run
      `gh run list --workflow deploy.yml --branch master --event push --limit 3`,
      then `gh run view <id> --log-failed`. Master's CI never runs the
-     Playwright suite. It runs the processor, scripts, and replay tests only
-     when their app changes, and the processor's also when the schema,
-     migrations, or persisted enums change.
+     Playwright suite; the nightly `e2e-tests.yml` workflow does, so check
+     `gh run list --workflow e2e-tests.yml --branch master --event schedule --limit 3`
+     for it. CI runs the
+     processor, scripts, and replay tests only when their app changes, and
+     the processor's also when the schema, migrations, or persisted enums
+     change.
    - Run the test in your environment on a clean `master`:
      `git worktree add --detach <path> origin/master`, then
      `bun install --frozen-lockfile` there, then the test. Remove the worktree
@@ -152,9 +155,10 @@ Each of these passes while the code it names is broken:
 
 ## End-to-end tests
 
-The Playwright suite runs in no CI job, on pull requests or on `master`. Run
-the specs you change yourself, from `apps/web` with your stack up:
-`bun run test:e2e <spec>`. It serves the site on port 3001 and a fake osu!
+The Playwright suite runs nightly on `master` in `e2e-tests.yml`, against the
+redacted dev archive, and by hand on any branch through `workflow_dispatch`. It
+runs on no pull request, so run the specs you change yourself, from
+`apps/web` with your stack up: `bun run test:e2e <spec>`. It serves the site on port 3001 and a fake osu!
 server on 3002. If another worktree already serves on those ports, the run
 tests that worktree's site instead, so stop it first.
 
