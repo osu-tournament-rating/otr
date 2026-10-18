@@ -1,0 +1,169 @@
+<!-- @dsCard group="Layout" height=760 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DetailHero</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        VS = O.osu.VerificationStatus;
+      var noop = function () {};
+      var BEATMAP_ADMIN_ACTIONS = [
+        { label: 'Edit beatmap data', icon: I.PencilLine, onSelect: noop },
+      ];
+      var TOURNAMENT_ADMIN_ACTIONS = [
+        { label: 'Edit tournament', icon: I.PencilLine, onSelect: noop },
+        { label: 'Reset automated checks', icon: I.RotateCcw, onSelect: noop },
+        {
+          label: 'Delete tournament',
+          icon: I.Trash2,
+          destructive: true,
+          onSelect: noop,
+        },
+      ];
+      // HAELEQUIN's cover, as the beatmap hero shows it (the frame shows its fallback).
+      function HeroArt() {
+        return h(O.BeatmapCover, {
+          beatmapsetOsuId: null,
+          alt: '',
+          sizes: '(max-width: 1050px) 100vw, 1050px',
+          className: 'absolute inset-0',
+          imageClassName: 'saturate-75',
+        });
+      }
+      function BeatmapHero() {
+        return h(
+          O.DetailHero,
+          {
+            art: h(HeroArt),
+            title: 'HAELEQUIN',
+            titleSuffix: "[alacat's Light Insane]",
+            meta: h(
+              React.Fragment,
+              null,
+              h(O.HeroMetaItem, { icon: I.Music2 }, 'orangentle'),
+              h(O.HeroMetaItem, { icon: I.UserRound }, 'Mapped by Gamu, alacat')
+            ),
+            adminActions: h(O.AdminMenu, {
+              onArt: true,
+              actions: BEATMAP_ADMIN_ACTIONS,
+            }),
+            actions: h(
+              O.Button,
+              { variant: 'overlay', size: 'sm', icon: I.Play },
+              'Preview'
+            ),
+          },
+          h(
+            'div',
+            {
+              className:
+                'flex flex-wrap items-center gap-x-4 gap-y-2 p-4 text-sm font-semibold',
+            },
+            h(O.StarRatingPill, {
+              starRating: 4.28,
+              size: 'md',
+              valueClassName: 'font-bold',
+            }),
+            h(O.HeroMetaItem, { icon: I.Activity }, '167 BPM'),
+            h(O.HeroMetaItem, { icon: I.Clock3 }, '2:16')
+          )
+        );
+      }
+      function TournamentHero() {
+        return h(O.DetailHero, {
+          art: h(HeroArt),
+          title: 'Break The Meta Cup',
+          titleSuffix: 'BTMC',
+          status: h(O.VerificationStatusBadge, {
+            status: VS.Verified,
+            variant: 'overlay',
+            reviewer: 'apricot',
+            tooltip: 'tap',
+          }),
+          meta: h(
+            React.Fragment,
+            null,
+            h(O.HeroMetaItem, { icon: I.Users }, '1v1'),
+            h(O.HeroMetaItem, { icon: I.CalendarDays }, 'Dec 4 – 18, 2021')
+          ),
+          adminActions: h(O.AdminMenu, {
+            onArt: true,
+            notification: 'Has admin notes',
+            actions: TOURNAMENT_ADMIN_ACTIONS,
+          }),
+          actions: h(
+            React.Fragment,
+            null,
+            h(
+              O.IconButton,
+              {
+                asChild: true,
+                variant: 'overlay',
+                icon: I.History,
+                label: 'View audit history',
+              },
+              h('a', { href: '#' })
+            ),
+            h(O.IconButton, {
+              variant: 'overlay',
+              icon: I.ExternalLink,
+              label: 'View tournament on osu! website',
+            })
+          ),
+        });
+      }
+      function PlayerHero() {
+        var s = React.useState(O.osu.Ruleset.Osu);
+        return h(
+          O.DetailHero,
+          {
+            leading: h(
+              O.Avatar,
+              { className: 'size-16' },
+              h(O.AvatarFallback, { className: 'text-lg font-semibold' }, 'D')
+            ),
+            title: 'distantmemory',
+            meta: h(
+              'a',
+              {
+                href: '#',
+                'aria-label': 'United States leaderboard',
+                className:
+                  'inline-flex min-w-0 rounded-sm transition-colors outline-none hover:text-link focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              },
+              h(O.CountryName, { code: 'US', name: 'United States' })
+            ),
+            actions: h(O.IconButton, {
+              variant: 'outline',
+              icon: I.ExternalLink,
+              label: 'View profile on osu! website',
+            }),
+          },
+          h(
+            'div',
+            { className: 'px-4 py-3 sm:px-6' },
+            h(O.RulesetSwitch, { value: s[0], onValueChange: s[1] })
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(BeatmapHero),
+          h(TournamentHero),
+          h(PlayerHero)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

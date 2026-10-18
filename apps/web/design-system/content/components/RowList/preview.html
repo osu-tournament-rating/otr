@@ -1,0 +1,120 @@
+<!-- @dsCard group="Layout" height=545 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RowList</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var PLAYERS = [
+        { name: 'distantmemory', country: 'United States', rating: '2,215' },
+        { name: 'Raikouhou', country: 'Japan', rating: '2,108' },
+        { name: 'Yasui', country: 'Japan', rating: '1,996' },
+      ];
+      var TOURNAMENTS = [
+        {
+          name: 'Break The Meta Cup',
+          details: 'osu! · 1v1 · Open rank',
+          dates: 'Dec 4 – 18, 2021',
+        },
+        {
+          name: 'Merami Household Winter Cup 2021',
+          details: 'osu! · 2v2 · 10,000+',
+          dates: 'Jan 8 – 30, 2022',
+        },
+      ];
+      function PlayerAvatar(p) {
+        return h(
+          'span',
+          {
+            className:
+              'relative flex size-8 shrink-0 overflow-hidden rounded-full',
+          },
+          h(
+            'span',
+            {
+              className:
+                'flex size-full items-center justify-center rounded-full bg-muted text-xs font-medium',
+            },
+            p.name.charAt(0).toUpperCase()
+          )
+        );
+      }
+      function TeammatesDemo() {
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, {
+            icon: I.Users,
+            title: 'Frequent teammates',
+            meta: '3 players',
+          }),
+          h(
+            O.RowList,
+            null,
+            PLAYERS.map(function (p) {
+              return h(O.RowListItem, {
+                key: p.name,
+                leading: h(PlayerAvatar, { name: p.name }),
+                title: h(O.EntityLink, { href: '#' }, p.name),
+                description: p.country,
+                trailing: h('span', { className: 'font-semibold' }, p.rating),
+              });
+            })
+          )
+        );
+      }
+      function TournamentListDemo() {
+        var s = React.useState(''),
+          query = s[0];
+        var shown = TOURNAMENTS.filter(function (t) {
+          return t.name.toLowerCase().indexOf(query.toLowerCase()) !== -1;
+        });
+        return h(
+          O.Panel,
+          null,
+          h(O.ListToolbar, {
+            label: 'Search and filter tournaments',
+            search: h(O.SearchField, {
+              label: 'Search tournaments by name or abbreviation',
+              placeholder: 'Name or abbreviation',
+              value: query,
+              onSearch: s[1],
+            }),
+            count: O.format.formatCountOf(shown.length, 'tournament'),
+          }),
+          h(
+            O.RowList,
+            null,
+            shown.map(function (t) {
+              return h(O.RowListItem, {
+                key: t.name,
+                href: '#',
+                linkLabel: 'View ' + t.name,
+                title: t.name,
+                description: t.details,
+                trailing: h('span', { className: O.typeScale.meta }, t.dates),
+              });
+            })
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(TeammatesDemo),
+          h(TournamentListDemo)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,116 @@
+<!-- @dsCard group="Controls" height=380 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RowActionsMenu</title>
+  </head>
+  <body>
+    <div id="root" class="p-4"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        VS = O.osu.VerificationStatus;
+      var noop = function () {};
+      var GAMES = [
+        {
+          name: 'Hidden Chamber [Insane]',
+          detail: 'Team Vs · HR · 3:12',
+          status: VS.Verified,
+        },
+        {
+          name: 'Kokoro no Kakera [Extra]',
+          detail: 'Team Vs · DT · 2:48',
+          status: VS.PreRejected,
+        },
+        {
+          name: 'Arigatou Sayonara (PSYQUI Remix) [Tiebreaker]',
+          detail: 'Team Vs · FM · 4:05',
+          status: VS.None,
+        },
+      ];
+      function Demo() {
+        React.useEffect(function () {
+          // Open the first row's menu.
+          var trigger = document.querySelector('[data-testid="row-actions-0"]');
+          if (trigger)
+            trigger.dispatchEvent(
+              new PointerEvent('pointerdown', { bubbles: true, button: 0 })
+            );
+        }, []);
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, {
+            icon: I.Swords,
+            title: 'Games',
+            meta: '3 games',
+          }),
+          h(
+            O.RowList,
+            null,
+            GAMES.map(function (game, index) {
+              return h(O.RowListItem, {
+                key: game.name,
+                leading: h(O.VerificationStatusIcon, {
+                  status: game.status,
+                  tooltip: 'tap',
+                }),
+                title: h(
+                  'a',
+                  {
+                    href: '#',
+                    className:
+                      'rounded-sm transition-colors hover:text-link focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                  },
+                  game.name
+                ),
+                description: game.detail,
+                trailing: h(O.RowActionsMenu, {
+                  'data-testid': 'row-actions-' + index,
+                  itemName: game.name,
+                  notification: index === 0 ? 'Has admin notes' : undefined,
+                  actions: [
+                    { label: 'View audit history', icon: I.History, href: '#' },
+                    {
+                      label: 'Edit game',
+                      icon: I.PencilLine,
+                      group: 'admin',
+                      onSelect: noop,
+                    },
+                    {
+                      label: 'Admin notes',
+                      icon: I.NotebookPen,
+                      group: 'admin',
+                      trailing:
+                        index === 0
+                          ? h(O.Badge, { size: 'sm' }, '1')
+                          : undefined,
+                      onSelect: noop,
+                    },
+                    {
+                      label: 'Merge games',
+                      icon: I.GitMerge,
+                      group: 'data',
+                      onSelect: noop,
+                    },
+                    {
+                      label: 'Delete game',
+                      icon: I.Trash2,
+                      destructive: true,
+                      onSelect: noop,
+                    },
+                  ],
+                }),
+              });
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

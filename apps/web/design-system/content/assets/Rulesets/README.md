@@ -1,0 +1,3 @@
+The osu! ruleset glyphs: `osu.svg` (osu!), `taiko.svg`, `catch.svg`, `mania.svg` (other key counts), `mania4k.svg` (mania 4K), `mania7k.svg` (mania 7K), and `all.svg` for "all rulesets".
+
+They are single-ink marks. The osu!, taiko, catch and mania glyphs derive from osu-web's FontAwesomeExtra font (AGPL-3.0-or-later, ppy Pty Ltd and osu-web contributors); the attribution is kept in each file. As files they are drawn in near-black (`#101010` or black), so an `<img>` reads only on light grounds. The site imports them as inline SVG components and fills them with the current text colour (`fill-current`), usually `foreground` or `muted-foreground`; do the same on dark grounds. Always pair the glyph with the ruleset's name, written as in the formatting section.

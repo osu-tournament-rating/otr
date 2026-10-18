@@ -1,0 +1,94 @@
+<!-- @dsCard group="Tables" height=500 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PaginationFooter</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        h = React.createElement;
+      var HREF = '#tables-pagination';
+
+      var RESULTS = [
+        { name: 'Corsace Open 2025', format: 'osu! · 4v4 · Open rank' },
+        { name: 'osu! World Cup 2025', format: 'osu! · 4v4 · Open rank' },
+        { name: 'Break The Meta Cup', format: 'osu! · 1v1 · 10,000+' },
+      ];
+      var TOURNAMENT_COUNT = 1284;
+      // The tournament list loads 30 tournaments at a time.
+      var PAGE_SIZE = 30;
+      function pageHref(target) {
+        return '?page=' + target + '#tables-pagination';
+      }
+
+      function Demo() {
+        var pg = React.useState(1),
+          page = pg[0],
+          setPage = pg[1];
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.Trophy,
+              title: 'Tournaments',
+              meta: F.formatCountOf(TOURNAMENT_COUNT, 'tournament'),
+            }),
+            h(
+              O.RowList,
+              null,
+              RESULTS.map(function (r) {
+                return h(O.RowListItem, {
+                  key: r.name,
+                  title: h(O.EntityLink, { href: HREF }, r.name),
+                  description: r.format,
+                });
+              })
+            ),
+            h(O.PaginationFooter, {
+              page: page,
+              pageSize: PAGE_SIZE,
+              totalCount: TOURNAMENT_COUNT,
+              onPageChange: setPage,
+              label: 'Tournament pages',
+            })
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.PaginationFooter, {
+              className: 'border-t-0',
+              page: 13,
+              pageSize: PAGE_SIZE,
+              totalCount: TOURNAMENT_COUNT,
+              getPageHref: pageHref,
+              label: 'Tournament pages',
+            })
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.PaginationFooter, {
+              className: 'border-t-0',
+              page: 43,
+              pageSize: PAGE_SIZE,
+              totalCount: TOURNAMENT_COUNT,
+              getPageHref: pageHref,
+              label: 'Tournament pages',
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

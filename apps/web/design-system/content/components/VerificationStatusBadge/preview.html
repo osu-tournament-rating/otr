@@ -1,0 +1,109 @@
+<!-- @dsCard group="Status" height=256 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>VerificationStatusBadge</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement,
+        VS = O.osu.VerificationStatus;
+      var ORDER = O.status.VERIFICATION_STATUS_ORDER;
+      var REVIEWER = 'apricot';
+      function Row(label, children) {
+        return h(
+          'div',
+          { className: 'flex items-center gap-3' },
+          h(
+            'span',
+            { className: 'w-24 shrink-0 text-xs text-muted-foreground' },
+            label
+          ),
+          h(
+            'div',
+            { className: 'flex min-w-0 flex-1 flex-wrap items-center gap-2' },
+            children
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          Row(
+            'States',
+            ORDER.map(function (s) {
+              return h(O.VerificationStatusBadge, { key: s, status: s });
+            })
+          ),
+          Row(
+            'Sizes',
+            ['sm', 'md', 'lg'].map(function (size) {
+              return h(O.VerificationStatusBadge, {
+                key: size,
+                status: VS.PreVerified,
+                size: size,
+              });
+            })
+          ),
+          Row('Tooltip', [
+            h(O.VerificationStatusBadge, {
+              key: 'v',
+              status: VS.Verified,
+              reviewer: REVIEWER,
+              tooltip: 'tap',
+            }),
+            h(O.VerificationStatusBadge, {
+              key: 'p',
+              status: VS.PreVerified,
+              warnings: ['Low game count', 'Unexpected name format'],
+              tooltip: 'tap',
+            }),
+            h(O.VerificationStatusBadge, {
+              key: 'r',
+              status: VS.Rejected,
+              rejectionReasons: ['Abnormal win condition'],
+              reviewer: REVIEWER,
+              tooltip: 'tap',
+            }),
+          ]),
+          Row(
+            'On cover art',
+            h(
+              'div',
+              {
+                className:
+                  'relative flex h-24 w-full max-w-72 items-start overflow-hidden rounded-lg p-2',
+              },
+              h(O.BeatmapCover, {
+                beatmapsetOsuId: null,
+                alt: '',
+                sizes: '288px',
+                className: 'absolute inset-0',
+              }),
+              // The match card's scrim over its cover art
+              h('div', {
+                className:
+                  'absolute inset-0 bg-gradient-to-b from-black/40 via-black/50 to-black/70',
+              }),
+              h(
+                'div',
+                { className: 'dark relative' },
+                h(O.VerificationStatusBadge, {
+                  status: VS.Verified,
+                  variant: 'overlay',
+                })
+              )
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

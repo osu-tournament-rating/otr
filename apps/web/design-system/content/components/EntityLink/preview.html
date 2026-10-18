@@ -1,0 +1,138 @@
+<!-- @dsCard group="Tables" height=595 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>EntityLink</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var HREF = '#tables-entity-link';
+
+      // A stand-in avatar: the gallery loads no player images.
+      function PlayerAvatar(p) {
+        return h(
+          O.Avatar,
+          { className: 'size-8' },
+          h(
+            O.AvatarFallback,
+            { className: 'text-xs font-medium' },
+            p.name.charAt(0).toUpperCase()
+          )
+        );
+      }
+      // The cover a beatmap shows without its art.
+      function Cover() {
+        return h(O.BeatmapCover, {
+          alt: '',
+          sizes: '56px',
+          className: 'h-8 w-14 rounded-md',
+        });
+      }
+
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(
+              O.RowList,
+              null,
+              h(O.RowListItem, {
+                title: h(
+                  O.EntityLink,
+                  {
+                    href: HREF,
+                    leading: h(PlayerAvatar, { name: 'Accolibed' }),
+                  },
+                  'Accolibed'
+                ),
+                description: "Player: the avatar sits inside the name's link",
+              }),
+              h(O.RowListItem, {
+                title: h(
+                  O.EntityLink,
+                  { href: HREF, leading: h(Cover) },
+                  'Hotohashiru [Extra]'
+                ),
+                description: 'Beatmap: the cover sits inside the same link',
+              }),
+              h(O.RowListItem, {
+                title: h(O.EntityLink, { href: HREF }, 'Corsace Open 2025'),
+                description: 'Tournament: no image, the name alone',
+              })
+            )
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, { icon: I.History, title: 'Audit logs' }),
+            h(
+              O.RowList,
+              null,
+              h(
+                O.RowListItem,
+                { className: 'py-2.5 text-sm' },
+                'apricot verified tournament ',
+                h(
+                  O.EntityLink,
+                  { href: HREF, variant: 'inline' },
+                  'Corsace Open 2025'
+                )
+              ),
+              h(
+                O.RowListItem,
+                { className: 'py-2.5 text-sm' },
+                'apricot rejected match ',
+                h(
+                  O.EntityLink,
+                  { href: HREF, variant: 'inline' },
+                  'CO25: (Lunar Lobster) vs (Team Rocket)'
+                ),
+                ' in ',
+                h(
+                  O.EntityLink,
+                  { href: HREF, variant: 'inline' },
+                  'Corsace Open 2025'
+                )
+              )
+            )
+          ),
+          h(
+            O.Panel,
+            { className: 'max-w-60' },
+            h(
+              O.RowList,
+              null,
+              h(O.RowListItem, {
+                title: h(
+                  O.EntityLink,
+                  { href: HREF, wrap: true },
+                  'CO25: (Lunar Lobster) vs (Team Rocket)'
+                ),
+                description: 'wrap',
+              }),
+              h(O.RowListItem, {
+                title: h(
+                  O.EntityLink,
+                  { href: HREF },
+                  'CO25: (Lunar Lobster) vs (Team Rocket)'
+                ),
+                description: 'Default: truncates',
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

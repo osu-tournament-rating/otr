@@ -1,0 +1,109 @@
+<!-- @dsCard group="Layout" height=430 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>StatTile</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var ATTRIBUTES = [
+        { short: 'CS', full: 'Circle size', value: 4 },
+        { short: 'AR', full: 'Approach rate', value: 8 },
+        { short: 'OD', full: 'Overall difficulty', value: 6.5 },
+        { short: 'HP', full: 'HP drain', value: 6 },
+      ];
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, { icon: I.ChartLine, title: 'Rating' }),
+            h(
+              O.PanelBody,
+              null,
+              h(
+                O.StatTileGrid,
+                { columns: 3 },
+                h(O.StatTile, {
+                  label: 'Rating',
+                  value: '2,215',
+                  sub: 'Peak 2,302',
+                  adornment: h(O.TierIcon, {
+                    tier: 'Grandmaster',
+                    subTier: 2,
+                    tooltip: true,
+                    width: 22,
+                    height: 22,
+                  }),
+                }),
+                h(O.StatTile, {
+                  icon: I.Globe,
+                  label: 'Global rank',
+                  value: '#12',
+                  sub: 'Country rank #3',
+                }),
+                h(O.StatTile, {
+                  icon: I.Percent,
+                  label: 'Percentile',
+                  value: '99th',
+                }),
+                h(O.StatTile, {
+                  icon: I.Swords,
+                  label: 'Matches',
+                  value: '1,204',
+                }),
+                h(O.StatTile, {
+                  icon: I.Trophy,
+                  label: 'Tournaments',
+                  value: '86',
+                }),
+                h(O.StatTile, {
+                  icon: I.Medal,
+                  label: 'Win rate',
+                  value: '61.4%',
+                  sub: '739 of 1,204',
+                })
+              )
+            )
+          ),
+          h(
+            O.StatTileGrid,
+            { columns: 2 },
+            ATTRIBUTES.map(function (a) {
+              return h(
+                O.StatTile,
+                {
+                  key: a.short,
+                  layout: 'inline',
+                  label: h(
+                    React.Fragment,
+                    null,
+                    h('span', { 'aria-hidden': 'true' }, a.short),
+                    h('span', { className: 'sr-only' }, a.full)
+                  ),
+                  value: a.value.toFixed(1),
+                },
+                h(O.Progress, {
+                  'aria-hidden': true,
+                  value: a.value * 10,
+                  className:
+                    'mt-2.5 h-1.5 bg-muted [&>[data-slot=progress-indicator]]:bg-foreground/60',
+                })
+              );
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

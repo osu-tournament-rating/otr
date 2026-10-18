@@ -12,6 +12,7 @@ const eslintConfig = [
       'next-env.d.ts',
       'playwright-report/**',
       'test-results/**',
+      'design-system/out/**',
     ],
   },
   js.configs.recommended,

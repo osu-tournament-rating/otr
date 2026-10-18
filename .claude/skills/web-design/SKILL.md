@@ -106,6 +106,10 @@ request that changes a shared component, token or pattern:
    do and don't, and the import if it moved.
 2. Update or add its gallery specimen in
    `apps/web/app/admin/design/sections/`.
+3. Keep the design system artifact in step: a new colour token needs a usage
+   note in `apps/web/design-system/tokens.ts` (a test fails without one), and
+   a new component a card in `components.ts` and a preview. See
+   `apps/web/design-system/README.md`.
 
 The skill has no screenshots on purpose: they go stale and are slow to keep
 current. To see a component, open the gallery on your stack.

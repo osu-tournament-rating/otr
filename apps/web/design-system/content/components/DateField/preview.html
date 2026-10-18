@@ -1,0 +1,44 @@
+<!-- @dsCard group="Lists" height=420 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DateField</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Demo() {
+        var s = React.useState('2025-07-20'),
+          day = s[0],
+          setDay = s[1];
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            'div',
+            { className: 'max-w-56' },
+            h(O.DateField, { label: 'From', value: day, onValueChange: setDay })
+          ),
+          h(
+            'div',
+            {
+              className:
+                'w-fit rounded-xl border bg-popover p-3 text-popover-foreground shadow-md',
+            },
+            h(O.Calendar, {
+              value: day,
+              onSelect: setDay,
+              highlight: { from: day, to: '2025-08-03' },
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

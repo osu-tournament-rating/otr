@@ -1,0 +1,49 @@
+<!-- @dsCard group="Format" height=200 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>CountryCombobox</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var COUNTRIES = O.format.getCountryOptions();
+      function Picker(p) {
+        var s = React.useState(p.initialValue || ''),
+          value = s[0],
+          setValue = s[1];
+        return h(
+          'div',
+          { className: 'grid max-w-72 grid-cols-2' },
+          h(
+            O.FilterField,
+            { label: 'Country' },
+            h(O.CountryCombobox, {
+              value: value,
+              onValueChange: setValue,
+              countries: COUNTRIES,
+            })
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            { className: 'flex flex-col gap-4' },
+            h(Picker, null),
+            h(Picker, { initialValue: 'PL' })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

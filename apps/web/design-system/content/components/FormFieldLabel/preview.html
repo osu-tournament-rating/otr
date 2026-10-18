@@ -1,0 +1,202 @@
+<!-- @dsCard group="Controls" height=390 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>FormFieldLabel</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        U = O.ui,
+        F = O.format,
+        h = React.createElement;
+      var ABBREVIATION_INFO =
+        "The prefix of each tournament lobby, such as 'OWC2024' from OWC2024: (United States) vs. (Canada)";
+      var RANK_RESTRICTION_INFO =
+        "The 'best' global rank allowed to participate. Use 1 for open rank.";
+      var FORUM_URL_PLACEHOLDER =
+        'https://osu.ppy.sh/community/forums/topics/...';
+      var LOBBY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8];
+      var PRIORITIES = ['Low', 'Normal', 'High'];
+
+      // A label outside react-hook-form: htmlFor with the control's id.
+      function PlainFieldLabel() {
+        var id = React.useId();
+        var s = React.useState('');
+        return h(
+          'div',
+          { className: 'flex flex-col gap-2 border-t pt-4' },
+          h(
+            O.FormFieldLabel,
+            {
+              htmlFor: id,
+              info: 'Number of players per team in each match',
+              hint: 'htmlFor, no form',
+            },
+            'Lobby size'
+          ),
+          h(
+            U.Select,
+            { value: s[0], onValueChange: s[1] },
+            h(
+              U.SelectTrigger,
+              { id: id, className: 'w-full' },
+              h(U.SelectValue, { placeholder: 'Any' })
+            ),
+            h(
+              U.SelectContent,
+              null,
+              LOBBY_SIZES.map(function (n) {
+                return h(
+                  U.SelectItem,
+                  { key: n, value: String(n) },
+                  F.formatLobbySize(n)
+                );
+              })
+            )
+          )
+        );
+      }
+      // A label for a group of controls: groupId on the label, aria-labelledby on the RadioGroup.
+      function GroupFieldLabel() {
+        var labelId = React.useId();
+        var s = React.useState('Normal');
+        return h(
+          'div',
+          { className: 'flex flex-col gap-2 border-t pt-4' },
+          h(
+            O.FormFieldLabel,
+            { groupId: labelId, hint: 'groupId, a radio group' },
+            'Priority'
+          ),
+          h(
+            U.RadioGroup,
+            {
+              'aria-labelledby': labelId,
+              value: s[0],
+              onValueChange: s[1],
+              className: 'flex flex-wrap gap-4',
+            },
+            PRIORITIES.map(function (option) {
+              return h(
+                'div',
+                { key: option, className: 'flex items-center gap-2' },
+                h(U.RadioGroupItem, {
+                  value: option,
+                  id: labelId + '-' + option,
+                }),
+                h(
+                  U.Label,
+                  {
+                    htmlFor: labelId + '-' + option,
+                    className: 'cursor-pointer font-normal',
+                  },
+                  option
+                )
+              );
+            })
+          )
+        );
+      }
+      function Demo() {
+        var form = U.useForm({
+          defaultValues: {
+            abbreviation: 'BTMC',
+            forumUrl: '',
+            rankRangeLowerBound: '1000.5',
+          },
+        });
+        var setError = form.setError;
+        React.useEffect(
+          function () {
+            setError('rankRangeLowerBound', {
+              message: 'Rank restriction must be a whole number',
+            });
+          },
+          [setError]
+        );
+        return h(
+          U.Form,
+          form,
+          h(
+            'div',
+            { className: 'flex flex-col gap-4' },
+            h(
+              O.FormGrid,
+              null,
+              h(U.FormField, {
+                control: form.control,
+                name: 'abbreviation',
+                render: function (r) {
+                  return h(
+                    U.FormItem,
+                    null,
+                    h(
+                      O.FormFieldLabel,
+                      { info: ABBREVIATION_INFO },
+                      'Abbreviation'
+                    ),
+                    h(U.FormControl, null, h(U.Input, r.field))
+                  );
+                },
+              }),
+              h(U.FormField, {
+                control: form.control,
+                name: 'forumUrl',
+                render: function (r) {
+                  return h(
+                    U.FormItem,
+                    null,
+                    h(O.FormFieldLabel, null, 'Forum post URL'),
+                    h(
+                      U.FormControl,
+                      null,
+                      h(
+                        U.Input,
+                        Object.assign(
+                          { placeholder: FORUM_URL_PLACEHOLDER },
+                          r.field
+                        )
+                      )
+                    )
+                  );
+                },
+              })
+            ),
+            h(U.FormField, {
+              control: form.control,
+              name: 'rankRangeLowerBound',
+              render: function (r) {
+                return h(
+                  U.FormItem,
+                  null,
+                  h(
+                    O.FormFieldLabel,
+                    { info: RANK_RESTRICTION_INFO },
+                    'Rank restriction'
+                  ),
+                  h(
+                    U.FormControl,
+                    null,
+                    h(
+                      U.Input,
+                      Object.assign({ type: 'number', min: 1 }, r.field)
+                    )
+                  ),
+                  h(U.FormMessage)
+                );
+              },
+            }),
+            h(PlainFieldLabel),
+            h(GroupFieldLabel)
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

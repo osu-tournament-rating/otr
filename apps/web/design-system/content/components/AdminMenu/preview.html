@@ -1,0 +1,104 @@
+<!-- @dsCard group="Controls" height=350 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AdminMenu</title>
+  </head>
+  <body>
+    <div id="root" class="p-4"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var noop = function () {};
+      function Demo() {
+        React.useEffect(function () {
+          // Open the menu as an admin would see it.
+          var trigger = document.querySelector('[data-testid="admin-menu"]');
+          if (trigger)
+            trigger.dispatchEvent(
+              new PointerEvent('pointerdown', { bubbles: true, button: 0 })
+            );
+        }, []);
+        return h(O.DetailHero, {
+          title: 'Break The Meta Cup',
+          titleSuffix: 'BTMC',
+          status: h(O.VerificationStatusBadge, {
+            status: O.osu.VerificationStatus.Verified,
+            reviewer: 'apricot',
+            tooltip: 'tap',
+          }),
+          meta: h(
+            React.Fragment,
+            null,
+            h(O.HeroMetaItem, { icon: I.Gamepad2 }, 'osu!'),
+            h(O.HeroMetaItem, { icon: I.Users }, '4v4'),
+            h(O.HeroMetaItem, { icon: I.Target }, 'Open rank'),
+            h(O.HeroMetaItem, { icon: I.CalendarDays }, 'Dec 4 – 18, 2021')
+          ),
+          adminActions: h(O.AdminMenu, {
+            'data-testid': 'admin-menu',
+            notification: 'Has admin notes',
+            actions: [
+              { label: 'Edit tournament', icon: I.PencilLine, onSelect: noop },
+              {
+                label: 'Admin notes',
+                icon: I.NotebookPen,
+                trailing: h(O.Badge, { size: 'sm' }, '2'),
+                onSelect: noop,
+              },
+              {
+                label: 'Accept pre-verification statuses',
+                icon: I.ListChecks,
+                group: 'data',
+                onSelect: noop,
+              },
+              {
+                label: 'Reset automated checks',
+                icon: I.RotateCcw,
+                group: 'data',
+                onSelect: noop,
+              },
+              {
+                label: 'Refetch match data',
+                icon: I.RefreshCw,
+                group: 'data',
+                onSelect: noop,
+              },
+              {
+                label: 'Delete tournament',
+                icon: I.Trash2,
+                destructive: true,
+                onSelect: noop,
+              },
+              {
+                label: 'Unlink pooled beatmaps',
+                icon: I.Unlink,
+                destructive: true,
+                onSelect: noop,
+              },
+            ],
+          }),
+          actions: h(
+            O.IconButton,
+            {
+              asChild: true,
+              variant: 'outline',
+              label: 'View tournament on osu! website',
+              icon: I.ExternalLink,
+            },
+            h('a', {
+              href: 'https://osu.ppy.sh/community/forums/topics/1446216',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            })
+          ),
+        });
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

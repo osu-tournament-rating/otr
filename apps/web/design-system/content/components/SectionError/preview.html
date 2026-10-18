@@ -1,0 +1,104 @@
+<!-- @dsCard group="Feedback" height=636 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SectionError</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var SectionError = O.SectionError;
+      var AUDIT_EVENTS = [
+        'apricot verified tournament Corsace Open 2025',
+        'System pre-verified 412 matches in Corsace Open 2025',
+        'Raikouhou submitted tournament Oceania Taiko Cup 2026',
+      ];
+      // Try again spins for a moment, then fails again.
+      function useRetry() {
+        var s = React.useState(false),
+          retrying = s[0],
+          setRetrying = s[1];
+        return {
+          retrying: retrying,
+          retry: function () {
+            setRetrying(true);
+            setTimeout(function () {
+              setRetrying(false);
+            }, 1200);
+          },
+        };
+      }
+      function Demo() {
+        var regular = useRetry(),
+          compact = useRetry(),
+          inline = useRetry();
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, { icon: I.Trophy, title: 'Tournament history' }),
+            h(SectionError, {
+              title: 'Tournament history could not load',
+              retrying: regular.retrying,
+              onRetry: regular.retry,
+            })
+          ),
+          h(
+            'div',
+            { className: 'grid grid-cols-2 gap-4' },
+            h(
+              O.Panel,
+              null,
+              h(O.SectionHeader, { icon: I.History, title: 'Rating history' }),
+              h(SectionError, {
+                size: 'compact',
+                title: 'Rating history could not load',
+                retrying: compact.retrying,
+                onRetry: compact.retry,
+              })
+            ),
+            h(
+              O.Panel,
+              null,
+              h(O.SectionHeader, {
+                icon: I.ClipboardList,
+                title: 'Audit logs',
+              }),
+              h(
+                O.RowList,
+                null,
+                AUDIT_EVENTS.map(function (e) {
+                  return h(
+                    O.RowListItem,
+                    { key: e, className: 'py-2.5 text-sm' },
+                    e
+                  );
+                })
+              ),
+              h(
+                'div',
+                { className: 'border-t px-4 py-4' },
+                h(SectionError, {
+                  size: 'inline',
+                  title: 'More audit events could not load',
+                  retrying: inline.retrying,
+                  onRetry: inline.retry,
+                  className: 'justify-center',
+                })
+              )
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

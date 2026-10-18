@@ -1,0 +1,25 @@
+<!-- @dsCard group="Lists" height=72 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RulesetSwitch</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        R = O.osu.Ruleset,
+        h = React.createElement;
+      function Demo() {
+        var s = React.useState(R.Taiko),
+          value = s[0],
+          setValue = s[1];
+        return h(O.RulesetSwitch, { value: value, onValueChange: setValue });
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

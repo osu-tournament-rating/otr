@@ -1,0 +1,133 @@
+<!-- @dsCard group="Tables" height=235 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MissingValue</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        F = O.format,
+        h = React.createElement;
+      var HREF = '#tables-missing-value';
+
+      var SCORES = [
+        {
+          id: 1,
+          player: 'lifeline',
+          score: 1204512,
+          accuracy: 0.9854,
+          played: '2025-10-04',
+        },
+        {
+          id: 2,
+          player: 'Raikouhou',
+          score: 1187003,
+          accuracy: null,
+          played: '2025-09-27',
+        },
+        {
+          id: 3,
+          player: 'Yasui',
+          score: 1011245,
+          accuracy: 0.9612,
+          played: null,
+        },
+      ];
+
+      // A stand-in avatar: the gallery loads no player images.
+      function PlayerAvatar(p) {
+        return h(
+          'span',
+          {
+            className:
+              'relative flex size-6 shrink-0 overflow-hidden rounded-full',
+          },
+          h(
+            'span',
+            {
+              className:
+                'flex size-full items-center justify-center rounded-full bg-muted text-xs font-medium',
+            },
+            p.name.charAt(0).toUpperCase()
+          )
+        );
+      }
+
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.DataTable,
+            { 'aria-label': 'Leaderboard' },
+            h(
+              O.DataTableHeader,
+              null,
+              h(
+                O.DataTableRow,
+                null,
+                h(O.DataTableHead, null, 'Player'),
+                h(O.DataTableHead, { numeric: true }, 'Score'),
+                h(
+                  O.DataTableHead,
+                  { numeric: true, showFrom: 'sm' },
+                  'Accuracy'
+                ),
+                h(O.DataTableHead, { align: 'end' }, 'Played')
+              )
+            ),
+            h(
+              O.DataTableBody,
+              null,
+              SCORES.map(function (s) {
+                return h(
+                  O.DataTableRow,
+                  { key: s.id },
+                  h(
+                    O.DataTableCell,
+                    null,
+                    h(
+                      O.EntityLink,
+                      {
+                        href: HREF,
+                        leading: h(PlayerAvatar, { name: s.player }),
+                      },
+                      s.player
+                    )
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true, className: 'font-semibold' },
+                    F.formatCount(s.score)
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true, muted: true, showFrom: 'sm' },
+                    F.formatAccuracy(s.accuracy)
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { align: 'end', muted: true },
+                    s.played ? h(O.DateText, { date: s.played }) : null
+                  )
+                );
+              })
+            )
+          ),
+          h(
+            'p',
+            { className: 'border-t px-4 py-3 text-sm' },
+            'Peak rating: ',
+            h(O.MissingValue)
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

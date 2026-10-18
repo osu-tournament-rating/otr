@@ -1,0 +1,177 @@
+<!-- @dsCard group="Tables" height=275 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ViewButton</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        RS = O.osu.ReportStatus,
+        h = React.createElement;
+      var HREF = '#tables-view-button';
+
+      var REPORTS = [
+        {
+          id: 1204,
+          type: 'Match',
+          entity: 'CO25: (Lunar Lobster) vs (Team Rocket)',
+          reason: 'Incorrect match result',
+          status: RS.Pending,
+          created: '2025-10-12T18:42:00Z',
+          unread: true,
+          additionalInformation: 'Game 4 was replayed after a disconnect.',
+        },
+        {
+          id: 1187,
+          type: 'Tournament',
+          entity: 'Break The Meta Cup',
+          reason: 'Incorrect tournament details',
+          status: RS.Approved,
+          created: '2025-10-03T09:15:00Z',
+          unread: false,
+          additionalInformation:
+            'The forum post lists a 10,000+ rank restriction, not open rank.',
+        },
+        {
+          id: 1162,
+          type: 'Score',
+          entity: "lifeline's score",
+          reason: 'Invalid score',
+          status: RS.Rejected,
+          created: '2025-09-28T21:03:00Z',
+          unread: false,
+          additionalInformation: null,
+        },
+      ];
+
+      // The View button as the trigger of the report's dialog.
+      function ReportView(p) {
+        var r = p.report;
+        function field(term, value) {
+          return [
+            h('dt', { key: term + '-t' }, h(O.Eyebrow, null, term)),
+            h('dd', { key: term + '-d' }, value),
+          ];
+        }
+        return h(
+          O.DialogTemplate,
+          {
+            trigger: h(O.ViewButton, {
+              subject: 'report #' + F.formatId(r.id),
+            }),
+            title: 'Report details',
+            description: r.type + ' · ' + r.entity,
+          },
+          h(
+            'dl',
+            {
+              className:
+                'grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-2 text-sm',
+            },
+            field(
+              'Status',
+              h(O.ReportStatusBadge, { status: r.status, size: 'sm' })
+            ),
+            field('Entity', r.entity),
+            field('Submitted', h(O.Timestamp, { date: r.created })),
+            field('Reason', r.reason),
+            field(
+              'Additional information',
+              r.additionalInformation ||
+                'No additional information was provided.'
+            )
+          )
+        );
+      }
+
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, {
+            icon: I.Flag,
+            title: 'My reports',
+            meta: '3 reports',
+          }),
+          h(
+            O.DataTable,
+            { 'aria-label': 'My reports' },
+            h(
+              O.DataTableHeader,
+              null,
+              h(
+                O.DataTableRow,
+                null,
+                h(
+                  O.DataTableHead,
+                  { className: 'w-8' },
+                  h('span', { className: 'sr-only' }, 'Unread')
+                ),
+                h(O.DataTableHead, null, 'Entity'),
+                h(O.DataTableHead, null, 'Reason'),
+                h(O.DataTableHead, null, 'Status'),
+                h(O.DataTableHead, { showFrom: 'lg' }, 'Submitted'),
+                h(
+                  O.DataTableHead,
+                  { align: 'end' },
+                  h('span', { className: 'sr-only' }, 'Actions')
+                )
+              )
+            ),
+            h(
+              O.DataTableBody,
+              null,
+              REPORTS.map(function (r) {
+                return h(
+                  O.DataTableRow,
+                  { key: r.id },
+                  h(
+                    O.DataTableCell,
+                    { empty: false },
+                    r.unread
+                      ? h(O.NotificationDot, { label: 'Unread admin update' })
+                      : null
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { className: 'max-w-56' },
+                    h(
+                      'span',
+                      { className: 'block text-xs text-muted-foreground' },
+                      r.type
+                    ),
+                    h(O.EntityLink, { href: HREF }, r.entity)
+                  ),
+                  h(O.DataTableCell, null, r.reason),
+                  h(
+                    O.DataTableCell,
+                    null,
+                    h(O.ReportStatusBadge, { status: r.status, size: 'sm' })
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { muted: true, showFrom: 'lg' },
+                    h(O.DateText, { date: r.created })
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { align: 'end' },
+                    h(ReportView, { report: r })
+                  )
+                );
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

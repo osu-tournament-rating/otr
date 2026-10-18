@@ -1,0 +1,125 @@
+<!-- @dsCard group="Status" height=500 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ModIconset</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        M = O.osu.Mods,
+        h = React.createElement;
+      var SPECIMENS = [
+        { label: 'Difficulty reduction', mods: [M.Easy, M.NoFail, M.HalfTime] },
+        {
+          label: 'Difficulty increase',
+          mods: [
+            M.Hidden,
+            M.HardRock,
+            M.SuddenDeath,
+            M.Perfect,
+            M.DoubleTime,
+            M.Nightcore,
+            M.Flashlight,
+            M.FadeIn,
+          ],
+        },
+        {
+          label: 'Conversion',
+          mods: [
+            M.Random,
+            M.Mirror,
+            M.Key1,
+            M.Key2,
+            M.Key3,
+            M.Key4,
+            M.Key5,
+            M.Key6,
+            M.Key7,
+            M.Key8,
+            M.Key9,
+          ],
+        },
+        {
+          label: 'Automation',
+          mods: [M.Relax, M.Relax2, M.Autoplay, M.SpunOut, M.Cinema],
+        },
+        { label: 'System', mods: [M.TouchDevice, M.ScoreV2] },
+        { label: 'Freemod, not a mod type', mods: [], freemod: true },
+      ];
+      function Row(props) {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-1' },
+          h(
+            'span',
+            { className: 'text-xs text-muted-foreground' },
+            props.label
+          ),
+          props.children
+        );
+      }
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            { className: 'flex flex-col gap-3' },
+            SPECIMENS.map(function (s) {
+              return h(
+                Row,
+                { key: s.label, label: s.label },
+                h(
+                  'div',
+                  { className: 'flex flex-wrap gap-1' },
+                  s.freemod
+                    ? h(O.ModIconset, {
+                        mods: M.None,
+                        freemod: true,
+                        className: 'flex h-6',
+                      })
+                    : null,
+                  s.mods.map(function (mod) {
+                    return h(O.ModIconset, {
+                      key: mod,
+                      mods: mod,
+                      className: 'flex h-6',
+                    });
+                  })
+                )
+              );
+            }),
+            h(
+              Row,
+              { label: 'A combination, as game and score cards show it' },
+              h(O.ModIconset, {
+                mods: M.Hidden | M.HardRock | M.DoubleTime,
+                className: 'flex h-6',
+              })
+            ),
+            h(
+              Row,
+              { label: 'In a tight row, as score cards show it' },
+              h(O.FittingModIconset, {
+                mods:
+                  M.NoFail |
+                  M.Easy |
+                  M.Hidden |
+                  M.DoubleTime |
+                  M.Flashlight |
+                  M.SpunOut,
+                className: 'h-5 w-28',
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

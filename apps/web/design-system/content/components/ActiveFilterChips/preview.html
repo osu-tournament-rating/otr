@@ -1,0 +1,78 @@
+<!-- @dsCard group="Lists" height=72 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ActiveFilterChips</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var L = O.lists;
+      var INITIAL = [
+        {
+          key: 'sr',
+          label: L.formatRangeFilterLabel('SR', { min: 5.5, max: 7 }),
+        },
+        {
+          key: 'status',
+          label: L.formatChoiceFilterLabel('Status', [
+            'Pending',
+            'Pre-verified',
+            'Pre-rejected',
+          ]),
+        },
+        {
+          key: 'dates',
+          label: L.formatDayRangeFilterLabel('Dates', { from: '2025-06-01' }),
+        },
+      ];
+      var ALL_KEYS = INITIAL.map(function (f) {
+        return f.key;
+      });
+      function Demo() {
+        var s = React.useState(ALL_KEYS),
+          keys = s[0],
+          setKeys = s[1];
+        var filters = INITIAL.filter(function (f) {
+          return keys.indexOf(f.key) !== -1;
+        }).map(function (f) {
+          return {
+            key: f.key,
+            label: f.label,
+            onRemove: function () {
+              setKeys(function (current) {
+                return current.filter(function (k) {
+                  return k !== f.key;
+                });
+              });
+            },
+          };
+        });
+        return keys.length
+          ? h(O.ActiveFilterChips, {
+              filters: filters,
+              onClearAll: function () {
+                setKeys([]);
+              },
+            })
+          : h(
+              O.Button,
+              {
+                variant: 'ghost',
+                size: 'sm',
+                onClick: function () {
+                  setKeys(ALL_KEYS);
+                },
+              },
+              'Reset'
+            );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

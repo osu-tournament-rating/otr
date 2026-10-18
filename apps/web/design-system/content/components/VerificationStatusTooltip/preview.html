@@ -1,0 +1,61 @@
+<!-- @dsCard group="Status" height=184 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>VerificationStatusTooltip</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement,
+        VS = O.osu.VerificationStatus;
+      var REVIEWER = 'apricot';
+      var SURFACE =
+        'rounded-md px-3 py-1.5 text-xs ' + O.color.ACCENT_SURFACE_CLASSES;
+      // The tap tooltip opens on hover, focus or tap; the body below is
+      // VerificationStatusDetails, the same content on the tooltip's surface.
+      var CASES = [
+        { status: VS.Verified, reviewer: REVIEWER },
+        {
+          status: VS.PreVerified,
+          warnings: ['Low game count', 'Unexpected name format'],
+        },
+        {
+          status: VS.Rejected,
+          rejectionReasons: ['Abnormal win condition'],
+          reviewer: REVIEWER,
+        },
+      ];
+      function Demo() {
+        return h(
+          'div',
+          { className: 'grid grid-cols-3 gap-4' },
+          CASES.map(function (c) {
+            var label = O.status.getVerificationStatusLabel(c.status, {
+              hasWarnings: !!c.warnings,
+            });
+            return h(
+              'div',
+              { key: c.status, className: 'flex flex-col items-start gap-3' },
+              h(
+                O.VerificationStatusTooltip,
+                Object.assign({ mode: 'tap', label: label }, c),
+                h(O.VerificationStatusBadge, Object.assign({}, c))
+              ),
+              h(
+                'div',
+                { className: SURFACE },
+                h(O.VerificationStatusDetails, c)
+              )
+            );
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

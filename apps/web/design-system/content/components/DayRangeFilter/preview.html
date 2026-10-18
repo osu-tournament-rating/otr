@@ -1,0 +1,59 @@
+<!-- @dsCard group="Lists" height=160 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DayRangeFilter</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      // Filter fields sit in the filter panel's two-column grid.
+      function Fields(props) {
+        return h(
+          'div',
+          {
+            className:
+              'w-full max-w-[24rem] rounded-xl border bg-popover text-popover-foreground shadow-md',
+          },
+          h(
+            'div',
+            { className: 'grid grid-cols-2 content-start gap-x-3 gap-y-5 p-4' },
+            props.children
+          )
+        );
+      }
+      function Demo() {
+        var a = React.useState({ from: '2025-06-01', to: '2025-08-31' }),
+          b = React.useState({});
+        return h(
+          'div',
+          { className: 'grid grid-cols-2 items-start gap-6' },
+          h(
+            Fields,
+            null,
+            h(O.DayRangeFilter, {
+              label: 'Tournament dates',
+              value: a[0],
+              onValueChange: a[1],
+            })
+          ),
+          h(
+            Fields,
+            null,
+            h(O.DayRangeFilter, {
+              label: 'Tournament dates',
+              value: b[0],
+              onValueChange: b[1],
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

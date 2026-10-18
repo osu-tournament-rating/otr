@@ -1,0 +1,91 @@
+<!-- @dsCard group="Controls" height=290 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ActionMenu</title>
+  </head>
+  <body>
+    <div id="root" class="p-4"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      function Demo() {
+        React.useEffect(function () {
+          // Open the menu to show its header.
+          var trigger = document.querySelector('[data-testid="account-menu"]');
+          if (trigger)
+            trigger.dispatchEvent(
+              new PointerEvent('pointerdown', { bubbles: true, button: 0 })
+            );
+        }, []);
+        return h(
+          'div',
+          { className: 'flex flex-wrap items-center justify-end gap-3' },
+          h(
+            'span',
+            { className: O.typeScale.meta },
+            'The header sits above the items and is not focusable.'
+          ),
+          h(O.ActionMenu, {
+            header: h(
+              'span',
+              { className: 'flex items-center gap-3' },
+              h(
+                O.Avatar,
+                { className: 'size-9 ring-1 ring-border' },
+                h(O.AvatarFallback, { className: 'font-medium' }, 'A')
+              ),
+              h(
+                'span',
+                { className: 'flex min-w-0 flex-col items-start gap-1' },
+                h(
+                  'span',
+                  { className: 'max-w-full truncate font-semibold' },
+                  'apricot'
+                ),
+                h(
+                  O.Badge,
+                  { size: 'sm' },
+                  h(I.ShieldCheck, { 'aria-hidden': true }),
+                  'Admin'
+                )
+              )
+            ),
+            actions: [
+              { label: 'My profile', icon: I.User, href: '#' },
+              { label: 'Settings', icon: I.Settings, href: '#' },
+              {
+                label: 'My reports',
+                icon: I.Flag,
+                href: '#',
+                trailing: h(O.NotificationDot, {
+                  label: 'Unread report updates',
+                }),
+              },
+              {
+                label: 'Log out',
+                icon: I.LogOut,
+                group: 'session',
+                onSelect: function () {},
+              },
+            ],
+            trigger: h(
+              O.Button,
+              { variant: 'ghost', size: 'sm', 'data-testid': 'account-menu' },
+              'apricot',
+              h(I.ChevronDown, {
+                className: '-mr-0.5 text-muted-foreground',
+                'aria-hidden': true,
+              })
+            ),
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

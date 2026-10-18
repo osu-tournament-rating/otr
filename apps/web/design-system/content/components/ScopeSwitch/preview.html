@@ -1,0 +1,94 @@
+<!-- @dsCard group="Lists" height=240 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ScopeSwitch</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      function RatingViewToggle() {
+        var m = React.useState('rating'),
+          v = React.useState('chart'),
+          d = React.useState(true);
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, { icon: I.ChartLine, title: 'Rating history' }),
+          h(
+            'div',
+            { className: 'flex flex-wrap items-center gap-2 p-4' },
+            h(O.ScopeSwitch, {
+              label: 'Rating or volatility',
+              value: m[0],
+              onValueChange: m[1],
+              options: [
+                { value: 'rating', label: 'Rating' },
+                { value: 'volatility', label: 'Volatility' },
+              ],
+            }),
+            h(O.ScopeSwitch, {
+              label: 'View',
+              value: v[0],
+              onValueChange: v[1],
+              options: [
+                { value: 'chart', label: 'Chart' },
+                { value: 'table', label: 'Table' },
+              ],
+            }),
+            h(
+              O.ChoiceChip,
+              {
+                selected: d[0],
+                onClick: function () {
+                  d[1](!d[0]);
+                },
+              },
+              'Display decay'
+            )
+          )
+        );
+      }
+      function Demo() {
+        var s = React.useState('all'),
+          scope = s[0],
+          setScope = s[1];
+        return h(
+          'div',
+          { className: 'flex flex-col gap-3' },
+          h(O.ScopeSwitch, {
+            label: 'Players to show',
+            value: scope,
+            onValueChange: setScope,
+            options: [
+              { value: 'all', label: 'All' },
+              { value: 'friends', label: 'Friends' },
+            ],
+          }),
+          h(O.ScopeSwitch, {
+            label: 'Players to show',
+            value: 'all',
+            onValueChange: function () {},
+            options: [
+              { value: 'all', label: 'All' },
+              {
+                value: 'friends',
+                label: 'Friends',
+                disabled: true,
+                disabledReason: 'Sync friends in settings to enable',
+              },
+            ],
+          }),
+          h(RatingViewToggle)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

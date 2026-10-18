@@ -1,0 +1,62 @@
+<!-- @dsCard group="Format" height=154 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RulesetName</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var RS = O.format.RATED_RULESETS;
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            { className: 'flex flex-col gap-4' },
+            h(
+              'div',
+              { className: 'flex flex-wrap gap-x-5 gap-y-2 text-sm' },
+              RS.map(function (r) {
+                return h(O.RulesetName, { key: r, ruleset: r });
+              })
+            ),
+            h(
+              'div',
+              { className: 'flex flex-wrap items-center gap-3' },
+              h(
+                'span',
+                { className: 'text-xs font-medium text-muted-foreground' },
+                'Icon only'
+              ),
+              RS.map(function (r) {
+                return h(O.RulesetName, { key: r, ruleset: r, iconOnly: true });
+              })
+            ),
+            h(
+              'div',
+              { className: 'flex flex-wrap items-center gap-3' },
+              h(
+                'span',
+                { className: 'text-xs font-medium text-muted-foreground' },
+                'Without icon'
+              ),
+              h(O.RulesetName, {
+                ruleset: O.osu.Ruleset.Mania4k,
+                showIcon: false,
+                className: 'text-sm',
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,127 @@
+<!-- @dsCard group="Charts" height=640 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>CountBarChart</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        F = O.format;
+      var LOBBY_SIZE_COUNTS = [612, 1840, 455, 1288, 61, 132, 9, 27];
+      var BY_LOBBY_SIZE = LOBBY_SIZE_COUNTS.map(function (count, index) {
+        return {
+          key: String(index + 1),
+          label: F.formatLobbySize(index + 1),
+          count: count,
+        };
+      });
+      var RULESETS = ['osu!', 'taiko', 'catch', 'mania 4K', 'mania 7K'];
+      var RULESET_COUNTS = [5812, 921, 604, 1377, 233];
+      var BY_RULESET = RULESETS.map(function (label, index) {
+        return { key: label, label: label, count: RULESET_COUNTS[index] };
+      });
+      var VERIFICATION_COUNTS = {
+        verified: 8412,
+        notInRatingsYet: 1306,
+        rejected: 2155,
+      };
+      // The ratings groups, each bar in its own verification colour.
+      var BY_STATUS = O.status.RATINGS_GROUPS.map(function (group) {
+        return {
+          key: group.key,
+          label: group.label,
+          count: VERIFICATION_COUNTS[group.key],
+          fill: O.color.getStatusHueColor(group.hue),
+        };
+      });
+      var STATUS_TOTAL = BY_STATUS.reduce(function (sum, bar) {
+        return sum + bar.count;
+      }, 0);
+      function Demo() {
+        return h(
+          'div',
+          { className: '@container' },
+          h(
+            'div',
+            { className: 'grid gap-4 @2xl:grid-cols-2' },
+            h(
+              O.Panel,
+              null,
+              h(O.SectionHeader, {
+                icon: I.ChartColumn,
+                title: 'Tournaments by lobby size',
+                level: 4,
+              }),
+              h(
+                O.PanelBody,
+                null,
+                h(O.CountBarChart, {
+                  data: BY_LOBBY_SIZE,
+                  valueName: 'Tournaments',
+                })
+              )
+            ),
+            h(
+              O.Panel,
+              null,
+              h(O.SectionHeader, {
+                icon: I.ChartBarBig,
+                title: 'Tournaments by ruleset',
+                level: 4,
+              }),
+              h(
+                O.PanelBody,
+                null,
+                h(O.CountBarChart, {
+                  data: BY_RULESET,
+                  layout: 'rows',
+                  valueName: 'Tournaments',
+                })
+              )
+            ),
+            h(
+              O.Panel,
+              { className: '@2xl:col-span-2' },
+              h(O.SectionHeader, {
+                icon: I.ChartBarBig,
+                title: 'Tournaments by status',
+                level: 4,
+                meta: F.formatCount(STATUS_TOTAL) + ' tournaments',
+              }),
+              h(
+                O.PanelBody,
+                null,
+                h(O.CountBarChart, {
+                  data: BY_STATUS,
+                  layout: 'rows',
+                  valueName: 'Tournaments',
+                  className: 'h-44',
+                  footer: function (bar) {
+                    return (
+                      F.formatPercent(bar.count / STATUS_TOTAL) +
+                      ' of all tournaments'
+                    );
+                  },
+                })
+              )
+            )
+          )
+        );
+      }
+      // Recharts measures tick labels to size the axes, so wait for Inter.
+      function mount() {
+        ReactDOM.createRoot(document.getElementById('root')).render(
+          h(O.TooltipProvider, null, h(Demo))
+        );
+      }
+      document.fonts && document.fonts.load
+        ? document.fonts.load('12px Inter').then(mount, mount)
+        : mount();
+    </script>
+  </body>
+</html>

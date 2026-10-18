@@ -1,0 +1,83 @@
+<!-- @dsCard group="Format" height=256 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AuditFieldChange</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var E = O.osu.AuditEntityType,
+        V = O.osu.VerificationStatus;
+      var USERS = { 12: { username: 'apricot' } };
+      var CHANGES = [
+        { entityType: E.Game, field: 'mods', originalValue: 24, newValue: 8 },
+        {
+          entityType: E.Game,
+          field: 'startTime',
+          originalValue: '2024-07-20T15:40:12+00:00',
+          newValue: '2024-07-20T15:42:07+00:00',
+        },
+        {
+          entityType: E.Match,
+          field: 'verificationStatus',
+          originalValue: V.PreVerified,
+          newValue: V.Verified,
+        },
+        {
+          entityType: E.Match,
+          field: 'verifiedByUserId',
+          originalValue: null,
+          newValue: 12,
+        },
+        {
+          entityType: E.Tournament,
+          field: 'rankRangeLowerBound',
+          originalValue: 1,
+          newValue: 10000,
+        },
+        {
+          entityType: E.Tournament,
+          field: 'lobbySize',
+          originalValue: 3,
+          newValue: 4,
+        },
+        {
+          entityType: E.Game,
+          field: 'rejectionReason',
+          originalValue: 0,
+          newValue: 6,
+        },
+      ];
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            null,
+            h(
+              O.AuditChangeList,
+              null,
+              CHANGES.map(function (c) {
+                return h(O.AuditFieldChange, {
+                  key: c.entityType + '-' + c.field,
+                  entityType: c.entityType,
+                  field: c.field,
+                  change: c,
+                  users: USERS,
+                });
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

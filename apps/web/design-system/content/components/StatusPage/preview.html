@@ -1,0 +1,94 @@
+<!-- @dsCard group="Feedback" height=664 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>StatusPage</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      // The art behind app/not-found.tsx (error-background.svg), with the same image classes.
+      function NotFoundBackground() {
+        return h('img', {
+          src: '/images/error-background.svg',
+          alt: '',
+          className:
+            'absolute inset-0 size-full object-contain object-top sm:object-center',
+        });
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col divide-y rounded-xl border' },
+          h(O.StatusPage, {
+            icon: I.Compass,
+            title: 'Page not found',
+            description: "Sorry, we don't have that page!",
+            background: h(NotFoundBackground),
+            className: 'min-h-80',
+          }),
+          h(
+            'div',
+            { className: 'grid grid-cols-3 divide-x' },
+            h(O.StatusPage, {
+              icon: I.Lock,
+              title: 'Unauthorized',
+              description: 'You are not authorized to access this page.',
+              className: 'min-h-0 py-10',
+            }),
+            h(
+              O.StatusPage,
+              {
+                icon: I.ShieldAlert,
+                tone: 'destructive',
+                title: 'Account suspended',
+                description:
+                  'Your osu! Tournament Rating account has been temporarily disabled. If you believe this is an error, please contact the administrators.',
+                className: 'min-h-0 py-10',
+              },
+              h(
+                'p',
+                { className: 'text-muted-foreground' },
+                h(
+                  'span',
+                  { className: 'font-medium text-foreground' },
+                  'Reason:'
+                ),
+                ' Submissions abuse'
+              )
+            ),
+            h(O.StatusPage, {
+              icon: I.AlertCircle,
+              tone: 'destructive',
+              title: 'Tournament could not load',
+              description:
+                'Something went wrong on our side. Try again in a moment.',
+              role: 'alert',
+              action: [
+                h(
+                  O.Button,
+                  {
+                    key: 'b',
+                    asChild: true,
+                    variant: 'outline',
+                    icon: I.ArrowLeft,
+                  },
+                  h('a', { href: '#' }, 'Tournaments')
+                ),
+                h(O.Button, { key: 't', icon: I.RefreshCw }, 'Try again'),
+              ],
+              className: 'min-h-0 py-10',
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

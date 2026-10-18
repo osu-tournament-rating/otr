@@ -1,0 +1,110 @@
+<!-- @dsCard group="Lists" height=296 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RangeFilter</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var L = O.lists,
+        tournamentRankScale = L.tournamentRankScale;
+      var lengthScale = L.tieredScale({
+        tiers: [
+          { start: 0, end: 300, step: 5 },
+          { start: 300, end: 600, step: 10 },
+          { start: 600, end: 1800, step: 60 },
+        ],
+      });
+      function formatSeconds(s) {
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      }
+      // Filter fields sit in the filter panel's two-column grid.
+      function Fields(props) {
+        return h(
+          'div',
+          {
+            className:
+              'w-full max-w-[24rem] rounded-xl border bg-popover text-popover-foreground shadow-md',
+          },
+          h(
+            'div',
+            { className: 'grid grid-cols-2 content-start gap-x-3 gap-y-5 p-4' },
+            props.children
+          )
+        );
+      }
+      function Demo() {
+        var sr = React.useState({ min: 5.5, max: 7 }),
+          len = React.useState({}),
+          cs = React.useState({ max: 4.5 }),
+          ar = React.useState({}),
+          rank = React.useState({ min: 1000 });
+        return h(
+          'div',
+          { className: 'grid grid-cols-2 items-start gap-6' },
+          h(
+            Fields,
+            null,
+            h(O.RangeFilter, {
+              label: 'SR',
+              min: 0,
+              max: 15,
+              step: 0.1,
+              value: sr[0],
+              onValueChange: sr[1],
+            }),
+            h(O.RangeFilter, {
+              label: 'Length (seconds)',
+              valueLabel: 'length',
+              min: 0,
+              max: 1800,
+              scale: lengthScale,
+              format: formatSeconds,
+              value: len[0],
+              onValueChange: len[1],
+            }),
+            h(O.RangeFilter, {
+              label: 'CS',
+              span: 'half',
+              min: 0,
+              max: 10,
+              step: 0.1,
+              value: cs[0],
+              onValueChange: cs[1],
+            }),
+            h(O.RangeFilter, {
+              label: 'AR',
+              span: 'half',
+              min: 0,
+              max: 10,
+              step: 0.1,
+              value: ar[0],
+              onValueChange: ar[1],
+            })
+          ),
+          h(
+            Fields,
+            null,
+            h(O.RangeFilter, {
+              label: 'Rank restriction',
+              valueLabel: 'rank',
+              info: "The 'best' global rank allowed to participate. Use 1 for open rank.",
+              min: 1,
+              max: 1000000,
+              scale: tournamentRankScale,
+              value: rank[0],
+              onValueChange: rank[1],
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

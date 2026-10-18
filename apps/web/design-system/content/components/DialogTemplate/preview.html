@@ -1,0 +1,92 @@
+<!-- @dsCard group="Controls" height=480 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DialogTemplate</title>
+  </head>
+  <body>
+    <div id="root" class="p-4"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      // The ui Input's classes; the kit's dialogs hold shadcn inputs.
+      var INPUT =
+        'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground md:text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40';
+      function Field(p) {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-2 ' + (p.className || '') },
+          h(O.FormFieldLabel, { htmlFor: p.id }, p.label),
+          h('input', { id: p.id, className: INPUT, defaultValue: p.value })
+        );
+      }
+      function Demo() {
+        var s = React.useState(true),
+          open = s[0],
+          setOpen = s[1];
+        return h(
+          O.DialogTemplate,
+          {
+            open: open,
+            onOpenChange: setOpen,
+            // A still card: no field focused on open.
+            onOpenAutoFocus: function (e) {
+              e.preventDefault();
+            },
+            trigger: h(
+              O.Button,
+              { variant: 'outline', icon: I.PencilLine },
+              'Edit tournament'
+            ),
+            title: 'Edit tournament',
+            description: 'Editing Break The Meta Cup',
+            onSubmit: function (e) {
+              e.preventDefault();
+              setOpen(false);
+            },
+            footer: h(
+              React.Fragment,
+              null,
+              h(
+                O.Button,
+                {
+                  variant: 'outline',
+                  onClick: function () {
+                    setOpen(false);
+                  },
+                },
+                'Cancel'
+              ),
+              h(O.Button, { type: 'submit' }, 'Save')
+            ),
+          },
+          h(
+            'div',
+            { className: 'grid items-start gap-4 sm:grid-cols-3' },
+            h(Field, {
+              id: 'abbreviation',
+              label: 'Abbreviation',
+              value: 'BTMC',
+            }),
+            h(Field, {
+              id: 'name',
+              label: 'Name',
+              value: 'Break The Meta Cup',
+              className: 'sm:col-span-2',
+            })
+          ),
+          h(Field, {
+            id: 'forum-url',
+            label: 'Forum post URL',
+            value: 'https://osu.ppy.sh/community/forums/topics/1446216',
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,59 @@
+<!-- @dsCard group="Lists" height=72 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ChoiceChip</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        VS = O.osu.VerificationStatus,
+        h = React.createElement;
+      function useToggle(initial) {
+        var s = React.useState(initial);
+        return [
+          s[0],
+          function () {
+            s[1](!s[0]);
+          },
+        ];
+      }
+      function Demo() {
+        var teams = useToggle(true),
+          verified = useToggle(true),
+          solo = useToggle(false);
+        return h(
+          'div',
+          { className: 'flex flex-wrap gap-1.5' },
+          h(
+            O.ChoiceChip,
+            { selected: teams[0], onClick: teams[1] },
+            O.format.formatLobbySize(4)
+          ),
+          h(
+            O.ChoiceChip,
+            {
+              selected: verified[0],
+              onClick: verified[1],
+              icon: h(O.VerificationStatusGlyph, {
+                status: VS.Verified,
+                className: 'size-4',
+              }),
+            },
+            O.status.getVerificationStatusName(VS.Verified)
+          ),
+          h(
+            O.ChoiceChip,
+            { selected: solo[0], onClick: solo[1] },
+            O.format.formatLobbySize(1)
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

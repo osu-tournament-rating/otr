@@ -1,0 +1,166 @@
+<!-- @dsCard group="Tables" height=235 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SortableHeader</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        h = React.createElement;
+      var HREF = '#tables-sortable-header';
+
+      var TOURNAMENTS = [
+        {
+          id: 1,
+          name: 'Corsace Open 2025',
+          start: '2025-09-06',
+          end: '2025-10-19',
+          matches: 412,
+          lobbySize: 4,
+        },
+        {
+          id: 2,
+          name: 'osu! World Cup 2025',
+          start: '2025-11-01',
+          end: '2025-12-14',
+          matches: 128,
+          lobbySize: 4,
+        },
+        {
+          id: 3,
+          name: 'Break The Meta Cup',
+          start: '2024-07-20',
+          end: '2024-08-03',
+          matches: 96,
+          lobbySize: 1,
+        },
+      ];
+      var collator = new Intl.Collator('en-US', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+
+      function sortRows(rows, sort) {
+        var sign = sort.direction === 'asc' ? 1 : -1;
+        return rows
+          .map(function (row, i) {
+            return { row: row, i: i, v: row[sort.key] };
+          })
+          .sort(function (a, b) {
+            var c =
+              typeof a.v === 'string'
+                ? collator.compare(a.v, b.v)
+                : a.v === b.v
+                  ? 0
+                  : a.v < b.v
+                    ? -1
+                    : 1;
+            return sign * c || a.i - b.i;
+          })
+          .map(function (x) {
+            return x.row;
+          });
+      }
+
+      function Demo() {
+        var s = React.useState({ key: 'matches', direction: 'desc' }),
+          sort = s[0],
+          setSort = s[1];
+        var rows = sortRows(TOURNAMENTS, sort);
+
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, {
+            icon: I.Trophy,
+            title: 'Tournaments',
+            meta: '3 tournaments',
+          }),
+          h(
+            O.DataTable,
+            { 'aria-label': 'Tournaments' },
+            h(
+              O.DataTableHeader,
+              null,
+              h(
+                O.DataTableRow,
+                null,
+                h(
+                  O.SortableHeader,
+                  {
+                    sortKey: 'name',
+                    sort: sort,
+                    onSortChange: setSort,
+                    defaultDirection: 'asc',
+                  },
+                  'Tournament'
+                ),
+                h(O.DataTableHead, { showFrom: 'sm' }, 'Dates'),
+                h(
+                  O.SortableHeader,
+                  {
+                    sortKey: 'lobbySize',
+                    sort: sort,
+                    onSortChange: setSort,
+                    numeric: true,
+                    showFrom: 'sm',
+                    info: 'Number of players per team in each match',
+                  },
+                  'Lobby size'
+                ),
+                h(
+                  O.SortableHeader,
+                  {
+                    sortKey: 'matches',
+                    sort: sort,
+                    onSortChange: setSort,
+                    numeric: true,
+                  },
+                  'Matches'
+                )
+              )
+            ),
+            h(
+              O.DataTableBody,
+              null,
+              rows.map(function (row) {
+                return h(
+                  O.DataTableRow,
+                  { key: row.id },
+                  h(
+                    O.DataTableCell,
+                    { className: 'max-w-56' },
+                    h(O.EntityLink, { href: HREF }, row.name)
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { muted: true, showFrom: 'sm' },
+                    h(O.DateRangeText, { start: row.start, end: row.end })
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true, showFrom: 'sm' },
+                    F.formatLobbySize(row.lobbySize)
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true },
+                    F.formatCount(row.matches)
+                  )
+                );
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>
