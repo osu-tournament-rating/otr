@@ -13,6 +13,12 @@ import {
   type StatsTournament,
 } from './index';
 
+/** Skipped: nothing to calculate, which is expected. Failed: the calculation broke. */
+export type TournamentStatsOutcome =
+  | { status: 'processed' }
+  | { status: 'skipped'; reason: string }
+  | { status: 'failed'; reason: string };
+
 interface TournamentStatsServiceOptions {
   db: DatabaseClient;
   logger: Logger;
@@ -30,14 +36,16 @@ export class TournamentStatsService {
     this.calculator = options.calculator;
   }
 
-  async processTournamentStats(tournamentId: number): Promise<boolean> {
+  async processTournamentStats(
+    tournamentId: number
+  ): Promise<TournamentStatsOutcome> {
     const tournament = await this.loadTournamentWithAllData(tournamentId);
 
     if (!tournament) {
       this.logger.error('Tournament not found for stats processing', {
         tournamentId,
       });
-      return false;
+      return { status: 'skipped', reason: 'The tournament no longer exists' };
     }
 
     if (tournament.verificationStatus !== VerificationStatus.Verified) {
@@ -48,7 +56,7 @@ export class TournamentStatsService {
           verificationStatus: tournament.verificationStatus,
         }
       );
-      return false;
+      return { status: 'skipped', reason: 'The tournament is not verified' };
     }
 
     const result = this.calculator.calculateAllStatistics(tournament);
@@ -61,7 +69,10 @@ export class TournamentStatsService {
           error: result.errorMessage,
         }
       );
-      return false;
+      return {
+        status: 'failed',
+        reason: `Calculating statistics failed: ${result.errorMessage ?? 'Unknown error'}`,
+      };
     }
 
     await this.persistCalculationResults(tournament, result);
@@ -76,7 +87,7 @@ export class TournamentStatsService {
       }
     );
 
-    return true;
+    return { status: 'processed' };
   }
 
   private async loadTournamentWithAllData(

@@ -1,36 +1,13 @@
 import { describe, expect, it } from 'bun:test';
-import { MessagePriority, type ProcessTournamentStatsMessage } from '@otr/core';
+import { MessagePriority } from '@otr/core';
+import { JobQueue } from '@otr/core/jobs';
 
-import type { QueueConsumer, QueueMessage } from '@otr/core/queues';
+import processorPayload from '../../../../../packages/otr-core/src/jobs/__fixtures__/tournament-stats-payload.json';
+import { DiscardJobError, PermanentJobError } from '../../jobs/errors';
+import type { ClaimedJob } from '../../jobs/types';
 import type { Logger } from '../../logging/logger';
 import { TournamentStatsWorker } from '../tournament-stats-worker';
 import type { TournamentStatsService } from '../tournament-stats-service';
-
-class StubQueue implements QueueConsumer<ProcessTournamentStatsMessage> {
-  handler:
-    | ((message: QueueMessage<ProcessTournamentStatsMessage>) => Promise<void>)
-    | null = null;
-
-  async start(
-    handler: (
-      message: QueueMessage<ProcessTournamentStatsMessage>
-    ) => Promise<void>
-  ) {
-    this.handler = handler;
-  }
-
-  async stop() {
-    this.handler = null;
-  }
-
-  async emit(message: QueueMessage<ProcessTournamentStatsMessage>) {
-    if (!this.handler) {
-      throw new Error('Queue handler not registered');
-    }
-
-    await this.handler(message);
-  }
-}
 
 const noopLogger: Logger = {
   info: () => {},
@@ -40,124 +17,85 @@ const noopLogger: Logger = {
   child: () => noopLogger,
 };
 
-const baseMessage: QueueMessage<ProcessTournamentStatsMessage> = {
-  payload: {
-    tournamentId: 5,
-    correlationId: 'corr-id',
-    requestedAt: new Date().toISOString(),
-    priority: MessagePriority.Normal,
-  },
-  metadata: {
-    correlationId: 'corr-id',
-    requestedAt: new Date().toISOString(),
-    priority: MessagePriority.Normal,
-  },
-  ack: async () => {},
-  nack: async () => {},
-};
+const job = (payload: unknown): ClaimedJob<JobQueue.TournamentStats> => ({
+  id: 1,
+  queue: JobQueue.TournamentStats,
+  payload: payload as { tournamentId: number },
+  priority: MessagePriority.Normal,
+  attempts: 1,
+  maxAttempts: 5,
+  correlationId: 'corr-id',
+  tournamentId: 5,
+  requestedByUserId: null,
+  traceContext: null,
+  created: new Date().toISOString(),
+});
+
+const workerWith = (
+  processTournamentStats: TournamentStatsService['processTournamentStats']
+) =>
+  new TournamentStatsWorker({
+    service: { processTournamentStats } as TournamentStatsService,
+    logger: noopLogger,
+  });
 
 describe('TournamentStatsWorker', () => {
-  it('acknowledges messages on success', async () => {
-    const queue = new StubQueue();
-    let processCalls = 0;
-    const service: Pick<TournamentStatsService, 'processTournamentStats'> = {
-      async processTournamentStats() {
-        processCalls += 1;
-        return true;
-      },
-    };
-
-    let acked = 0;
-    let nacked = 0;
-
-    const worker = new TournamentStatsWorker({
-      queue,
-      service: service as TournamentStatsService,
-      logger: noopLogger,
+  it('processes the tournament named by the payload the processor writes', async () => {
+    const processed: number[] = [];
+    const worker = workerWith(async (tournamentId) => {
+      processed.push(tournamentId);
+      return { status: 'processed' };
     });
 
-    await worker.start();
+    await worker.handle(job(processorPayload));
 
-    await queue.emit({
-      ...baseMessage,
-      ack: async () => {
-        acked += 1;
-      },
-      nack: async () => {
-        nacked += 1;
-      },
-    });
-
-    expect(processCalls).toBe(1);
-    expect(acked).toBe(1);
-    expect(nacked).toBe(0);
+    expect(processed).toEqual([123]);
   });
 
-  it('still acknowledges when processing fails', async () => {
-    const queue = new StubQueue();
-    const service: Pick<TournamentStatsService, 'processTournamentStats'> = {
-      async processTournamentStats() {
-        return false;
-      },
-    };
-
-    let acked = 0;
-    let nacked = 0;
-
-    const worker = new TournamentStatsWorker({
-      queue,
-      service: service as TournamentStatsService,
-      logger: noopLogger,
-    });
-
-    await worker.start();
-
-    await queue.emit({
-      ...baseMessage,
-      ack: async () => {
-        acked += 1;
-      },
-      nack: async () => {
-        nacked += 1;
-      },
-    });
-
-    expect(acked).toBe(1);
-    expect(nacked).toBe(0);
-  });
-
-  it('leaves a thrown failure to the consumer retry policy', async () => {
-    const queue = new StubQueue();
-    const service: Pick<TournamentStatsService, 'processTournamentStats'> = {
-      async processTournamentStats() {
-        throw new Error('boom');
-      },
-    };
-
-    let acked = 0;
-    let nacked = 0;
-
-    const worker = new TournamentStatsWorker({
-      queue,
-      service: service as TournamentStatsService,
-      logger: noopLogger,
-    });
-
-    await worker.start();
+  it('fails the job without retrying when the calculation fails', async () => {
+    const worker = workerWith(async () => ({
+      status: 'failed',
+      reason: 'boom',
+    }));
 
     await expect(
-      queue.emit({
-        ...baseMessage,
-        ack: async () => {
-          acked += 1;
-        },
-        nack: async () => {
-          nacked += 1;
-        },
-      })
-    ).rejects.toThrow('boom');
+      worker.handle(job({ tournamentId: 5 }))
+    ).rejects.toBeInstanceOf(PermanentJobError);
+  });
 
-    expect(acked).toBe(0);
-    expect(nacked).toBe(0);
+  it('drops the job without an alert when there is nothing to calculate', async () => {
+    const worker = workerWith(async () => ({
+      status: 'skipped',
+      reason: 'The tournament is not verified',
+    }));
+
+    await expect(
+      worker.handle(job({ tournamentId: 5 }))
+    ).rejects.toBeInstanceOf(DiscardJobError);
+  });
+
+  it('fails the job without calling the service when the payload has no tournament id', async () => {
+    let calls = 0;
+    const worker = workerWith(async () => {
+      calls += 1;
+      return { status: 'processed' };
+    });
+
+    await expect(worker.handle(job({}))).rejects.toBeInstanceOf(
+      PermanentJobError
+    );
+    expect(calls).toBe(0);
+  });
+
+  it('leaves a thrown failure to the runner retry policy', async () => {
+    const worker = workerWith(async () => {
+      throw new Error('boom');
+    });
+
+    const error = await worker.handle(job({ tournamentId: 5 })).catch((e) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(PermanentJobError);
+    expect((error as Error).message).toBe('boom');
   });
 });

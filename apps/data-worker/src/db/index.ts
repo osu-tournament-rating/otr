@@ -7,14 +7,25 @@ import { loadRootEnv } from '../../../../lib/env/load-root-env';
 
 loadRootEnv();
 
-const databaseUrl = process.env.DATABASE_URL;
+const url = process.env.DATABASE_URL;
 
-if (!databaseUrl) {
+if (!url) {
   throw new Error('DATABASE_URL is not configured');
 }
 
+export const databaseUrl: string = url;
+
+// Job loops, lease renewals, schedulers and metrics share this pool. A
+// checkout that waits this long fails, and the job retries, instead of
+// hanging.
 export const db = drizzle(
-  instrumentPgPool(new Pool({ connectionString: databaseUrl })),
+  instrumentPgPool(
+    new Pool({
+      connectionString: databaseUrl,
+      max: 20,
+      connectionTimeoutMillis: 30_000,
+    })
+  ),
   { schema: dbSchema }
 );
 

@@ -1,5 +1,9 @@
 import type { UserStatUpdate } from '@otr/core';
-import { osuTrackApiRequests, osuTrackApiDuration } from '../metrics';
+import {
+  apiRequestStats,
+  osuTrackApiRequests,
+  osuTrackApiDuration,
+} from '../metrics';
 
 type FetchFunction = (
   input: RequestInfo | URL,
@@ -126,8 +130,10 @@ export class OsuTrackClient {
 
       return data.map(mapUserStatUpdate);
     } finally {
+      const durationMs = Date.now() - start;
       osuTrackApiRequests.labels({ status }).inc();
-      osuTrackApiDuration.observe((Date.now() - start) / 1000);
+      osuTrackApiDuration.observe(durationMs / 1000);
+      apiRequestStats.record('osutrack', 'statsHistory', status, durationMs);
     }
   }
 }

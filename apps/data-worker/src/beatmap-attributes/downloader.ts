@@ -1,4 +1,5 @@
 import type { Logger } from '../logging/logger';
+import { apiRequestStats } from '../metrics/api-request-stats';
 import { FixedWindowRateLimiter, type RateLimiter } from '../rate-limiter';
 
 type FetchFunction = (
@@ -149,6 +150,19 @@ export class BeatmapFileDownloader {
   }
 
   private async request(osuBeatmapId: number): Promise<Attempt> {
+    const start = Date.now();
+    let status = 'error';
+
+    try {
+      const attempt = await this.requestOnce(osuBeatmapId);
+      status = attempt.status === 'ok' ? 'success' : attempt.status;
+      return attempt;
+    } finally {
+      apiRequestStats.record('osu', 'beatmapFile', status, Date.now() - start);
+    }
+  }
+
+  private async requestOnce(osuBeatmapId: number): Promise<Attempt> {
     const url = beatmapFileUrl(osuBeatmapId);
     let response: Response;
     let bytes: Uint8Array | null = null;
