@@ -181,6 +181,9 @@ class DockerSandbox:
                 "--label", self.label,
                 "--network", self.network,
                 "--env", f"CONNECTION_STRING={CONNECTION_STRING}",
+                # Releases before the jobs table require a RabbitMQ URL and
+                # only warn when nothing answers there, so a dead address lets
+                # them run. Newer releases ignore it.
                 "--env", "RABBITMQ_URL=amqp://guest:guest@127.0.0.1:1",
                 "--env", "RUST_LOG=info",
                 image,
