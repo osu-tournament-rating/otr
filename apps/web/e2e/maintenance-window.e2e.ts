@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 import { createORPCClient } from '@orpc/client';
 import { RPCLink } from '@orpc/client/fetch';
 
+import { BUILD_ID, BUILD_ID_HEADER } from '../lib/build-id';
 import { STORAGE_STATE } from './fixtures/auth';
 
 /**
@@ -68,6 +69,7 @@ const adminClient = (
     url: `${baseURL}/rpc`,
     headers: () => ({
       cookie: adminCookieHeader(),
+      [BUILD_ID_HEADER]: BUILD_ID,
       'x-e2e-maintenance-window': override,
     }),
   });

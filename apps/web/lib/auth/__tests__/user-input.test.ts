@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { parseUserInput } from 'better-auth/db';
+import {
+  parseAdditionalUserInputFromProviderProfile,
+  parseUserInput,
+} from 'better-auth/db';
 
 import { auth } from '../auth';
 
@@ -14,5 +17,18 @@ describe('auth user input', () => {
 
   test('allows updates that omit playerId', () => {
     expect(parseUserInput(auth.options, {}, 'update')).toEqual({});
+  });
+
+  // The OAuth callback filters the osu! profile through this before it
+  // creates a new user. It drops playerId, which the user create hook fills
+  // in, so it must not require one.
+  test('creates a user from an osu! profile without a playerId', () => {
+    expect(() =>
+      parseAdditionalUserInputFromProviderProfile(
+        auth.options,
+        { playerId: 1 },
+        'create'
+      )
+    ).not.toThrow();
   });
 });

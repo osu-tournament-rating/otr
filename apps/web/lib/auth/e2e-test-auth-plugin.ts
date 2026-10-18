@@ -7,12 +7,16 @@ import { eq } from 'drizzle-orm';
 import * as schema from '@otr/core/db/schema';
 import { db } from '@/lib/db';
 
+import { E2E_FAKE_OSU_ID_FLOOR } from './e2e-auth';
+
 /**
  * Test-only plugin: `POST /api/auth/e2e/sign-in` with `{ playerId, admin? }` mints a
  * signed session for an existing player, provisioning its `users`/`auth_users` rows
- * if the local database has none. Gated on {@link isE2eAuthEnabled}, which the
- * endpoint rechecks per request — Playwright runs a production build, so the gate
- * cannot key off NODE_ENV, and the flag must stay unset in production.
+ * if the local database has none. `POST /api/auth/e2e/delete-player` with
+ * `{ osuId }` removes a fake player the suite signed up, and everything that
+ * hangs off it. Gated on {@link isE2eAuthEnabled}, which each endpoint rechecks
+ * per request — Playwright runs a production build, so the gate cannot key off
+ * NODE_ENV, and the flag must stay unset in production.
  */
 export const isE2eAuthEnabled = () => process.env.E2E_TEST_AUTH === 'true';
 
@@ -98,6 +102,45 @@ export const e2eTestAuthPlugin = () =>
             playerId,
             role: authUser.role,
           });
+        }
+      ),
+      e2eDeletePlayer: createAuthEndpoint(
+        '/e2e/delete-player',
+        {
+          method: 'POST',
+          body: z.object({
+            // Previews enable this plugin on a shared database, so it can
+            // only reach the fake players the suite signs up.
+            osuId: z.number().int().min(E2E_FAKE_OSU_ID_FLOOR),
+          }),
+          metadata: {
+            openapi: {
+              operationId: 'e2eDeletePlayer',
+              description:
+                'Test-only: delete a fake player the e2e suite signed up. Disabled outside e2e.',
+            },
+          },
+        },
+        async (ctx) => {
+          if (!isE2eAuthEnabled()) {
+            throw new APIError('NOT_FOUND', { message: 'Not found' });
+          }
+
+          const player = await db.query.players.findFirst({
+            where: eq(schema.players.osuId, ctx.body.osuId),
+          });
+
+          if (player) {
+            await db
+              .delete(schema.users)
+              .where(eq(schema.users.playerId, player.id));
+            // Cascades to the auth user, its accounts, and its sessions.
+            await db
+              .delete(schema.players)
+              .where(eq(schema.players.id, player.id));
+          }
+
+          return ctx.json({ ok: true, deleted: !!player });
         }
       ),
     },
