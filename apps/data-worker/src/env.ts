@@ -1,4 +1,5 @@
 import { loadRootEnv } from '../../../lib/env/load-root-env';
+import { parseBeatmapFilesEnv } from './beatmap-attributes/env';
 
 loadRootEnv();
 
@@ -135,6 +136,9 @@ export const dataWorkerEnv = {
     osu: playerOsuAutoRefetch,
     osuTrack: playerOsuTrackAutoRefetch,
   },
+  // Unlike the settings above, a bad value here does not throw: it turns the
+  // feature off and the rest of the worker keeps running.
+  beatmapFiles: parseBeatmapFilesEnv(process.env),
 } as const;
 
 export type DataWorkerEnv = typeof dataWorkerEnv;

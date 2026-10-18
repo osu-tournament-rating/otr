@@ -71,6 +71,13 @@ export class RabbitMqPublisher<
     });
   }
 
+  /** Messages ready for delivery; unacknowledged deliveries are not counted. */
+  async messageCount(): Promise<number> {
+    const channel = await this.ensureChannel();
+    const { messageCount } = await channel.checkQueue(this.queue);
+    return messageCount;
+  }
+
   async close(): Promise<void> {
     const channel = await this.channelPromise?.catch(() => null);
     const connection = this.connection;

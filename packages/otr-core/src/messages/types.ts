@@ -45,10 +45,19 @@ export type ProcessTournamentStatsMessage = MessageEnvelope<{
   tournamentId: number;
 }>;
 
+/** Store a beatmap's .osu file and calculate its attributes. */
+export type ProcessBeatmapAttributesMessage = MessageEnvelope<{
+  /** o!TR beatmaps.id */
+  beatmapId: number;
+  /** MD5 osu! currently reports; a stored file with another checksum is downloaded again. */
+  checksum?: string;
+}>;
+
 export type KnownQueueMessage =
   | FetchOsuMessage
   | FetchPlayerOsuTrackMessage
   | ProcessTournamentAutomationCheckMessage
-  | ProcessTournamentStatsMessage;
+  | ProcessTournamentStatsMessage
+  | ProcessBeatmapAttributesMessage;
 
 export type { MessageMetadata } from './values';
