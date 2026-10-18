@@ -20,6 +20,11 @@ import { optionalEnv } from '../utils/env';
 export interface StartTracingOptions {
   /** Fallback when OTEL_SERVICE_NAME is unset. */
   serviceName: string;
+  /**
+   * Flush and stop on SIGTERM or SIGINT. Off for a process that keeps working
+   * after the signal and calls shutdownTracing itself before it exits.
+   */
+  flushOnSignal?: boolean;
 }
 
 let provider: NodeTracerProvider | null = null;
@@ -36,6 +41,7 @@ export const resolveServiceName = (fallback: string): string =>
  */
 export function startTracing({
   serviceName,
+  flushOnSignal = true,
 }: StartTracingOptions): NodeTracerProvider | null {
   if (provider) {
     return provider;
@@ -68,12 +74,14 @@ export function startTracing({
     }),
   });
 
-  const flush = () => {
-    void provider?.shutdown().catch(() => undefined);
-  };
+  if (flushOnSignal) {
+    const flush = () => {
+      void provider?.shutdown().catch(() => undefined);
+    };
 
-  process.once('SIGTERM', flush);
-  process.once('SIGINT', flush);
+    process.once('SIGTERM', flush);
+    process.once('SIGINT', flush);
+  }
 
   return provider;
 }
