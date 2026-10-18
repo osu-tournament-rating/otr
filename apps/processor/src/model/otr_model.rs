@@ -383,7 +383,7 @@ impl OtrModel {
     /// - For inactive players (>184 days): both rating and volatility decay
     /// - For active players: volatility decay only
     fn apply_unified_decay(&mut self, up_to: chrono::DateTime<chrono::FixedOffset>) {
-        // Early exit if no Wednesdays to process (avoids expensive leaderboard cloning)
+        // Most matches cross no Wednesday, so there is nothing to decay
         if !self.decay_system.prepare_decay_pass(up_to) {
             return;
         }
