@@ -427,3 +427,38 @@ describe('RabbitMqConsumer reconnects', () => {
     expect(consumer.isConsuming).toBe(false);
   });
 });
+
+describe('RabbitMqConsumer reconnects once', () => {
+  it('starts one reconnect when the connection is lost during subscribe', async () => {
+    const connections: FakeConnection[] = [];
+    const consumer = new RabbitMqConsumer<unknown>({
+      url: 'amqp://unused',
+      queue: 'test.reconnect.during-consume',
+      logger: noopLogger,
+      reconnectDelayMs: () => 0,
+      connectionFactory: async () => {
+        const channel = new FakeChannel();
+        const connection = new FakeConnection(channel);
+        // The second connection's consume fails the way amqplib's does when
+        // the queue is deleted mid-subscribe: the channel closes, then the
+        // pending call rejects.
+        if (connections.length === 1) {
+          channel.consume = async () => {
+            connection.emit('close');
+            throw new Error('NOT_FOUND - no queue');
+          };
+        }
+        connections.push(connection);
+        return connection as unknown as ChannelModel;
+      },
+    });
+    await consumer.start(async () => {});
+
+    connections[0]!.emit('close');
+    await Bun.sleep(20);
+
+    expect(connections).toHaveLength(3);
+    expect(consumer.isConsuming).toBe(true);
+    await consumer.stop();
+  });
+});

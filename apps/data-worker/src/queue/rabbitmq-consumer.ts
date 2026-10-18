@@ -192,6 +192,12 @@ export class RabbitMqConsumer<TPayload> implements QueueConsumer<TPayload> {
   }
 
   private scheduleReconnect(attempt: number) {
+    // A loss during subscribe both schedules a reconnect and fails that
+    // subscribe, so the second request must not start another chain.
+    if (this.reconnectTimer) {
+      return;
+    }
+
     const delay = (this.options.reconnectDelayMs ?? defaultReconnectDelayMs)(
       attempt
     );
