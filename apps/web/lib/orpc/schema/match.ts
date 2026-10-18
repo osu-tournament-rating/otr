@@ -21,10 +21,13 @@ import {
   VerificationChildrenChoiceSchema,
   VerificationStatusSchema,
 } from './constants';
-import { AdminNoteSchema } from './common';
+import { AdminNoteSchema, LazerModSchema } from './common';
 import { PlayerSchema } from './player';
 
 const AdminNoteContentSchema = z.string().trim().min(1);
+
+/** Every mod of a lazer game or score; null for stable data. */
+const LazerModsSchema = z.array(LazerModSchema).nullable();
 
 const matchTournamentBaseSchema = tournamentSelectSchema.pick({
   id: true,
@@ -76,6 +79,7 @@ export const GameScoreSchema = gameScoreSelectSchema
     team: TeamSchema,
     ruleset: RulesetSchema,
     verificationStatus: VerificationStatusSchema,
+    lazerMods: LazerModsSchema,
     adminNotes: z.array(AdminNoteSchema).default([]),
   });
 
@@ -84,6 +88,7 @@ const gameBaseSchema = gameSelectSchema.omit(CreatedUpdatedOmit).extend({
   scoringType: ScoringTypeSchema,
   teamType: TeamTypeSchema,
   verificationStatus: VerificationStatusSchema,
+  lazerMods: LazerModsSchema,
   isFreeMod: z.boolean(),
   beatmap: MatchBeatmapSchema.nullable(),
   adminNotes: z.array(AdminNoteSchema).default([]),

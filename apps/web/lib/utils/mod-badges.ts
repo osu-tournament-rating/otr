@@ -6,8 +6,11 @@
  */
 
 import { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
 import { ModsEnumHelper } from '@/lib/enum-helpers';
+import { formatNumber } from '@/lib/kit/format/number';
+import { getLazerModSpeed } from '@/lib/kit/format/mods';
 
 export type ModType =
   | 'Automation'
@@ -163,6 +166,47 @@ export function getModBadgeAcronyms(mods: number, freemod = false): string[] {
     .map(({ text }) => text)
     .filter((text) => text !== '');
   return freemod ? ['FM', ...acronyms] : acronyms;
+}
+
+/** One badge to draw, with the custom speed of a rate mod such as DT 1.2x. */
+export interface ModBadgeEntry {
+  acronym: string;
+  speed: number | null;
+}
+
+/**
+ * The badges to draw. A lazer list, when there is one, is drawn instead of
+ * the flags, in play order with its lazer-only mods and custom speeds, since
+ * the flags hold neither.
+ */
+export function getModBadgeEntries(
+  mods: number,
+  lazerMods: readonly LazerMod[] | null | undefined,
+  freemod = false
+): ModBadgeEntry[] {
+  if (!lazerMods) {
+    return getModBadgeAcronyms(mods, freemod).map((acronym) => ({
+      acronym,
+      speed: null,
+    }));
+  }
+
+  const entries = lazerMods.map((mod) => ({
+    acronym: mod.acronym,
+    speed: getLazerModSpeed(mod),
+  }));
+  return freemod ? [{ acronym: 'FM', speed: null }, ...entries] : entries;
+}
+
+/** A custom speed as osu! writes it: `1.2x`. */
+export function formatModSpeed(speed: number): string {
+  return `${formatNumber(speed, { maxDecimals: 2 })}x`;
+}
+
+/** A badge's full name with its custom speed: `Double Time 1.2x`. */
+export function getModEntryName({ acronym, speed }: ModBadgeEntry): string {
+  const name = getModName(acronym);
+  return speed === null ? name : `${name} ${formatModSpeed(speed)}`;
 }
 
 /** A badge's width over its height: osu-web's badge shape is 100 by 70. */

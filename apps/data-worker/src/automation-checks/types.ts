@@ -12,6 +12,7 @@ import {
   TournamentRejectionReason,
   VerificationStatus,
 } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
 export interface AutomationTournament {
   id: number;
@@ -57,6 +58,7 @@ export interface AutomationGame {
   scoringType: ScoringType;
   teamType: TeamType;
   mods: Mods;
+  lazerMods: LazerMod[] | null;
   startTime: string;
   endTime: string;
   verificationStatus: VerificationStatus;
@@ -79,6 +81,7 @@ export interface AutomationScore {
   id: number;
   score: number;
   mods: Mods;
+  lazerMods: LazerMod[] | null;
   team: Team;
   ruleset: Ruleset;
   verificationStatus: VerificationStatus;

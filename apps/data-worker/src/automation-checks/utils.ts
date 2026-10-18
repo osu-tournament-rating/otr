@@ -5,6 +5,7 @@ import {
   Team,
   VerificationStatus,
 } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
 import type { AutomationGame, AutomationScore } from './types';
 
@@ -14,6 +15,26 @@ const INVALID_MODS = new Set<Mods>([
   Mods.Relax,
   Mods.Autoplay,
   Mods.Relax2,
+]);
+
+/**
+ * The lazer mods that make a score invalid: the stable set above, by its
+ * lazer acronyms, plus Cinema. Every other lazer mod passes, fun mods
+ * included, since lazer tournaments pool them. Settings are not checked.
+ */
+const INVALID_LAZER_MODS = new Set([
+  // Autoplay
+  'AT',
+  // Cinema (lazer's acronym; stable uses CM)
+  'CN',
+  // Relax
+  'RX',
+  // Autopilot
+  'AP',
+  // Sudden Death
+  'SD',
+  // Perfect
+  'PF',
 ]);
 
 const PLACEHOLDER_THRESHOLD = new Date('1970-01-01T00:00:00.000Z').getTime();
@@ -35,8 +56,9 @@ export const isPreVerifiedOrVerified = (status: VerificationStatus) =>
   status === VerificationStatus.PreVerified ||
   status === VerificationStatus.Verified;
 
-export const hasInvalidMods = (mods: Mods) =>
-  Array.from(INVALID_MODS).some((flag) => (mods & flag) === flag);
+export const hasInvalidMods = (mods: Mods, lazerMods: LazerMod[] | null) =>
+  Array.from(INVALID_MODS).some((flag) => (mods & flag) === flag) ||
+  (lazerMods?.some((mod) => INVALID_LAZER_MODS.has(mod.acronym)) ?? false);
 
 export const combineRejection = <T extends number>(current: T, next: T): T =>
   (current | next) as T;

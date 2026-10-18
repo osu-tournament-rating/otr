@@ -10,6 +10,7 @@ import {
   ScoreGradeSchema,
   VerificationStatusSchema,
 } from './constants';
+import { LazerModSchema } from './common';
 import { PlayerCompactSchema } from './playerStats';
 
 /** Tournament rank-range bracket, keyed by `lib/beatmaps/rankRange`. */
@@ -58,6 +59,8 @@ export const BeatmapTopPerformerSchema = z.object({
   grade: ScoreGradeSchema.optional(),
   accuracy: z.number().min(0).max(1).nullable(),
   mods: z.number().int().nonnegative(),
+  /** Every mod of a lazer score with its settings; null for stable scores. */
+  lazerMods: z.array(LazerModSchema).nullable(),
   playedAt: z.string().nullable(),
   matchId: z.number().int().positive(),
   gameId: z.number().int().positive(),

@@ -6,9 +6,21 @@ import {
   Team,
   TeamType,
 } from '@otr/core/osu/enums';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
-type ModLike = string | { acronym?: string | null } | null | undefined;
+type ModLike =
+  | string
+  | { acronym?: string | null; settings?: Record<string, unknown> | null }
+  | null
+  | undefined;
 
+/**
+ * Acronyms to stable mod flags, for both stable and lazer scores. Two lazer
+ * acronyms map onto stable flags: Daycore (DC) and lazer's Cinema (CN). Every
+ * other lazer-only mod, such as Difficulty Adjust (DA), Classic (CL), Barrel
+ * Roll (BR) or Ten Keys (10K), has no flag and is dropped here; it is kept in
+ * the score's lazer mods instead (`normalizeLazerMods`).
+ */
 const MOD_MAP: Record<string, Mods> = {
   NF: Mods.NoFail,
   EZ: Mods.Easy,
@@ -19,10 +31,12 @@ const MOD_MAP: Record<string, Mods> = {
   DT: Mods.DoubleTime,
   RX: Mods.Relax,
   HT: Mods.HalfTime,
+  // Daycore (lazer only): Half Time with lowered pitch.
+  DC: Mods.HalfTime,
   NC: Mods.Nightcore,
   FL: Mods.Flashlight,
   AT: Mods.Autoplay,
-  AP: Mods.Autoplay,
+  AP: Mods.Relax2,
   SO: Mods.SpunOut,
   PF: Mods.Perfect,
   '4K': Mods.Key4,
@@ -33,6 +47,8 @@ const MOD_MAP: Record<string, Mods> = {
   FI: Mods.FadeIn,
   RD: Mods.Random,
   CM: Mods.Cinema,
+  // Cinema (lazer's acronym; stable uses CM).
+  CN: Mods.Cinema,
   TP: Mods.Target,
   '9K': Mods.Key9,
   CO: Mods.KeyCoop,
@@ -111,6 +127,36 @@ export const convertModsToFlags = (
     }
     return acc;
   }, Mods.None);
+};
+
+/**
+ * A lazer mod list as stored: uppercase acronyms in API order, with settings
+ * kept only when the player changed any. Lazer-only mods are kept too, since
+ * `convertModsToFlags` has no bit for them.
+ */
+export const normalizeLazerMods = (
+  mods: ModLike[] | undefined | null
+): LazerMod[] => {
+  const normalized: LazerMod[] = [];
+
+  for (const mod of mods ?? []) {
+    if (typeof mod === 'string') {
+      if (mod) normalized.push({ acronym: mod.toUpperCase() });
+      continue;
+    }
+    if (!mod || typeof mod.acronym !== 'string' || !mod.acronym) {
+      continue;
+    }
+
+    const settings = mod.settings;
+    normalized.push(
+      settings && Object.keys(settings).length > 0
+        ? { acronym: mod.acronym.toUpperCase(), settings }
+        : { acronym: mod.acronym.toUpperCase() }
+    );
+  }
+
+  return normalized;
 };
 
 export const convertScoringType = (value: string | undefined): ScoringType => {

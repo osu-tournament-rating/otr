@@ -168,3 +168,32 @@ describe('getModName', () => {
     expect(getModName('FM')).toBe('Free Mods');
   });
 });
+
+describe('ModIconset with lazer mods', () => {
+  it('draws lazer-only mods by name and writes a custom speed', () => {
+    const html = renderToStaticMarkup(
+      <ModIconset
+        mods={Mods.DoubleTime}
+        lazerMods={[
+          { acronym: 'DT', settings: { speed_change: 1.2 } },
+          { acronym: 'DA' },
+        ]}
+      />
+    );
+
+    expect(html).toContain('aria-label="Double Time 1.2x"');
+    expect(html).toContain('aria-label="Difficulty Adjust"');
+    expect(html).toContain('1.2x</span>');
+  });
+
+  it('names a custom speed in a fitting row', () => {
+    const html = renderToStaticMarkup(
+      <FittingModIconset
+        mods={Mods.HalfTime}
+        lazerMods={[{ acronym: 'DC', settings: { speed_change: 0.8 } }]}
+      />
+    );
+
+    expect(html).toContain('aria-label="Daycore 0.8x"');
+  });
+});

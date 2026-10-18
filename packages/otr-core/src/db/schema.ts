@@ -16,6 +16,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql, type SQL } from 'drizzle-orm';
 
+import type { LazerMod } from '../osu/lazer-mods';
+
 const tsVector = customType<{ data: string }>({
   dataType() {
     return 'tsvector';
@@ -432,6 +434,8 @@ export const gameScores = pgTable(
     legacyPerfect: boolean('legacy_perfect').notNull(),
     grade: integer().notNull(),
     mods: integer().notNull(),
+    // Every mod of a lazer score with its settings; null for stable scores.
+    lazerMods: jsonb('lazer_mods').$type<LazerMod[]>(),
     statComboBreak: integer('stat_combo_break'),
     statGreat: integer('stat_great'),
     statOk: integer('stat_ok'),
@@ -830,6 +834,8 @@ export const games = pgTable(
     scoringType: integer('scoring_type').notNull(),
     teamType: integer('team_type').notNull(),
     mods: integer().notNull(),
+    // Every required mod of a lazer game with its settings; null for stable games.
+    lazerMods: jsonb('lazer_mods').$type<LazerMod[]>(),
     startTime: timestamp('start_time', { withTimezone: true, mode: 'string' })
       .default('2007-09-17 00:00:00')
       .notNull(),

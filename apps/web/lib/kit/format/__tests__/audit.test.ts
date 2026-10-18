@@ -123,6 +123,16 @@ describe('formatAuditValue', () => {
     expect(format(AuditEntityType.Score, 'mods', Mods.None)).toBe('NM');
   });
 
+  it('writes lazer mods with their speed', () => {
+    expect(
+      format(AuditEntityType.Score, 'lazerMods', [
+        { acronym: 'DT', settings: { speed_change: 1.2 } },
+        { acronym: 'DA' },
+      ])
+    ).toBe('DT 1.2x, DA');
+    expect(format(AuditEntityType.Game, 'lazerMods', [])).toBe('NM');
+  });
+
   it('writes timestamps in UTC, to the second', () => {
     expect(
       format(AuditEntityType.Match, 'startTime', '2024-07-20T15:42:07+00:00')

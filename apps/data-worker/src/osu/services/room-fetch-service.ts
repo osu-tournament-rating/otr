@@ -13,6 +13,7 @@ import {
   convertScoreGrade,
   convertTeam,
   normalizeDate,
+  normalizeLazerMods,
 } from '../conversions';
 import { getOrCreatePlayerId } from '../player-store';
 import { resolveRulesetWithTournament } from './ruleset-utils';
@@ -194,6 +195,7 @@ export class RoomFetchService {
         );
 
         const mods = convertModsToFlags(playlistItem.required_mods ?? []);
+        const lazerMods = normalizeLazerMods(playlistItem.required_mods ?? []);
 
         const beatmapRecord = await ensureBeatmapPlaceholder(
           tx,
@@ -274,6 +276,7 @@ export class RoomFetchService {
           scoringType,
           teamType,
           mods,
+          lazerMods,
           startTime: normalizeDate(gameStartedEvent.created_at) ?? nowIso,
           endTime: normalizeDate(gameCompletedEvent.created_at) ?? nowIso,
           updated: nowIso,
@@ -388,6 +391,7 @@ export class RoomFetchService {
       const team = convertTeam(teamColor);
       const grade = convertScoreGrade(score.rank);
       const mods = convertModsToFlags(score.mods ?? []);
+      const lazerMods = normalizeLazerMods(score.mods ?? []);
       const rawScore = score.total_score ?? 0;
       const adjustedScore = calculateScoreWithMods(rawScore, mods);
 
@@ -403,6 +407,7 @@ export class RoomFetchService {
         legacyPerfect: score.legacy_perfect ?? false,
         grade,
         mods,
+        lazerMods,
         statGreat: stats.great ?? null,
         statOk: stats.ok ?? null,
         statMeh: stats.meh ?? null,

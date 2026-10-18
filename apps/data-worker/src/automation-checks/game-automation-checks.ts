@@ -145,13 +145,14 @@ export class GameAutomationChecks {
   }
 
   private checkMods(game: AutomationGame): GameRejectionReason {
-    if (!hasInvalidMods(game.mods)) {
+    if (!hasInvalidMods(game.mods, game.lazerMods)) {
       return GameRejectionReason.None;
     }
 
     this.logger?.trace('Game automation check: invalid mods', {
       gameId: game.id,
       mods: game.mods,
+      lazerMods: game.lazerMods,
     });
     return GameRejectionReason.InvalidMods;
   }

@@ -6,7 +6,11 @@ import { TEAM_LABELS } from '@/lib/kit/format/enum-labels';
 import { formatCount } from '@/lib/kit/format/number';
 import type { Game, GameScore, MatchPlayer } from '@/lib/orpc/schema/match';
 import { cn } from '@/lib/utils';
-import { getScoreDisplayMods, resolveGameDisplayMods } from '@/lib/utils/mods';
+import {
+  getScoreDisplayLazerMods,
+  getScoreDisplayMods,
+  resolveGameDisplayMods,
+} from '@/lib/utils/mods';
 
 import GameCardHeader from './GameCardHeader';
 import ScoreCard from './ScoreCard';
@@ -89,6 +93,10 @@ export default function GameCard({
           key={score.id}
           score={score}
           mods={getScoreDisplayMods(score.mods, headerMods.mods)}
+          lazerMods={getScoreDisplayLazerMods(
+            score.lazerMods,
+            headerMods.lazerMods
+          )}
           scoreWidth={scoreWidth}
           matchId={game.matchId}
           gameNumber={number}

@@ -1,6 +1,7 @@
 'use client';
 
 import type { Mods } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import Link from 'next/link';
 
 import ModIconset from '@/components/icons/ModIconset';
@@ -41,7 +42,7 @@ export default function GameCardHeader({
   /** The game's place in the match, which names its status icon and menu. */
   number: number;
   /** The mods to show, from `resolveGameDisplayMods`. */
-  mods: { mods: Mods; freemod: boolean };
+  mods: { mods: Mods; lazerMods: LazerMod[] | null; freemod: boolean };
 }) {
   const isDeletedBeatmap =
     !game.beatmap || !game.beatmap.beatmapset || game.beatmap.osuId === 0;
@@ -171,6 +172,7 @@ export default function GameCardHeader({
           </div>
           <ModIconset
             mods={mods.mods}
+            lazerMods={mods.lazerMods}
             freemod={mods.freemod}
             className="shrink-0 items-end justify-end"
             // No taller than the title's line, so the badges sit on it.

@@ -6,6 +6,7 @@
  */
 
 import { AuditEntityType, VerificationStatus } from '@otr/core/osu';
+import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
 import {
   getVerificationStatusName,
@@ -37,7 +38,7 @@ import {
   formatRankRange,
   humanizeFieldName,
 } from './fields';
-import { formatMods } from './mods';
+import { formatLazerMods, formatMods } from './mods';
 import {
   formatAccuracy,
   formatCount,
@@ -61,6 +62,7 @@ export type AuditValueFormat =
   | { kind: 'boolean' }
   | { kind: 'user' }
   | { kind: 'mods' }
+  | { kind: 'lazerMods' }
   | { kind: 'ruleset' }
   | { kind: 'rankRange' }
   | { kind: 'lobbySize' }
@@ -107,6 +109,7 @@ const shared = {
   verifiedByUserId: field(fieldLabel('verifiedBy'), user),
   created: field(fieldLabel('created'), timestamp),
   mods: field(fieldLabel('mods'), mods),
+  lazerMods: field(fieldLabel('lazerMods'), { kind: 'lazerMods' }),
   maxCombo: field(fieldLabel('maxCombo'), count),
   dataFetchStatus: field('Data fetch status', enumOf(DATA_FETCH_STATUS_LABELS)),
 };
@@ -164,6 +167,7 @@ export const AUDIT_FIELDS: Readonly<
     scoringType: field(fieldLabel('scoringType'), enumOf(SCORING_TYPE_LABELS)),
     teamType: field(fieldLabel('teamType'), enumOf(TEAM_TYPE_LABELS)),
     mods: shared.mods,
+    lazerMods: shared.lazerMods,
     startTime: shared.startTime,
     endTime: shared.endTime,
     verificationStatus: shared.verificationStatus,
@@ -193,6 +197,7 @@ export const AUDIT_FIELDS: Readonly<
     legacyPerfect: field('Legacy perfect', boolean),
     grade: field(fieldLabel('grade'), enumOf(SCORE_GRADE_LABELS)),
     mods: shared.mods,
+    lazerMods: shared.lazerMods,
     statComboBreak: field('Combo breaks', count),
     statGreat: field('Great', count),
     statOk: field('Ok', count),
@@ -336,6 +341,18 @@ function formatUser(
   return users[String(value)]?.username ?? `Deleted user (${value})`;
 }
 
+function isLazerModList(value: unknown): value is LazerMod[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as { acronym?: unknown }).acronym === 'string'
+    )
+  );
+}
+
 function formatWith(
   format: AuditValueFormat,
   value: unknown,
@@ -364,6 +381,10 @@ function formatWith(
               )
               .join(', ')
           : 'None'
+        : formatLoose(value);
+    case 'lazerMods':
+      return isLazerModList(value)
+        ? formatLazerMods(value)
         : formatLoose(value);
   }
 
