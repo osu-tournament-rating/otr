@@ -3,7 +3,7 @@ tags:
   - math
 ---
 
-Starting ratings are based on the closest-known rank according to [osu!track](https://github.com/Ameobea/osutrack-api), or the most recent global rank if none is known. The initial placement is based on the closest point in time relative to when the player started playing tournament matches.
+Starting ratings are based on the closest-known rank according to [osu!track](https://github.com/Ameobea/osutrack-api), or the most recent global rank if none is known. The initial placement is based on the closest point in time relative to the player's first verified tournament match in that ruleset. osu!track tracks osu!mania as one ruleset, so a player's 4K and 7K ratings both start from their overall osu!mania rank, each at their first match in that variant.
 
 These initial ratings roughly follow a bell curve and are piecewise linearly dependent on $\log(\text{rank})$. Specifically, the following quantity, called the "rank z-score," is first calculated for each player:
 

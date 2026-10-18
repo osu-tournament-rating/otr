@@ -2,19 +2,24 @@ import type { UserStatUpdate } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
-import { and, asc, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull, min } from 'drizzle-orm';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
 
-const MODE_RULESET_MAP: Record<number, Ruleset | undefined> = {
-  0: Ruleset.Osu,
-  1: Ruleset.Taiko,
-  2: Ruleset.Catch,
-  3: Ruleset.ManiaOther,
-};
+const MANIA_RULESETS: Ruleset[] = [
+  Ruleset.ManiaOther,
+  Ruleset.Mania4k,
+  Ruleset.Mania7k,
+];
 
-const MANIA_VARIANTS: Ruleset[] = [Ruleset.Mania4k, Ruleset.Mania7k];
+// osu!track tracks mania as one ruleset, so its history seeds every variant
+const MODE_RULESETS: Record<number, Ruleset[] | undefined> = {
+  0: [Ruleset.Osu],
+  1: [Ruleset.Taiko],
+  2: [Ruleset.Catch],
+  3: MANIA_RULESETS,
+};
 
 type ModeResult = {
   mode: number;
@@ -64,20 +69,11 @@ export const processOsuTrackPlayerResults = async ({
     `osu!track persistence start player ${player.username}#${player.id} (${osuPlayerId})`
   );
 
-  const earliestVerifiedMatchDate = await findEarliestVerifiedMatchDate(
-    db,
-    player.id
-  );
+  const firstMatchDates = await findFirstVerifiedMatchDates(db, player.id);
 
-  if (earliestVerifiedMatchDate) {
-    logger.info(
-      `osu!track alignment using earliest verified match ${earliestVerifiedMatchDate.toISOString()} for player ${player.id}`
-    );
-  } else {
-    logger.info(
-      `osu!track alignment found no verified matches for player ${player.id}`
-    );
-  }
+  logger.info(
+    `osu!track alignment found first verified matches in ${firstMatchDates.size} rulesets for player ${player.id}`
+  );
 
   const rulesetDataMap: RulesetDataMap = new Map(
     player.playerOsuRulesetData.map((entry) => [entry.ruleset, entry])
@@ -87,9 +83,9 @@ export const processOsuTrackPlayerResults = async ({
   let persistedAny = false;
 
   for (const { mode, updates } of results) {
-    const ruleset = MODE_RULESET_MAP[mode];
+    const rulesets = MODE_RULESETS[mode];
 
-    if (ruleset === undefined) {
+    if (rulesets === undefined) {
       logger.warn('Skipping unknown osu!track mode', { mode, osuPlayerId });
       continue;
     }
@@ -101,53 +97,44 @@ export const processOsuTrackPlayerResults = async ({
       continue;
     }
 
-    const relevant = pickRelevantStatUpdate(updates, earliestVerifiedMatchDate);
+    for (const ruleset of rulesets) {
+      const rulesetData = rulesetDataMap.get(ruleset);
 
-    if (!relevant) {
+      if (!rulesetData) {
+        logger.info(
+          `osu!track persistence missing ruleset ${ruleset} for player ${player.id}`
+        );
+        continue;
+      }
+
+      const relevant = pickRelevantStatUpdate(
+        updates,
+        alignmentDate(firstMatchDates, ruleset)
+      );
+
+      if (!relevant) {
+        logger.info(
+          `osu!track persistence no relevant stat for player ${player.id} ruleset ${ruleset}`
+        );
+        continue;
+      }
+
+      const timestampIso = relevant.timestamp.toISOString();
+
+      await db
+        .update(schema.playerOsuRulesetData)
+        .set({
+          earliestGlobalRank: relevant.rank,
+          earliestGlobalRankDate: timestampIso,
+          updated: nowIso,
+        })
+        .where(eq(schema.playerOsuRulesetData.id, rulesetData.id));
+
+      persistedAny = true;
+
       logger.info(
-        `osu!track persistence no relevant stat for player ${player.id} mode ${mode}`
+        `osu!track persistence recorded rank ${relevant.rank} (${timestampIso}) for player ${player.id} ruleset ${ruleset}`
       );
-      continue;
-    }
-
-    const rulesetData = rulesetDataMap.get(ruleset);
-
-    if (!rulesetData) {
-      logger.info(
-        `osu!track persistence missing ruleset ${ruleset} for player ${player.id}`
-      );
-      continue;
-    }
-
-    const timestampIso = relevant.timestamp.toISOString();
-
-    await db
-      .update(schema.playerOsuRulesetData)
-      .set({
-        earliestGlobalRank: relevant.rank,
-        earliestGlobalRankDate: timestampIso,
-        updated: nowIso,
-      })
-      .where(eq(schema.playerOsuRulesetData.id, rulesetData.id));
-
-    rulesetData.earliestGlobalRank = relevant.rank;
-    rulesetData.earliestGlobalRankDate = timestampIso;
-    persistedAny = true;
-
-    logger.info(
-      `osu!track persistence recorded rank ${relevant.rank} (${timestampIso}) for player ${player.id} ruleset ${ruleset}`
-    );
-
-    if (ruleset === Ruleset.ManiaOther) {
-      const maniaPersisted = await propagateManiaVariants(
-        db,
-        logger,
-        rulesetDataMap,
-        relevant,
-        nowIso,
-        player.id
-      );
-      persistedAny = persistedAny || maniaPersisted;
     }
   }
 
@@ -169,47 +156,6 @@ export const processOsuTrackPlayerResults = async ({
       `osu!track persistence finished player ${player.id}, no ruleset rows updated, set last fetch ${nowIso}`
     );
   }
-};
-
-const propagateManiaVariants = async (
-  db: DatabaseClient,
-  logger: Logger,
-  rulesetDataMap: RulesetDataMap,
-  source: UserStatUpdate,
-  updatedAtIso: string,
-  playerId: number
-): Promise<boolean> => {
-  const timestampIso = source.timestamp.toISOString();
-  let updatedAny = false;
-
-  for (const variant of MANIA_VARIANTS) {
-    const variantData = rulesetDataMap.get(variant);
-
-    if (!variantData) {
-      logger.warn(
-        `osu!track persistence missing mania variant ${variant} for player ${playerId}`
-      );
-      continue;
-    }
-
-    await db
-      .update(schema.playerOsuRulesetData)
-      .set({
-        earliestGlobalRank: source.rank,
-        earliestGlobalRankDate: timestampIso,
-        updated: updatedAtIso,
-      })
-      .where(eq(schema.playerOsuRulesetData.id, variantData.id));
-
-    variantData.earliestGlobalRank = source.rank;
-    variantData.earliestGlobalRankDate = timestampIso;
-    updatedAny = true;
-
-    logger.info(
-      `osu!track persistence copied rank ${source.rank} (${timestampIso}) to mania variant ${variant} for player ${playerId}`
-    );
-  }
-  return updatedAny;
 };
 
 export const pickRelevantStatUpdate = (
@@ -238,12 +184,41 @@ export const pickRelevantStatUpdate = (
   return sorted[0] ?? null;
 };
 
-const findEarliestVerifiedMatchDate = async (
+/**
+ * The date a ruleset's starting rank is aligned to: the player's first
+ * verified match in that ruleset. ManiaOther seeds a variant whose own rank is
+ * unknown, so it aligns to the first match in any mania variant. A ruleset not
+ * yet played aligns to the first match in any ruleset, since nothing re-aligns
+ * it when its first match is verified.
+ */
+const alignmentDate = (
+  firstMatchDates: Map<Ruleset, Date>,
+  ruleset: Ruleset
+): Date | null => {
+  const rulesets = ruleset === Ruleset.ManiaOther ? MANIA_RULESETS : [ruleset];
+  const dates = rulesets.flatMap((r) => firstMatchDates.get(r) ?? []);
+
+  return earliest(dates) ?? earliest([...firstMatchDates.values()]);
+};
+
+const earliest = (dates: Date[]): Date | null =>
+  dates.length === 0
+    ? null
+    : new Date(Math.min(...dates.map((date) => date.getTime())));
+
+/**
+ * The start of the player's first verified match in each ruleset. A match is
+ * in its tournament's ruleset, as the processor rates it.
+ */
+const findFirstVerifiedMatchDates = async (
   db: DatabaseClient,
   playerId: number
-): Promise<Date | null> => {
-  const [row] = await db
-    .select({ startTime: schema.matches.startTime })
+): Promise<Map<Ruleset, Date>> => {
+  const rows = await db
+    .select({
+      ruleset: schema.tournaments.ruleset,
+      startTime: min(schema.matches.startTime),
+    })
     .from(schema.gameScores)
     .innerJoin(schema.games, eq(schema.games.id, schema.gameScores.gameId))
     .innerJoin(schema.matches, eq(schema.matches.id, schema.games.matchId))
@@ -259,13 +234,17 @@ const findEarliestVerifiedMatchDate = async (
         isNotNull(schema.matches.startTime)
       )
     )
-    .orderBy(asc(schema.matches.startTime))
-    .limit(1);
+    .groupBy(schema.tournaments.ruleset);
 
-  if (!row?.startTime) {
-    return null;
+  const dates = new Map<Ruleset, Date>();
+
+  for (const { ruleset, startTime } of rows) {
+    const parsed = startTime ? new Date(startTime) : null;
+
+    if (parsed && !Number.isNaN(parsed.valueOf())) {
+      dates.set(ruleset as Ruleset, parsed);
+    }
   }
 
-  const parsed = new Date(row.startTime);
-  return Number.isNaN(parsed.valueOf()) ? null : parsed;
+  return dates;
 };
