@@ -1,6 +1,6 @@
 ---
 name: web-design
-description: Design reference for the o!TR website (apps/web). Use whenever you build, change, or review anything a visitor or admin sees in apps/web, such as a page, component, chart, table, form, dialog, badge, colour, or wording on screen. Covers the shared component library, its rules, do and don't examples, the admin gallery, and how to keep this reference current.
+description: Design reference for the o!TR website (apps/web). Use whenever you build, change, review, or mock up anything a visitor or admin sees in apps/web, such as a page, component, chart, table, form, dialog, badge, colour, or wording on screen. Covers the shared component library, its rules, do and don't examples, the admin gallery, mockups with the o!TR design system, and how to keep this reference current.
 ---
 
 # o!TR web design
@@ -22,6 +22,20 @@ changed screen from it, and never copy markup from a page that predates it.
 
 If the library has no component for what you need, build it in the library
 (with a gallery specimen and a reference section), not inside the page.
+
+## Mockups and prototypes
+
+When the task is a visual design rather than code, such as a mockup, a
+prototype or a page concept, make it in Claude Design with the design system
+named "o!TR". The Artifact tool lists the design systems the account can
+open; pick that one. It is built from this app's source (see
+`apps/web/design-system/README.md`), so its tokens, components and rules match
+the site.
+
+The repository is the source of truth and the design system is a copy of it.
+If the design system is not listed or cannot be opened, design from the kit,
+this reference and `/admin/design` instead. When a design is approved, build
+it in `apps/web` from the kit, never from the mockup's markup.
 
 ## Rules
 
