@@ -260,6 +260,13 @@
       "when": 1792293708874,
       "tag": "0036_drop_auth_admin_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792298124726,
+      "tag": "0037_tournament_forum_posts",
+      "breakpoints": true
     }
   ]
 }

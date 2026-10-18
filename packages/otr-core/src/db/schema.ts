@@ -1763,6 +1763,39 @@ export const tournamentAudits = pgTable(
   ]
 );
 
+/** Opening post of an osu! forum topic that tournaments link to. */
+export const tournamentForumPosts = pgTable(
+  'tournament_forum_posts',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity({
+      name: 'tournament_forum_posts_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      maxValue: 2147483647,
+      cache: 1,
+    }),
+    topicId: integer('topic_id').notNull(),
+    postId: integer('post_id').notNull(),
+    title: text().notNull(),
+    /** The post's raw BBCode. */
+    bbcode: text().notNull(),
+    /** When the author last edited the post on osu!. */
+    editedAt: timestamp('edited_at', { withTimezone: true, mode: 'string' }),
+    /** When o!TR last fetched the topic. */
+    fetched: timestamp({ withTimezone: true, mode: 'string' }).notNull(),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('ix_tournament_forum_posts_topic_id').using(
+      'btree',
+      table.topicId.asc().nullsLast().op('int4_ops')
+    ),
+  ]
+);
+
 export const tournaments = pgTable(
   'tournaments',
   {
@@ -1790,6 +1823,8 @@ export const tournaments = pgTable(
           sql`setweight(to_tsvector('simple', ${searchableText(tournaments.name)}), 'B') || setweight(to_tsvector('simple', ${searchableTextSplitDigits(tournaments.name)}), 'C') || setweight(to_tsvector('simple', ${searchableText(tournaments.abbreviation)}), 'D') || setweight(to_tsvector('simple', ${searchableTextSplitDigits(tournaments.abbreviation)}), 'D')`
       ),
     forumUrl: varchar('forum_url', { length: 255 }).notNull(),
+    /** Set by the data worker from `forum_url`; null for wiki pages and unfetched topics. */
+    forumPostId: integer('forum_post_id'),
     rankRangeLowerBound: integer('rank_range_lower_bound').notNull(),
     ruleset: integer().notNull(),
     lobbySize: integer('lobby_size').notNull(),
@@ -1832,6 +1867,10 @@ export const tournaments = pgTable(
       'btree',
       table.verifiedByUserId.asc().nullsLast().op('int4_ops')
     ),
+    index('ix_tournaments_forum_post_id').using(
+      'btree',
+      table.forumPostId.asc().nullsLast().op('int4_ops')
+    ),
     foreignKey({
       columns: [table.submittedByUserId],
       foreignColumns: [users.id],
@@ -1841,6 +1880,11 @@ export const tournaments = pgTable(
       columns: [table.verifiedByUserId],
       foreignColumns: [users.id],
       name: 'fk_tournaments_users_verified_by_user_id',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.forumPostId],
+      foreignColumns: [tournamentForumPosts.id],
+      name: 'fk_tournaments_tournament_forum_posts_forum_post_id',
     }).onDelete('set null'),
   ]
 );

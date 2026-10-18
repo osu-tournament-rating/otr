@@ -18,12 +18,14 @@ import {
 
 const EM_DASH = '—';
 
-// Generated columns are recorded through the fields they derive from.
+// Generated columns, and forumPostId, which the data worker derives from
+// forumUrl, are recorded through the fields they derive from.
 const EXCLUDED_AUDIT_FIELDS = new Set([
   'id',
   'updated',
   'searchVector',
   'matchRankVector',
+  'forumPostId',
 ]);
 
 const sourceTables = {

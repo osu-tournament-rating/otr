@@ -36,6 +36,7 @@ import {
   playerTournamentStats,
   tournamentAdminNotes,
   tournamentAudits,
+  tournamentForumPosts,
   userSettings,
   beatmapAttributes,
   beatmapFiles,
@@ -362,7 +363,18 @@ export const tournamentsRelations = relations(tournaments, ({ one, many }) => ({
     relationName: 'tournaments_verifiedByUserId_users_id',
   }),
   joinPooledBeatmaps: many(joinPooledBeatmaps),
+  forumPost: one(tournamentForumPosts, {
+    fields: [tournaments.forumPostId],
+    references: [tournamentForumPosts.id],
+  }),
 }));
+
+export const tournamentForumPostsRelations = relations(
+  tournamentForumPosts,
+  ({ many }) => ({
+    tournaments: many(tournaments),
+  })
+);
 
 export const playerAdminNotesRelations = relations(
   playerAdminNotes,

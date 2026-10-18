@@ -47,6 +47,8 @@ const rawTournamentSelectSchema = createSelectSchema(schema.tournaments);
 export const tournamentSelectSchema = rawTournamentSelectSchema.omit({
   searchVector: true,
   matchRankVector: true,
+  // Internal link the data worker maintains; not part of the public API.
+  forumPostId: true,
 });
 
 export const tournamentAdminNoteSelectSchema = createSelectSchema(
