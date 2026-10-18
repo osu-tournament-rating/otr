@@ -1,6 +1,13 @@
 services:
   db:
-    image: postgres:17
+    # Pinned to a version and digest. Every deploy runs `docker compose pull`
+    # and `up -d`, which recreates a service when its image changes, and every
+    # request fails while the database restarts. A moving tag such as
+    # postgres:17 made that happen whenever upstream published, and Docker's
+    # official images re-push even version tags when they rebuild. Changing
+    # this line, even to the same image, restarts the database in production,
+    # so change it on purpose and in its own pull request.
+    image: postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     container_name: otr-db
     restart: unless-stopped
     # shm_size addresses an issue with running end-to-end tests.
@@ -47,7 +54,9 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:4-management
+    # Pinned like db above. Changing this line restarts the broker in
+    # production, so change it on purpose and in its own pull request.
+    image: rabbitmq:4.3.6-management@sha256:54cb013d76cd1fd6c0a0708f34062ad61c452bb6f016b434c6c33f1a765d2b58
     container_name: otr-rabbitmq
     restart: unless-stopped
     ports:
