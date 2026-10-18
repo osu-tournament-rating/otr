@@ -1,7 +1,8 @@
 name: Pull request
 
 # The title becomes the squash commit on master, and the changelog becomes the
-# GitHub release when the merge deploys, so both are checked before merge.
+# GitHub release when the merge deploys, so both are checked before merge. A
+# pull request that edits or deletes an existing test must also say why.
 
 on:
   pull_request:
@@ -10,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  # Lists the pull request's changed files for the changed-tests check.
+  pull-requests: read
 
 jobs:
   conventions:
@@ -33,3 +36,22 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: bun .github/scripts/release-notes.ts check
+
+      # Reads the changed files from the API, because this job checks out only
+      # the base branch's scripts. Runs again on every push and edit, so a test
+      # changed by a later fix needs its reason too.
+      - name: Check changed tests are explained
+        # Reports even when the title or changelog check above fails.
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          FILES: repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files
+        run: |
+          set -o pipefail
+          # The pull request that adds this check runs before its base has it.
+          if [[ ! -f .github/scripts/tests-changed.ts ]]; then
+            echo "The base branch has no changed-tests check yet."
+            exit 0
+          fi
+          gh api --paginate --slurp "$FILES" | bun .github/scripts/tests-changed.ts check
