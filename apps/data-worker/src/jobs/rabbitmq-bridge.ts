@@ -27,6 +27,19 @@ interface RabbitMqBridgeOptions {
   queues: ReadonlyArray<BridgedQueue<JobQueue>>;
 }
 
+// Every message carried `{ requestedAt, correlationId, priority }` beside its payload.
+const messageMetadata = (envelope: Record<string, unknown>) => ({
+  priority:
+    typeof envelope.priority === 'number' ? envelope.priority : undefined,
+  correlationId:
+    typeof envelope.correlationId === 'string'
+      ? envelope.correlationId
+      : undefined,
+});
+
+const positiveId = (value: unknown) =>
+  Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+
 /**
  * The job for a tournament stats message the processor used to publish:
  * `{ requestedAt, correlationId, priority, tournamentId }`.
@@ -41,12 +54,7 @@ export const tournamentStatsJobFromMessage = (
 
   return {
     payload: { tournamentId },
-    priority:
-      typeof envelope.priority === 'number' ? envelope.priority : undefined,
-    correlationId:
-      typeof envelope.correlationId === 'string'
-        ? envelope.correlationId
-        : undefined,
+    ...messageMetadata(envelope),
     tournamentId,
   };
 };
@@ -55,20 +63,11 @@ export const tournamentStatsJobFromMessage = (
 export const osuFetchJobFromMessage = (
   envelope: Record<string, unknown>
 ): EnqueueJob<JobQueue.OsuFetch> | null => {
-  const id = (value: unknown) =>
-    Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
-  const metadata = {
-    priority:
-      typeof envelope.priority === 'number' ? envelope.priority : undefined,
-    correlationId:
-      typeof envelope.correlationId === 'string'
-        ? envelope.correlationId
-        : undefined,
-  };
+  const metadata = messageMetadata(envelope);
 
   switch (envelope.type) {
     case 'match': {
-      const osuMatchId = id(envelope.osuMatchId);
+      const osuMatchId = positiveId(envelope.osuMatchId);
       return osuMatchId === null
         ? null
         : {
@@ -81,7 +80,7 @@ export const osuFetchJobFromMessage = (
           };
     }
     case 'beatmap': {
-      const beatmapId = id(envelope.beatmapId);
+      const beatmapId = positiveId(envelope.beatmapId);
       return beatmapId === null
         ? null
         : {
@@ -96,13 +95,13 @@ export const osuFetchJobFromMessage = (
           };
     }
     case 'player': {
-      const osuPlayerId = id(envelope.osuPlayerId);
+      const osuPlayerId = positiveId(envelope.osuPlayerId);
       return osuPlayerId === null
         ? null
         : { payload: { type: 'player', osuPlayerId }, ...metadata };
     }
     case 'forumTopic': {
-      const topicId = id(envelope.topicId);
+      const topicId = positiveId(envelope.topicId);
       return topicId === null
         ? null
         : { payload: { type: 'forumTopic', topicId }, ...metadata };
@@ -110,6 +109,19 @@ export const osuFetchJobFromMessage = (
     default:
       return null;
   }
+};
+
+/**
+ * The job for an osu!track fetch message the worker's refetch scheduler used
+ * to publish: `{ requestedAt, correlationId, priority, osuPlayerId }`.
+ */
+export const osuTrackJobFromMessage = (
+  envelope: Record<string, unknown>
+): EnqueueJob<JobQueue.OsuTrackFetch> | null => {
+  const osuPlayerId = positiveId(envelope.osuPlayerId);
+  return osuPlayerId === null
+    ? null
+    : { payload: { osuPlayerId }, ...messageMetadata(envelope) };
 };
 
 const FAILED_IN_RABBITMQ =

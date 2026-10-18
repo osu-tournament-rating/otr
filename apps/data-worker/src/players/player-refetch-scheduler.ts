@@ -1,5 +1,4 @@
 import { and, asc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm';
-import type { FetchPlayerOsuTrackMessage, MessageEnvelope } from '@otr/core';
 import { MessagePriority } from '@otr/core';
 import { Ruleset } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
@@ -8,7 +7,6 @@ import { enqueueJob, JobQueue } from '@otr/core/jobs';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
-import type { QueuePublisher } from '@otr/core/queues';
 import {
   claimPlayerFetchLease,
   type PlayerFetchSource,
@@ -51,22 +49,15 @@ const REFETCH_TIERS = {
 
 type IntervalHandle = ReturnType<typeof setInterval> | null;
 
-type QueuePublisherContract<TMessage extends MessageEnvelope<unknown>> = Pick<
-  QueuePublisher<TMessage>,
-  'publish'
->;
-
 interface PlayerRefetchSchedulerOptions {
   db: DatabaseClient;
   logger: Logger;
-  osuTrackPublisher: QueuePublisherContract<FetchPlayerOsuTrackMessage>;
   config: SchedulerConfig;
 }
 
 export class PlayerRefetchScheduler {
   private readonly db: DatabaseClient;
   private readonly logger: Logger;
-  private readonly osuTrackPublisher: QueuePublisherContract<FetchPlayerOsuTrackMessage>;
   private readonly config: SchedulerConfig;
 
   private osuInterval: IntervalHandle = null;
@@ -78,7 +69,6 @@ export class PlayerRefetchScheduler {
   constructor(options: PlayerRefetchSchedulerOptions) {
     this.db = options.db;
     this.logger = options.logger;
-    this.osuTrackPublisher = options.osuTrackPublisher;
     this.config = options.config;
   }
 
@@ -287,11 +277,11 @@ export class PlayerRefetchScheduler {
 
     const enqueued = await this.enqueuePlayers({
       players,
-      publish: async (_tx, osuPlayerId) => {
-        await this.osuTrackPublisher.publish(
-          { osuPlayerId },
-          { metadata: { priority: MessagePriority.Low } }
-        );
+      publish: async (tx, osuPlayerId) => {
+        await enqueueJob(tx, JobQueue.OsuTrackFetch, {
+          payload: { osuPlayerId },
+          priority: MessagePriority.Low,
+        });
       },
       source: 'osuTrack',
       logContext: 'osu!track',

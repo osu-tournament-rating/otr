@@ -4,6 +4,7 @@ import { JobQueue, JobStatus } from '@otr/core/jobs';
 import {
   insertFailedJob,
   osuFetchJobFromMessage,
+  osuTrackJobFromMessage,
   tournamentStatsJobFromMessage,
 } from '../rabbitmq-bridge';
 import {
@@ -80,6 +81,25 @@ describe('osuFetchJobFromMessage', () => {
     expect(
       osuFetchJobFromMessage({ type: 'match', isLazer: false })
     ).toBeNull();
+  });
+});
+
+describe('osuTrackJobFromMessage', () => {
+  it('keeps the player, priority and correlation id the refetch scheduler published', () => {
+    const message = JSON.parse(
+      '{"requestedAt":"2026-10-13T12:05:00.000Z","correlationId":"refetch-1","priority":0,"osuPlayerId":4567}'
+    );
+
+    expect(osuTrackJobFromMessage(message)).toEqual({
+      payload: { osuPlayerId: 4567 },
+      priority: 0,
+      correlationId: 'refetch-1',
+    });
+  });
+
+  it('drops a message without a player id', () => {
+    expect(osuTrackJobFromMessage({ correlationId: 'refetch-1' })).toBeNull();
+    expect(osuTrackJobFromMessage({ osuPlayerId: 0 })).toBeNull();
   });
 });
 

@@ -3,10 +3,10 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-import type { FetchPlayerOsuTrackMessage } from '@otr/core';
 import { MessagePriority } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { JobQueue } from '@otr/core/jobs';
 import { Ruleset } from '@otr/core/osu';
 
 import type { DatabaseClient } from '../../db';
@@ -43,12 +43,40 @@ const queuedPlayerFetches = async (
   }));
 };
 
+/** osu!track fetch jobs queued for these players, oldest first. */
+const queuedOsuTrackFetches = async (
+  db: { execute: DatabaseClient['execute'] },
+  osuIds: number[]
+) => {
+  const { rows } = await db.execute<{
+    osu_player_id: string;
+    priority: number;
+    payload: Record<string, unknown>;
+  }>(
+    sql`SELECT payload->>'osuPlayerId' AS osu_player_id, priority, payload FROM jobs
+      WHERE queue = ${JobQueue.OsuTrackFetch}
+        AND (payload->>'osuPlayerId')::bigint IN (${sql.join(
+          osuIds.map((id) => sql`${id}`),
+          sql`, `
+        )})
+      ORDER BY id`
+  );
+  return rows.map((row) => ({
+    osuPlayerId: Number(row.osu_player_id),
+    priority: row.priority as MessagePriority,
+    payload: row.payload,
+  }));
+};
+
 const removePlayerFetches = (
   db: { execute: DatabaseClient['execute'] },
   osuIds: number[]
 ) =>
   db.execute(sql`DELETE FROM jobs
-    WHERE queue = 'data.osu' AND payload->>'type' = 'player'
+    WHERE (
+        (queue = 'data.osu' AND payload->>'type' = 'player')
+        OR queue = ${JobQueue.OsuTrackFetch}
+      )
       AND (payload->>'osuPlayerId')::bigint IN (${sql.join(
         osuIds.map((id) => sql`${id}`),
         sql`, `
@@ -244,11 +272,6 @@ describe.skipIf(!url)('osu! auto-refetch tiers', () => {
     const scheduler = new PlayerRefetchScheduler({
       db: db as unknown as DatabaseClient,
       logger: silentLogger,
-      osuTrackPublisher: {
-        async publish(message) {
-          return message as unknown as FetchPlayerOsuTrackMessage;
-        },
-      },
       config: {
         osu: {
           enabled: true,
@@ -314,7 +337,7 @@ type LeaseCase = {
   status: DataFetchStatus;
   // Days since the last fetch or lease start; null for never.
   lastFetch: number | null;
-  publish: 'ok' | 'fail' | 'completeThenFail';
+  publish: 'ok' | 'fail';
   enqueued: boolean;
 };
 
@@ -395,14 +418,6 @@ const osuTrackLeaseCases: LeaseCase[] = [
     publish: 'fail',
     enqueued: false,
   },
-  // A worker finishes the fetch while the publish is failing.
-  {
-    osuId: 999_301_017,
-    status: DataFetchStatus.Fetched,
-    lastFetch: 90,
-    publish: 'completeThenFail',
-    enqueued: false,
-  },
 ];
 
 describe.skipIf(!url)('auto-refetch fetch leases', () => {
@@ -413,11 +428,12 @@ describe.skipIf(!url)('auto-refetch fetch leases', () => {
 
   const seededAt = new Map<number, string | null>();
   const published = { osu: [] as number[], osuTrack: [] as number[] };
+  let osuTrackJobs: Awaited<ReturnType<typeof queuedOsuTrackFetches>> = [];
   let runStartedMs = 0;
 
-  // osu! fetches are queued in the jobs table; a trigger makes the insert
-  // fail for the players whose enqueue should fail.
-  const failingOsuIds = osuLeaseCases
+  // Both kinds of fetch are queued in the jobs table; a trigger makes the
+  // insert fail for the players whose enqueue should fail.
+  const failingOsuIds = cases
     .filter((entry) => entry.publish === 'fail')
     .map((entry) => String(entry.osuId));
 
@@ -457,37 +473,6 @@ describe.skipIf(!url)('auto-refetch fetch leases', () => {
 
   const msOf = (iso: string | null | undefined) =>
     iso ? new Date(iso).getTime() : null;
-
-  const workerFinishedAt = daysAgo(0);
-  // The worker's writes, still waiting on the lease's row lock when the
-  // publish fails.
-  const workerWrites: Promise<unknown>[] = [];
-
-  const publishFor =
-    (source: 'osu' | 'osuTrack', sourceCases: LeaseCase[]) =>
-    async (osuPlayerId: number) => {
-      const entry = sourceCases.find((c) => c.osuId === osuPlayerId);
-
-      if (entry?.publish === 'completeThenFail') {
-        workerWrites.push(
-          db
-            .update(schema.players)
-            .set({
-              osuTrackDataFetchStatus: DataFetchStatus.Fetched,
-              osuTrackLastFetch: workerFinishedAt,
-            })
-            .where(eq(schema.players.osuId, osuPlayerId))
-            .then(() => undefined)
-        );
-        throw new Error('publish confirmation timed out');
-      }
-
-      if (entry?.publish === 'fail') {
-        throw new Error('broker unavailable');
-      }
-
-      published[source].push(osuPlayerId);
-    };
 
   beforeAll(async () => {
     await remove();
@@ -553,17 +538,9 @@ describe.skipIf(!url)('auto-refetch fetch leases', () => {
       WHEN (NEW.payload->>'osuPlayerId' IN (${sql.raw(failingOsuIds.map((id) => `'${id}'`).join(', '))}))
       EXECUTE FUNCTION refetch_test_fail_enqueue()`);
 
-    const publishOsuTrack = publishFor('osuTrack', osuTrackLeaseCases);
-
     const scheduler = new PlayerRefetchScheduler({
       db: db as unknown as DatabaseClient,
       logger: silentLogger,
-      osuTrackPublisher: {
-        async publish(message) {
-          await publishOsuTrack(message.osuPlayerId);
-          return message as unknown as FetchPlayerOsuTrackMessage;
-        },
-      },
       config: {
         osu: { enabled: true, intervalMinutes: 30, outdatedDays: 14 },
         osuTrack: { enabled: true, intervalMinutes: 30, outdatedDays: 60 },
@@ -574,16 +551,29 @@ describe.skipIf(!url)('auto-refetch fetch leases', () => {
     runStartedMs = Date.now() - 1;
     await scheduler.start();
     await scheduler.stop();
-    await Promise.all(workerWrites);
 
     published.osu = (await queuedPlayerFetches(db, osuIds)).map(
       (entry) => entry.osuPlayerId
     );
+    osuTrackJobs = await queuedOsuTrackFetches(db, osuIds);
+    published.osuTrack = osuTrackJobs.map((entry) => entry.osuPlayerId);
   });
 
   afterAll(async () => {
     await remove();
     await pool.end();
+  });
+
+  it('queues osu!track fetches at low priority', () => {
+    expect(osuTrackJobs).toEqual(
+      osuTrackLeaseCases
+        .filter((entry) => entry.enqueued)
+        .map((entry) => ({
+          osuPlayerId: entry.osuId,
+          priority: MessagePriority.Low,
+          payload: { osuPlayerId: entry.osuId },
+        }))
+    );
   });
 
   for (const [source, sourceCases] of [
@@ -642,15 +632,4 @@ describe.skipIf(!url)('auto-refetch fetch leases', () => {
       });
     });
   }
-
-  it('keeps an osu!track fetch that finished while its publish failed', async () => {
-    const entry = osuTrackLeaseCases.find(
-      (c) => c.publish === 'completeThenFail'
-    )!;
-    const row = await readPlayer(entry.osuId);
-
-    expect(workerWrites).toHaveLength(1);
-    expect(row.osuTrackStatus).toBe(DataFetchStatus.Fetched);
-    expect(row.osuTrackLastFetchMs).toBe(msOf(workerFinishedAt));
-  });
 });

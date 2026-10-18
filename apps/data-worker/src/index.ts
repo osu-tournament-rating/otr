@@ -3,7 +3,6 @@ import './tracing';
 
 import {
   QueueConstants,
-  type FetchPlayerOsuTrackMessage,
   type ProcessBeatmapAttributesMessage,
   type ProcessTournamentAutomationCheckMessage,
 } from '@otr/core';
@@ -61,6 +60,7 @@ import { JobListener } from './jobs/listener';
 import { JobPruner } from './jobs/pruner';
 import {
   osuFetchJobFromMessage,
+  osuTrackJobFromMessage,
   RabbitMqBridge,
   tournamentStatsJobFromMessage,
 } from './jobs/rabbitmq-bridge';
@@ -188,18 +188,6 @@ const bootstrap = async () => {
     },
   });
 
-  const osuTrackPublisher = new RabbitMqPublisher<FetchPlayerOsuTrackMessage>({
-    url: dataWorkerEnv.amqpUrl,
-    queue: QueueConstants.osuTrack,
-  });
-
-  const osuTrackConsumer = new RabbitMqConsumer<FetchPlayerOsuTrackMessage>({
-    url: dataWorkerEnv.amqpUrl,
-    queue: QueueConstants.osuTrack,
-    prefetch: 1,
-    logger,
-  });
-
   const automationConsumer =
     new RabbitMqConsumer<ProcessTournamentAutomationCheckMessage>({
       url: dataWorkerEnv.amqpUrl,
@@ -278,7 +266,6 @@ const bootstrap = async () => {
   const playerRefetchScheduler = new PlayerRefetchScheduler({
     db,
     logger,
-    osuTrackPublisher,
     config: dataWorkerEnv.playerAutoRefetch,
   });
 
@@ -318,21 +305,20 @@ const bootstrap = async () => {
   const osuTrackClient = new OsuTrackClient({});
 
   const osuTrackWorker = new OsuTrackPlayerWorker({
-    queue: osuTrackConsumer,
     client: osuTrackClient,
     rateLimiter: osuTrackRateLimiter,
-    db,
     logger,
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
-    onPlayer: async ({ message, results }) => {
+    onPlayer: async ({ osuPlayerId, results }) => {
       await processOsuTrackPlayerResults({
         db,
         logger,
-        osuPlayerId: message.osuPlayerId,
+        osuPlayerId,
         results,
       });
     },
   });
+  runner.register(osuTrackWorker.registration());
 
   const automationWorker = new TournamentAutomationCheckWorker({
     queue: automationConsumer,
@@ -371,6 +357,7 @@ const bootstrap = async () => {
         toJob: tournamentStatsJobFromMessage,
       },
       { queue: JobQueue.OsuFetch, toJob: osuFetchJobFromMessage },
+      { queue: JobQueue.OsuTrackFetch, toJob: osuTrackJobFromMessage },
     ],
   });
 
@@ -387,8 +374,8 @@ const bootstrap = async () => {
 
   logger.info('Starting data worker services');
 
-  await Promise.all([osuTrackWorker.start(), automationWorker.start()]);
-  consumers.push(osuTrackConsumer, automationConsumer);
+  await automationWorker.start();
+  consumers.push(automationConsumer);
 
   await jobListener.start();
   runner.start();
@@ -404,7 +391,6 @@ const bootstrap = async () => {
     logger.info('Shutting down data worker services');
     clearInterval(apiRequestStatsFlush);
     await Promise.allSettled([
-      osuTrackWorker.stop(),
       automationWorker.stop(),
       runner.stop(),
       jobPruner.stop(),
@@ -414,7 +400,6 @@ const bootstrap = async () => {
       beatmapAttributes?.worker.stop(),
       beatmapAttributes?.scheduler.stop(),
       automationPublisher.close(),
-      osuTrackPublisher.close(),
     ]);
     // Closed after the job runner and the sweep stop, since both publish to it.
     await beatmapAttributesPublisher?.close();
