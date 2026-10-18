@@ -45,6 +45,9 @@ jobs:
   run:
     name: ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    # The "production" choice runs in the production-ops environment, never
+    # in the production environment deploys use. Other choices run in the
+    # environment of the same name.
     environment: ${{ inputs.environment == 'production' && 'production-ops' || inputs.environment }}
 
     steps:
