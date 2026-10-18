@@ -14,21 +14,21 @@ Import each component from its own file under `@/components/kit/feedback/`; the 
 
 ## Choosing a state
 
-| Situation                                                  | Use                                                                                                    |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| A route is rendering                                       | its `loading.tsx`, built from the skeletons                                                            |
-| A panel's data is loading on the client                    | skeleton rows inside the real panel                                                                    |
-| A request failed                                           | `SectionError`, sized to its container                                                                 |
-| The whole route failed                                     | `RouteError` in the route's `error.tsx`                                                                |
-| The request worked and returned nothing                    | `EmptyState`                                                                                           |
-| The visitor's filters returned nothing                     | `EmptyState` with `clearFilters`                                                                       |
-| The page itself is the outcome (404, unauthorized, banned) | `StatusPage`                                                                                           |
-| The visitor should know something before acting            | `Callout`                                                                                              |
-| A panel's data has a caveat ("Includes unverified")        | `CalloutChip`                                                                                          |
-| A site-wide notice (the weekly maintenance window)         | `Callout variant="banner"`                                                                             |
-| A second notice where one already shows                    | one notice: merge or move it (below)                                                                   |
-| The result of an action (saved, deleted, could not save)   | a toast (`toast` from `sonner`), not a callout                                                         |
-| The site has been updated since the tab loaded             | `SiteUpdatedToast`, already in the root layout; it cannot be dismissed and stays until the tab reloads |
+| Situation                                                  | Use                                                                                                                                                                                                               |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A route is rendering                                       | its `loading.tsx`, built from the skeletons                                                                                                                                                                       |
+| A panel's data is loading on the client                    | skeleton rows inside the real panel                                                                                                                                                                               |
+| A request failed                                           | `SectionError`, sized to its container                                                                                                                                                                            |
+| The whole route failed                                     | `RouteError` in the route's `error.tsx`                                                                                                                                                                           |
+| The request worked and returned nothing                    | `EmptyState`                                                                                                                                                                                                      |
+| The visitor's filters returned nothing                     | `EmptyState` with `clearFilters`                                                                                                                                                                                  |
+| The page itself is the outcome (404, unauthorized, banned) | `StatusPage`                                                                                                                                                                                                      |
+| The visitor should know something before acting            | `Callout`                                                                                                                                                                                                         |
+| A panel's data has a caveat ("Includes unverified")        | `CalloutChip`                                                                                                                                                                                                     |
+| A site-wide notice (the weekly maintenance window)         | `Callout variant="banner"`                                                                                                                                                                                        |
+| A second notice where one already shows                    | one notice: merge or move it (below)                                                                                                                                                                              |
+| The result of an action (saved, deleted, could not save)   | a toast (`toast` from `sonner`), not a callout                                                                                                                                                                    |
+| The site has been updated since the tab loaded             | `SiteUpdatedToast`, already in the root layout: a pill centred at the bottom whose Reload icon turns every few seconds (`motion-safe:animate-spin-pause`). It cannot be dismissed and stays until the tab reloads |
 
 Sizes for empty and error states, by container:
 

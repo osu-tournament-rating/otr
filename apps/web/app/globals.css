@@ -140,6 +140,21 @@
 
   --color-warning: var(--color-amber-600);
   --color-warning-foreground: var(--color-amber-800);
+
+  /* One turn, then a pause, so an icon draws the eye without spinning
+     constantly. */
+  --animate-spin-pause: spin-pause 3s cubic-bezier(0.65, 0, 0.35, 1) 600ms
+    infinite;
+
+  @keyframes spin-pause {
+    0% {
+      transform: rotate(0deg);
+    }
+    30%,
+    100% {
+      transform: rotate(360deg);
+    }
+  }
 }
 
 :root,
