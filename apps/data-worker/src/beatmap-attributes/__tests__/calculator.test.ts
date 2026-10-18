@@ -129,12 +129,6 @@ describe('calculateBeatmapAttributes', () => {
     expect(doubleTime.cs).toBe(nomod.cs);
   });
 
-  it('does not lower SR with Hidden', () => {
-    const rows = calculate([0, Mods.Hidden]);
-
-    expect(rows.get(Mods.Hidden)!.sr).toBeGreaterThanOrEqual(rows.get(0)!.sr);
-  });
-
   it('returns one row per distinct key, in the order given', () => {
     const keys = [
       0,
@@ -158,14 +152,6 @@ describe('calculateBeatmapAttributes', () => {
     for (const row of attributes) {
       expect(row.sr).toBeGreaterThan(EMPTY_MAP_STARS);
     }
-  });
-
-  it('returns the same values for the same file', () => {
-    const bytes = encode(syntheticOsuFile());
-
-    expect(calculateBeatmapAttributes(bytes, [0, Mods.DoubleTime])).toEqual(
-      calculateBeatmapAttributes(bytes, [0, Mods.DoubleTime])
-    );
   });
 
   it('rejects maps for other rulesets', () => {

@@ -8,8 +8,9 @@ import {
 import { FixedWindowRateLimiter } from '../../src/rate-limiter';
 import { OsuTrackClient } from '../../src/osu-track/client';
 import { OsuTrackPlayerWorker } from '../../src/osu-track/worker';
-import type { QueueConsumer, QueueMessage } from '../../src/queue/types';
+import type { QueueConsumer, QueueMessage } from '@otr/core/queues';
 import type { Logger } from '../../src/logging/logger';
+import type { DatabaseClient } from '../../src/db';
 
 class TestQueue implements QueueConsumer<FetchPlayerOsuTrackMessage> {
   private handler:
@@ -72,7 +73,7 @@ describe('osu!track end-to-end', () => {
       requests: 60,
       windowMs: 60_000,
     });
-    const fetchImpl: typeof fetch = async (input) => {
+    const fetchImpl = async (input: RequestInfo | URL) => {
       const url = new URL(
         typeof input === 'string'
           ? input
@@ -109,6 +110,8 @@ describe('osu!track end-to-end', () => {
       client,
       rateLimiter,
       logger: noopLogger,
+      // Only a failed fetch writes to the database.
+      db: {} as DatabaseClient,
       maintenanceWindowEnabled: false,
       onPlayer: async ({ message, results: playerResults }) => {
         received = {
