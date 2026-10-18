@@ -14,7 +14,9 @@ Before you open a pull request, have the `reviewer` agent check your finished
 work once. It starts with a fresh context, so it doesn't share the reasoning
 that led you to your mistakes.
 
-1. Finish the work and get the tests passing first.
+1. Finish the work and get the tests passing first, without weakening any.
+   A test that also fails on `master` is the exception: leave it, as the
+   `testing` skill describes.
 2. Start the `reviewer` agent. Give it the requirement exactly as the user
    wrote it, plus the full text of any issue it references, and the base
    branch. Don't summarize the requirement, and don't tell it what you think
@@ -42,15 +44,23 @@ with `!`, as in `feat(web)!: ...`. Do not use a `BREAKING CHANGE:` footer.
 ## Description
 
 - Follow `.github/pull_request_template.md`. Keep the text under 150 words in
-  total, not counting the template's comments or the `## Review` list.
+  total, not counting the template's comments or the `## Tests changed` and
+  `## Review` lists.
 - Describe behavior and outcomes in plain language: what a user, admin, or
   operator now sees or can do, and why. Leave out file paths, function names,
   diffs, and step-by-step implementation detail; the diff already shows those.
 - Never link to files, lines, or commits. Link only to pages on the site or
   the docs.
-- Under Testing, say in a sentence or two what you confirmed works. Do not
-  paste commands or logs. Under Deploy risk, name any migration, data rewrite,
-  or contract change, or write "None".
+- Under Testing, say in a sentence or two what you confirmed works, and which
+  new tests you saw fail first. Do not paste commands or logs. Under Deploy
+  risk, name any migration, data rewrite, or contract change, or write "None".
+- Under Tests changed, list every existing test you changed or deleted, and
+  why the task required it. Write `- None` if no existing test changed. CI
+  fails the pull request when it changes an existing test and the section has
+  no other bullet. That includes later pushes: when a fix after review or CI
+  must edit a test because the task changed that behavior, add its bullet. A
+  red run is never that reason. Ask the user before a CI fix edits a test the
+  task did not change. The `testing` skill has examples.
 - `## Changelog` becomes the release notes. Use only past-tense bullets for
   user-facing changes, linking the pages they touch. Write `- None` when
   nothing user-facing changed. Keep the `<!-- changelog:end -->` marker.

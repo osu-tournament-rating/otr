@@ -3,15 +3,24 @@
 <!--
 Two to four plain sentences: what users, admins, or operators can now do, and
 why. Describe behavior, not code: no file paths, links to files, or function
-names. Keep the whole description under 150 words, not counting the Review
-list.
+names. Keep the whole description under 150 words, not counting the Tests
+changed and Review lists.
 -->
 
 ## Testing
 
 <!--
 One or two sentences: what you confirmed works, and where, such as the local
-stack or the PR preview. No commands or logs.
+stack or the PR preview, and which new tests you saw fail first. No commands
+or logs.
+-->
+
+## Tests changed
+
+<!--
+Every existing test you changed or deleted, and why the task required it.
+Write "- None" if no existing test changed. CI fails the pull request when it
+changes an existing test and this section has no other bullet.
 -->
 
 ## Deploy risk
