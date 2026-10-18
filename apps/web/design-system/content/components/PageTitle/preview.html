@@ -1,0 +1,68 @@
+<!-- @dsCard group="Layout" height=440 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Type scale</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement,
+        T = O.typeScale;
+      var ROWS = [
+        ['pageTitle', 'Tournaments', 'PageTitle'],
+        ['sectionTitle', 'Tier breakdown', 'SectionTitle'],
+        ['rowTitle', 'Break The Meta Cup', 'RowTitle'],
+        ['body', 'Only verified data is included in ratings.', null],
+        ['bodyMuted', 'osu! · 1v1 · Open rank', null],
+        ['label', 'Mod distribution', 'Eyebrow'],
+        ['meta', '1,368 scores', null],
+      ];
+      // The small components render the same classes as their typeScale key.
+      var COMPONENTS = {
+        PageTitle: function (t) {
+          return h(O.PageTitle, null, t);
+        },
+        SectionTitle: function (t) {
+          return h(O.SectionTitle, null, t);
+        },
+        RowTitle: function (t) {
+          return h(O.RowTitle, null, t);
+        },
+        Eyebrow: function (t) {
+          return h(O.Eyebrow, null, t);
+        },
+      };
+      function Demo() {
+        return h(
+          'dl',
+          { className: 'flex flex-col gap-4' },
+          ROWS.map(function (r) {
+            var key = r[0],
+              sample = r[1],
+              comp = r[2];
+            return h(
+              'div',
+              { key: key, className: 'flex flex-col gap-1' },
+              h(
+                'dt',
+                { className: T.meta },
+                'typeScale.' + key + (comp ? ' · <' + comp + '>' : '')
+              ),
+              h(
+                'dd',
+                { className: comp ? undefined : T[key] },
+                comp ? COMPONENTS[comp](sample) : sample
+              )
+            );
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

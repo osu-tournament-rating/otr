@@ -1,0 +1,118 @@
+<!-- @dsCard group="Status" height=432 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>NotInRatings</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement,
+        F = O.format;
+      var VS = O.osu.VerificationStatus,
+        R = O.osu.Ruleset;
+      function meta(ruleset, lobbySize, rankLower, matches) {
+        return [
+          F.getRulesetLabel(ruleset),
+          F.formatLobbySize(lobbySize),
+          F.formatRankRange(rankLower),
+          F.formatCountOf(matches, 'match', 'matches'),
+        ].join(' · ');
+      }
+      var TOURNAMENTS = [
+        {
+          name: 'osu! World Cup 2025',
+          meta: meta(R.Osu, 4, 1, 112),
+          status: VS.Verified,
+        },
+        {
+          name: 'Oceania Taiko Cup 2026',
+          meta: meta(R.Taiko, 2, 10000, 96),
+          status: VS.PreVerified,
+        },
+        {
+          name: 'Mania 4K World Cup 2026',
+          meta: meta(R.Mania4k, 4, 1, 118),
+          status: VS.None,
+        },
+        {
+          name: 'Catch the Beat Spring League',
+          meta: meta(R.Catch, 1, 1000, 58),
+          status: VS.PreRejected,
+        },
+      ];
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(
+              'ul',
+              { className: 'divide-y' },
+              TOURNAMENTS.map(function (t) {
+                return h(
+                  'li',
+                  { key: t.name, className: 'flex flex-col gap-0.5 px-4 py-3' },
+                  h(
+                    'div',
+                    { className: 'flex min-w-0 items-center gap-2' },
+                    h(O.VerificationStatusIcon, {
+                      status: t.status,
+                      tooltip: 'tap',
+                    }),
+                    h(
+                      'a',
+                      {
+                        href: '#',
+                        className: 'truncate font-medium hover:underline',
+                      },
+                      t.name
+                    )
+                  ),
+                  h(
+                    'div',
+                    {
+                      className:
+                        'flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 pl-6',
+                    },
+                    h(
+                      'span',
+                      { className: 'text-sm text-muted-foreground' },
+                      t.meta
+                    ),
+                    h(O.NotInRatings, { status: t.status })
+                  )
+                );
+              })
+            )
+          ),
+          h(
+            O.Panel,
+            { className: 'flex flex-col gap-2 p-4' },
+            h(
+              'div',
+              { className: 'flex flex-wrap items-center gap-x-3 gap-y-2' },
+              h(
+                'h4',
+                { className: 'text-xl font-bold tracking-tight' },
+                'Oceania Taiko Cup 2026'
+              ),
+              h(O.VerificationStatusBadge, {
+                status: VS.PreVerified,
+                tooltip: 'tap',
+              })
+            ),
+            h(O.NotInRatings, { status: VS.PreVerified, variant: 'notice' })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

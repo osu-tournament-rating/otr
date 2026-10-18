@@ -1,0 +1,99 @@
+<!-- @dsCard group="Format" height=216 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>TimeRangeText</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Example(p) {
+        return h(
+          'div',
+          {
+            className:
+              'grid grid-cols-[9rem_minmax(0,1fr)] items-baseline gap-3',
+          },
+          h(
+            'dt',
+            { className: 'text-xs font-medium text-muted-foreground' },
+            p.label
+          ),
+          h(
+            'dd',
+            { className: 'flex min-w-0 flex-col gap-0.5 text-sm' },
+            h('span', { className: 'min-w-0' }, p.children),
+            p.hint
+              ? h(
+                  'span',
+                  { className: 'text-xs break-words text-muted-foreground' },
+                  p.hint
+                )
+              : null
+          )
+        );
+      }
+      function Card() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            null,
+            h.apply(
+              null,
+              ['dl', { className: 'flex flex-col gap-3' }].concat(
+                [].slice.call(arguments)
+              )
+            )
+          )
+        );
+      }
+      var RANGES = [
+        {
+          label: 'Game times',
+          start: '2024-07-20T15:42:07Z',
+          end: '2024-07-20T15:45:30Z',
+          seconds: true,
+        },
+        {
+          label: 'With the day',
+          start: '2024-07-20T15:42:07Z',
+          end: '2024-07-20T15:45:30Z',
+          showDate: true,
+        },
+        {
+          label: 'Across midnight',
+          start: '2024-07-20T23:58:01Z',
+          end: '2024-07-21T00:02:10Z',
+          seconds: true,
+        },
+        { label: 'No end time', start: '2024-07-20T15:42:07Z', end: null },
+        { label: 'No times', start: null, end: null },
+      ];
+      function Demo() {
+        return Card.apply(
+          null,
+          RANGES.map(function (r) {
+            return h(
+              Example,
+              { key: r.label, label: r.label },
+              h(O.TimeRangeText, {
+                start: r.start,
+                end: r.end,
+                seconds: r.seconds,
+                showDate: r.showDate,
+              })
+            );
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

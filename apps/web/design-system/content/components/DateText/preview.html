@@ -1,0 +1,70 @@
+<!-- @dsCard group="Format" height=120 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DateText</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Example(p) {
+        return h(
+          'div',
+          {
+            className:
+              'grid grid-cols-[9rem_minmax(0,1fr)] items-baseline gap-3',
+          },
+          h(
+            'dt',
+            { className: 'text-xs font-medium text-muted-foreground' },
+            p.label
+          ),
+          h(
+            'dd',
+            { className: 'flex min-w-0 flex-col gap-0.5 text-sm' },
+            h('span', { className: 'min-w-0' }, p.children),
+            p.hint
+              ? h(
+                  'span',
+                  { className: 'text-xs break-words text-muted-foreground' },
+                  p.hint
+                )
+              : null
+          )
+        );
+      }
+      function Card() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            null,
+            h.apply(
+              null,
+              ['dl', { className: 'flex flex-col gap-3' }].concat(
+                [].slice.call(arguments)
+              )
+            )
+          )
+        );
+      }
+      function Demo() {
+        return Card(
+          h(
+            Example,
+            { label: 'Played' },
+            h(O.DateText, { date: '2024-07-20T15:42:07Z' })
+          ),
+          h(Example, { label: 'No date' }, h(O.DateText, { date: null }))
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

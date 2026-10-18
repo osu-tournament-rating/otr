@@ -1,0 +1,96 @@
+<!-- @dsCard group="Status" height=160 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>NotificationDot</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      function Row(label, children) {
+        return h(
+          'div',
+          { className: 'flex items-center gap-3' },
+          h(
+            'span',
+            { className: 'w-24 shrink-0 text-xs text-muted-foreground' },
+            label
+          ),
+          h(
+            'div',
+            { className: 'flex min-w-0 flex-1 flex-wrap items-center gap-2' },
+            children
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          // The header's Admin dropdown trigger.
+          Row(
+            'Admin menu',
+            h(
+              'button',
+              {
+                type: 'button',
+                className:
+                  '-mx-2 inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm transition-colors hover:bg-accent',
+              },
+              'Admin',
+              h(O.NotificationDot, { label: 'Unseen reports' }),
+              h(I.ChevronDown, { className: 'size-3', 'aria-hidden': 'true' })
+            )
+          ),
+          Row(
+            'Inline',
+            h(
+              'span',
+              { className: 'inline-flex items-center gap-2 text-sm' },
+              'CO25: (Mafumafu) vs (Rafis)',
+              h(O.NotificationDot, { label: 'Unread admin update' })
+            )
+          ),
+          Row('Corner', [
+            h(
+              'span',
+              { key: 'a', className: 'relative inline-flex' },
+              h(
+                O.Avatar,
+                { className: 'size-9' },
+                h(
+                  O.AvatarFallback,
+                  null,
+                  h(I.User, { className: 'size-4', 'aria-hidden': 'true' })
+                )
+              ),
+              h(O.NotificationDot, {
+                placement: 'corner',
+                label: 'Unread report updates',
+              })
+            ),
+            h(
+              O.IconButton,
+              {
+                key: 'n',
+                variant: 'outline',
+                icon: I.StickyNote,
+                label: 'Admin notes (has notes)',
+                tooltip: 'Admin notes',
+                className: 'relative',
+              },
+              h(O.NotificationDot, { placement: 'corner', label: 'Has notes' })
+            ),
+          ])
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

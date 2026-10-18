@@ -1,0 +1,79 @@
+<!-- @dsCard group="Format" height=200 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RelativeTime</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var NOW = '2024-08-04T18:00:00Z';
+      var FEED = [
+        {
+          who: 'apricot',
+          action: 'verified',
+          what: 'OWC2024: (United States) vs (South Korea)',
+          at: '2024-08-04T17:38:00Z',
+        },
+        {
+          who: 'System',
+          action: 'pre-verified',
+          what: 'OWC2024: (United States) vs (South Korea)',
+          at: '2024-08-04T14:51:00Z',
+        },
+        {
+          who: 'mrekk',
+          action: 'submitted',
+          what: 'Corsace Open 2024',
+          at: '2024-07-29T09:12:00Z',
+        },
+        {
+          who: 'apricot',
+          action: 'rejected',
+          what: '5WC2023: (Germany) vs (Poland)',
+          at: '2024-06-02T21:05:00Z',
+        },
+      ];
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            null,
+            h(
+              'ul',
+              { className: 'flex flex-col divide-y text-sm' },
+              FEED.map(function (item) {
+                return h(
+                  'li',
+                  {
+                    key: item.at,
+                    className:
+                      'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2 first:pt-0 last:pb-0',
+                  },
+                  h(
+                    'span',
+                    { className: 'min-w-0' },
+                    item.who + ' ' + item.action + ' ' + item.what
+                  ),
+                  h(O.RelativeTime, {
+                    date: item.at,
+                    now: NOW,
+                    className: 'text-xs text-muted-foreground',
+                  })
+                );
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

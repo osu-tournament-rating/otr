@@ -1,0 +1,131 @@
+<!-- @dsCard group="Layout" height=460 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>HeroTabs</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        VS = O.osu.VerificationStatus;
+      var noop = function () {};
+      var TOURNAMENT_ADMIN_ACTIONS = [
+        { label: 'Edit tournament', icon: I.PencilLine, onSelect: noop },
+        { label: 'Reset automated checks', icon: I.RotateCcw, onSelect: noop },
+        {
+          label: 'Delete tournament',
+          icon: I.Trash2,
+          destructive: true,
+          onSelect: noop,
+        },
+      ];
+      function HeroDemo() {
+        return h(O.DetailHero, {
+          title: 'Break The Meta Cup',
+          titleSuffix: 'BTMC',
+          status: h(O.VerificationStatusBadge, {
+            status: VS.Verified,
+            reviewer: 'apricot',
+            tooltip: 'tap',
+          }),
+          meta: h(
+            React.Fragment,
+            null,
+            h(O.HeroMetaItem, { icon: I.Gamepad2 }, 'osu!'),
+            h(O.HeroMetaItem, { icon: I.Users }, '1v1'),
+            h(O.HeroMetaItem, { icon: I.Target }, 'Open rank'),
+            h(O.HeroMetaItem, { icon: I.CalendarDays }, 'Dec 4 – 18, 2021')
+          ),
+          adminActions: h(O.AdminMenu, { actions: TOURNAMENT_ADMIN_ACTIONS }),
+          actions: h(
+            React.Fragment,
+            null,
+            h(
+              O.IconButton,
+              {
+                asChild: true,
+                variant: 'outline',
+                icon: I.History,
+                label: 'View audit history',
+              },
+              h('a', { href: '#' })
+            ),
+            h(O.IconButton, {
+              variant: 'outline',
+              icon: I.ExternalLink,
+              label: 'View tournament on osu! website',
+            })
+          ),
+          tabs: h(O.HeroTabs, {
+            'aria-label': 'Tournament views',
+            value: 'matches',
+            countsFrom: 'sm',
+            items: [
+              { value: 'matches', label: 'Matches', count: '124', href: '#' },
+              { value: 'beatmaps', label: 'Beatmaps', count: '62', href: '#' },
+              { value: 'ratings', label: 'Ratings', href: '#' },
+              { value: 'stats', label: 'Stats', href: '#' },
+            ],
+          }),
+        });
+      }
+      function PanelDemo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(O.PageHeader, {
+            icon: I.History,
+            title: 'Corsace Open 2025',
+            back: { href: '#', label: 'View tournament' },
+          }),
+          h(
+            O.Panel,
+            null,
+            h(O.HeroTabs, {
+              'aria-label': 'Audit history views',
+              value: 'self',
+              countsFrom: 'sm',
+              className: 'border-b',
+              items: [
+                {
+                  value: 'self',
+                  label: 'This tournament',
+                  compactLabel: 'Tournament',
+                  href: '#',
+                },
+                { value: 'matches', label: 'Matches', count: '412', href: '#' },
+                { value: 'games', label: 'Games', count: '3,104', href: '#' },
+                {
+                  value: 'scores',
+                  label: 'Scores',
+                  count: '1,000+',
+                  href: '#',
+                },
+              ],
+            }),
+            h(
+              O.PanelBody,
+              { className: O.typeScale.bodyMuted },
+              'Toolbar and events'
+            )
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-8' },
+          h(HeroDemo),
+          h(PanelDemo)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

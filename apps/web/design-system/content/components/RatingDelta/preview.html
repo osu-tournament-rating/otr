@@ -1,0 +1,72 @@
+<!-- @dsCard group="Format" height=200 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RatingDelta</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(
+            O.PanelBody,
+            { className: 'flex flex-col gap-4' },
+            h(
+              'div',
+              {
+                className:
+                  'flex flex-wrap items-center gap-x-5 gap-y-2 text-sm',
+              },
+              h(O.RatingDelta, { value: 12.34 }),
+              h(O.RatingDelta, { value: -4.56 }),
+              h(O.RatingDelta, { value: 0.03 }),
+              h(O.RatingDelta, { value: 152.9 })
+            ),
+            h(
+              O.StatTileGrid,
+              { columns: 2 },
+              h(O.StatTile, {
+                label: 'Rating',
+                value: h(
+                  'span',
+                  { className: 'flex flex-wrap items-baseline gap-x-2' },
+                  O.format.formatRating(1834.567),
+                  h(O.RatingDelta, { value: 18.7, className: 'text-sm' })
+                ),
+              }),
+              h(O.StatTile, {
+                label: 'Volatility',
+                value: h(
+                  'span',
+                  { className: 'flex flex-wrap items-baseline gap-x-2' },
+                  '212.4',
+                  h(O.RatingDelta, {
+                    value: -6.2,
+                    lowerIsBetter: true,
+                    className: 'text-sm',
+                  })
+                ),
+              })
+            ),
+            h(
+              'p',
+              { className: 'text-xs text-muted-foreground' },
+              'Volatility uses ',
+              h('span', { className: 'text-foreground' }, 'lowerIsBetter'),
+              ': a fall is green, and the arrow still points down.'
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

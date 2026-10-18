@@ -1,0 +1,303 @@
+<!-- @dsCard group="Lists" height=560 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>FilterPanel</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        S = O.status,
+        F = O.format,
+        VS = O.osu.VerificationStatus,
+        h = React.createElement;
+      // Ports of tieredScale (@/lib/filters/scale) and tournamentRankScale
+      // (@/lib/filters/tournament-rank), which the bundle does not export.
+      function clamp(v, lo, hi) {
+        return Math.min(Math.max(v, lo), hi);
+      }
+      function lowerIdx(stops, t) {
+        var lo = 0,
+          hi = stops.length;
+        while (lo < hi) {
+          var m = (lo + hi) >> 1;
+          if (stops[m] < t) lo = m + 1;
+          else hi = m;
+        }
+        return lo;
+      }
+      function upperIdx(stops, t) {
+        var lo = 0,
+          hi = stops.length;
+        while (lo < hi) {
+          var m = (lo + hi) >> 1;
+          if (stops[m] <= t) lo = m + 1;
+          else hi = m;
+        }
+        return lo;
+      }
+      function buildStops(tiers) {
+        var out = [];
+        tiers.forEach(function (t) {
+          for (var v = t.start; v <= t.end; v += t.step) out.push(v);
+        });
+        return Array.from(new Set(out)).sort(function (a, b) {
+          return a - b;
+        });
+      }
+      function nearest(stops, value) {
+        var last = stops.length - 1,
+          t = clamp(isFinite(value) ? value : stops[0], stops[0], stops[last]);
+        var up = clamp(lowerIdx(stops, t), 0, last),
+          lo = clamp(up - 1, 0, last);
+        return t - stops[lo] < stops[up] - t ? lo : up;
+      }
+      function stepStops(stops, value, n) {
+        if (n === 0) return stops[nearest(stops, value)];
+        var target =
+          n > 0 ? upperIdx(stops, value) + n - 1 : lowerIdx(stops, value) + n;
+        return stops[clamp(target, 0, stops.length - 1)];
+      }
+      function tieredScale(tiers) {
+        var stops = buildStops(tiers),
+          last = stops.length - 1;
+        return {
+          min: stops[0],
+          max: stops[last],
+          snap: function (v) {
+            return stops[nearest(stops, v)];
+          },
+          toPosition: function (v) {
+            return (nearest(stops, v) / last) * 100;
+          },
+          fromPosition: function (p) {
+            return stops[
+              clamp(Math.round((clamp(p, 0, 100) / 100) * last), 0, last)
+            ];
+          },
+          step: function (v, n) {
+            return stepStops(stops, v, n);
+          },
+        };
+      }
+      var RANK_STOPS = buildStops([
+        { start: 1, end: 1000, step: 1 },
+        { start: 1100, end: 5000, step: 100 },
+        { start: 5500, end: 10000, step: 500 },
+        { start: 11000, end: 1000000, step: 1000 },
+      ]);
+      var tournamentRankScale = {
+        min: 1,
+        max: 1000000,
+        snap: function (v) {
+          return RANK_STOPS[nearest(RANK_STOPS, Math.round(v))];
+        },
+        toPosition: function (v) {
+          var r = clamp(isFinite(v) ? v : 1, 1, 1000000);
+          return r <= 1
+            ? 0
+            : r >= 1000000
+              ? 100
+              : (Math.log(r) / Math.log(1000000)) * 100;
+        },
+        fromPosition: function (p) {
+          var r = Math.round(
+            Math.pow(1000000, clamp(isFinite(p) ? p : 0, 0, 100) / 100)
+          );
+          return RANK_STOPS[nearest(RANK_STOPS, r)];
+        },
+        step: function (v, n) {
+          return stepStops(RANK_STOPS, v, n);
+        },
+      };
+      var lengthScale = tieredScale([
+        { start: 0, end: 300, step: 5 },
+        { start: 300, end: 600, step: 10 },
+        { start: 600, end: 1800, step: 60 },
+      ]);
+      function formatSeconds(s) {
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      }
+      function isRangeSet(r) {
+        return r.min !== undefined || r.max !== undefined;
+      }
+      var STATUS_OPTIONS = S.VERIFICATION_STATUS_ORDER.map(function (status) {
+        return {
+          value: status,
+          label: S.getVerificationStatusName(status),
+          icon: h(O.VerificationStatusGlyph, {
+            status: status,
+            className: 'size-4',
+          }),
+        };
+      });
+
+      // The Filters button with its panel open under it, drawn flat: right-aligned
+      // and 8px below, where the popover opens.
+      function OpenFilterPanel(props) {
+        return h(
+          'div',
+          { className: 'flex min-w-0 flex-col items-end gap-2' },
+          h(
+            O.FilterPanel,
+            {
+              title: props.title,
+              activeCount: props.activeCount,
+              onClearAll: props.onClearAll,
+            },
+            props.children
+          ),
+          h(
+            'div',
+            {
+              className:
+                'w-full max-w-[24rem] overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-md',
+            },
+            h(
+              O.FilterPanelContent,
+              {
+                title: props.title,
+                activeCount: props.activeCount,
+                onClearAll: props.onClearAll,
+              },
+              props.children
+            )
+          )
+        );
+      }
+
+      function BeatmapFilters() {
+        var sr = React.useState({ min: 5.5, max: 7 }),
+          len = React.useState({}),
+          cs = React.useState({ max: 4.5 }),
+          ar = React.useState({});
+        var all = [sr, len, cs, ar];
+        return h(
+          OpenFilterPanel,
+          {
+            title: 'Filter beatmaps',
+            activeCount: all.filter(function (s) {
+              return isRangeSet(s[0]);
+            }).length,
+            onClearAll: function () {
+              all.forEach(function (s) {
+                s[1]({});
+              });
+            },
+          },
+          h(O.RangeFilter, {
+            label: 'SR',
+            min: 0,
+            max: 15,
+            step: 0.1,
+            value: sr[0],
+            onValueChange: sr[1],
+          }),
+          h(O.RangeFilter, {
+            label: 'Length (seconds)',
+            valueLabel: 'length',
+            min: 0,
+            max: 1800,
+            scale: lengthScale,
+            format: formatSeconds,
+            value: len[0],
+            onValueChange: len[1],
+          }),
+          h(O.RangeFilter, {
+            label: 'CS',
+            span: 'half',
+            min: 0,
+            max: 10,
+            step: 0.1,
+            value: cs[0],
+            onValueChange: cs[1],
+          }),
+          h(O.RangeFilter, {
+            label: 'AR',
+            span: 'half',
+            min: 0,
+            max: 10,
+            step: 0.1,
+            value: ar[0],
+            onValueChange: ar[1],
+          })
+        );
+      }
+
+      function TournamentFilters() {
+        var rank = React.useState({ min: 1000 }),
+          status = React.useState([VS.Verified]),
+          dates = React.useState({ from: '2025-06-01', to: '2025-08-31' }),
+          verified = React.useState(false);
+        var active =
+          (isRangeSet(rank[0]) ? 1 : 0) +
+          (status[0].length ? 1 : 0) +
+          (dates[0].from || dates[0].to ? 1 : 0) +
+          (verified[0] ? 1 : 0);
+        return h(
+          OpenFilterPanel,
+          {
+            title: 'Filter tournaments',
+            activeCount: active,
+            onClearAll: function () {
+              rank[1]({});
+              status[1]([]);
+              dates[1]({});
+              verified[1](false);
+            },
+          },
+          h(O.RangeFilter, {
+            label: 'Rank restriction',
+            valueLabel: 'rank',
+            info: "The 'best' global rank allowed to participate. Use 1 for open rank.",
+            min: 1,
+            max: 1000000,
+            scale: tournamentRankScale,
+            value: rank[0],
+            onValueChange: rank[1],
+          }),
+          h(O.ChoiceFilter, {
+            label: 'Status',
+            options: STATUS_OPTIONS,
+            value: status[0],
+            onValueChange: status[1],
+          }),
+          h(O.DayRangeFilter, {
+            label: 'Tournament dates',
+            value: dates[0],
+            onValueChange: dates[1],
+          }),
+          h(O.SwitchFilter, {
+            label: 'Verified only',
+            checked: verified[0],
+            onCheckedChange: verified[1],
+          })
+        );
+      }
+
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-6' },
+          h(
+            'div',
+            { className: 'flex flex-wrap gap-3' },
+            h(O.FilterButton, { count: 0 }),
+            h(O.FilterButton, { count: 3 })
+          ),
+          h(
+            'div',
+            { className: 'grid grid-cols-2 items-start gap-6' },
+            h(BeatmapFilters),
+            h(TournamentFilters)
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,2 @@
+- `beatmap-background-narrow.png`: the fallback cover when a beatmap has no background of its own, in beatmap covers and the match page's game rows.
+- `error-background.svg`: the illustration on the 404 page.

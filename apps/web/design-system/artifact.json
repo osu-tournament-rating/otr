@@ -1,0 +1,490 @@
+{
+  "url": "https://claude.ai/artifact/7kZyJvW6eUSbsb3fVtm7kZ",
+  "createdAt": "2026-10-17T10:56:43Z",
+  "assets": {
+    "/decorations/decoration-1.svg": {
+      "blob": "33703a091146853577c7df7fdd6f671a",
+      "sha256": "ab4d999375e848ee9eac8e829ab8c9e135fa3c4273fb8c601eb23d066dc5204c"
+    },
+    "/decorations/decoration-2.svg": {
+      "blob": "32bdd37bd95562a8f9613de455295508",
+      "sha256": "400d2f26833411d14604559ce628913729bbdbd23f7b3946175b2a9be14f4787"
+    },
+    "/decorations/decoration-3.svg": {
+      "blob": "e027fdbc95755db38fc42881a47b7682",
+      "sha256": "b89b5404d0662464f68f8900d734b61b23947ffa6a5e4c0a358d0eb2503aee36"
+    },
+    "/decorations/decoration-4.svg": {
+      "blob": "88fa1b7d7d1254f75e1e0fe86ae16302",
+      "sha256": "a23a8911feb94f2292a534fb1c48296733652d316b54c217f4234165a1736e93"
+    },
+    "/icons/grades/A.svg": {
+      "blob": "f4e61e8e2c58d1ad6d1c4f0f89fc4282",
+      "sha256": "86053ef6d88c340833e1adf929511bf9e7ebf413bd3aecbd460cde2b54de0b10"
+    },
+    "/icons/grades/B.svg": {
+      "blob": "ff849565e2dab19437476cd310db70d9",
+      "sha256": "d85121bfce4cc67e09eee5bb46936faebf86d04ecaa1cc3cd0219226f183435b"
+    },
+    "/icons/grades/C.svg": {
+      "blob": "b1034997153567db4dbc7f32b3e3195d",
+      "sha256": "e1c7ed167200ad0db79aa9218cad3a32e7ce47e051a70beb866ba2ea1aea8bd8"
+    },
+    "/icons/grades/D.svg": {
+      "blob": "adf04f7f02c7e59c12f67bbd6f496b08",
+      "sha256": "413a44a882738bf0a1b1ac59d4533b561b5e961f7255cfc97dc148f13c97b722"
+    },
+    "/icons/grades/S.svg": {
+      "blob": "d055a3440fc459801944d28d33d1102a",
+      "sha256": "a6b9c918bcbc145ef0edfb719ed24d8a33bb4119a91176b9b3b396b335ad604e"
+    },
+    "/icons/grades/SH.svg": {
+      "blob": "da82a65e967b9c127358fe76f1980194",
+      "sha256": "5b7c1ab391695ecfc4c8dae117fe0f11ac85b74748735ef2ab7f8dba00b6bcb0"
+    },
+    "/icons/grades/SS.svg": {
+      "blob": "defb5b768c58b312b711be0bb8977f83",
+      "sha256": "05ae62b7d9779c70cbeb5d2f05ac575bc39e31db4349b6941a7b09e831262f20"
+    },
+    "/icons/grades/SSH.svg": {
+      "blob": "78e97867926c5ceb4679fd6fdedb7813",
+      "sha256": "82037f949e8d42c4e7289245751344a886a507dbc7dd900ffa2eef54fb691001"
+    },
+    "/icons/mods/blanks/mod-icon.svg": {
+      "blob": "389f0d8ee8b285a19118e675d61a5b59",
+      "sha256": "7430d5bedea83145493bb076ef0b874d1c6bd0d985dd5f10fe2688093d7fd635"
+    },
+    "/icons/mods/mod-accuracy-challenge.svg": {
+      "blob": "835623e7fdad02c3dd08dc1bd47a02e4",
+      "sha256": "fd84a2e9829580adbb313d67f24ce10d8916f7ebaca9532bc2498c42aba6df82"
+    },
+    "/icons/mods/mod-adaptive-speed.svg": {
+      "blob": "72ad213a69a77f877644381592098b8e",
+      "sha256": "bfd97214ba15ca353d550a2b24860dcb269d928c034afa24bc983c01cd6d1097"
+    },
+    "/icons/mods/mod-alternate.svg": {
+      "blob": "0f7e98e5fc26093957f90b46145234ff",
+      "sha256": "7a42853a45f84796d3df4c738de1bf1f0cc8e7bd9594660a0ef4cb50e26c45f1"
+    },
+    "/icons/mods/mod-approach-different.svg": {
+      "blob": "12cb9c0e5c4f335ae2a630109d147222",
+      "sha256": "014ffff8e26a835ad05ccf227fb9feeac3059dec2d48fbb34e4643dbe201010d"
+    },
+    "/icons/mods/mod-autopilot.svg": {
+      "blob": "6d7826e577cf819887dce9cfc2f6dff8",
+      "sha256": "c2947edac2ad0ddddc6e64872a7e18356cdfa0dedd638f79068ad6fb9c396cdd"
+    },
+    "/icons/mods/mod-autoplay.svg": {
+      "blob": "6a87ebd52b511f145a215f15ea82ada2",
+      "sha256": "ce119eb4fb6f7d51a4b9aa69b446fee6f561f79aedbc591b20343c12752862ad"
+    },
+    "/icons/mods/mod-barrel-roll.svg": {
+      "blob": "24dc1485d75c24ace3f265a5f99843de",
+      "sha256": "9ffa56332fbb697cac773c4a1f7bc8847ecc54cfb0e67a8d6070ada92bb1ebc2"
+    },
+    "/icons/mods/mod-blinds.svg": {
+      "blob": "649385490a41b01565d9b4de7e4dc524",
+      "sha256": "f908ca434af947493f2afd82d54ef8249efddb8a1ab921914134621a96b2919e"
+    },
+    "/icons/mods/mod-bloom.svg": {
+      "blob": "5db33a962197f0eb30744b080bf336eb",
+      "sha256": "9b14af50778a216795ebe3b29f6f0a80a243a47c3a104d404e5eb797a440fde3"
+    },
+    "/icons/mods/mod-bubbles.svg": {
+      "blob": "97114af64f1f066f4b9ba1bf2e0fe5fc",
+      "sha256": "7285008ef1ff2bc1485bfdeb7e2eccd2aaf1dd8fb2c1ffe8e702076b54734300"
+    },
+    "/icons/mods/mod-cinema.svg": {
+      "blob": "3db3290b6f645d87c08d50061bc70f29",
+      "sha256": "debf2cf775d4f2d76e5bf27e4dce26040f5de818c32bc3116a377230c15d8514"
+    },
+    "/icons/mods/mod-classic.svg": {
+      "blob": "4af5b23cee6f695cf03f1f5a52ab6c20",
+      "sha256": "5aff6cd643afe635b3bc6f1d6e2f3e19bedcf191477a9b8fddd3b1a5271cb7db"
+    },
+    "/icons/mods/mod-constant-speed.svg": {
+      "blob": "dfcd0b91deb200e0b378e4e7cac30f87",
+      "sha256": "60cda336326bf0f0cb840d5184dc4528e2b4364e6c4d4add894200e0a4ab4f41"
+    },
+    "/icons/mods/mod-cover.svg": {
+      "blob": "d8aa779e7da0b976d31930ee3d19d622",
+      "sha256": "2fb1b33eda9d7792b4b6edf9dab52e0d71dd7e92c6a0783fa73dde09a30174a9"
+    },
+    "/icons/mods/mod-daycore.svg": {
+      "blob": "e52bef7c1dbd9e71f6bc094f35886d8b",
+      "sha256": "0062e2df9bc24b14c3703818ac2d77d15417c9844b2bb551cdb5a648e50dc7dd"
+    },
+    "/icons/mods/mod-deflate.svg": {
+      "blob": "f1168899848731eeb793048efad596a9",
+      "sha256": "f82565f67c91afabe7ba33897271dc33e806c49ae1503e0ed95dc244207ac347"
+    },
+    "/icons/mods/mod-depth.svg": {
+      "blob": "7885b1fcb48614f14ca371a47f8a7bde",
+      "sha256": "825a85478ead9b9fb4a032101fdbbfc362d51e6253dcfad28f2db71cbc18a4ce"
+    },
+    "/icons/mods/mod-difficulty-adjust.svg": {
+      "blob": "10a65e5284dca0a53136d88194601841",
+      "sha256": "405fafed601d5e47dc2e35981f81a7049f975385f286c081d25cd3c14ddee9e0"
+    },
+    "/icons/mods/mod-double-time.svg": {
+      "blob": "b620892c25fe7b99efc85f39068b4db9",
+      "sha256": "d65b613fd3c1d7662fd83db2435cad981a5cf40151df6f7cef47777a6e9354dc"
+    },
+    "/icons/mods/mod-dual-stages.svg": {
+      "blob": "1d14c7589dca1a4ce93698c705c10bca",
+      "sha256": "52f641afcc9f25a67e8734af031e55e95e1cedd76ee6f065cd3431413dd946e6"
+    },
+    "/icons/mods/mod-easy.svg": {
+      "blob": "ed8c4db7badaaaaab983c584bba2e8b8",
+      "sha256": "86d0e72ecbf9668a170acd21e125a61c1fc86a01cb94157fff5a7f12cd0a94dc"
+    },
+    "/icons/mods/mod-eight-keys.svg": {
+      "blob": "d4eef9ef5647c0a3080d3cf9fd6ff9b7",
+      "sha256": "e88b76822457a38be743f4a8503ac4e05e8b11abd638c51584f1940aed4821b3"
+    },
+    "/icons/mods/mod-fade-in.svg": {
+      "blob": "4c60f4027a63fdf889d82da68ad3b14e",
+      "sha256": "1cee6e28d5ed37d327ccbfd454132a8582f99b60600915e37c91f0c4fbd4700e"
+    },
+    "/icons/mods/mod-five-keys.svg": {
+      "blob": "52fe0ea24e4352bda4b5febbdf3ec6cf",
+      "sha256": "a4b333fb51ae282136fcfd5ad8e214bfc5d829244b67af8e1b7858af5cdd85b6"
+    },
+    "/icons/mods/mod-flashlight.svg": {
+      "blob": "8e367cc794e8023d83e653f3dca0dede",
+      "sha256": "128e4758e846ad5467015176d2a99ec34cb8e7a85774d4652a1cfb6838f58cfe"
+    },
+    "/icons/mods/mod-floating-fruits.svg": {
+      "blob": "38ed2e80f40496bf0b68e25f6e0d6422",
+      "sha256": "bc80763d496f819adee115d7e915d502160781fa903dbee20b9724b59694ed43"
+    },
+    "/icons/mods/mod-four-keys.svg": {
+      "blob": "bb407f7e95a96ff209221c1b9ded8344",
+      "sha256": "3adf6af2f17c417a721fc9b1276da68d5a864d50b9252a05d0457e8b7194b53e"
+    },
+    "/icons/mods/mod-freeze-frame.svg": {
+      "blob": "365aa9c2f21d4842b672398e80f187bf",
+      "sha256": "cc225f5de18a0058e94b2f91a6f4e43909df27707955f4502f59cc43337e3579"
+    },
+    "/icons/mods/mod-grow.svg": {
+      "blob": "9ccc81787d3af70af90bfa2741dbd150",
+      "sha256": "a8db6474ca7a2917b44768db6b8a57b29a9485620b8aa7e22fa966f1d9e0c7f1"
+    },
+    "/icons/mods/mod-half-time.svg": {
+      "blob": "10f42d05b54d350d63b1f1a693a45384",
+      "sha256": "cefac1613ebdab48e216448cf548acc169889bd75954ab97788e13fd0808b285"
+    },
+    "/icons/mods/mod-hard-rock.svg": {
+      "blob": "94b4c381799fa11aeb20b296622be82e",
+      "sha256": "9cb783ef484cd560de63275981ef865c2ae9619ac52f4e9ee28797b34ec6bdda"
+    },
+    "/icons/mods/mod-hidden.svg": {
+      "blob": "fa88719a98edce513f52b028301585a6",
+      "sha256": "c1ca9afb350c8eca86473f5e736431315d5b8a1125457000662fdc80df6c9bb3"
+    },
+    "/icons/mods/mod-hold-off.svg": {
+      "blob": "8a049f01e8eb2d24bc2a53e3bd482cfa",
+      "sha256": "98c0ff65d7e9a1a5fb0a85529003596edb4200ab99c8e80647f719b90e79ce7a"
+    },
+    "/icons/mods/mod-invert.svg": {
+      "blob": "f78767dd75588547708b964a6359ab83",
+      "sha256": "2ff5170122b05689d4b7c4e084a00b3ef32b15e2d2cdc2f551cf1214b90deac5"
+    },
+    "/icons/mods/mod-magnetised.svg": {
+      "blob": "04d949cb93f575bc4751e3c5921a9d0d",
+      "sha256": "aee68d8275de1626c0e4dfe5a2a4cdd9959c7f4d339446b08892bddcc1207a02"
+    },
+    "/icons/mods/mod-mirror.svg": {
+      "blob": "3303d67467569480469bb98e4356f35a",
+      "sha256": "811e1bf3af2e01209c4980c0a45ed097a52b80563631c8fbb392133b1a292d61"
+    },
+    "/icons/mods/mod-moving-fast.svg": {
+      "blob": "37dc5f0325b3e751e44f3a846dd732af",
+      "sha256": "f3f5d2a3694028ae47e9dc6d4e80e870a2b3bc3a4b4412ab618692880ba57f1a"
+    },
+    "/icons/mods/mod-muted.svg": {
+      "blob": "6e04b1d93f78b9b3fc5096166cd252e8",
+      "sha256": "8bf8139bf5a38a97525883113604bde22245d463a4a003abd489445b4c333920"
+    },
+    "/icons/mods/mod-nightcore.svg": {
+      "blob": "8e8029e2be8ce4c82668e567b110d2d7",
+      "sha256": "648dfb74ee037cb1a0187a51e9b05441bce92aaef51bb8eef8c6f9a0ef29e3a9"
+    },
+    "/icons/mods/mod-nine-keys.svg": {
+      "blob": "c1a7bb69f1e5a2f3a9d444673bcfc718",
+      "sha256": "8d6e2cc6aa3e41c890d393acfd7672205619bad4b315a67a41936341ea81950f"
+    },
+    "/icons/mods/mod-no-fail.svg": {
+      "blob": "af2c19d7aea8673434e686535180bf33",
+      "sha256": "4bc747422df3b9ef26ca4635c4cc3c56cf7f22024c445e1b56a89fec6f9895c0"
+    },
+    "/icons/mods/mod-no-release.svg": {
+      "blob": "ecb3f29857652de86d1dd677edafca84",
+      "sha256": "883605d745535e5b2bd12b7ae73bcabe77d25880535c7ebc73702c7b3ed32a0a"
+    },
+    "/icons/mods/mod-no-scope.svg": {
+      "blob": "0896e7cbe7bbcd002f6ba39e7676aa16",
+      "sha256": "788613127a3342d85dad8426c0f08cdb1372a42aa6159075b7c1d13ffdd38da6"
+    },
+    "/icons/mods/mod-one-key.svg": {
+      "blob": "0def68aa0c8b9e60daa0f1b94d34cc46",
+      "sha256": "24c9482bee3a9c9b9f35fe58767473955712cd084215ef12e05b3554fca9712f"
+    },
+    "/icons/mods/mod-perfect.svg": {
+      "blob": "dd572290e3f481b1e873762944b253b9",
+      "sha256": "67cb024ae05e96a4d56950c943460e674ff6be4ba7f1e1e5888935be60564e80"
+    },
+    "/icons/mods/mod-random.svg": {
+      "blob": "9954dbe85cef27b13e9254fcb03ed5fa",
+      "sha256": "ce47c3e49a960bb7e29ddba7e0ce9d960858a24eb2902e8ce434f2eabda0104d"
+    },
+    "/icons/mods/mod-relax.svg": {
+      "blob": "982ac51d61b0c48a6cbb7a71ad03c3f7",
+      "sha256": "d074bb1f430946528fe0df631d6fba9a02d8541549cf0e3187007df43da66689"
+    },
+    "/icons/mods/mod-repel.svg": {
+      "blob": "93a67319ab0cebf7d0be5c3420b08ecf",
+      "sha256": "1762c3d0a292b5c462929ed8a92450898fd1b816543396965ab18c032ef4f5eb"
+    },
+    "/icons/mods/mod-score-v2.svg": {
+      "blob": "5031c6f039ffa916fb506ef937b97647",
+      "sha256": "3205491d96dffde4569d9b2947d0d1499834a0555d5dbda7647e757a884b9a2d"
+    },
+    "/icons/mods/mod-seven-keys.svg": {
+      "blob": "59c3b69772659b70d23c620ff8e22543",
+      "sha256": "07e73ea8d66e671c822b9f52325cec9647cd15a42d0556b1c77a826ef1e252ea"
+    },
+    "/icons/mods/mod-simplified-rhythm.svg": {
+      "blob": "4dae1f23102600de56328ec827bd2bf9",
+      "sha256": "5a0a8b2e26197732d20b1c884a160a6d9f2b8a8b5145197482d86e9fe6044196"
+    },
+    "/icons/mods/mod-single-tap.svg": {
+      "blob": "6c942b18acd732ba7b4ef0c7038da15f",
+      "sha256": "d32987c3c025e88301791fe5719da1b964d9e0e21b866e7b990f2da33e1d4759"
+    },
+    "/icons/mods/mod-six-keys.svg": {
+      "blob": "2b585a2a47a7457c5aafd64c7d33b902",
+      "sha256": "fa65ff56fed93eae4ae8a09ae57e0678e7d06faa12ef6fcac5b8a65f1caa2e94"
+    },
+    "/icons/mods/mod-spin-in.svg": {
+      "blob": "ea83ec76d73664e868ba2e8ac8a5c9be",
+      "sha256": "7fbe85bfb9009898f3ba60607b12cf49753d749d218481284e548d37386b587e"
+    },
+    "/icons/mods/mod-spun-out.svg": {
+      "blob": "397cf71e312c2471e7d7cfb89d110b5d",
+      "sha256": "bb786d416a4c883fec760d08b332f13486afa10ca32ba5b666f8197a50618b5c"
+    },
+    "/icons/mods/mod-strict-tracking.svg": {
+      "blob": "f97e7ec621c5577e4b958c0752aec2a1",
+      "sha256": "16ade7ea9b0d583117640338d305c5dd8fb66f2948484d306ad3bf8fc2616fae"
+    },
+    "/icons/mods/mod-sudden-death.svg": {
+      "blob": "9f84334e3368e11b0a86168da01de562",
+      "sha256": "7414bd5021ba3662e457bc7824767b13955a3930f624799f5e16f4baea149cce"
+    },
+    "/icons/mods/mod-swap.svg": {
+      "blob": "35fb27adc4fa8b6ee7fa455c855a7230",
+      "sha256": "e27745c2df665d723a0b4af87ea2651ba9835ec7b0d02cb5ae0ad039fcfc726a"
+    },
+    "/icons/mods/mod-synesthesia.svg": {
+      "blob": "03807d336eb067e346c3a6a22e8898ed",
+      "sha256": "fce611dc27aed8546d68671202ffbfd0fe68760183cd5fe5a38e9f4b6b51bce3"
+    },
+    "/icons/mods/mod-target-practice.svg": {
+      "blob": "afe310e05329b145f448852aba5fe6b5",
+      "sha256": "cf5df1b19916fe8ef9e85ba29ca08886795cf72e48caee013b4c1a2aff4c7028"
+    },
+    "/icons/mods/mod-ten-keys.svg": {
+      "blob": "fac7c8e1ff3bf9d5b9727c4e822f1e8f",
+      "sha256": "4f9ce9f16519fd9806d71724f2d3bceaae9ed89f598a1bab6c44fec42e201a8c"
+    },
+    "/icons/mods/mod-three-keys.svg": {
+      "blob": "e83cec6522d5ebbb108135e3a1d0c7be",
+      "sha256": "bf9d3a0c96515dabbe2ff5ba962591e8371eb66285454cba458bf36823038dba"
+    },
+    "/icons/mods/mod-touch-device.svg": {
+      "blob": "818827ecaf4a12299305563a2d33560b",
+      "sha256": "8a09261729664758c5ddbe3393139c812218e5bd9ec2ed073b6fb271f8e14bd8"
+    },
+    "/icons/mods/mod-traceable.svg": {
+      "blob": "73d357479264f8e0f0b4f4b3e388016b",
+      "sha256": "944d538e0f2da3ff19c3e6d28af3a3812b6ace2a893151649cd76b8a4cf3b27a"
+    },
+    "/icons/mods/mod-transform.svg": {
+      "blob": "8b89fe44b5dc0aa59e40f7fb9270120f",
+      "sha256": "7e164b0798ed13e73ff33a9f0eafa64fd3b45953b8805758098755b2e4ddb951"
+    },
+    "/icons/mods/mod-two-keys.svg": {
+      "blob": "0512bff6c07dd7caa20e946ecbc0821a",
+      "sha256": "43ee905eade5057459f6f82a935d32648a93ebea51b201ba05a30e5ea22023a2"
+    },
+    "/icons/mods/mod-wiggle.svg": {
+      "blob": "ba8516fcd691879f7b63f3355bf7fdff",
+      "sha256": "0e6919c4ee0edcac6cea572c6b747a33e09bdb0fe11fa6ca1029e5f627ce8a1d"
+    },
+    "/icons/mods/mod-wind-down.svg": {
+      "blob": "d806c3a11d00f204567f2122e6dd46a0",
+      "sha256": "6649563bb87fbc664e4266da2c4824124c81f2aa45da463b76e0e7862d4795c0"
+    },
+    "/icons/mods/mod-wind-up.svg": {
+      "blob": "b4d4e775e542d3f254b6f3c100ac119c",
+      "sha256": "60bcc75020a0fcf6dcf805f85c3ef49099799127b9105978c21c1224cc49fb4c"
+    },
+    "/icons/rulesets/all.svg": {
+      "blob": "4dfe1cdb5198756b51660be71f6a57cb",
+      "sha256": "31fe54d0fa55d978775d6c220ed26f49410b5de915a8d485aac102a6674ad903"
+    },
+    "/icons/rulesets/catch.svg": {
+      "blob": "16d73d44ad281f29735371a14ad2a44b",
+      "sha256": "3e6621bf5950682278960368264cbbced9fbab01842aa8d550fd56ff09d5ccbe"
+    },
+    "/icons/rulesets/mania.svg": {
+      "blob": "efb10404b95a8d59b6024cb3e1fe829c",
+      "sha256": "65c263b69ca9019430877a4d5cc059a303448a1bd2508caeb78aa1e3589d0b18"
+    },
+    "/icons/rulesets/mania4k.svg": {
+      "blob": "e7ca80d332d0ed14114a2379776617e9",
+      "sha256": "52b4776d3108879ee36d6afcb8df28e091b6d3025f1bf91e770d72850e200fca"
+    },
+    "/icons/rulesets/mania7k.svg": {
+      "blob": "d01e04848b6e0f7c75ee04a5193ff3f5",
+      "sha256": "b3754643f03fb32bec920d9daad08c55db20459da5e8fc62092ba09a891698fb"
+    },
+    "/icons/rulesets/osu.svg": {
+      "blob": "f1a55343141ec9a1ed78a2c88e970bc6",
+      "sha256": "490dfdb55e151eb561da7b78f01f1b4e273451a389928d6e40670ca67b9b0be1"
+    },
+    "/icons/rulesets/taiko.svg": {
+      "blob": "d21a733923c286d6370bc716e04a7f95",
+      "sha256": "83fbbfa7fa18c4c4d7c556a5cb244930bf46f331dc07cb2bda93fa2824b11efa"
+    },
+    "/icons/tiers/Bronze1.svg": {
+      "blob": "8fb74e2247ffcc7edf2dea610cb908bc",
+      "sha256": "3d80c07dbfbf9f4e3fc884289122068bd75569a0c75cf5583616318b462efa8b"
+    },
+    "/icons/tiers/Bronze2.svg": {
+      "blob": "909c6660cbf0bce14d4ebfa33974fe64",
+      "sha256": "b34c56d9fb1ad504266b08a6987a616334f8009ec492a78d55d26d36a4ea73c9"
+    },
+    "/icons/tiers/Bronze3.svg": {
+      "blob": "b49078cd59450baef94612da0bef6a52",
+      "sha256": "3ae5d379670026261720d9437767806581d1866f707e1d5d12e8777d9b5b4ed1"
+    },
+    "/icons/tiers/Diamond1.svg": {
+      "blob": "c3f97af1aeac942279d236fac1393086",
+      "sha256": "37c877d8133034a06de5112bb72679babceaed4f761a041028ad5800e7da33be"
+    },
+    "/icons/tiers/Diamond2.svg": {
+      "blob": "2c19bc2cb14e6d40e19b370bb3b4c827",
+      "sha256": "08607ecef1c6dfb904b8514a3f1cab739d7912aa3717be7ee2ee32051accdec7"
+    },
+    "/icons/tiers/Diamond3.svg": {
+      "blob": "1c5910dbfb3aa065d4bd2259a67d64aa",
+      "sha256": "44c3e2573611893f5dddcc6778dba292c2a7b0a489f545bd1a7f5f3ea44cd066"
+    },
+    "/icons/tiers/Elite Grandmaster.svg": {
+      "blob": "7a669e058557c1d9d773639a34d1d5b9",
+      "sha256": "d42ef10dc7505d42ea16ebc9132c9905f2f0afa934caf8bc0c6035154531fc91"
+    },
+    "/icons/tiers/Emerald1.svg": {
+      "blob": "8a75068faae41c7e2565000d88ac86fa",
+      "sha256": "b6c385d2a745bcbe5eb35d6e2f29ff6159e46a472ad9a8a922aee0c60f820db7"
+    },
+    "/icons/tiers/Emerald2.svg": {
+      "blob": "1dea678c541c6ae2808ae7eed1c1a98f",
+      "sha256": "31e9bd2374c65b1a2f4df66222b9f1a88205f79a2086360097ad1a055d732b3c"
+    },
+    "/icons/tiers/Emerald3.svg": {
+      "blob": "b8d093d68987fcba55645c3b26f3dce2",
+      "sha256": "3f9a2a605a78ae5d6db50fe49cd0e507a954ef9055f4c558358c668f3d6462ad"
+    },
+    "/icons/tiers/Gold1.svg": {
+      "blob": "3e88685ca56b20ae2099c0e43616f2d2",
+      "sha256": "01eb0eef3e707ca12e59a646956ce5e4a0dcc817a3ea15c0631d5c4c2baf31af"
+    },
+    "/icons/tiers/Gold2.svg": {
+      "blob": "87e42c21d6212425475d79d9e5c621be",
+      "sha256": "d37859e89237c03fb7a5619469e93b3813bf579b4f89fb05b6490444d1d08fca"
+    },
+    "/icons/tiers/Gold3.svg": {
+      "blob": "b650f5b4f95f1ddc0ee1a124dfbb0be1",
+      "sha256": "50d05e58270990b91546410c0addf2d6017e2adb31736b6fa1b208fbc12af3a8"
+    },
+    "/icons/tiers/Grandmaster1.svg": {
+      "blob": "31741a8e642693824d87fc00fac170a9",
+      "sha256": "defe2610a0bc658afa76a4a7bdf7847080fa36c0dcb3098ad8dde1c7688fbfd2"
+    },
+    "/icons/tiers/Grandmaster2.svg": {
+      "blob": "5d234644dc397c7380474a7345e293e6",
+      "sha256": "aedef196ef17e446f25d99433ea3ba15fcada58e6667f9b8de62917717ac3434"
+    },
+    "/icons/tiers/Grandmaster3.svg": {
+      "blob": "4d71c1e47494f656071e209c2f44768e",
+      "sha256": "a859837db1b02fc9bae29d4978df369a947684335cd354f4da41e4fb54486f54"
+    },
+    "/icons/tiers/Master1.svg": {
+      "blob": "3933b6652c361219b2b92d1d8cce2134",
+      "sha256": "1d8282069451334cc514c92cb232821c196d2fcc132b8c5dfbc85c51e74cb120"
+    },
+    "/icons/tiers/Master2.svg": {
+      "blob": "197863ab3fcf786903f52d949a242d93",
+      "sha256": "171866d60b53901610950810fd6a54da4881a0497527a9e24e1af67f66b2d20e"
+    },
+    "/icons/tiers/Master3.svg": {
+      "blob": "d93547e20a65e791c93999f42d387ce9",
+      "sha256": "51f952a98b9a7e6e52240ccda6e2483d2fc398a934f4f765e716d71bcd4d5ea5"
+    },
+    "/icons/tiers/Platinum1.svg": {
+      "blob": "f4b660442c33e27a7fca409e093e15a1",
+      "sha256": "6ca4b327392b5439f183a578332081cffe3b36be5c47d2e54af909a91d5b2594"
+    },
+    "/icons/tiers/Platinum2.svg": {
+      "blob": "81b3ed5c76b83be074f99cb5538fcd11",
+      "sha256": "69e98d3f225af518d21f488b0fee4d6bdf7d43e2506ee8e5c8db1c1b39be2228"
+    },
+    "/icons/tiers/Platinum3.svg": {
+      "blob": "c631d7a52bfbf3a741e8e3257a283488",
+      "sha256": "2eec4cb68973c23bf6386a08ea7243d51350e2431cde6b2ea8ad1dcb9da8303a"
+    },
+    "/icons/tiers/Silver1.svg": {
+      "blob": "e7af2d6ad8d89f7e55722f9e5f1beedc",
+      "sha256": "f042292c4958b5d9a8e0439b40383bedaa8e27810574d0e72a410dccde59fa45"
+    },
+    "/icons/tiers/Silver2.svg": {
+      "blob": "7936ed10c8e77892ae798ba9ce28677d",
+      "sha256": "a957336aec3d2fd5fe22e92aaa1c0e40686094d15ce8a9f2780f3dcfdc3583d6"
+    },
+    "/icons/tiers/Silver3.svg": {
+      "blob": "b8f8fc6d0ff39f3113c4df0d46c856f2",
+      "sha256": "1adbb4c8a59c89177432c039ae66eef53d8726c2280bc47fab855d738d63c18d"
+    },
+    "/images/beatmap-background-narrow.png": {
+      "blob": "66fab6b7ed29de3795bba32eccf804c3",
+      "sha256": "769c78564bc1460e95b0cfed3287770f7bc3d0c3539435a72b84b1a8d5a3fa19"
+    },
+    "/images/error-background.svg": {
+      "blob": "ae28e4653de0498f9c3df030066b3690",
+      "sha256": "05b701fa2a8aa8e848643dcc4ac398332a59a5554c23f1fd25496bc1e69bf4f8"
+    },
+    "/logos/full-logo-dark.svg": {
+      "blob": "fc90cb560cac1dcdedbf18b4ee5cca4b",
+      "sha256": "8e5f561ebee7e33e45251f5876e17641e05ddcbb245cc8df418a50a4cd290942"
+    },
+    "/logos/full-logo.svg": {
+      "blob": "e5a37a2c7f8dc5eaca87bf08e76c765f",
+      "sha256": "9c06777937bfd87fa83029db1021a1cbd19e67621437f1cd8397f8e3a46be8a7"
+    },
+    "/logos/full.svg": {
+      "blob": "cbe2978d51acafcbbfc60d71e6be5044",
+      "sha256": "4e7e8c896cc1637e4d838a4a2ddd0fdf3eca8729bdc0268f503e08c90edc6f1c"
+    },
+    "/logos/otr-logo-2.svg": {
+      "blob": "2f516ce40fad36fe2929028341f9051b",
+      "sha256": "e9479249ba69fbe23c8b5578c1bd6bdc0b2331875fff6e8f4c08c08a15ae823d"
+    },
+    "/logos/small.svg": {
+      "blob": "4ee734326e33f6f092c3a53c2a6023f6",
+      "sha256": "e4c159b245425c59a160090b4a80b2aacb67465dfeb19dfa1ee09aa618792597"
+    }
+  }
+}

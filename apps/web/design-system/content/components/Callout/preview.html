@@ -1,0 +1,69 @@
+<!-- @dsCard group="Feedback" height=414 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Callout</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var MAINTENANCE_NOTICE =
+        'Ratings are pending recalculation, performance may be degraded';
+      var SIGNED_OUT_NOTICE =
+        'Some features are not available while signed out.';
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-3' },
+          h(
+            O.Callout,
+            { tone: 'info' },
+            'Only verified data is included in ratings.'
+          ),
+          h(
+            O.Callout,
+            { tone: 'warning', title: 'Host compliance' },
+            'Hosts must comply with the ',
+            h(
+              'a',
+              { href: '#' },
+              'official tournament support filtering rules'
+            ),
+            '.'
+          ),
+          h(
+            O.Callout,
+            { tone: 'danger', title: 'Saving is permanent' },
+            'This beatmap stops receiving osu! API updates for good. Nothing can undo it.'
+          ),
+          h(
+            O.Callout,
+            {
+              tone: 'danger',
+              action: h(
+                O.Button,
+                { variant: 'destructive', size: 'sm', icon: I.Trash2 },
+                'Delete my account'
+              ),
+            },
+            'Permanently delete your account and remove your data from o!TR. Your player profile will remain public.'
+          ),
+          // The site banner strip under the header, as SiteBannerContent renders it.
+          h(
+            O.Callout,
+            { tone: 'warning', variant: 'banner', role: 'status' },
+            MAINTENANCE_NOTICE
+          ),
+          h(O.Callout, { tone: 'info', variant: 'banner' }, SIGNED_OUT_NOTICE)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

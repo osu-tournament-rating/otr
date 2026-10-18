@@ -1,0 +1,150 @@
+<!-- @dsCard group="Feedback" height=800 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>EmptyState</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        F = O.format;
+      var R = O.osu.Ruleset;
+      var TOURNAMENTS = [
+        {
+          name: 'Corsace Open 2025',
+          ruleset: R.Osu,
+          lobbySize: 4,
+          meta: 'osu! · 4v4 · Open rank',
+          dates: 'Jul 20 – Aug 3, 2025',
+        },
+        {
+          name: 'Oceania Taiko Cup 2026',
+          ruleset: R.Taiko,
+          lobbySize: 2,
+          meta: 'taiko · 2v2 · 10,000+',
+          dates: 'Feb 7 – 28, 2026',
+        },
+        {
+          name: 'Mania 4K World Cup 2026',
+          ruleset: R.Mania4k,
+          lobbySize: 4,
+          meta: 'mania 4K · 4v4 · Open rank',
+          dates: 'Mar 14 – Apr 26, 2026',
+        },
+      ];
+      function choiceLabel(label, selected) {
+        return selected.length === 0 ? '' : label + ': ' + selected.join(', ');
+      }
+      // A filterable list: the lobby size filter empties it; Clear filters brings the rows back.
+      function Filtered() {
+        var rs = React.useState([R.Taiko]),
+          rulesets = rs[0],
+          setRulesets = rs[1];
+        var ls = React.useState([1]),
+          lobbySizes = ls[0],
+          setLobbySizes = ls[1];
+        var shown = TOURNAMENTS.filter(function (t) {
+          return (
+            (rulesets.length === 0 || rulesets.indexOf(t.ruleset) >= 0) &&
+            (lobbySizes.length === 0 || lobbySizes.indexOf(t.lobbySize) >= 0)
+          );
+        });
+        var clear = function () {
+          setLobbySizes([]);
+        };
+        return h(
+          O.Panel,
+          null,
+          h(O.ListToolbar, {
+            label: 'Filter tournaments',
+            rulesets: h(O.RulesetChips, {
+              value: rulesets,
+              onValueChange: setRulesets,
+            }),
+            count: F.formatCountOf(shown.length, 'tournament'),
+            activeFilters: h(O.ActiveFilterChips, {
+              filters: lobbySizes.length
+                ? [
+                    {
+                      key: 'lobbySize',
+                      label: choiceLabel(
+                        'Lobby size',
+                        lobbySizes.map(F.formatLobbySize)
+                      ),
+                      onRemove: clear,
+                    },
+                  ]
+                : [],
+              onClearAll: clear,
+            }),
+          }),
+          shown.length === 0
+            ? h(O.EmptyState, {
+                title: 'No tournaments match',
+                description: 'Try a different name, ruleset, or fewer filters.',
+                clearFilters:
+                  lobbySizes.length > 0 ? { onClick: clear } : undefined,
+              })
+            : h(
+                O.RowList,
+                null,
+                shown.map(function (t) {
+                  return h(O.RowListItem, {
+                    key: t.name,
+                    title: h(O.EntityLink, { href: '#' }, t.name),
+                    description: t.meta,
+                    trailing: h(
+                      'span',
+                      { className: O.typeScale.meta },
+                      t.dates
+                    ),
+                  });
+                })
+              )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            'div',
+            { className: 'grid grid-cols-2 gap-4' },
+            h(
+              O.Panel,
+              null,
+              h(O.SectionHeader, { icon: I.Music, title: 'Pooled beatmaps' }),
+              h(O.EmptyState, {
+                icon: I.Music,
+                title: 'No pooled beatmaps',
+                description:
+                  'No beatmaps by this player have been pooled in a tracked tournament.',
+              })
+            ),
+            h(
+              O.Panel,
+              null,
+              h(O.SectionHeader, {
+                icon: I.ChartNoAxesColumn,
+                title: 'Score distribution',
+              }),
+              h(O.EmptyState, {
+                size: 'compact',
+                icon: I.ChartNoAxesColumn,
+                title: 'Not enough data',
+              })
+            )
+          ),
+          h(Filtered)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,185 @@
+<!-- @dsCard group="Tables" height=565 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PhoneRow</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        h = React.createElement;
+      var HREF = '#tables-phone-rows';
+
+      var LEADERBOARD = [
+        {
+          id: 1,
+          rank: 1,
+          name: 'mrekk',
+          country: 'AU',
+          countryName: 'Australia',
+          tier: 'Elite Grandmaster',
+          rating: 3121.4,
+          tournaments: 58,
+          winRate: 0.724,
+        },
+        {
+          id: 2,
+          rank: 2,
+          name: 'lifeline',
+          country: 'US',
+          countryName: 'United States',
+          tier: 'Elite Grandmaster',
+          rating: 3044.9,
+          tournaments: 71,
+          winRate: 0.689,
+        },
+        {
+          id: 3,
+          rank: 3,
+          name: 'Accolibed',
+          country: 'KR',
+          countryName: 'South Korea',
+          tier: 'Grandmaster',
+          subTier: 3,
+          rating: 2912.2,
+          tournaments: 44,
+          winRate: 0.701,
+        },
+        {
+          id: 4,
+          rank: 4,
+          name: 'Raikouhou',
+          country: 'JP',
+          countryName: 'Japan',
+          tier: 'Grandmaster',
+          subTier: 2,
+          rating: 2734.6,
+          tournaments: 39,
+          winRate: null,
+        },
+      ];
+      var TOURNAMENTS = [
+        {
+          id: 1,
+          name: 'Corsace Open 2025',
+          format: 'osu! · 4v4 · Open rank',
+          matches: 412,
+        },
+        {
+          id: 2,
+          name: 'Break The Meta Cup',
+          format: 'osu! · 1v1 · 10,000+',
+          matches: 96,
+        },
+        {
+          id: 3,
+          name: 'Taiko Classic 2025',
+          format: 'taiko · 2v2 · Open rank',
+          matches: null,
+        },
+      ];
+
+      // A stand-in avatar: the gallery loads no player images.
+      function PlayerAvatar(p) {
+        return h(
+          'span',
+          {
+            className:
+              'relative flex size-8 shrink-0 overflow-hidden rounded-full',
+          },
+          h(
+            'span',
+            {
+              className:
+                'flex size-full items-center justify-center rounded-full bg-muted text-xs font-medium',
+            },
+            p.name.charAt(0).toUpperCase()
+          )
+        );
+      }
+      function summary(row) {
+        var parts = [F.formatCountOf(row.tournaments, 'tournament')];
+        if (row.winRate !== null)
+          parts.push(F.formatPercent(row.winRate) + ' win rate');
+        return parts.join(' · ');
+      }
+
+      function Demo() {
+        // About a phone's width.
+        return h(
+          'div',
+          { className: 'flex max-w-[390px] flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.ListOrdered,
+              title: 'Global leaderboard',
+            }),
+            h(
+              O.PhoneRowList,
+              { as: 'ol', 'aria-label': 'Global leaderboard' },
+              LEADERBOARD.map(function (row) {
+                return h(O.PhoneRow, {
+                  key: row.id,
+                  rank: F.formatRank(row.rank),
+                  leading: h(PlayerAvatar, { name: row.name }),
+                  leadingHref: HREF,
+                  title: h(
+                    'span',
+                    { className: 'flex min-w-0 items-center gap-1.5' },
+                    h(O.EntityLink, { href: HREF }, row.name),
+                    h(O.CountryFlag, {
+                      code: row.country,
+                      name: row.countryName,
+                    })
+                  ),
+                  description: summary(row),
+                  valueAdornment: h(O.TierIcon, {
+                    tier: row.tier,
+                    subTier: row.subTier,
+                    tooltip: true,
+                    width: 22,
+                    height: 22,
+                  }),
+                  value: F.formatRating(row.rating),
+                });
+              })
+            )
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, { icon: I.Trophy, title: 'Tournaments' }),
+            h(
+              O.PhoneRowList,
+              { 'aria-label': 'Tournaments' },
+              TOURNAMENTS.map(function (t) {
+                return h(O.PhoneRow, {
+                  key: t.id,
+                  href: HREF,
+                  linkLabel: 'View ' + t.name,
+                  title: h(
+                    'span',
+                    { className: 'truncate', 'data-row-title': true },
+                    t.name
+                  ),
+                  description: t.format,
+                  value: t.matches === null ? null : F.formatCount(t.matches),
+                  valueDescription: t.matches === null ? undefined : 'matches',
+                });
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

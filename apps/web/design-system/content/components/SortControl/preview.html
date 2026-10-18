@@ -1,0 +1,81 @@
+<!-- @dsCard group="Lists" height=280 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SortControl</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        h = React.createElement;
+      var TOURNAMENT_SORTS = [
+        { value: 'endTime', label: 'End date' },
+        { value: 'startTime', label: 'Start date' },
+        { value: 'submitted', label: 'Submission date' },
+        { value: 'lobbySize', label: 'Lobby size' },
+      ];
+      var ROWS = [
+        {
+          id: 1,
+          name: 'osu! World Cup 2025',
+          start: '2025-11-01',
+          end: '2025-12-14',
+        },
+        {
+          id: 2,
+          name: 'Corsace Open 2025',
+          start: '2025-09-06',
+          end: '2025-10-19',
+        },
+      ];
+      function Demo() {
+        var s = React.useState({ key: 'endTime', direction: 'desc' }),
+          sort = s[0],
+          setSort = s[1];
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(O.SortControl, {
+            label: 'Sort tournaments by',
+            options: TOURNAMENT_SORTS,
+            value: sort,
+            onValueChange: setSort,
+          }),
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.Trophy,
+              title: 'Tournaments',
+              actions: h(O.SortControl, {
+                size: 'sm',
+                label: 'Sort tournaments by',
+                options: TOURNAMENT_SORTS,
+                value: sort,
+                onValueChange: setSort,
+              }),
+            }),
+            h(
+              O.RowList,
+              null,
+              ROWS.map(function (row) {
+                return h(O.RowListItem, {
+                  key: row.id,
+                  title: h(O.EntityLink, { href: '#' }, row.name),
+                  description: F.formatDateRange(row.start, row.end),
+                });
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

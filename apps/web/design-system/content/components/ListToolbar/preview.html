@@ -1,0 +1,593 @@
+<!-- @dsCard group="Lists" height=680 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ListToolbar</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        S = O.status,
+        F = O.format,
+        R = O.osu.Ruleset,
+        VS = O.osu.VerificationStatus,
+        h = React.createElement;
+      // Ports of tieredScale (@/lib/filters/scale) and tournamentRankScale
+      // (@/lib/filters/tournament-rank), which the bundle does not export.
+      function clamp(v, lo, hi) {
+        return Math.min(Math.max(v, lo), hi);
+      }
+      function lowerIdx(stops, t) {
+        var lo = 0,
+          hi = stops.length;
+        while (lo < hi) {
+          var m = (lo + hi) >> 1;
+          if (stops[m] < t) lo = m + 1;
+          else hi = m;
+        }
+        return lo;
+      }
+      function upperIdx(stops, t) {
+        var lo = 0,
+          hi = stops.length;
+        while (lo < hi) {
+          var m = (lo + hi) >> 1;
+          if (stops[m] <= t) lo = m + 1;
+          else hi = m;
+        }
+        return lo;
+      }
+      function buildStops(tiers) {
+        var out = [];
+        tiers.forEach(function (t) {
+          for (var v = t.start; v <= t.end; v += t.step) out.push(v);
+        });
+        return Array.from(new Set(out)).sort(function (a, b) {
+          return a - b;
+        });
+      }
+      function nearest(stops, value) {
+        var last = stops.length - 1,
+          t = clamp(isFinite(value) ? value : stops[0], stops[0], stops[last]);
+        var up = clamp(lowerIdx(stops, t), 0, last),
+          lo = clamp(up - 1, 0, last);
+        return t - stops[lo] < stops[up] - t ? lo : up;
+      }
+      function stepStops(stops, value, n) {
+        if (n === 0) return stops[nearest(stops, value)];
+        var target =
+          n > 0 ? upperIdx(stops, value) + n - 1 : lowerIdx(stops, value) + n;
+        return stops[clamp(target, 0, stops.length - 1)];
+      }
+      function tieredScale(tiers) {
+        var stops = buildStops(tiers),
+          last = stops.length - 1;
+        return {
+          min: stops[0],
+          max: stops[last],
+          snap: function (v) {
+            return stops[nearest(stops, v)];
+          },
+          toPosition: function (v) {
+            return (nearest(stops, v) / last) * 100;
+          },
+          fromPosition: function (p) {
+            return stops[
+              clamp(Math.round((clamp(p, 0, 100) / 100) * last), 0, last)
+            ];
+          },
+          step: function (v, n) {
+            return stepStops(stops, v, n);
+          },
+        };
+      }
+      var RANK_STOPS = buildStops([
+        { start: 1, end: 1000, step: 1 },
+        { start: 1100, end: 5000, step: 100 },
+        { start: 5500, end: 10000, step: 500 },
+        { start: 11000, end: 1000000, step: 1000 },
+      ]);
+      var tournamentRankScale = {
+        min: 1,
+        max: 1000000,
+        snap: function (v) {
+          return RANK_STOPS[nearest(RANK_STOPS, Math.round(v))];
+        },
+        toPosition: function (v) {
+          var r = clamp(isFinite(v) ? v : 1, 1, 1000000);
+          return r <= 1
+            ? 0
+            : r >= 1000000
+              ? 100
+              : (Math.log(r) / Math.log(1000000)) * 100;
+        },
+        fromPosition: function (p) {
+          var r = Math.round(
+            Math.pow(1000000, clamp(isFinite(p) ? p : 0, 0, 100) / 100)
+          );
+          return RANK_STOPS[nearest(RANK_STOPS, r)];
+        },
+        step: function (v, n) {
+          return stepStops(RANK_STOPS, v, n);
+        },
+      };
+      // The chip labels from @/lib/kit/lists/filters.
+      function num(value) {
+        return F.formatNumber(value, { maxDecimals: 2 });
+      }
+      function rangeLabel(label, range) {
+        if (range.min !== undefined && range.max !== undefined)
+          return (
+            label + ': ' + num(range.min) + F.RANGE_SEPARATOR + num(range.max)
+          );
+        if (range.min !== undefined)
+          return label + ': at least ' + num(range.min);
+        if (range.max !== undefined)
+          return label + ': at most ' + num(range.max);
+        return '';
+      }
+      function choiceLabel(label, selected) {
+        if (!selected.length) return '';
+        var shown = selected.slice(0, 2).join(', '),
+          rest = selected.length - 2;
+        return rest > 0
+          ? label + ': ' + shown + ' +' + rest
+          : label + ': ' + shown;
+      }
+      function dayRangeLabel(label, range) {
+        if (!range.from && !range.to) return '';
+        var text = F.formatDateRange(range.from, range.to);
+        return (
+          label +
+          ': ' +
+          (range.from && range.to
+            ? text
+            : text.charAt(0).toLowerCase() + text.slice(1))
+        );
+      }
+
+      var TOURNAMENT_SORTS = [
+        { value: 'endTime', label: 'End date' },
+        { value: 'startTime', label: 'Start date' },
+        { value: 'submitted', label: 'Submission date' },
+        { value: 'lobbySize', label: 'Lobby size' },
+      ];
+      var LOBBY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8].map(function (size) {
+        return { value: size, label: F.formatLobbySize(size) };
+      });
+      var STATUS_OPTIONS = S.VERIFICATION_STATUS_ORDER.map(function (status) {
+        return {
+          value: status,
+          label: S.getVerificationStatusName(status),
+          icon: h(O.VerificationStatusGlyph, {
+            status: status,
+            className: 'size-4',
+          }),
+        };
+      });
+      var TOURNAMENTS = [
+        {
+          id: 1,
+          name: 'osu! World Cup 2025',
+          abbreviation: 'OWC2025',
+          ruleset: R.Osu,
+          lobbySize: 4,
+          rank: 1,
+          start: '2025-11-01',
+          end: '2025-12-14',
+          submitted: '2025-10-02',
+          status: VS.Verified,
+        },
+        {
+          id: 2,
+          name: 'Corsace Open 2025',
+          abbreviation: 'CO25',
+          ruleset: R.Osu,
+          lobbySize: 4,
+          rank: 1,
+          start: '2025-09-06',
+          end: '2025-10-19',
+          submitted: '2025-08-11',
+          status: VS.PreVerified,
+        },
+        {
+          id: 3,
+          name: 'Taiko World Cup 2025',
+          abbreviation: 'TWC2025',
+          ruleset: R.Taiko,
+          lobbySize: 3,
+          rank: 1,
+          start: '2025-06-14',
+          end: '2025-08-03',
+          submitted: '2025-05-20',
+          status: VS.Verified,
+        },
+        {
+          id: 4,
+          name: '5 Digit United States Cup 2026',
+          abbreviation: '5USC26',
+          ruleset: R.Osu,
+          lobbySize: 3,
+          rank: 10000,
+          start: '2026-06-26',
+          end: '2026-08-09',
+          submitted: '2026-06-01',
+          status: VS.None,
+        },
+        {
+          id: 5,
+          name: 'Mania 4K World Cup 2025',
+          abbreviation: 'MWC4K',
+          ruleset: R.Mania4k,
+          lobbySize: 4,
+          rank: 1,
+          start: '2025-03-01',
+          end: '2025-04-20',
+          submitted: '2025-02-03',
+          status: VS.Verified,
+        },
+        {
+          id: 6,
+          name: 'Catch the Beat World Cup 2025',
+          abbreviation: 'CWC2025',
+          ruleset: R.Catch,
+          lobbySize: 2,
+          rank: 1,
+          start: '2025-05-03',
+          end: '2025-06-22',
+          submitted: '2025-04-07',
+          status: VS.PreRejected,
+        },
+      ];
+      var DEFAULTS = {
+        q: '',
+        sort: { key: 'endTime', direction: 'desc' },
+        ruleset: [],
+        status: [],
+        lobbySize: [],
+        rank: {},
+        date: {},
+        verified: false,
+      };
+      var FILTER_KEYS = ['status', 'lobbySize', 'rank', 'date', 'verified'];
+
+      function has(list, value) {
+        return list.indexOf(value) !== -1;
+      }
+      function filterTournaments(state) {
+        var term = state.q.toLowerCase();
+        var rows = TOURNAMENTS.filter(function (row) {
+          return (
+            (!term ||
+              row.name.toLowerCase().indexOf(term) !== -1 ||
+              row.abbreviation.toLowerCase().indexOf(term) !== -1) &&
+            (!state.ruleset.length || has(state.ruleset, row.ruleset)) &&
+            (!state.status.length || has(state.status, row.status)) &&
+            (!state.lobbySize.length || has(state.lobbySize, row.lobbySize)) &&
+            (state.rank.min === undefined || row.rank >= state.rank.min) &&
+            (state.rank.max === undefined || row.rank <= state.rank.max) &&
+            (!state.date.from || row.start >= state.date.from) &&
+            (!state.date.to || row.end <= state.date.to) &&
+            (!state.verified || row.status === VS.Verified)
+          );
+        });
+        var read = {
+          endTime: 'end',
+          startTime: 'start',
+          submitted: 'submitted',
+          lobbySize: 'lobbySize',
+        }[state.sort.key];
+        var sign = state.sort.direction === 'asc' ? 1 : -1;
+        return rows.slice().sort(function (a, b) {
+          return a[read] < b[read] ? -sign : a[read] > b[read] ? sign : 0;
+        });
+      }
+      function countActive(state) {
+        return (
+          (state.status.length ? 1 : 0) +
+          (state.lobbySize.length ? 1 : 0) +
+          (state.rank.min !== undefined || state.rank.max !== undefined
+            ? 1
+            : 0) +
+          (state.date.from || state.date.to ? 1 : 0) +
+          (state.verified ? 1 : 0)
+        );
+      }
+
+      // Local stand-in for useListState: React state instead of the page address.
+      function useDemoList(initial) {
+        var s = React.useState(Object.assign({}, DEFAULTS, initial)),
+          state = s[0],
+          set = s[1];
+        var p = React.useState(false),
+          timer = React.useRef();
+        React.useEffect(function () {
+          return function () {
+            clearTimeout(timer.current);
+          };
+        }, []);
+        function settle() {
+          p[1](true);
+          clearTimeout(timer.current);
+          timer.current = setTimeout(function () {
+            p[1](false);
+          }, 700);
+        }
+        return {
+          state: state,
+          isPending: p[0],
+          activeFilterCount: countActive(state),
+          setState: function (patch) {
+            set(function (c) {
+              return Object.assign({}, c, patch);
+            });
+            settle();
+          },
+          clearFilters: function () {
+            set(function (c) {
+              var n = Object.assign({}, c);
+              FILTER_KEYS.forEach(function (k) {
+                n[k] = DEFAULTS[k];
+              });
+              return n;
+            });
+            settle();
+          },
+        };
+      }
+
+      function TournamentToolbar() {
+        var list = useDemoList({ status: [VS.Verified] }),
+          state = list.state,
+          setState = list.setState;
+        var rows = filterTournaments(state);
+        return h(
+          O.Panel,
+          null,
+          h(O.ListToolbar, {
+            label: 'Search and filter tournaments',
+            search: h(O.SearchField, {
+              label: 'Search tournaments by name or abbreviation',
+              placeholder: 'Name or abbreviation',
+              value: state.q,
+              pending: list.isPending,
+              onSearch: function (q) {
+                setState({ q: q });
+              },
+            }),
+            sort: h(O.SortControl, {
+              label: 'Sort tournaments by',
+              options: TOURNAMENT_SORTS,
+              value: state.sort,
+              onValueChange: function (sort) {
+                setState({ sort: sort });
+              },
+            }),
+            filters: h(
+              O.FilterPanel,
+              {
+                title: 'Filter tournaments',
+                activeCount: list.activeFilterCount,
+                onClearAll: list.clearFilters,
+              },
+              h(O.ChoiceFilter, {
+                label: 'Status',
+                options: STATUS_OPTIONS,
+                value: state.status,
+                onValueChange: function (v) {
+                  setState({ status: v });
+                },
+              }),
+              h(O.ChoiceFilter, {
+                label: 'Lobby size',
+                options: LOBBY_OPTIONS,
+                value: state.lobbySize,
+                onValueChange: function (v) {
+                  setState({ lobbySize: v });
+                },
+              }),
+              h(O.RangeFilter, {
+                label: 'Rank restriction',
+                valueLabel: 'rank',
+                description: 'Use 1 for open-rank tournaments.',
+                min: 1,
+                max: 1000000,
+                scale: tournamentRankScale,
+                value: state.rank,
+                onValueChange: function (v) {
+                  setState({ rank: v });
+                },
+              }),
+              h(O.DayRangeFilter, {
+                label: 'Tournament dates',
+                value: state.date,
+                onValueChange: function (v) {
+                  setState({ date: v });
+                },
+              }),
+              h(O.SwitchFilter, {
+                label: 'Verified only',
+                checked: state.verified,
+                onCheckedChange: function (v) {
+                  setState({ verified: v });
+                },
+              })
+            ),
+            rulesets: h(O.RulesetChips, {
+              value: state.ruleset,
+              onValueChange: function (v) {
+                setState({ ruleset: v });
+              },
+            }),
+            count: F.formatCountOf(rows.length, 'tournament', 'tournaments'),
+            activeFilters: h(O.ActiveFilterChips, {
+              onClearAll: list.clearFilters,
+              filters: [
+                {
+                  key: 'status',
+                  label: choiceLabel(
+                    'Status',
+                    state.status.map(S.getVerificationStatusName)
+                  ),
+                  onRemove: function () {
+                    setState({ status: [] });
+                  },
+                },
+                {
+                  key: 'lobbySize',
+                  label: choiceLabel(
+                    'Lobby size',
+                    state.lobbySize.map(F.formatLobbySize)
+                  ),
+                  onRemove: function () {
+                    setState({ lobbySize: [] });
+                  },
+                },
+                {
+                  key: 'rank',
+                  label: rangeLabel('Rank restriction', state.rank),
+                  onRemove: function () {
+                    setState({ rank: {} });
+                  },
+                },
+                {
+                  key: 'date',
+                  label: dayRangeLabel('Dates', state.date),
+                  onRemove: function () {
+                    setState({ date: {} });
+                  },
+                },
+                {
+                  key: 'verified',
+                  label: state.verified ? 'Verified only' : '',
+                  onRemove: function () {
+                    setState({ verified: false });
+                  },
+                },
+              ],
+            }),
+          }),
+          rows.length
+            ? h(
+                O.RowList,
+                null,
+                rows.map(function (row) {
+                  return h(O.RowListItem, {
+                    key: row.id,
+                    href: '#',
+                    linkLabel: 'View ' + row.name,
+                    leading: h(O.VerificationStatusIcon, {
+                      status: row.status,
+                      tooltip: 'hover',
+                    }),
+                    title: row.name,
+                    description: [
+                      F.getRulesetLabel(row.ruleset),
+                      F.formatLobbySize(row.lobbySize),
+                      F.formatRankRange(row.rank),
+                      F.formatDateRange(row.start, row.end),
+                    ].join(' · '),
+                  });
+                })
+              )
+            : h(O.EmptyState, {
+                title: 'No tournaments match',
+                description: 'Try a different name, ruleset, or fewer filters.',
+                clearFilters:
+                  list.activeFilterCount > 0
+                    ? { onClick: list.clearFilters }
+                    : undefined,
+              })
+        );
+      }
+
+      // The admin report queue: no search, a status scope, and a date sort.
+      var NEWEST_FIRST = { desc: 'Newest first', asc: 'Oldest first' };
+      var REPORT_SORTS = [
+        {
+          value: 'created',
+          label: 'Date submitted',
+          directionLabels: NEWEST_FIRST,
+        },
+        {
+          value: 'resolvedAt',
+          label: 'Date reviewed',
+          directionLabels: NEWEST_FIRST,
+        },
+      ];
+      var REPORT_SCOPES = [
+        { value: 'all', label: 'All' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'confirmed', label: 'Confirmed' },
+        { value: 'dismissed', label: 'Dismissed' },
+      ];
+      var REPORT_COUNTS = {
+        all: 1214,
+        pending: 48,
+        confirmed: 903,
+        dismissed: 263,
+      };
+      var REPORTS = [
+        {
+          type: 'Match',
+          entity: 'CO25: (Lunar Lobster) vs (Team Rocket)',
+          reason: 'Incorrect match result',
+        },
+        {
+          type: 'Tournament',
+          entity: 'Break The Meta Cup',
+          reason: 'Incorrect tournament details',
+        },
+      ];
+      function ReportQueueToolbar() {
+        var sc = React.useState('pending'),
+          so = React.useState({ key: 'created', direction: 'desc' });
+        return h(
+          O.Panel,
+          null,
+          h(O.ListToolbar, {
+            label: 'Sort and filter reports',
+            scope: h(O.ScopeSwitch, {
+              label: 'Status',
+              value: sc[0],
+              onValueChange: sc[1],
+              options: REPORT_SCOPES,
+            }),
+            sort: h(O.SortControl, {
+              label: 'Sort reports by',
+              options: REPORT_SORTS,
+              value: so[0],
+              onValueChange: so[1],
+            }),
+            count: F.formatCountOf(REPORT_COUNTS[sc[0]], 'report'),
+          }),
+          h(
+            O.RowList,
+            null,
+            REPORTS.map(function (r) {
+              return h(O.RowListItem, {
+                key: r.entity,
+                title: h(O.EntityLink, { href: '#' }, r.entity),
+                description: r.type + ' · ' + r.reason,
+              });
+            })
+          )
+        );
+      }
+
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-6' },
+          h(TournamentToolbar),
+          h(ReportQueueToolbar)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

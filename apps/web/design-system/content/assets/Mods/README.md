@@ -1,0 +1,3 @@
+osu-web's mod badge artwork (source: <https://github.com/ppy/osu-web/tree/2b41065adeaebc5e918ef8599e815ab81ed27140/public/images/badges/mods>, AGPL-3.0): one glyph per mod (`mod-<name>.svg`, such as `mod-hidden.svg` or `mod-seven-keys.svg`) and the badge shape, `blanks/mod-icon.svg`.
+
+They are masks, not pictures: drawn in a single ink, so an `<img>` shows only their silhouette. `ModIconset` fills the badge shape with the mod type's colour and the glyph with a darker shade of it, as osu-web does; use it rather than these files. A mod osu-web has no glyph for shows its acronym instead. For charts and solid mod pills use the `mod-*` tokens, with black text on the fill.

@@ -1,0 +1,442 @@
+/**
+ * The components the design system shows, one card each. `src` is the file
+ * the component lives in (relative to apps/web), and `refs` the web-design
+ * skill sections its card's guidelines are taken from, as
+ * `<reference file>#<heading>`. Every component's preview is
+ * `content/components/<name>/preview.html`.
+ */
+export interface DesignSystemComponent {
+  name: string;
+  group: string;
+  src: string;
+  refs: string[];
+}
+
+export const COMPONENTS: DesignSystemComponent[] = [
+  {
+    name: 'PageFrame',
+    group: 'Layout',
+    src: 'components/kit/layout/PageFrame.tsx',
+    refs: ['layout.md#Page anatomy', 'layout.md#PageFrame'],
+  },
+  {
+    name: 'PageHeader',
+    group: 'Layout',
+    src: 'components/kit/layout/PageHeader.tsx',
+    refs: ['layout.md#PageHeader'],
+  },
+  {
+    name: 'DetailHero',
+    group: 'Layout',
+    src: 'components/kit/layout/DetailHero.tsx',
+    refs: ['layout.md#DetailHero and HeroMetaItem'],
+  },
+  {
+    name: 'HeroTabs',
+    group: 'Layout',
+    src: 'components/kit/layout/HeroTabs.tsx',
+    refs: ['layout.md#HeroTabs'],
+  },
+  {
+    name: 'HeroTabsRoot',
+    group: 'Layout',
+    src: 'components/kit/layout/HeroTabsList.tsx',
+    refs: [
+      'layout.md#HeroTabsRoot, HeroTabsList, HeroTabsTrigger, HeroTabsContent',
+    ],
+  },
+  {
+    name: 'Panel',
+    group: 'Layout',
+    src: 'components/kit/layout/Panel.tsx',
+    refs: ['layout.md#Panel and PanelBody'],
+  },
+  {
+    name: 'SectionHeader',
+    group: 'Layout',
+    src: 'components/kit/layout/SectionHeader.tsx',
+    refs: ['layout.md#SectionHeader'],
+  },
+  {
+    name: 'InfoButton',
+    group: 'Layout',
+    src: 'components/kit/layout/InfoButton.tsx',
+    refs: ['layout.md#InfoButton'],
+  },
+  {
+    name: 'Tile',
+    group: 'Layout',
+    src: 'components/kit/layout/Tile.tsx',
+    refs: ['layout.md#Tile'],
+  },
+  {
+    name: 'StatTile',
+    group: 'Layout',
+    src: 'components/kit/layout/StatTile.tsx',
+    refs: ['layout.md#StatTile and StatTileGrid'],
+  },
+  {
+    name: 'RowList',
+    group: 'Layout',
+    src: 'components/kit/layout/RowList.tsx',
+    refs: ['layout.md#RowList and RowListItem'],
+  },
+  {
+    name: 'PageTitle',
+    group: 'Layout',
+    src: 'components/kit/layout/Typography.tsx',
+    refs: ['layout.md#Type scale'],
+  },
+  {
+    name: 'VerificationStatusIcon',
+    group: 'Status',
+    src: 'components/kit/status/VerificationStatusIcon.tsx',
+    refs: ['status.md#Status sheet', 'status.md#VerificationStatusIcon'],
+  },
+  {
+    name: 'VerificationStatusBadge',
+    group: 'Status',
+    src: 'components/kit/status/VerificationStatusBadge.tsx',
+    refs: ['status.md#VerificationStatusBadge'],
+  },
+  {
+    name: 'VerificationStatusTooltip',
+    group: 'Status',
+    src: 'components/kit/status/VerificationStatusTooltip.tsx',
+    refs: ['status.md#VerificationStatusTooltip'],
+  },
+  {
+    name: 'NotInRatings',
+    group: 'Status',
+    src: 'components/kit/status/NotInRatings.tsx',
+    refs: ['status.md#NotInRatings'],
+  },
+  {
+    name: 'Badge',
+    group: 'Status',
+    src: 'components/kit/status/Badge.tsx',
+    refs: ['status.md#Badge'],
+  },
+  {
+    name: 'ReportStatusBadge',
+    group: 'Status',
+    src: 'components/kit/status/ReportStatusBadge.tsx',
+    refs: ['status.md#ReportStatusBadge'],
+  },
+  {
+    name: 'NotificationDot',
+    group: 'Status',
+    src: 'components/kit/status/NotificationDot.tsx',
+    refs: ['status.md#NotificationDot'],
+  },
+  {
+    name: 'CircleDashedX',
+    group: 'Status',
+    src: 'components/kit/status/CircleDashedX.tsx',
+    refs: ['status.md#CircleDashedX'],
+  },
+  {
+    name: 'Button',
+    group: 'Controls',
+    src: 'components/kit/controls/Button.tsx',
+    refs: ['controls.md#Button'],
+  },
+  {
+    name: 'IconButton',
+    group: 'Controls',
+    src: 'components/kit/controls/IconButton.tsx',
+    refs: ['controls.md#IconButton'],
+  },
+  {
+    name: 'AdminMenu',
+    group: 'Controls',
+    src: 'components/kit/controls/AdminMenu.tsx',
+    refs: ['controls.md#AdminMenu'],
+  },
+  {
+    name: 'RowActionsMenu',
+    group: 'Controls',
+    src: 'components/kit/controls/RowActionsMenu.tsx',
+    refs: ['controls.md#RowActionsMenu'],
+  },
+  {
+    name: 'ActionMenu',
+    group: 'Controls',
+    src: 'components/kit/controls/ActionMenu.tsx',
+    refs: ['controls.md#ActionMenu and MenuAction'],
+  },
+  {
+    name: 'DialogTemplate',
+    group: 'Controls',
+    src: 'components/kit/controls/DialogTemplate.tsx',
+    refs: ['controls.md#DialogTemplate'],
+  },
+  {
+    name: 'ConfirmDialog',
+    group: 'Controls',
+    src: 'components/kit/controls/ConfirmDialog.tsx',
+    refs: ['controls.md#ConfirmDialog'],
+  },
+  {
+    name: 'FormPanel',
+    group: 'Controls',
+    src: 'components/kit/controls/FormPanel.tsx',
+    refs: ['controls.md#FormPanel, FormSection, FormGrid and FormActions'],
+  },
+  {
+    name: 'FormFieldLabel',
+    group: 'Controls',
+    src: 'components/kit/controls/FormFieldLabel.tsx',
+    refs: ['controls.md#FormFieldLabel'],
+  },
+  {
+    name: 'EmptyState',
+    group: 'Feedback',
+    src: 'components/kit/feedback/EmptyState.tsx',
+    refs: ['feedback.md#Choosing a state', 'feedback.md#EmptyState'],
+  },
+  {
+    name: 'SectionError',
+    group: 'Feedback',
+    src: 'components/error/SectionError.tsx',
+    refs: ['feedback.md#SectionError'],
+  },
+  {
+    name: 'PanelSkeleton',
+    group: 'Feedback',
+    src: 'components/kit/feedback/Skeletons.tsx',
+    refs: ['feedback.md#Skeletons'],
+  },
+  {
+    name: 'StatusPage',
+    group: 'Feedback',
+    src: 'components/kit/feedback/StatusPage.tsx',
+    refs: ['feedback.md#StatusPage'],
+  },
+  {
+    name: 'Callout',
+    group: 'Feedback',
+    src: 'components/kit/feedback/Callout.tsx',
+    refs: ['feedback.md#Callout', 'feedback.md#When two notices meet'],
+  },
+  {
+    name: 'CalloutChip',
+    group: 'Feedback',
+    src: 'components/kit/feedback/CalloutChip.tsx',
+    refs: ['feedback.md#CalloutChip'],
+  },
+  {
+    name: 'DateText',
+    group: 'Format',
+    src: 'components/kit/format/DateText.tsx',
+    refs: ['format.md#DateText', 'format.md#Figures in dates'],
+  },
+  {
+    name: 'DateRangeText',
+    group: 'Format',
+    src: 'components/kit/format/DateRangeText.tsx',
+    refs: ['format.md#DateRangeText'],
+  },
+  {
+    name: 'Timestamp',
+    group: 'Format',
+    src: 'components/kit/format/Timestamp.tsx',
+    refs: ['format.md#Timestamp'],
+  },
+  {
+    name: 'TimeRangeText',
+    group: 'Format',
+    src: 'components/kit/format/TimeRangeText.tsx',
+    refs: ['format.md#TimeRangeText'],
+  },
+  {
+    name: 'RelativeTime',
+    group: 'Format',
+    src: 'components/kit/format/RelativeTime.tsx',
+    refs: ['format.md#RelativeTime'],
+  },
+  {
+    name: 'RatingDelta',
+    group: 'Format',
+    src: 'components/kit/format/RatingDelta.tsx',
+    refs: ['format.md#RatingDelta'],
+  },
+  {
+    name: 'RulesetName',
+    group: 'Format',
+    src: 'components/kit/format/RulesetName.tsx',
+    refs: ['format.md#RulesetName and ruleset names'],
+  },
+  {
+    name: 'AuditFieldChange',
+    group: 'Format',
+    src: 'components/kit/format/AuditFieldChange.tsx',
+    refs: ['format.md#Audit values and AuditFieldChange'],
+  },
+  {
+    name: 'CountryFlag',
+    group: 'Format',
+    src: 'components/kit/country/CountryFlag.tsx',
+    refs: ['format.md#Countries'],
+  },
+  {
+    name: 'CountryCombobox',
+    group: 'Format',
+    src: 'components/kit/country/CountryCombobox.tsx',
+    refs: ['format.md#Countries'],
+  },
+  {
+    name: 'ListToolbar',
+    group: 'Lists',
+    src: 'components/kit/lists/ListToolbar.tsx',
+    refs: ['lists.md#Rules at a glance', 'lists.md#ListToolbar'],
+  },
+  {
+    name: 'SearchField',
+    group: 'Lists',
+    src: 'components/kit/lists/SearchField.tsx',
+    refs: ['lists.md#SearchField'],
+  },
+  {
+    name: 'SortControl',
+    group: 'Lists',
+    src: 'components/kit/lists/SortControl.tsx',
+    refs: ['lists.md#SortControl'],
+  },
+  {
+    name: 'RulesetChips',
+    group: 'Lists',
+    src: 'components/kit/lists/RulesetChips.tsx',
+    refs: ['lists.md#RulesetChips'],
+  },
+  {
+    name: 'RulesetSwitch',
+    group: 'Lists',
+    src: 'components/kit/lists/RulesetSwitch.tsx',
+    refs: ['lists.md#RulesetSwitch'],
+  },
+  {
+    name: 'ScopeSwitch',
+    group: 'Lists',
+    src: 'components/kit/lists/ScopeSwitch.tsx',
+    refs: ['lists.md#ScopeSwitch'],
+  },
+  {
+    name: 'ChoiceChip',
+    group: 'Lists',
+    src: 'components/kit/lists/ChoiceChip.tsx',
+    refs: ['lists.md#ChoiceChip'],
+  },
+  {
+    name: 'FilterPanel',
+    group: 'Lists',
+    src: 'components/kit/lists/FilterPanel.tsx',
+    refs: ['lists.md#FilterPanel and FilterButton', 'lists.md#Filter fields'],
+  },
+  {
+    name: 'RangeFilter',
+    group: 'Lists',
+    src: 'components/kit/lists/RangeFilter.tsx',
+    refs: ['lists.md#Filter fields'],
+  },
+  {
+    name: 'DayRangeFilter',
+    group: 'Lists',
+    src: 'components/kit/lists/DayRangeFilter.tsx',
+    refs: ['lists.md#Filter fields'],
+  },
+  {
+    name: 'DateField',
+    group: 'Lists',
+    src: 'components/kit/lists/DateField.tsx',
+    refs: ['lists.md#DateField and Calendar'],
+  },
+  {
+    name: 'ActiveFilterChips',
+    group: 'Lists',
+    src: 'components/kit/lists/ActiveFilterChips.tsx',
+    refs: ['lists.md#ActiveFilterChips'],
+  },
+  {
+    name: 'DataTable',
+    group: 'Tables',
+    src: 'components/kit/tables/DataTable.tsx',
+    refs: [
+      'tables.md#Rules at a glance',
+      'tables.md#DataTable',
+      'tables.md#Row behaviour',
+    ],
+  },
+  {
+    name: 'SortableHeader',
+    group: 'Tables',
+    src: 'components/kit/tables/SortableHeader.tsx',
+    refs: ['tables.md#SortableHeader'],
+  },
+  {
+    name: 'EntityLink',
+    group: 'Tables',
+    src: 'components/kit/tables/EntityLink.tsx',
+    refs: ['tables.md#EntityLink'],
+  },
+  {
+    name: 'DataTableLinkRow',
+    group: 'Tables',
+    src: 'components/kit/tables/DataTableLinkRow.tsx',
+    refs: ['tables.md#DataTableLinkRow and DataTableLinkCell'],
+  },
+  {
+    name: 'ViewButton',
+    group: 'Tables',
+    src: 'components/kit/tables/ViewButton.tsx',
+    refs: ['tables.md#ViewButton'],
+  },
+  {
+    name: 'PhoneRow',
+    group: 'Tables',
+    src: 'components/kit/tables/PhoneRow.tsx',
+    refs: ['tables.md#PhoneRowList and PhoneRow'],
+  },
+  {
+    name: 'PaginationFooter',
+    group: 'Tables',
+    src: 'components/kit/tables/PaginationFooter.tsx',
+    refs: ['tables.md#PaginationFooter'],
+  },
+  {
+    name: 'LoadMore',
+    group: 'Tables',
+    src: 'components/kit/tables/LoadMore.tsx',
+    refs: ['tables.md#LoadMore'],
+  },
+  {
+    name: 'MissingValue',
+    group: 'Tables',
+    src: 'components/kit/tables/MissingValue.tsx',
+    refs: ['tables.md#MissingValue'],
+  },
+  {
+    name: 'CountBarChart',
+    group: 'Charts',
+    src: 'components/kit/charts/CountBarChart.tsx',
+    refs: ['color.md#CountBarChart', 'color.md#Chart card'],
+  },
+  {
+    name: 'ChartTooltipContent',
+    group: 'Charts',
+    src: 'components/kit/charts/ChartTooltip.tsx',
+    refs: ['color.md#ChartTooltipContent'],
+  },
+  {
+    name: 'ChartLegend',
+    group: 'Charts',
+    src: 'components/kit/charts/ChartLegend.tsx',
+    refs: ['color.md#ChartLegend and SeriesMarker'],
+  },
+  {
+    name: 'ModIconset',
+    group: 'Status',
+    src: 'components/icons/ModIconset.tsx',
+    refs: ['color.md#Mod badges'],
+  },
+];

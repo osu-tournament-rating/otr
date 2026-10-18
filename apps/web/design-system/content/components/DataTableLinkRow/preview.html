@@ -1,0 +1,200 @@
+<!-- @dsCard group="Tables" height=275 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DataTableLinkRow</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        h = React.createElement;
+      var HREF = '#tables-link-row';
+
+      var POOL = [
+        {
+          id: 1,
+          title: 'Hotohashiru',
+          diff: 'Extra',
+          artist: 'ORESAMA',
+          mapper: 'Meg',
+          sr: '5.63',
+          bpm: 140,
+          length: '3:48',
+          games: 330,
+        },
+        {
+          id: 2,
+          title: 'sense',
+          diff: "LC's Insane",
+          artist: 'Mami Kawada',
+          mapper: 'La Cataline',
+          sr: '4.50',
+          bpm: 168,
+          length: '3:59',
+          games: 314,
+        },
+        {
+          id: 3,
+          title: 'Nostalgic Blood of the Strife',
+          diff: 'MAXIMUM',
+          artist: 'Laur',
+          mapper: 'Zelq',
+          sr: '6.48',
+          bpm: 240,
+          length: '1:54',
+          games: null,
+        },
+      ];
+
+      // The cover a beatmap shows without its art: the gallery loads no covers.
+      function PoolCover(p) {
+        return h(
+          'span',
+          { 'aria-hidden': true, className: 'flex shrink-0' },
+          h(O.BeatmapCover, { alt: '', sizes: '48px', className: p.className })
+        );
+      }
+      function label(map) {
+        return 'View ' + map.artist + ' - ' + map.title + ' [' + map.diff + ']';
+      }
+
+      function Demo() {
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, {
+            icon: I.Music2,
+            title: 'Pooled beatmaps',
+            meta: '3 beatmaps',
+          }),
+          h(
+            O.DataTable,
+            {
+              'aria-label': 'Pooled beatmaps',
+              fixed: true,
+              phoneRows: h(
+                O.PhoneRowList,
+                { 'aria-label': 'Pooled beatmaps' },
+                POOL.map(function (map) {
+                  return h(O.PhoneRow, {
+                    key: map.id,
+                    href: HREF,
+                    linkLabel: label(map),
+                    title: h(
+                      'span',
+                      { className: 'truncate', 'data-row-title': true },
+                      map.title,
+                      ' ',
+                      h(
+                        'span',
+                        { className: 'font-normal text-muted-foreground' },
+                        '[' + map.diff + ']'
+                      )
+                    ),
+                    description:
+                      map.artist + ' · ' + map.mapper + ' · ' + map.sr + ' SR',
+                    value: map.games === null ? null : F.formatCount(map.games),
+                    valueDescription: map.games === null ? undefined : 'games',
+                  });
+                })
+              ),
+            },
+            h(
+              O.DataTableHeader,
+              null,
+              h(
+                O.DataTableRow,
+                null,
+                h(O.DataTableHead, null, 'Beatmap'),
+                h(O.DataTableHead, { numeric: true, className: 'w-16' }, 'SR'),
+                h(
+                  O.DataTableHead,
+                  { numeric: true, showFrom: 'lg', className: 'w-16' },
+                  'BPM'
+                ),
+                h(
+                  O.DataTableHead,
+                  { numeric: true, showFrom: 'lg', className: 'w-20' },
+                  'Length'
+                ),
+                h(
+                  O.DataTableHead,
+                  { numeric: true, className: 'w-20' },
+                  'Games'
+                )
+              )
+            ),
+            h(
+              O.DataTableBody,
+              null,
+              POOL.map(function (map) {
+                return h(
+                  O.DataTableLinkRow,
+                  { key: map.id },
+                  h(
+                    O.DataTableLinkCell,
+                    { href: HREF, label: label(map) },
+                    h(
+                      'span',
+                      { className: 'flex min-w-0 items-center gap-3' },
+                      h(PoolCover, { className: 'h-7 w-12 rounded-md' }),
+                      h(
+                        'span',
+                        { className: 'min-w-0' },
+                        h(
+                          'span',
+                          {
+                            className: 'block truncate font-medium',
+                            'data-row-title': true,
+                          },
+                          map.title,
+                          ' ',
+                          h(
+                            'span',
+                            { className: 'font-normal text-muted-foreground' },
+                            '[' + map.diff + ']'
+                          )
+                        ),
+                        h(
+                          'span',
+                          {
+                            className:
+                              'block truncate text-xs text-muted-foreground',
+                          },
+                          map.artist + ' · ' + map.mapper
+                        )
+                      )
+                    )
+                  ),
+                  h(O.DataTableCell, { numeric: true }, map.sr),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true, showFrom: 'lg' },
+                    F.formatCount(map.bpm)
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true, showFrom: 'lg' },
+                    map.length
+                  ),
+                  h(
+                    O.DataTableCell,
+                    { numeric: true },
+                    F.formatCount(map.games)
+                  )
+                );
+              })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,241 @@
+<!-- @dsCard group="Controls" height=710 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>FormPanel</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        U = O.ui,
+        F = O.format,
+        h = React.createElement;
+      var ABBREVIATION_INFO =
+        "The prefix of each tournament lobby, such as 'OWC2024' from OWC2024: (United States) vs. (Canada)";
+      var RANK_RESTRICTION_INFO =
+        "The 'best' global rank allowed to participate. Use 1 for open rank.";
+      var FORUM_URL_PLACEHOLDER =
+        'https://osu.ppy.sh/community/forums/topics/...';
+      var MATCHES_PLACEHOLDER =
+        'https://osu.ppy.sh/community/matches/12345\nhttps://osu.ppy.sh/mp/67890';
+      var BEATMAPS_PLACEHOLDER =
+        'https://osu.ppy.sh/b/12345\nhttps://osu.ppy.sh/beatmapsets/123#osu/456';
+      var LOBBY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8];
+      var DEFAULTS = {
+        abbreviation: '',
+        name: '',
+        forumUrl: '',
+        ruleset: '',
+        lobbySize: '',
+        rankRangeLowerBound: '',
+        matchIds: '',
+        beatmapIds: '',
+      };
+
+      // One react-hook-form field: label, control and message.
+      function Field(form, name, label, labelProps, rules, control) {
+        return h(U.FormField, {
+          control: form.control,
+          name: name,
+          rules: rules,
+          render: function (r) {
+            return h(
+              U.FormItem,
+              null,
+              h(O.FormFieldLabel, labelProps, label),
+              control(r.field),
+              h(U.FormMessage)
+            );
+          },
+        });
+      }
+      function TextField(form, name, label, labelProps, rules, inputProps) {
+        return Field(form, name, label, labelProps, rules, function (field) {
+          return h(
+            U.FormControl,
+            null,
+            h(U.Input, Object.assign({}, inputProps, field))
+          );
+        });
+      }
+      function AreaField(form, name, label, placeholder) {
+        return Field(
+          form,
+          name,
+          label,
+          { hint: 'IDs or URLs, one per line' },
+          undefined,
+          function (field) {
+            return h(
+              U.FormControl,
+              null,
+              h(
+                U.Textarea,
+                Object.assign(
+                  { className: 'min-h-28', placeholder: placeholder },
+                  field
+                )
+              )
+            );
+          }
+        );
+      }
+      function SelectField(
+        form,
+        name,
+        label,
+        labelProps,
+        rules,
+        placeholder,
+        options
+      ) {
+        return Field(form, name, label, labelProps, rules, function (field) {
+          return h(
+            U.Select,
+            { value: field.value, onValueChange: field.onChange },
+            h(
+              U.FormControl,
+              null,
+              h(
+                U.SelectTrigger,
+                { className: 'w-full' },
+                h(U.SelectValue, { placeholder: placeholder })
+              )
+            ),
+            h(
+              U.SelectContent,
+              null,
+              options.map(function (o) {
+                return h(
+                  U.SelectItem,
+                  { key: o.value, value: o.value },
+                  o.label
+                );
+              })
+            )
+          );
+        });
+      }
+
+      function Demo() {
+        var form = U.useForm({ defaultValues: DEFAULTS });
+        var rulesets = F.RATED_RULESETS.map(function (r) {
+          return { value: String(r), label: F.RULESET_NAMES[r].label };
+        });
+        var sizes = LOBBY_SIZES.map(function (n) {
+          return { value: String(n), label: F.formatLobbySize(n) };
+        });
+        return h(
+          U.Form,
+          form,
+          h(
+            O.FormPanel,
+            {
+              noValidate: true,
+              onSubmit: form.handleSubmit(function () {
+                form.reset();
+              }),
+            },
+            h(
+              O.FormSection,
+              { icon: I.Trophy, title: 'Information' },
+              h(
+                O.FormGrid,
+                null,
+                TextField(
+                  form,
+                  'abbreviation',
+                  'Abbreviation',
+                  { info: ABBREVIATION_INFO },
+                  { required: 'Tournament abbreviation is required' },
+                  { placeholder: 'OWC2024' }
+                ),
+                TextField(
+                  form,
+                  'name',
+                  'Name',
+                  {},
+                  { required: 'Tournament name is required' },
+                  { placeholder: 'osu! World Cup 2024' }
+                )
+              ),
+              TextField(
+                form,
+                'forumUrl',
+                'Forum post URL',
+                { info: 'Forum post URL or wiki page for the tournament' },
+                { required: 'Forum post URL is required' },
+                { placeholder: FORUM_URL_PLACEHOLDER }
+              ),
+              h(
+                O.FormGrid,
+                { columns: 3 },
+                SelectField(
+                  form,
+                  'ruleset',
+                  'Ruleset',
+                  {},
+                  { required: 'Ruleset is required' },
+                  'Select ruleset',
+                  rulesets
+                ),
+                SelectField(
+                  form,
+                  'lobbySize',
+                  'Lobby size',
+                  { info: 'Number of players per team in each match' },
+                  { required: 'Lobby size is required' },
+                  'Select size',
+                  sizes
+                ),
+                TextField(
+                  form,
+                  'rankRangeLowerBound',
+                  'Rank restriction',
+                  { info: RANK_RESTRICTION_INFO },
+                  { required: 'Rank restriction is required' },
+                  {
+                    type: 'number',
+                    min: 1,
+                    placeholder: 'Enter rank restriction',
+                  }
+                )
+              )
+            ),
+            h(
+              O.FormSection,
+              { icon: I.Database, title: 'Data' },
+              h(
+                O.FormGrid,
+                null,
+                AreaField(form, 'matchIds', 'Matches', MATCHES_PLACEHOLDER),
+                AreaField(form, 'beatmapIds', 'Beatmaps', BEATMAPS_PLACEHOLDER)
+              )
+            ),
+            h(
+              O.FormActions,
+              null,
+              h(
+                O.Button,
+                {
+                  variant: 'outline',
+                  onClick: function () {
+                    form.reset();
+                  },
+                },
+                'Clear'
+              ),
+              h(O.Button, { type: 'submit' }, 'Submit tournament')
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

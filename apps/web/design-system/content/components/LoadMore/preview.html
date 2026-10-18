@@ -1,0 +1,239 @@
+<!-- @dsCard group="Tables" height=1150 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>LoadMore</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        F = O.format,
+        h = React.createElement;
+
+      // Older tournaments for the rest of the feed: name, matches, submitter.
+      var OLDER = [
+        ['osu! World Cup 2024', 131, 'lifeline'],
+        ['Corsace Open 2024', 398, 'Accolibed'],
+        ['Taiko World Cup 2024', 84, 'Raikouhou'],
+        ['Mania 4K World Cup 2024', 158, 'distantmemory'],
+        ['Catch the Beat World Cup 2024', 72, 'mrekk'],
+        ['Taiko Classic 2024', 66, 'lifeline'],
+        ['5 Digit United States Cup 2025', 143, 'distantmemory'],
+        ['osu! World Cup 2023', 127, 'Accolibed'],
+      ];
+      var EVENTS = [
+        'apricot verified tournament Corsace Open 2025',
+        'apricot updated tournament Break The Meta Cup (Rank restriction)',
+        'System pre-verified 412 matches in Corsace Open 2025',
+        'lifeline submitted tournament Taiko Classic 2025',
+        'apricot rejected match CO25: (Lunar Lobster) vs (Team Rocket) in Corsace Open 2025',
+        'System pre-rejected 3 games in Break The Meta Cup',
+        'apricot updated tournament Corsace Open 2025 (Abbreviation)',
+        'System pre-verified 96 matches in Break The Meta Cup',
+        'mrekk submitted tournament Break The Meta Cup',
+        'apricot verified tournament osu! World Cup 2025',
+        'System pre-verified 128 matches in osu! World Cup 2025',
+        'distantmemory submitted tournament osu! World Cup 2025',
+      ].concat(
+        [].concat.apply(
+          [],
+          OLDER.map(function (o) {
+            return [
+              'apricot verified tournament ' + o[0],
+              'System pre-verified ' +
+                F.formatCount(o[1]) +
+                ' matches in ' +
+                o[0],
+              o[2] + ' submitted tournament ' + o[0],
+            ];
+          })
+        )
+      );
+      // The audit logs load 30 events at a time.
+      var EVENT_BATCH = 30;
+
+      // A player's tournaments, newest first, with the rating change from each.
+      var PLAYER_TOURNAMENTS = [
+        ['osu! World Cup 2025', 4, '2025-10-25', '2025-12-14', 41.2],
+        ['Corsace Open 2025', 4, '2025-09-06', '2025-11-02', -12.6],
+        ['Break The Meta Cup', 2, '2025-07-12', '2025-08-17', 18.9],
+        ['Taiko Classic 2025', 1, '2025-06-07', '2025-07-06', 6.4],
+        ['5 Digit United States Cup 2025', 2, '2025-04-19', '2025-05-25', -3.1],
+        ['osu! World Cup 2024', 4, '2024-10-26', '2024-12-15', 27.5],
+        ['Corsace Open 2024', 4, '2024-09-07', '2024-11-03', 9.8],
+        ['Taiko World Cup 2024', 4, '2024-08-03', '2024-09-22', -7.7],
+        ['Mania 4K World Cup 2024', 4, '2024-06-01', '2024-07-21', 14.2],
+        ['Catch the Beat World Cup 2024', 4, '2024-04-13', '2024-06-02', 5.5],
+        ['osu! World Cup 2023', 4, '2023-10-28', '2023-12-17', 22.1],
+        ['Taiko Classic 2024', 1, '2024-02-03', '2024-03-03', -1.9],
+      ].map(function (t, i) {
+        return {
+          id: i + 1,
+          name: t[0],
+          lobbySize: t[1],
+          start: t[2],
+          end: t[3],
+          change: t[4],
+        };
+      });
+      var INITIAL_TOURNAMENTS = 5,
+        MORE_TOURNAMENTS = 25;
+
+      function AuditFeed() {
+        var s = React.useState(EVENT_BATCH),
+          shown = s[0],
+          setShown = s[1];
+        var l = React.useState(false),
+          loading = l[0],
+          setLoading = l[1];
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, { icon: I.ClipboardList, title: 'Audit logs' }),
+          h(
+            'div',
+            {
+              role: 'region',
+              'aria-label': 'Audit events',
+              tabIndex: 0,
+              className:
+                'max-h-80 overflow-y-auto focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset',
+            },
+            h(
+              O.RowList,
+              null,
+              EVENTS.slice(0, shown).map(function (e) {
+                return h(
+                  O.RowListItem,
+                  { key: e, className: 'py-2.5 text-sm' },
+                  e
+                );
+              })
+            )
+          ),
+          h(O.LoadMore, {
+            hasMore: shown < EVENTS.length,
+            loading: loading,
+            shownCount: shown,
+            totalCount: EVENTS.length,
+            pageSize: EVENT_BATCH,
+            onLoadMore: function () {
+              setLoading(true);
+              window.setTimeout(function () {
+                setShown(function (c) {
+                  return Math.min(EVENTS.length, c + EVENT_BATCH);
+                });
+                setLoading(false);
+              }, 600);
+            },
+          })
+        );
+      }
+
+      function ShowMore() {
+        var s = React.useState(INITIAL_TOURNAMENTS),
+          shown = s[0],
+          setShown = s[1];
+        return h(
+          O.Panel,
+          null,
+          h(O.SectionHeader, {
+            icon: I.Trophy,
+            title: 'Tournament history',
+            meta: F.formatCountOf(PLAYER_TOURNAMENTS.length, 'tournament'),
+          }),
+          h(
+            O.RowList,
+            null,
+            PLAYER_TOURNAMENTS.slice(0, shown).map(function (t) {
+              return h(O.RowListItem, {
+                key: t.id,
+                title: h(
+                  O.EntityLink,
+                  { href: '#tables-load-more-show-more' },
+                  t.name
+                ),
+                description: h(
+                  React.Fragment,
+                  null,
+                  F.formatLobbySize(t.lobbySize),
+                  ' · ',
+                  h(O.DateRangeText, { start: t.start, end: t.end })
+                ),
+                trailing: h(O.RatingDelta, { value: t.change }),
+              });
+            })
+          ),
+          h(O.LoadMore, {
+            label: 'Show more',
+            hasMore: shown < PLAYER_TOURNAMENTS.length,
+            shownCount: shown,
+            totalCount: PLAYER_TOURNAMENTS.length,
+            pageSize: INITIAL_TOURNAMENTS,
+            onLoadMore: function () {
+              setShown(function (c) {
+                return Math.min(
+                  c + MORE_TOURNAMENTS,
+                  PLAYER_TOURNAMENTS.length
+                );
+              });
+            },
+          })
+        );
+      }
+
+      // A feed whose first batch holds everything: LoadMore renders nothing.
+      function ShortFeed() {
+        var events = EVENTS.slice(0, 3);
+        return h(
+          'div',
+          { className: 'flex flex-col gap-1.5' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, { icon: I.History, title: 'Audit history' }),
+            h(
+              O.RowList,
+              null,
+              events.map(function (e) {
+                return h(
+                  O.RowListItem,
+                  { key: e, className: 'py-2.5 text-sm' },
+                  e
+                );
+              })
+            ),
+            h(O.LoadMore, {
+              hasMore: false,
+              shownCount: events.length,
+              totalCount: events.length,
+              pageSize: EVENT_BATCH,
+              onLoadMore: function () {},
+            })
+          ),
+          h(
+            'p',
+            { className: 'text-xs text-muted-foreground' },
+            'pageSize: the first batch held all 3 events, so there is no footer.'
+          )
+        );
+      }
+
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(AuditFeed),
+          h(ShowMore),
+          h(ShortFeed)
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

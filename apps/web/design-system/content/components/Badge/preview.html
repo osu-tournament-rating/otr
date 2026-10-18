@@ -1,0 +1,149 @@
+<!-- @dsCard group="Status" height=408 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Badge</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        F = O.format,
+        C = O.color;
+      var M = O.osu.Mods;
+      var TONES = ['neutral', 'primary', 'success', 'warning', 'destructive'];
+      var DEMO_MODS = [
+        M.None,
+        M.Hidden,
+        M.HardRock,
+        M.DoubleTime,
+        M.Flashlight,
+        M.Easy,
+        M.Hidden | M.HardRock,
+      ];
+      function cap(s) {
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
+      function Row(label, children) {
+        return h(
+          'div',
+          { className: 'flex items-center gap-3' },
+          h(
+            'span',
+            { className: 'w-24 shrink-0 text-xs text-muted-foreground' },
+            label
+          ),
+          h(
+            'div',
+            { className: 'flex min-w-0 flex-1 flex-wrap items-center gap-2' },
+            children
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          Row(
+            'Soft',
+            TONES.map(function (t) {
+              return h(O.Badge, { key: t, tone: t }, cap(t));
+            })
+          ),
+          Row(
+            'Outline',
+            TONES.map(function (t) {
+              return h(
+                O.Badge,
+                { key: t, variant: 'outline', tone: t },
+                cap(t)
+              );
+            })
+          ),
+          Row(
+            'Solid',
+            ['neutral', 'primary', 'success'].map(function (t) {
+              return h(O.Badge, { key: t, variant: 'solid', tone: t }, cap(t));
+            })
+          ),
+          Row('Sizes', [
+            h(O.Badge, { key: 'sm', size: 'sm' }, 'Small'),
+            h(O.Badge, { key: 'md', size: 'md' }, 'Medium'),
+            h(O.Badge, { key: 'lg', size: 'lg' }, 'Large'),
+          ]),
+          Row(
+            'Mods',
+            DEMO_MODS.map(function (mods) {
+              return h(
+                O.Badge,
+                {
+                  key: mods,
+                  customColor: {
+                    background: C.getModPaletteColor(mods),
+                    foreground: C.MOD_FILL_FOREGROUND,
+                  },
+                },
+                F.getBeatmapModLabel(mods)
+              );
+            })
+          ),
+          Row(
+            'Rulesets',
+            F.RATED_RULESETS.map(function (r) {
+              return h(
+                O.Badge,
+                { key: r },
+                h(O.RulesetIcon, {
+                  ruleset: r,
+                  className: 'fill-current',
+                  'aria-hidden': 'true',
+                }),
+                F.getRulesetLabel(r)
+              );
+            })
+          ),
+          Row('Roles and tags', [
+            h(
+              O.Badge,
+              { key: 'admin' },
+              h(I.ShieldCheck, { 'aria-hidden': 'true' }),
+              'Admin'
+            ),
+            h(O.Badge, { key: 'lazer', variant: 'outline' }, 'lazer'),
+          ]),
+          Row('Tiers', [
+            h(
+              O.Badge,
+              { key: 'p', swatch: C.getTierColor('Platinum') },
+              'Platinum II'
+            ),
+            h(
+              O.Badge,
+              { key: 'g', swatch: C.getTierColor('Gold') },
+              'Gold III'
+            ),
+          ]),
+          Row('Counts', [
+            h(O.FilterButton, { key: 'f', count: 2 }),
+            h(
+              O.Badge,
+              { key: 'b', variant: 'solid', tone: 'primary', size: 'sm' },
+              O.status.formatBadgeCount(140)
+            ),
+            h(
+              O.Badge,
+              { key: 'm', size: 'sm' },
+              F.formatCountOf(1204, 'match', 'matches')
+            ),
+          ])
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+<!-- @dsCard group="Layout" height=290 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PageFrame</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Placeholder(p) {
+        return h(
+          O.Panel,
+          null,
+          h(O.PanelBody, { className: O.typeScale.bodyMuted }, p.label)
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          {
+            className:
+              'rounded-md border border-dashed border-muted-foreground/40 px-4 pt-6 pb-4 sm:px-5 sm:pt-10',
+          },
+          h(
+            O.PageFrame,
+            null,
+            h(Placeholder, { label: 'PageHeader or DetailHero' }),
+            h(Placeholder, { label: 'Panel' }),
+            h(
+              'div',
+              { className: 'grid gap-4 sm:grid-cols-2' },
+              h(Placeholder, { label: 'Panel' }),
+              h(Placeholder, { label: 'Panel' })
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

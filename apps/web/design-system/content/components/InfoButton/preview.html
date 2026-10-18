@@ -1,0 +1,57 @@
+<!-- @dsCard group="Layout" height=130 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>InfoButton</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col items-start gap-3' },
+          h(
+            'div',
+            { className: 'flex items-center gap-1.5' },
+            h('span', { className: 'text-sm font-medium' }, 'Lobby size'),
+            h(
+              O.InfoButton,
+              { label: 'About lobby size' },
+              'Number of players per team in each match'
+            )
+          ),
+          h(
+            'div',
+            { className: 'flex items-center gap-1' },
+            h(O.Eyebrow, null, 'Peak rating'),
+            h(
+              O.InfoButton,
+              { label: 'About peak rating', size: 'sm' },
+              'Highest rating ever reached'
+            )
+          ),
+          h(
+            'div',
+            {
+              className:
+                'flex items-center gap-1.5 rounded-md bg-black/60 px-3 py-2 text-sm font-medium text-white',
+            },
+            'Lobby size',
+            h(
+              O.InfoButton,
+              { label: 'About lobby size', onArt: true },
+              'Number of players per team in each match'
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

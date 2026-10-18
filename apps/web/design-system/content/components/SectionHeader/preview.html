@@ -1,0 +1,62 @@
+<!-- @dsCard group="Layout" height=390 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SectionHeader</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.Medal,
+              title: 'Tier breakdown',
+              infoText:
+                "Charts NM, HD, HR and DT scores only, grouped by each player's pre-match rating at the time of play. Tiers with fewer than 5 scores are hidden.",
+              meta: '1,368 of 1,368 scores rated',
+            }),
+            h(O.PanelBody, { className: O.typeScale.bodyMuted }, 'Chart')
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.ChartCandlestick,
+              title: 'Score distribution',
+              meta: '1,368 scores',
+              actions: h(
+                O.Button,
+                { variant: 'outline', size: 'sm' },
+                'Full range'
+              ),
+            }),
+            h(O.PanelBody, { className: O.typeScale.bodyMuted }, 'Chart')
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              title: 'Pooled beatmaps',
+              level: 3,
+              meta: '62 beatmaps',
+            }),
+            h(O.PanelBody, { className: O.typeScale.bodyMuted }, 'Rows')
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

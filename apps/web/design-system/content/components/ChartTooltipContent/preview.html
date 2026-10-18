@@ -1,0 +1,117 @@
+<!-- @dsCard group="Charts" height=200 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ChartTooltipContent</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement,
+        F = O.format,
+        C = O.color;
+      var formatCountTick = function (value) {
+        return F.formatCount(value);
+      };
+      var formatNumberTick = function (value) {
+        return F.formatNumber(value, { maxDecimals: 2 });
+      };
+      var RULESETS = [
+        { key: 'osu', label: 'osu!' },
+        { key: 'taiko', label: 'taiko' },
+        { key: 'catch', label: 'catch' },
+        { key: 'mania4k', label: 'mania 4K' },
+        { key: 'mania7k', label: 'mania 7K' },
+      ];
+      var LABELS = {};
+      RULESETS.forEach(function (r) {
+        LABELS[r.key] = r.label;
+      });
+      // The stacked bar chart's 2024 bar, as Recharts hands it to the tooltip.
+      var MATCHES_2024 = {
+        osu: 5150,
+        taiko: 855,
+        catch: 540,
+        mania4k: 1370,
+        mania7k: 240,
+      };
+      var STACK_PAYLOAD = RULESETS.map(function (r, index) {
+        return {
+          name: r.key,
+          dataKey: r.key,
+          value: MATCHES_2024[r.key],
+          color: C.seriesColor(index),
+        };
+      });
+      // The player rating chart's point on Jan 6, 2024.
+      var RATING_DAY = Date.UTC(2023, 0, 10) + 28 * 21 * 86400000;
+      var RATING = Math.round(
+        1020 + 28 * 7.5 + 90 * Math.sin(28 / 4) + 30 * Math.cos(28 / 1.7)
+      );
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-wrap items-start gap-4' },
+          h(O.ChartTooltipContent, {
+            active: true,
+            label: '2024',
+            payload: STACK_PAYLOAD,
+            reverse: true,
+            nameFormatter: function (name) {
+              return LABELS[name] || name;
+            },
+            valueFormatter: formatCountTick,
+            footer: function (payload) {
+              return (
+                'Total ' +
+                formatCountTick(
+                  payload.reduce(function (sum, item) {
+                    return sum + item.value;
+                  }, 0)
+                )
+              );
+            },
+          }),
+          h(O.ChartTooltipContent, {
+            active: true,
+            label: RATING_DAY,
+            marker: 'line',
+            payload: [
+              {
+                name: 'Rating',
+                dataKey: 'rating',
+                value: RATING,
+                color: C.seriesColor(0),
+              },
+            ],
+            labelFormatter: function (label) {
+              return F.formatDate(Number(label));
+            },
+            valueFormatter: formatNumberTick,
+          }),
+          h(
+            'div',
+            { className: 'rounded-md px-3 py-1.5 ' + C.ACCENT_SURFACE_CLASSES },
+            h(O.ChartTooltipBody, {
+              title: 'HDHR',
+              rows: [
+                { key: 'median', label: 'Median', value: '812,455' },
+                {
+                  key: 'range',
+                  label: 'Middle 50%',
+                  value: '702,118 – 905,342',
+                },
+              ],
+              footer: '1,204 scores',
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

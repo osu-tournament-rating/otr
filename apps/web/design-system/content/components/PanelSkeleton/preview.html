@@ -1,0 +1,60 @@
+<!-- @dsCard group="Feedback" height=650 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PanelSkeleton</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var TIER_BREAKDOWN_INFO =
+        "Charts NM, HD, HR and DT scores only, grouped by each player's pre-match rating at the time of play. Tiers with fewer than 5 scores are hidden.";
+      // A profile's loading screen: the real static titles, bars where data goes.
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.PanelSkeleton,
+            { label: 'Loading overview' },
+            h(O.SectionHeaderSkeleton, { icon: I.Gauge, title: 'Overview' }),
+            h(
+              O.PanelBody,
+              null,
+              h(O.StatTileGridSkeleton, {
+                labels: ['Rating', 'Global rank', 'Matches'],
+                sub: true,
+              })
+            )
+          ),
+          h(
+            O.PanelSkeleton,
+            { className: 'h-40' },
+            h(O.SectionHeaderSkeleton, {
+              icon: I.Medal,
+              title: 'Tier breakdown',
+              infoText: TIER_BREAKDOWN_INFO,
+              meta: 'w-40',
+            })
+          ),
+          h(
+            O.PanelSkeleton,
+            { label: 'Loading frequent teammates' },
+            h(O.SectionHeaderSkeleton, {
+              icon: I.Users,
+              title: 'Frequent teammates',
+            }),
+            h(O.RowListSkeleton, { rows: 3 })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

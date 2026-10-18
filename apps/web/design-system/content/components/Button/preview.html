@@ -1,0 +1,45 @@
+<!-- @dsCard group="Controls" height=120 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Button</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-3' },
+          h(
+            'div',
+            { className: 'flex flex-wrap items-center gap-2' },
+            h(O.Button, { size: 'sm' }, 'Small'),
+            h(O.Button, null, 'Save changes'),
+            h(O.Button, { size: 'lg' }, 'Large')
+          ),
+          h(
+            'div',
+            { className: 'flex flex-wrap items-center gap-2' },
+            h(
+              O.Button,
+              { variant: 'outline', icon: I.ExternalLink },
+              'Read our acceptance criteria'
+            ),
+            h(
+              O.Button,
+              { variant: 'destructive', icon: I.Trash2 },
+              'Delete tournament'
+            ),
+            h(O.Button, { pending: true }, 'Saving…')
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,69 @@
+<!-- @dsCard group="Controls" height=400 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ConfirmDialog</title>
+  </head>
+  <body>
+    <div id="root" class="p-4"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement;
+      var wait = function (ms) {
+        return new Promise(function (resolve) {
+          window.setTimeout(resolve, ms);
+        });
+      };
+      var DELETE_CASCADE_DESCRIPTION = h(
+        React.Fragment,
+        null,
+        h(
+          'p',
+          null,
+          'This action will cascade to all children. All associated data will be permanently removed.'
+        ),
+        h('p', null, 'This action cannot be undone.')
+      );
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-wrap gap-2' },
+          h(O.ConfirmDialog, {
+            defaultOpen: true,
+            trigger: h(
+              O.Button,
+              { variant: 'destructive', icon: I.Trash2 },
+              'Delete tournament'
+            ),
+            title: 'Delete this tournament?',
+            description: DELETE_CASCADE_DESCRIPTION,
+            confirmLabel: 'Delete tournament',
+            pendingLabel: 'Deleting…',
+            onConfirm: function () {
+              return wait(1200);
+            },
+          }),
+          h(O.ConfirmDialog, {
+            tone: 'default',
+            trigger: h(O.Button, { variant: 'outline' }, 'Submit tournament'),
+            title: 'Continue without beatmaps?',
+            description: h(
+              'p',
+              null,
+              'You are submitting a tournament without any beatmap links. This is strongly discouraged.'
+            ),
+            confirmLabel: 'Continue without beatmaps',
+            onConfirm: function () {
+              return wait(800);
+            },
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

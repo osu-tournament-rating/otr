@@ -1,0 +1,102 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,700&display=swap"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: var(--background);
+      }
+      .cover {
+        position: relative;
+        width: 960px;
+        height: 288px;
+        overflow: hidden;
+        background: var(--background);
+        font-family: var(--font-sans, Inter, sans-serif);
+      }
+      svg {
+        position: absolute;
+        inset: 0;
+      }
+      .blue {
+        fill: var(--primary);
+      }
+      .ink {
+        fill: var(--foreground);
+      }
+      .tint {
+        fill: var(--accent);
+      }
+      .red {
+        fill: var(--match-red);
+      }
+      .ground {
+        fill: var(--background);
+      }
+      .panel {
+        rx: var(--radius-xl);
+      }
+      .tile {
+        rx: var(--radius-lg);
+      }
+      .words {
+        position: absolute;
+        left: 40px;
+        bottom: 40px;
+        max-width: 440px;
+      }
+      .name {
+        margin: 0;
+        font-size: 120px;
+        line-height: 0.92;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        color: var(--foreground);
+      }
+      .tag {
+        margin: 16px 0 0;
+        font-size: 14px;
+        line-height: 20px;
+        color: var(--muted-foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="cover">
+      <!--
+    blocks: primary 272x208 (panel corners) - foreground 192x128 - accent 192x144 - match-red 128x64 (tile corners)
+    arrangement: flush modular grid right of x=480 on a 16px (panel-gap) gutter, bleeding off the top, right and bottom edges
+    pattern: literal motif, the o!TR mark is a disc cut into crescents, so a quarter-round is cut from the blue block and quarter-rounds tile the grey one
+    scales: gap panel-gap 16px, quarter-round pitch 48px (spacing x12), corners radius-xl 12px and radius-lg 8px
+  -->
+      <svg width="960" height="288" viewBox="0 0 960 288" aria-hidden="true">
+        <rect class="blue panel" x="480" y="-12" width="272" height="220" />
+        <path class="ground" d="M480 208 V96 A112 112 0 0 1 592 208 Z" />
+        <rect class="ink panel" x="768" y="-12" width="204" height="140" />
+        <rect class="tint panel" x="768" y="144" width="204" height="156" />
+        <g class="blue">
+          <path d="M784 208 V160 A48 48 0 0 1 832 208 Z" />
+          <path d="M848 208 V160 A48 48 0 0 1 896 208 Z" />
+          <path d="M912 208 V160 A48 48 0 0 1 960 208 Z" />
+          <path d="M784 272 V224 A48 48 0 0 1 832 272 Z" />
+          <path d="M848 272 V224 A48 48 0 0 1 896 272 Z" />
+          <path d="M912 272 V224 A48 48 0 0 1 960 272 Z" />
+        </g>
+        <rect class="red tile" x="624" y="224" width="128" height="76" />
+      </svg>
+      <div class="words">
+        <p class="name">o!TR</p>
+        <p class="tag">osu! Tournament Rating</p>
+      </div>
+    </div>
+  </body>
+</html>

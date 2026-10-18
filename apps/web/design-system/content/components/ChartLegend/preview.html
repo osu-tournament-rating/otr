@@ -1,0 +1,74 @@
+<!-- @dsCard group="Charts" height=110 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ChartLegend</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement,
+        C = O.color;
+      var RULESETS = [
+        { key: 'osu', label: 'osu!' },
+        { key: 'taiko', label: 'taiko' },
+        { key: 'catch', label: 'catch' },
+        { key: 'mania4k', label: 'mania 4K' },
+        { key: 'mania7k', label: 'mania 7K' },
+      ];
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-3' },
+          h(O.ChartLegend, {
+            items: RULESETS.map(function (r, index) {
+              return {
+                key: r.key,
+                label: r.label,
+                color: C.seriesColor(index),
+              };
+            }),
+          }),
+          // The player rating chart's line and its peak rule.
+          h(O.ChartLegend, {
+            items: [
+              {
+                key: 'rating',
+                label: 'Rating',
+                color: C.seriesColor(0),
+                marker: 'line',
+              },
+              {
+                key: 'peak',
+                label: 'Peak',
+                color: 'var(--muted-foreground)',
+                marker: 'dashed',
+              },
+            ],
+          }),
+          // SeriesMarker on its own, in each shape.
+          h(
+            'ul',
+            {
+              className:
+                'flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground',
+            },
+            ['square', 'line', 'dashed', 'dot'].map(function (shape) {
+              return h(
+                'li',
+                { key: shape, className: 'flex items-center gap-1.5' },
+                h(O.SeriesMarker, { color: C.seriesColor(0), shape: shape }),
+                shape
+              );
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1 @@
+Four line decorations in brand blue `#4C94FF`, drawn behind the home page's feature cards (`decoration-1.svg` to `decoration-4.svg`, one per card). They are decoration only: keep them behind content, never as icons, and never elsewhere in the product.

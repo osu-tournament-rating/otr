@@ -1,0 +1,56 @@
+<!-- @dsCard group="Lists" height=160 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SearchField</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Demo() {
+        var t = React.useState(''),
+          term = t[0],
+          setTerm = t[1];
+        var p = React.useState(false),
+          pending = p[0],
+          setPending = p[1];
+        var timer = React.useRef();
+        React.useEffect(function () {
+          return function () {
+            clearTimeout(timer.current);
+          };
+        }, []);
+        return h(
+          'div',
+          { className: 'flex max-w-xl flex-col gap-4' },
+          h(O.SearchField, {
+            label: 'Search tournaments by name or abbreviation',
+            placeholder: 'Name or abbreviation',
+            value: term,
+            pending: pending,
+            onSearch: function (next) {
+              setTerm(next);
+              setPending(true);
+              clearTimeout(timer.current);
+              timer.current = setTimeout(function () {
+                setPending(false);
+              }, 900);
+            },
+          }),
+          h(O.SearchField, {
+            label: 'Search tournaments by name or abbreviation',
+            placeholder: 'Name or abbreviation',
+            value: 'c',
+            onSearch: function () {},
+          })
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>
