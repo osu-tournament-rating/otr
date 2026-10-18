@@ -680,6 +680,231 @@ async fn test_save_results_links_each_adjustment_to_its_rating() {
 
 #[tokio::test]
 #[serial]
+async fn test_save_results_stores_each_value_in_its_own_column() {
+    init_test_env();
+    let test_db = TestDatabase::new().await.expect("Failed to create test database");
+    test_db.seed_test_data().await.expect("Failed to seed test data");
+
+    let admin_client = test_db.get_client().await.expect("Failed to get client");
+    let match_ids: Vec<i32> = admin_client
+        .query("SELECT id FROM matches ORDER BY osu_id", &[])
+        .await
+        .expect("Failed to fetch match ids")
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+
+    // COPY places values by position, so a column list out of order with its
+    // values stores them in the wrong columns. Each row's values differ from
+    // the others of their type, so any such swap changes what is read back.
+    let initial_time = DateTime::parse_from_rfc3339("2025-01-06T10:00:00+00:00").unwrap();
+    let match_time = DateTime::parse_from_rfc3339("2025-02-03T04:05:06+00:00").unwrap();
+    let player_ratings = vec![
+        PlayerRating {
+            id: 0,
+            player_id: 4,
+            ruleset: Ruleset::Catch,
+            rating: 1210.75,
+            volatility: 305.5,
+            percentile: 0.3125,
+            global_rank: 1350,
+            country_rank: 96,
+            adjustments: vec![
+                RatingAdjustment {
+                    player_id: 4,
+                    adjustment_type: RatingAdjustmentType::Initial,
+                    ruleset: Ruleset::Catch,
+                    rating_before: 900.0,
+                    volatility_before: 390.0,
+                    rating_after: 950.0,
+                    volatility_after: 385.0,
+                    timestamp: initial_time,
+                    match_id: None
+                },
+                RatingAdjustment {
+                    player_id: 4,
+                    adjustment_type: RatingAdjustmentType::Match,
+                    ruleset: Ruleset::Catch,
+                    rating_before: 950.0,
+                    volatility_before: 385.0,
+                    rating_after: 1210.75,
+                    volatility_after: 305.5,
+                    timestamp: match_time,
+                    match_id: Some(match_ids[0])
+                },
+            ]
+        },
+        PlayerRating {
+            id: 0,
+            player_id: 3,
+            ruleset: Ruleset::Taiko,
+            rating: 1834.5,
+            volatility: 212.25,
+            percentile: 0.875,
+            global_rank: 42,
+            country_rank: 7,
+            adjustments: vec![
+                RatingAdjustment {
+                    player_id: 3,
+                    adjustment_type: RatingAdjustmentType::Initial,
+                    ruleset: Ruleset::Taiko,
+                    rating_before: 1100.0,
+                    volatility_before: 350.0,
+                    rating_after: 1150.0,
+                    volatility_after: 345.0,
+                    timestamp: initial_time,
+                    match_id: None
+                },
+                RatingAdjustment {
+                    player_id: 3,
+                    adjustment_type: RatingAdjustmentType::Match,
+                    ruleset: Ruleset::Taiko,
+                    rating_before: 1150.0,
+                    volatility_before: 345.0,
+                    rating_after: 1834.5,
+                    volatility_after: 212.25,
+                    timestamp: match_time,
+                    match_id: Some(match_ids[1])
+                },
+            ]
+        },
+    ];
+
+    let db_client = DbClient::connect(&test_db.connection_string)
+        .await
+        .expect("Failed to connect");
+    db_client
+        .save_results(&player_ratings)
+        .await
+        .expect("Failed to save results");
+
+    let rating_rows = admin_client
+        .query(
+            "
+            SELECT id, player_id, ruleset, rating, volatility, percentile, global_rank, country_rank
+            FROM player_ratings
+            ORDER BY player_id
+            ",
+            &[]
+        )
+        .await
+        .expect("Failed to fetch ratings");
+    let stored_ratings: Vec<_> = rating_rows
+        .iter()
+        .map(|row| {
+            (
+                row.get::<_, i32>("player_id"),
+                row.get::<_, i32>("ruleset"),
+                row.get::<_, f64>("rating"),
+                row.get::<_, f64>("volatility"),
+                row.get::<_, f64>("percentile"),
+                row.get::<_, i32>("global_rank"),
+                row.get::<_, i32>("country_rank")
+            )
+        })
+        .collect();
+    assert_eq!(
+        stored_ratings,
+        vec![
+            (3, Ruleset::Taiko as i32, 1834.5, 212.25, 0.875, 42, 7),
+            (4, Ruleset::Catch as i32, 1210.75, 305.5, 0.3125, 1350, 96),
+        ]
+    );
+
+    let rating_id = |player_id: i32| -> i32 {
+        rating_rows
+            .iter()
+            .find(|row| row.get::<_, i32>("player_id") == player_id)
+            .expect("Every player's rating should be stored")
+            .get("id")
+    };
+    let stored_adjustments: Vec<_> = admin_client
+        .query(
+            "
+            SELECT player_id, ruleset, player_rating_id, match_id, rating_before, rating_after,
+                   volatility_before, volatility_after, timestamp, adjustment_type
+            FROM rating_adjustments
+            ORDER BY player_id, timestamp
+            ",
+            &[]
+        )
+        .await
+        .expect("Failed to fetch adjustments")
+        .iter()
+        .map(|row| {
+            (
+                row.get::<_, i32>("player_id"),
+                row.get::<_, i32>("ruleset"),
+                row.get::<_, i32>("player_rating_id"),
+                row.get::<_, Option<i32>>("match_id"),
+                row.get::<_, f64>("rating_before"),
+                row.get::<_, f64>("rating_after"),
+                row.get::<_, f64>("volatility_before"),
+                row.get::<_, f64>("volatility_after"),
+                row.get::<_, DateTime<FixedOffset>>("timestamp"),
+                row.get::<_, i32>("adjustment_type")
+            )
+        })
+        .collect();
+    let initial = RatingAdjustmentType::Initial as i32;
+    let match_type = RatingAdjustmentType::Match as i32;
+    assert_eq!(
+        stored_adjustments,
+        vec![
+            (
+                3,
+                Ruleset::Taiko as i32,
+                rating_id(3),
+                None,
+                1100.0,
+                1150.0,
+                350.0,
+                345.0,
+                initial_time,
+                initial
+            ),
+            (
+                3,
+                Ruleset::Taiko as i32,
+                rating_id(3),
+                Some(match_ids[1]),
+                1150.0,
+                1834.5,
+                345.0,
+                212.25,
+                match_time,
+                match_type
+            ),
+            (
+                4,
+                Ruleset::Catch as i32,
+                rating_id(4),
+                None,
+                900.0,
+                950.0,
+                390.0,
+                385.0,
+                initial_time,
+                initial
+            ),
+            (
+                4,
+                Ruleset::Catch as i32,
+                rating_id(4),
+                Some(match_ids[0]),
+                950.0,
+                1210.75,
+                385.0,
+                305.5,
+                match_time,
+                match_type
+            ),
+        ]
+    );
+}
+
+#[tokio::test]
+#[serial]
 async fn test_save_results_refuses_empty_ratings() {
     init_test_env();
     let test_db = TestDatabase::new().await.expect("Failed to create test database");
