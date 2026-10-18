@@ -5,6 +5,7 @@ import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { withAuditUserId } from '@otr/core/db';
 import { MessagePriority } from '@otr/core';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
   AdminMassEnqueueInputSchema,
   AdminMassEnqueueProgressEventSchema,
@@ -15,15 +16,9 @@ import type { DatabaseClient } from '@/lib/db';
 import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { getCorrelationId } from '../logging/helpers';
-import {
-  publishFetchBeatmapMessage,
-  publishFetchMatchMessage,
-} from '@/lib/queue/publishers';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
-const REFETCH_QUEUE_WARNING = 'Failed to enqueue match or beatmap fetches';
 const BATCH_SIZE = 500;
-const BATCH_DELAY_MS = 100;
 
 interface MassEnqueueContext {
   db: DatabaseClient;
@@ -48,11 +43,11 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return chunks;
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Mass-enqueues beatmaps and matches for refetch, yielding progress events. */
+/**
+ * Mass-enqueues beatmaps and matches for refetch, yielding progress events.
+ * Each batch resets its rows and queues their fetches in one transaction, so
+ * a failure leaves earlier batches queued and no row reset without a job.
+ */
 export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
   const { adminUserId } = ensureAdminSession(context.session);
 
@@ -71,7 +66,12 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
   })();
 
   const correlationId = getCorrelationId(context);
-  const warnings: string[] = [];
+  const jobOptions = {
+    priority: priorityValue,
+    correlationId,
+    requestedByUserId: adminUserId,
+    explicit: true,
+  };
   let beatmapsUpdated = 0;
   let beatmapsSkipped = 0;
   let matchesUpdated = 0;
@@ -95,84 +95,58 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
 
     beatmapsSkipped = uniqueBeatmapIds.length - beatmapsToUpdate.length;
 
-    if (beatmapsToUpdate.length > 0) {
-      const beatmapDbIds = beatmapsToUpdate.map((b) => b.id);
+    const beatmapChunks = chunkArray(beatmapsToUpdate, BATCH_SIZE);
+    const totalBatches = beatmapChunks.length;
+    const shouldYieldProgress = totalBatches >= 2;
+
+    for (let i = 0; i < beatmapChunks.length; i++) {
+      const chunk = beatmapChunks[i];
+      if (!chunk) continue;
 
       await context.db.transaction((tx) =>
-        withAuditUserId(tx, adminUserId, () =>
-          tx
+        withAuditUserId(tx, adminUserId, async () => {
+          await tx
             .update(schema.beatmaps)
             .set({
               dataFetchStatus: DataFetchStatus.NotFetched,
               updated: NOW,
             })
-            .where(inArray(schema.beatmaps.id, beatmapDbIds))
-        )
+            .where(
+              inArray(
+                schema.beatmaps.id,
+                chunk.map((b) => b.id)
+              )
+            );
+
+          await enqueueJobs(
+            tx,
+            JobQueue.OsuFetch,
+            chunk.map((b) => ({
+              ...jobOptions,
+              payload: {
+                type: 'beatmap',
+                beatmapId: b.osuId,
+                skipAutomationChecks: false,
+              },
+            }))
+          );
+        })
       );
 
-      const beatmapChunks = chunkArray(beatmapsToUpdate, BATCH_SIZE);
-      const totalBatches = beatmapChunks.length;
-      const shouldYieldProgress = totalBatches >= 2;
-      let hasQueueWarning = false;
-      let beatmapsQueued = 0;
+      beatmapsUpdated += chunk.length;
 
-      for (let i = 0; i < beatmapChunks.length; i++) {
-        const chunk = beatmapChunks[i];
-        if (!chunk) continue;
-
-        const queueTasks = chunk.map((b) => ({
-          beatmapId: b.osuId,
-          promise: publishFetchBeatmapMessage(
-            {
-              beatmapId: b.osuId,
-              skipAutomationChecks: false,
-            },
-            {
-              metadata: {
-                priority: priorityValue,
-                ...(correlationId && { correlationId }),
-              },
-            }
-          ),
-        }));
-
-        const results = await Promise.allSettled(
-          queueTasks.map((t) => t.promise)
-        );
-        const successes = results.filter((r) => r.status === 'fulfilled');
-        beatmapsQueued += successes.length;
-
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0 && !hasQueueWarning) {
-          warnings.push(REFETCH_QUEUE_WARNING);
-          hasQueueWarning = true;
-        }
-        failures.forEach((failure, index) => {
-          console.error('Failed to publish beatmap fetch message', {
-            beatmapId: queueTasks[index]?.beatmapId,
-            error: failure.status === 'rejected' ? failure.reason : null,
-          });
-        });
-
-        if (shouldYieldProgress) {
-          const itemsProcessed = (i + 1) * BATCH_SIZE;
-          yield {
-            type: 'progress' as const,
-            phase: 'beatmaps' as const,
-            currentBatch: i + 1,
-            totalBatches,
-            itemsProcessed: Math.min(itemsProcessed, beatmapsToUpdate.length),
-            totalItems: beatmapsToUpdate.length,
-            message: `Processing beatmaps (Batch ${i + 1} of ${totalBatches})`,
-          };
-        }
-
-        if (i < beatmapChunks.length - 1) {
-          await delay(BATCH_DELAY_MS);
-        }
+      if (shouldYieldProgress) {
+        const itemsProcessed = (i + 1) * BATCH_SIZE;
+        yield {
+          type: 'progress' as const,
+          phase: 'beatmaps' as const,
+          currentBatch: i + 1,
+          totalBatches,
+          itemsProcessed: Math.min(itemsProcessed, beatmapsToUpdate.length),
+          totalItems: beatmapsToUpdate.length,
+          message: `Processing beatmaps (Batch ${i + 1} of ${totalBatches})`,
+        };
       }
-
-      beatmapsUpdated = beatmapsQueued;
     }
   }
 
@@ -184,6 +158,7 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
         id: schema.matches.id,
         osuId: schema.matches.osuId,
         isLazer: schema.matches.isLazer,
+        tournamentId: schema.matches.tournamentId,
         dataFetchStatus: schema.matches.dataFetchStatus,
       })
       .from(schema.matches)
@@ -195,86 +170,59 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
 
     matchesSkipped = uniqueMatchIds.length - matchesToUpdate.length;
 
-    if (matchesToUpdate.length > 0) {
-      const matchDbIds = matchesToUpdate.map((m) => m.id);
+    const matchChunks = chunkArray(matchesToUpdate, BATCH_SIZE);
+    const totalBatches = matchChunks.length;
+    const shouldYieldProgress = totalBatches >= 2;
+
+    for (let i = 0; i < matchChunks.length; i++) {
+      const chunk = matchChunks[i];
+      if (!chunk) continue;
 
       await context.db.transaction((tx) =>
-        withAuditUserId(tx, adminUserId, () =>
-          tx
+        withAuditUserId(tx, adminUserId, async () => {
+          await tx
             .update(schema.matches)
             .set({
               dataFetchStatus: DataFetchStatus.NotFetched,
               updated: NOW,
             })
-            .where(inArray(schema.matches.id, matchDbIds))
-        )
+            .where(
+              inArray(
+                schema.matches.id,
+                chunk.map((m) => m.id)
+              )
+            );
+
+          await enqueueJobs(
+            tx,
+            JobQueue.OsuFetch,
+            chunk.map((m) => ({
+              ...jobOptions,
+              payload: {
+                type: 'match',
+                osuMatchId: m.osuId,
+                isLazer: m.isLazer,
+              },
+              tournamentId: m.tournamentId,
+            }))
+          );
+        })
       );
 
-      const matchChunks = chunkArray(matchesToUpdate, BATCH_SIZE);
-      const totalBatches = matchChunks.length;
-      const shouldYieldProgress = totalBatches >= 2;
-      let hasQueueWarning = false;
-      let matchesQueued = 0;
+      matchesUpdated += chunk.length;
 
-      for (let i = 0; i < matchChunks.length; i++) {
-        const chunk = matchChunks[i];
-        if (!chunk) continue;
-
-        const queueTasks = chunk.map((m) => ({
-          osuMatchId: m.osuId,
-          isLazer: m.isLazer,
-          promise: publishFetchMatchMessage(
-            {
-              osuMatchId: m.osuId,
-              isLazer: m.isLazer,
-            },
-            {
-              metadata: {
-                priority: priorityValue,
-                ...(correlationId && { correlationId }),
-              },
-            }
-          ),
-        }));
-
-        const results = await Promise.allSettled(
-          queueTasks.map((t) => t.promise)
-        );
-        const successes = results.filter((r) => r.status === 'fulfilled');
-        matchesQueued += successes.length;
-
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0 && !hasQueueWarning) {
-          warnings.push(REFETCH_QUEUE_WARNING);
-          hasQueueWarning = true;
-        }
-        failures.forEach((failure, index) => {
-          console.error('Failed to publish match fetch message', {
-            osuMatchId: queueTasks[index]?.osuMatchId,
-            isLazer: queueTasks[index]?.isLazer,
-            error: failure.status === 'rejected' ? failure.reason : null,
-          });
-        });
-
-        if (shouldYieldProgress) {
-          const itemsProcessed = (i + 1) * BATCH_SIZE;
-          yield {
-            type: 'progress' as const,
-            phase: 'matches' as const,
-            currentBatch: i + 1,
-            totalBatches,
-            itemsProcessed: Math.min(itemsProcessed, matchesToUpdate.length),
-            totalItems: matchesToUpdate.length,
-            message: `Processing matches (Batch ${i + 1} of ${totalBatches})`,
-          };
-        }
-
-        if (i < matchChunks.length - 1) {
-          await delay(BATCH_DELAY_MS);
-        }
+      if (shouldYieldProgress) {
+        const itemsProcessed = (i + 1) * BATCH_SIZE;
+        yield {
+          type: 'progress' as const,
+          phase: 'matches' as const,
+          currentBatch: i + 1,
+          totalBatches,
+          itemsProcessed: Math.min(itemsProcessed, matchesToUpdate.length),
+          totalItems: matchesToUpdate.length,
+          message: `Processing matches (Batch ${i + 1} of ${totalBatches})`,
+        };
       }
-
-      matchesUpdated = matchesQueued;
     }
   }
 
@@ -284,7 +232,6 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
     beatmapsSkipped,
     matchesUpdated,
     matchesSkipped,
-    warnings: warnings.length ? warnings : undefined,
   };
 }
 

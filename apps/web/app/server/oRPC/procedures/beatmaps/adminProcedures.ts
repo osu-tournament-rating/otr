@@ -4,13 +4,13 @@ import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import * as schema from '@otr/core/db/schema';
 import { withAuditUserId } from '@otr/core/db';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
   BeatmapAdminUpdateInputSchema,
   BeatmapAdminUpdateResponseSchema,
   type BeatmapAdminUpdateInput,
 } from '@/lib/orpc/schema/beatmap';
 import type { DatabaseClient } from '@/lib/db';
-import { publishFetchPlayerMessage } from '@/lib/queue/publishers';
 
 import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
@@ -60,10 +60,10 @@ export async function updateBeatmapAdminHandler({
   }
 
   const creatorOsuIds = Array.from(new Set(input.creatorOsuIds));
-  const queuedPlayerOsuIds: number[] = [];
 
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
+      const queuedPlayerOsuIds: number[] = [];
       const [setOwnerIdOverride] = input.setOwnerOsuIdOverride
         ? await resolvePlayerIds(
             tx,
@@ -152,19 +152,18 @@ export async function updateBeatmapAdminHandler({
         previousCreators.map((row) => row.osuId).sort((a, b) => a - b),
         [...creatorOsuIds].sort((a, b) => a - b)
       );
+
+      await enqueueJobs(
+        tx,
+        JobQueue.OsuFetch,
+        queuedPlayerOsuIds.map((osuPlayerId) => ({
+          payload: { type: 'player', osuPlayerId },
+          requestedByUserId: adminUserId,
+          explicit: true,
+        }))
+      );
     })
   );
-
-  for (const osuId of queuedPlayerOsuIds) {
-    try {
-      await publishFetchPlayerMessage({ osuPlayerId: osuId });
-    } catch (error) {
-      console.error('Failed to publish player fetch message', {
-        osuId,
-        error,
-      });
-    }
-  }
 
   return { success: true };
 }

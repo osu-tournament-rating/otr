@@ -1,148 +1,33 @@
-import { describe, expect, it, afterEach } from 'bun:test';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test';
 import { ORPCError } from '@orpc/server';
+import { inArray, like } from 'drizzle-orm';
 
 import {
   submitTournamentHandler,
   type SubmitTournamentHandlerArgs,
 } from '../tournamentSubmissionProcedure';
-import {
-  setQueuePublishersForTesting,
-  resetQueuePublishersForTesting,
-  type QueuePublisherRegistry,
-} from '@/lib/queue/publishers';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
-import { MessagePriority } from '@otr/core';
+import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { Ruleset } from '@otr/core/osu';
 
-interface BeatmapRecord {
-  id: number;
-  osuId: number;
-  dataFetchStatus: number;
-}
+import {
+  createTestDb,
+  deleteJobs,
+  queuedFetches,
+  removePlayers,
+  seedAdminUser,
+  testDatabaseUrl,
+  tournamentIdByName,
+  transactionFaults,
+} from '../../__tests__/test-utils';
 
-class SubmitTournamentTestDb {
-  private nextTournamentId = 500;
-  private nextBeatmapId = 1_000;
-  public readonly beatmapRecords: BeatmapRecord[] = [];
-
-  query = {
-    tournaments: {
-      findFirst: async () => null,
-    },
-  } as const;
-
-  async transaction<T>(
-    callback: (
-      tx: ReturnType<SubmitTournamentTestDb['createTransaction']>
-    ) => Promise<T>
-  ): Promise<T> {
-    const tx = this.createTransaction();
-    return callback(tx);
-  }
-
-  private createTransaction() {
-    return {
-      execute: async () => undefined,
-      query: this.query,
-      insert: (table: unknown) => {
-        if (table === schema.tournaments) {
-          return {
-            values: () => ({
-              returning: () => [
-                {
-                  id: this.nextTournamentId,
-                },
-              ],
-            }),
-          };
-        }
-
-        if (table === schema.matches) {
-          return {
-            values: (values: Array<{ osuId: number }>) => {
-              values.forEach((value) => {
-                this.recordMatch(value.osuId);
-              });
-              return undefined;
-            },
-          };
-        }
-
-        if (table === schema.beatmaps) {
-          return {
-            values: (values: Array<{ osuId: number }>) => {
-              const inserted = values.map((value) => {
-                const record: BeatmapRecord = {
-                  id: this.nextBeatmapId++,
-                  osuId: value.osuId,
-                  dataFetchStatus: 0,
-                };
-                this.beatmapRecords.push(record);
-                return record;
-              });
-
-              return {
-                onConflictDoNothing: () => ({
-                  returning: () =>
-                    inserted.map((record) => ({
-                      id: record.id,
-                      osuId: record.osuId,
-                      dataFetchStatus: record.dataFetchStatus,
-                    })),
-                }),
-              };
-            },
-          };
-        }
-
-        if (table === schema.joinPooledBeatmaps) {
-          return {
-            values: () => ({
-              onConflictDoNothing: () => undefined,
-            }),
-          };
-        }
-
-        throw new Error('Unsupported insert target in test transaction');
-      },
-      select: () => ({
-        from: (table: unknown) => ({
-          where: () => {
-            if (table === schema.matches) {
-              return [];
-            }
-
-            if (table === schema.beatmaps) {
-              return this.beatmapRecords.map((record) => ({
-                id: record.id,
-                osuId: record.osuId,
-                dataFetchStatus: record.dataFetchStatus,
-              }));
-            }
-
-            return [];
-          },
-        }),
-      }),
-      update: () => ({
-        set: () => ({
-          where: () => undefined,
-        }),
-      }),
-    };
-  }
-
-  private recordMatch(osuId: number) {
-    // Matches are recorded implicitly through the queue assertions in the tests.
-    void osuId;
-  }
-}
-
-type TestSession = SubmitTournamentHandlerArgs['context']['session'];
-
-const createSession = (): TestSession => ({
-  dbUser: { id: 42 },
-});
+const NAME_PREFIX = 'tournament-submission-jobs-';
+const USER_OSU_ID = 991_201_100;
+const MATCH_IDS = [991_201_101, 991_201_102];
+const NEW_BEATMAP_ID = 991_201_151;
+const KNOWN_BEATMAP_ID = 991_201_152;
+const TOPIC_ID = 991_201;
 
 const createErrors = () => ({
   ACCOUNT_RESOLUTION_FAILED: () =>
@@ -156,171 +41,163 @@ const createErrors = () => ({
   DUPLICATE_TOURNAMENT_DETAILS: () =>
     new ORPCError('CONFLICT', { message: 'duplicate' }),
   SUBMISSION_FAILED: () =>
-    new ORPCError('INTERNAL_SERVER_ERROR', { message: 'failed' }),
+    new ORPCError('INTERNAL_SERVER_ERROR', { message: 'submission failed' }),
 });
 
-const noopPublishers: QueuePublisherRegistry = {
-  fetchBeatmap: async ({ beatmapId }) => ({
-    type: 'beatmap' as const,
-    beatmapId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchMatch: async ({ osuMatchId, isLazer }) => ({
-    type: 'match' as const,
-    osuMatchId,
-    isLazer,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchPlayer: async ({ osuPlayerId }) => ({
-    type: 'player' as const,
-    osuPlayerId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchForumTopic: async ({ topicId }) => ({
-    type: 'forumTopic' as const,
-    topicId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  processAutomationCheck: async ({ tournamentId, overrideVerifiedState }) => ({
-    tournamentId,
-    overrideVerifiedState,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-};
+describe.skipIf(!testDatabaseUrl)('submitTournamentHandler', () => {
+  const { pool, db } = createTestDb(testDatabaseUrl!);
+  let userId = 0;
 
-afterEach(() => {
-  resetQueuePublishersForTesting();
-});
+  const removeSeed = async () => {
+    if (userId) {
+      await deleteJobs(db, userId);
+    }
+    await db
+      .delete(schema.tournaments)
+      .where(like(schema.tournaments.name, `${NAME_PREFIX}%`));
+    await db
+      .delete(schema.beatmaps)
+      .where(
+        inArray(schema.beatmaps.osuId, [NEW_BEATMAP_ID, KNOWN_BEATMAP_ID])
+      );
+  };
 
-describe('submitTournamentHandler', () => {
-  it('queues new matches and beatmaps after a successful submission', async () => {
-    const db = new SubmitTournamentTestDb();
-    const queuedMatches: Array<{ osuMatchId: number; isLazer: boolean }> = [];
-    const queuedBeatmaps: number[] = [];
-
-    setQueuePublishersForTesting({
-      ...noopPublishers,
-      fetchBeatmap: async ({ beatmapId }) => {
-        queuedBeatmaps.push(beatmapId);
-        return noopPublishers.fetchBeatmap({ beatmapId });
-      },
-      fetchMatch: async ({ osuMatchId, isLazer }) => {
-        queuedMatches.push({ osuMatchId, isLazer });
-        return noopPublishers.fetchMatch({ osuMatchId, isLazer });
-      },
-    });
-
-    const result = await submitTournamentHandler({
+  const submit = (
+    name: string,
+    overrides: Partial<SubmitTournamentHandlerArgs['input']> = {},
+    client: DatabaseClient = db
+  ) =>
+    submitTournamentHandler({
       input: {
-        name: 'Test Tournament',
-        abbreviation: 'TT',
-        forumUrl: 'https://osu.ppy.sh/community/forums/topics/123',
-        ruleset: 0,
+        name,
+        abbreviation: 'TSJ',
+        forumUrl: `https://osu.ppy.sh/community/forums/topics/${TOPIC_ID}`,
+        ruleset: Ruleset.Osu,
         rankRangeLowerBound: 1,
         lobbySize: 4,
         rejectionReason: 0,
         isLazer: false,
-        ids: [101, 202],
-        beatmapIds: [303],
+        ids: MATCH_IDS,
+        beatmapIds: [NEW_BEATMAP_ID, KNOWN_BEATMAP_ID],
+        ...overrides,
       },
       context: {
-        db: db as unknown as DatabaseClient,
-        session: createSession(),
-      },
+        db: client,
+        session: { dbUser: { id: userId } },
+        logging: { correlationId: 'submission-test' },
+      } as SubmitTournamentHandlerArgs['context'],
       errors: createErrors(),
     });
 
-    expect(result.id).toBe(500);
-    expect(result.warnings).toBeUndefined();
-    expect(queuedMatches).toEqual([
-      { osuMatchId: 101, isLazer: false },
-      { osuMatchId: 202, isLazer: false },
+  beforeAll(async () => {
+    userId = await seedAdminUser(db, USER_OSU_ID);
+  });
+
+  afterEach(removeSeed);
+
+  afterAll(async () => {
+    await removeSeed();
+    await removePlayers(db, [USER_OSU_ID]);
+    await pool.end();
+  });
+
+  it('queues new matches, placeholder beatmaps and the forum topic with the tournament', async () => {
+    await db.insert(schema.beatmaps).values({
+      osuId: KNOWN_BEATMAP_ID,
+      ruleset: Ruleset.Osu,
+      rankedStatus: 1,
+      diffName: 'known',
+      totalLength: 1,
+      drainLength: 1,
+      bpm: 1,
+      countCircle: 1,
+      countSlider: 1,
+      countSpinner: 1,
+      cs: 1,
+      hp: 1,
+      od: 1,
+      ar: 1,
+      sr: 1,
+      dataFetchStatus: DataFetchStatus.Fetched,
+    });
+
+    const result = await submit(`${NAME_PREFIX}queues`);
+
+    expect(result).toEqual({
+      id: (await tournamentIdByName(db, `${NAME_PREFIX}queues`))!,
+    });
+
+    const shared = {
+      correlationId: 'submission-test',
+      tournamentId: result.id,
+    };
+    expect(await queuedFetches(db, userId)).toEqual([
+      expect.objectContaining({
+        ...shared,
+        payload: { type: 'beatmap', beatmapId: NEW_BEATMAP_ID },
+      }),
+      expect.objectContaining({
+        ...shared,
+        payload: { type: 'forumTopic', topicId: TOPIC_ID },
+      }),
+      expect.objectContaining({
+        ...shared,
+        payload: { type: 'match', osuMatchId: MATCH_IDS[0], isLazer: false },
+      }),
+      expect.objectContaining({
+        ...shared,
+        payload: { type: 'match', osuMatchId: MATCH_IDS[1], isLazer: false },
+      }),
     ]);
-    expect(queuedBeatmaps).toEqual([303]);
   });
 
   it.each([
-    ['https://osu.ppy.sh/community/forums/topics/123?n=1', [123]],
-    ['https://osu.ppy.sh/wiki/en/Tournaments/TT/2026', []],
-  ])('queues the forum topic fetch for %s', async (forumUrl, expected) => {
-    const queuedTopics: number[] = [];
-
-    setQueuePublishersForTesting({
-      ...noopPublishers,
-      fetchForumTopic: async ({ topicId }) => {
-        queuedTopics.push(topicId);
-        return noopPublishers.fetchForumTopic({ topicId });
-      },
-    });
-
-    await submitTournamentHandler({
-      input: {
-        name: 'Test Tournament',
-        abbreviation: 'TT',
+    [
+      'a topic',
+      `https://osu.ppy.sh/community/forums/topics/${TOPIC_ID}?n=1`,
+      [TOPIC_ID],
+    ],
+    ['a wiki page', 'https://osu.ppy.sh/wiki/en/Tournaments/TSJ/2026', []],
+  ])(
+    'queues the forum topic fetch for %s',
+    async (_label, forumUrl, expected) => {
+      await submit(`${NAME_PREFIX}forum`, {
         forumUrl,
-        ruleset: 0,
-        rankRangeLowerBound: 1,
-        lobbySize: 4,
-        rejectionReason: 0,
-        isLazer: false,
-        ids: [101],
+        ids: [MATCH_IDS[0]!],
         beatmapIds: [],
-      },
-      context: {
-        db: new SubmitTournamentTestDb() as unknown as DatabaseClient,
-        session: createSession(),
-      },
-      errors: createErrors(),
-    });
+      });
 
-    expect(queuedTopics).toEqual(expected);
-  });
+      const topics = (await queuedFetches(db, userId))
+        .map((job) => job.payload)
+        .filter((payload) => payload.type === 'forumTopic')
+        .map((payload) => payload.topicId);
+      expect(topics).toEqual(expected);
+    }
+  );
 
-  it('returns a warning when queue publishing fails', async () => {
-    const db = new SubmitTournamentTestDb();
-    const error = new Error('queue offline');
+  it.each(transactionFaults)(
+    'keeps neither the tournament nor its fetches when %s',
+    async (_label, fault) => {
+      const name = `${NAME_PREFIX}rollback`;
 
-    setQueuePublishersForTesting({
-      ...noopPublishers,
-      fetchBeatmap: async () => {
-        throw error;
-      },
-      fetchMatch: async () => {
-        throw error;
-      },
-    });
+      await expect(submit(name, {}, fault(db))).rejects.toThrow(
+        'submission failed'
+      );
 
-    const result = await submitTournamentHandler({
-      input: {
-        name: 'Test Tournament',
-        abbreviation: 'TT',
-        forumUrl: 'https://osu.ppy.sh/community/forums/topics/123',
-        ruleset: 0,
-        rankRangeLowerBound: 1,
-        lobbySize: 4,
-        rejectionReason: 0,
-        isLazer: false,
-        ids: [101],
-        beatmapIds: [303],
-      },
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: createSession(),
-      },
-      errors: createErrors(),
-    });
-
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings?.[0]).toContain('contact the o!TR developers');
-  });
+      expect(await tournamentIdByName(db, name)).toBeNull();
+      expect(
+        await db
+          .select({ id: schema.matches.id })
+          .from(schema.matches)
+          .where(inArray(schema.matches.osuId, MATCH_IDS))
+      ).toEqual([]);
+      expect(
+        await db
+          .select({ id: schema.beatmaps.id })
+          .from(schema.beatmaps)
+          .where(inArray(schema.beatmaps.osuId, [NEW_BEATMAP_ID]))
+      ).toEqual([]);
+      expect(await queuedFetches(db, userId)).toEqual([]);
+    }
+  );
 });

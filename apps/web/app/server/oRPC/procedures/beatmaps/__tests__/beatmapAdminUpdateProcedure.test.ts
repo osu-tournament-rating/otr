@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { eq, inArray } from 'drizzle-orm';
 
 import {
   updateBeatmapAdminHandler,
@@ -9,6 +10,18 @@ import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { Ruleset } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
 import type { BeatmapAdminUpdateInput } from '@/lib/orpc/schema/beatmap';
+import { createPlaceholderBeatmap } from '../../tournaments/beatmapPlaceholders';
+
+import {
+  adminSession,
+  createTestDb,
+  deleteJobs,
+  queuedFetches,
+  removePlayers,
+  seedAdminUser,
+  testDatabaseUrl,
+  transactionFaults,
+} from '../../__tests__/test-utils';
 
 interface PlayerRow {
   id: number;
@@ -216,3 +229,103 @@ describe('updateBeatmapAdminHandler', () => {
     expect(db.audits).toHaveLength(0);
   });
 });
+
+describe.skipIf(!testDatabaseUrl)(
+  'updateBeatmapAdminHandler player fetches',
+  () => {
+    const { pool, db } = createTestDb(testDatabaseUrl!);
+    const USER_OSU_ID = 991_201_700;
+    const BEATMAP_OSU_ID = 991_201_701;
+    const KNOWN_CREATOR_OSU_ID = 991_201_702;
+    const NEW_CREATOR_OSU_ID = 991_201_703;
+    const NEW_OWNER_OSU_ID = 991_201_704;
+    const SEEDED_PLAYERS = [
+      KNOWN_CREATOR_OSU_ID,
+      NEW_CREATOR_OSU_ID,
+      NEW_OWNER_OSU_ID,
+    ];
+    let userId = 0;
+    let beatmapId = 0;
+
+    const removeSeed = async () => {
+      if (userId) {
+        await deleteJobs(db, userId);
+      }
+      await db
+        .delete(schema.beatmaps)
+        .where(eq(schema.beatmaps.osuId, BEATMAP_OSU_ID));
+      await removePlayers(db, SEEDED_PLAYERS);
+    };
+
+    beforeEach(async () => {
+      await removeSeed();
+      userId ||= await seedAdminUser(db, USER_OSU_ID);
+
+      const [beatmap] = await db
+        .insert(schema.beatmaps)
+        .values({
+          ...createPlaceholderBeatmap(BEATMAP_OSU_ID, Ruleset.Osu),
+          dataFetchStatus: DataFetchStatus.NotFound,
+        })
+        .returning({ id: schema.beatmaps.id });
+      beatmapId = beatmap!.id;
+
+      await db.insert(schema.players).values({ osuId: KNOWN_CREATOR_OSU_ID });
+    });
+
+    afterAll(async () => {
+      await removeSeed();
+      await removePlayers(db, [USER_OSU_ID]);
+      await pool.end();
+    });
+
+    const update = (client: DatabaseClient = db) =>
+      updateBeatmapAdminHandler({
+        input: createInput({
+          id: beatmapId,
+          setOwnerOsuIdOverride: NEW_OWNER_OSU_ID,
+          creatorOsuIds: [KNOWN_CREATOR_OSU_ID, NEW_CREATOR_OSU_ID],
+        }),
+        context: { db: client, session: adminSession(userId) },
+      });
+
+    const savedPlayerOsuIds = async () =>
+      (
+        await db
+          .select({ osuId: schema.players.osuId })
+          .from(schema.players)
+          .where(inArray(schema.players.osuId, SEEDED_PLAYERS))
+      )
+        .map((row) => row.osuId)
+        .sort();
+
+    it('queues a fetch for each player it creates', async () => {
+      await update();
+
+      expect(await savedPlayerOsuIds()).toEqual(SEEDED_PLAYERS);
+      expect(await queuedFetches(db, userId)).toEqual([
+        expect.objectContaining({
+          payload: { type: 'player', osuPlayerId: NEW_CREATOR_OSU_ID },
+        }),
+        expect.objectContaining({
+          payload: { type: 'player', osuPlayerId: NEW_OWNER_OSU_ID },
+        }),
+      ]);
+    });
+
+    it.each(transactionFaults)(
+      'creates no player and keeps the beatmap when %s',
+      async (_label, fault, message) => {
+        await expect(update(fault(db))).rejects.toThrow(message);
+
+        expect(await savedPlayerOsuIds()).toEqual([KNOWN_CREATOR_OSU_ID]);
+        const [beatmap] = await db
+          .select({ manualOverride: schema.beatmaps.manualOverride })
+          .from(schema.beatmaps)
+          .where(eq(schema.beatmaps.id, beatmapId));
+        expect(beatmap).toEqual({ manualOverride: false });
+        expect(await queuedFetches(db, userId)).toEqual([]);
+      }
+    );
+  }
+);

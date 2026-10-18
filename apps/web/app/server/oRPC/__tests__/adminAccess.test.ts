@@ -80,10 +80,6 @@ const refusePublish = async (): Promise<never> => {
 describe('admin procedures', () => {
   beforeAll(() => {
     setQueuePublishersForTesting({
-      fetchBeatmap: refusePublish,
-      fetchMatch: refusePublish,
-      fetchPlayer: refusePublish,
-      fetchForumTopic: refusePublish,
       processAutomationCheck: refusePublish,
     });
   });

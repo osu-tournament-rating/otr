@@ -5,19 +5,16 @@ import * as schema from '@otr/core/db/schema';
 import { syncTournamentDateRange, withAuditUserId } from '@otr/core/db';
 import { VerificationStatus } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
   TournamentMatchAdminMutationInputSchema,
   TournamentMatchAdminMutationResponseSchema,
   type TournamentMatchAdminMutationInput,
 } from '@/lib/orpc/schema/tournament';
-import { publishFetchMatchMessage } from '@/lib/queue/publishers';
 
 import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { getCorrelationId } from '../logging/helpers';
-
-const QUEUE_FAILURE_WARNING =
-  'We could not queue match data fetches. Please contact the o!TR developers.';
 
 export interface ManageTournamentMatchesAdminArgs {
   input: TournamentMatchAdminMutationInput;
@@ -60,6 +57,7 @@ export async function manageTournamentMatchesAdminHandler({
   let removedCount = 0;
   const matchesToQueue: Array<{ osuMatchId: number; isLazer: boolean }> = [];
   const warnings: string[] = [];
+  const correlationId = getCorrelationId(context);
 
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
@@ -147,30 +145,20 @@ export async function manageTournamentMatchesAdminHandler({
       if (removedCount > 0 || addedCount > 0) {
         await syncTournamentDateRange(tx, input.tournamentId);
       }
+
+      await enqueueJobs(
+        tx,
+        JobQueue.OsuFetch,
+        matchesToQueue.map(({ osuMatchId, isLazer }) => ({
+          payload: { type: 'match', osuMatchId, isLazer },
+          correlationId,
+          tournamentId: input.tournamentId,
+          requestedByUserId: adminUserId,
+          explicit: true,
+        }))
+      );
     })
   );
-
-  if (matchesToQueue.length > 0) {
-    const correlationId = getCorrelationId(context);
-    const results = await Promise.allSettled(
-      matchesToQueue.map(({ osuMatchId, isLazer }) =>
-        publishFetchMatchMessage(
-          { osuMatchId, isLazer },
-          correlationId ? { metadata: { correlationId } } : undefined
-        )
-      )
-    );
-
-    const failures = results.filter((r) => r.status === 'rejected');
-    if (failures.length > 0) {
-      warnings.push(QUEUE_FAILURE_WARNING);
-      failures.forEach((result) => {
-        console.error('Failed to publish match fetch message', {
-          error: (result as PromiseRejectedResult).reason,
-        });
-      });
-    }
-  }
 
   return {
     success: true,

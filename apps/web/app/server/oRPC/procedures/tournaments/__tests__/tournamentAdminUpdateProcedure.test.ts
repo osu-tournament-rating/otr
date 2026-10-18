@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { eq, like } from 'drizzle-orm';
 
 import {
   updateTournamentAdminHandler,
@@ -12,12 +13,17 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
+
 import {
-  resetQueuePublishersForTesting,
-  setQueuePublishersForTesting,
-  type QueuePublisherRegistry,
-} from '@/lib/queue/publishers';
-import { MessagePriority } from '@otr/core';
+  adminSession as createAdminSession,
+  createTestDb,
+  deleteJobs,
+  queuedFetches,
+  removePlayers,
+  seedAdminUser,
+  testDatabaseUrl,
+  transactionFaults,
+} from '../../__tests__/test-utils';
 
 type RequireKeys<T, K extends keyof T> = Pick<T, K> & Partial<Omit<T, K>>;
 
@@ -431,17 +437,86 @@ describe('updateTournamentAdminHandler', () => {
     expect(db.gameScoreUpdates.length).toBeGreaterThan(0);
   });
 
-  describe('forum URL edits', () => {
-    afterEach(() => {
-      resetQueuePublishersForTesting();
+  describe.skipIf(!testDatabaseUrl)('forum URL edits', () => {
+    const { pool, db } = createTestDb(testDatabaseUrl!);
+    const NAME = 'tournament-admin-update-forum-jobs';
+    const USER_OSU_ID = 991_201_600;
+    const STORED_TOPIC_ID = 991_201_601;
+    const NEW_TOPIC_ID = 991_201_602;
+    const storedUrl = `https://osu.ppy.sh/community/forums/topics/${STORED_TOPIC_ID}`;
+    let userId = 0;
+    let tournamentId = 0;
+    let forumPostId = 0;
+
+    const removeSeed = async () => {
+      if (userId) {
+        await deleteJobs(db, userId);
+      }
+      await db
+        .delete(schema.tournaments)
+        .where(like(schema.tournaments.name, `${NAME}%`));
+      await db
+        .delete(schema.tournamentForumPosts)
+        .where(eq(schema.tournamentForumPosts.topicId, STORED_TOPIC_ID));
+    };
+
+    beforeEach(async () => {
+      await removeSeed();
+      userId ||= await seedAdminUser(db, USER_OSU_ID);
+
+      const [post] = await db
+        .insert(schema.tournamentForumPosts)
+        .values({
+          topicId: STORED_TOPIC_ID,
+          postId: STORED_TOPIC_ID,
+          title: NAME,
+          bbcode: '',
+          fetched: new Date().toISOString(),
+        })
+        .returning({ id: schema.tournamentForumPosts.id });
+      forumPostId = post!.id;
+
+      const [tournament] = await db
+        .insert(schema.tournaments)
+        .values({
+          name: NAME,
+          abbreviation: baseInput.abbreviation,
+          forumUrl: storedUrl,
+          forumPostId,
+          rankRangeLowerBound: baseInput.rankRangeLowerBound,
+          ruleset: baseInput.ruleset,
+          lobbySize: baseInput.lobbySize,
+        })
+        .returning({ id: schema.tournaments.id });
+      tournamentId = tournament!.id;
     });
+
+    afterAll(async () => {
+      await removeSeed();
+      await removePlayers(db, [USER_OSU_ID]);
+      await pool.end();
+    });
+
+    const update = (forumUrl: string, client: DatabaseClient = db) =>
+      updateTournamentAdminHandler({
+        input: { ...baseInput, id: tournamentId, name: NAME, forumUrl },
+        context: { db: client, session: createAdminSession(userId) },
+      });
+
+    const storedForumPostId = async () => {
+      const [row] = await db
+        .select({ forumPostId: schema.tournaments.forumPostId })
+        .from(schema.tournaments)
+        .where(eq(schema.tournaments.id, tournamentId));
+      return row!.forumPostId;
+    };
 
     it.each([
       [
         'another topic',
-        'https://osu.ppy.sh/community/forums/topics/2',
+        `https://osu.ppy.sh/community/forums/topics/${NEW_TOPIC_ID}`,
         true,
-        [2],
+        [NEW_TOPIC_ID],
       ],
       [
         'a wiki page',
@@ -449,45 +524,43 @@ describe('updateTournamentAdminHandler', () => {
         true,
         [],
       ],
-      ['the same URL', STORED_FORUM_URL, false, []],
+      ['the same URL', storedUrl, false, []],
     ])(
       'moving to %s unlinks the post: %p, queues topics: %p',
       async (_label, forumUrl, unlinks, expectedTopics) => {
-        const queuedTopics: number[] = [];
-        setQueuePublishersForTesting({
-          fetchForumTopic: async ({ topicId }) => {
-            queuedTopics.push(topicId);
-            return {
-              type: 'forumTopic' as const,
-              topicId,
-              requestedAt: new Date().toISOString(),
-              correlationId: 'test',
-              priority: MessagePriority.Normal,
-            };
-          },
-        } as QueuePublisherRegistry);
+        await update(forumUrl);
 
-        const db = new UpdateTournamentTestDb({
-          id: 1,
-          verificationStatus: VerificationStatus.None,
-          verifiedByUserId: null,
-          ruleset: Ruleset.Mania4k,
-        });
+        expect(await storedForumPostId()).toBe(unlinks ? null : forumPostId);
+        expect(await queuedFetches(db, userId)).toEqual(
+          expectedTopics.map((topicId) =>
+            expect.objectContaining({
+              payload: { type: 'forumTopic', topicId },
+              tournamentId,
+            })
+          )
+        );
+      }
+    );
 
-        await updateTournamentAdminHandler({
-          input: { ...baseInput, forumUrl },
-          context: {
-            db: db as unknown as DatabaseClient,
-            session: adminSession,
-          },
-        });
+    it.each(transactionFaults)(
+      'keeps the old URL and queues nothing when %s',
+      async (_label, fault, message) => {
+        await expect(
+          update(
+            `https://osu.ppy.sh/community/forums/topics/${NEW_TOPIC_ID}`,
+            fault(db)
+          )
+        ).rejects.toThrow(message);
 
-        expect(db.tournamentUpdates).toHaveLength(1);
-        const set = db.tournamentUpdates[0]!;
-        expect(
-          Object.hasOwn(set, 'forumPostId') ? set.forumPostId : 'absent'
-        ).toBe(unlinks ? null : 'absent');
-        expect(queuedTopics).toEqual(expectedTopics);
+        const [row] = await db
+          .select({
+            forumUrl: schema.tournaments.forumUrl,
+            forumPostId: schema.tournaments.forumPostId,
+          })
+          .from(schema.tournaments)
+          .where(eq(schema.tournaments.id, tournamentId));
+        expect(row).toEqual({ forumUrl: storedUrl, forumPostId });
+        expect(await queuedFetches(db, userId)).toEqual([]);
       }
     );
   });

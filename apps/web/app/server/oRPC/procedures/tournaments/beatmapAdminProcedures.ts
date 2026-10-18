@@ -13,12 +13,9 @@ import { ensureAdminSession } from '../shared/adminGuard';
 import { getCorrelationId } from '../logging/helpers';
 import { Ruleset } from '@otr/core/osu';
 import { createPlaceholderBeatmap } from './beatmapPlaceholders';
-import { publishFetchBeatmapMessage } from '@/lib/queue/publishers';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import type { DatabaseClient } from '@/lib/db';
-
-const QUEUE_FAILURE_WARNING =
-  'We could not queue beatmap data fetches. Please contact the o!TR developers.';
 
 interface ManageBeatmapsContext {
   db: DatabaseClient;
@@ -39,7 +36,7 @@ export async function manageTournamentBeatmapsAdminHandler({
   input,
   context,
 }: ManageTournamentBeatmapsArgs) {
-  ensureAdminSession(context.session);
+  const { adminUserId } = ensureAdminSession(context.session);
 
   const tournament = await context.db.query.tournaments.findFirst({
     columns: { id: true, ruleset: true },
@@ -66,9 +63,11 @@ export async function manageTournamentBeatmapsAdminHandler({
     } as const;
   }
 
-  const beatmapsToQueue = new Set<number>();
+  const correlationId = getCorrelationId(context);
 
   await context.db.transaction(async (tx) => {
+    const beatmapsToQueue = new Set<number>();
+
     if (addOsuIds.length > 0) {
       const existingBeatmaps = await tx
         .select({
@@ -223,49 +222,24 @@ export async function manageTournamentBeatmapsAdminHandler({
           )
         );
     }
+
+    await enqueueJobs(
+      tx,
+      JobQueue.OsuFetch,
+      Array.from(beatmapsToQueue, (beatmapId) => ({
+        payload: { type: 'beatmap', beatmapId },
+        correlationId,
+        tournamentId: input.tournamentId,
+        requestedByUserId: adminUserId,
+        explicit: true,
+      }))
+    );
   });
-
-  const warnings: string[] = [];
-
-  if (beatmapsToQueue.size > 0) {
-    const correlationId = getCorrelationId(context);
-    const tasks = Array.from(beatmapsToQueue).map((beatmapId) => ({
-      beatmapId,
-      promise: publishFetchBeatmapMessage(
-        { beatmapId },
-        correlationId ? { metadata: { correlationId } } : undefined
-      ),
-    }));
-
-    const results = await Promise.allSettled(tasks.map((task) => task.promise));
-
-    const failures = results
-      .map((result, index) => ({ result, task: tasks[index] }))
-      .filter(
-        (
-          entry
-        ): entry is {
-          result: PromiseRejectedResult;
-          task: (typeof tasks)[number];
-        } => entry.result.status === 'rejected'
-      );
-
-    if (failures.length > 0) {
-      warnings.push(QUEUE_FAILURE_WARNING);
-      failures.forEach(({ task, result }) => {
-        console.error('Failed to publish beatmap fetch message', {
-          beatmapId: task.beatmapId,
-          error: result.reason,
-        });
-      });
-    }
-  }
 
   return {
     success: true,
     addedCount,
     skippedCount,
-    warnings: warnings.length ? warnings : undefined,
   } as const;
 }
 

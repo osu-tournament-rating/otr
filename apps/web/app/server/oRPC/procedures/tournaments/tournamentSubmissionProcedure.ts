@@ -5,17 +5,13 @@ import { TournamentRejectionReason, VerificationStatus } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
 import { withAuditUserId } from '@otr/core/db';
 import { parseForumTopicId } from '@otr/core/osu/forum';
+import { enqueueJobs, JobQueue, type JobPayload } from '@otr/core/jobs';
 import {
   TournamentSubmissionInputSchema,
   TournamentSubmissionResponseSchema,
   type TournamentSubmissionInput,
 } from '@/lib/orpc/schema/tournamentSubmission';
 import type { DatabaseClient } from '@/lib/db';
-import {
-  publishFetchBeatmapMessage,
-  publishFetchForumTopicMessage,
-  publishFetchMatchMessage,
-} from '@/lib/queue/publishers';
 import { createPlaceholderBeatmap } from './beatmapPlaceholders';
 
 import { protectedMutationProcedure } from '../base';
@@ -44,9 +40,6 @@ const isDatabaseError = (error: unknown): error is DatabaseError =>
 
 const NAME_AND_ABBREVIATION_CONFLICT_MESSAGE =
   'A tournament with this name and abbreviation already exists. Please double-check before submitting.';
-
-const QUEUE_FAILURE_WARNING =
-  'We could not queue tournament data fetches. Please contact the o!TR developers.';
 
 interface SubmitTournamentContext {
   db: DatabaseClient;
@@ -97,8 +90,7 @@ export async function submitTournamentHandler({
     ensureAdminSession(session);
   }
 
-  const matchesToQueue = new Set<number>();
-  const beatmapsToQueue = new Set<number>();
+  const correlationId = getCorrelationId(context);
 
   try {
     const response = await db.transaction((tx) =>
@@ -140,6 +132,7 @@ export async function submitTournamentHandler({
         }
 
         const tournamentId = tournament.id;
+        const fetches: JobPayload<JobQueue.OsuFetch>[] = [];
 
         const matchOsuIds = Array.from(new Set(input.ids)) as number[];
 
@@ -227,7 +220,13 @@ export async function submitTournamentHandler({
             }))
           );
 
-          matchesToInsert.forEach((osuId) => matchesToQueue.add(osuId));
+          matchesToInsert.forEach((osuMatchId) =>
+            fetches.push({
+              type: 'match',
+              osuMatchId,
+              isLazer: input.isLazer,
+            })
+          );
         }
 
         const beatmapOsuIds = Array.from(new Set(input.beatmapIds)) as number[];
@@ -286,7 +285,9 @@ export async function submitTournamentHandler({
               });
             }
 
-            missingOsuIds.forEach((osuId) => beatmapsToQueue.add(osuId));
+            missingOsuIds.forEach((beatmapId) =>
+              fetches.push({ type: 'beatmap', beatmapId })
+            );
           }
 
           const beatmapIdsForJoin = beatmapOsuIds
@@ -345,86 +346,29 @@ export async function submitTournamentHandler({
           }
         }
 
+        const topicId = parseForumTopicId(input.forumUrl);
+        if (topicId !== null) {
+          fetches.push({ type: 'forumTopic', topicId });
+        }
+
+        // In this transaction, so the tournament and its fetches commit together.
+        await enqueueJobs(
+          tx,
+          JobQueue.OsuFetch,
+          fetches.map((payload) => ({
+            payload,
+            correlationId,
+            tournamentId,
+            requestedByUserId: submittingUserId,
+            explicit: true,
+          }))
+        );
+
         return { id: tournamentId };
       })
     );
 
-    const correlationId = getCorrelationId(context);
-    const queueTasks: Array<{
-      kind: 'match' | 'beatmap' | 'forumTopic';
-      id: number;
-      promise: Promise<unknown>;
-    }> = [];
-
-    matchesToQueue.forEach((osuMatchId) => {
-      queueTasks.push({
-        kind: 'match',
-        id: osuMatchId,
-        promise: publishFetchMatchMessage(
-          { osuMatchId, isLazer: input.isLazer },
-          correlationId ? { metadata: { correlationId } } : undefined
-        ),
-      });
-    });
-
-    beatmapsToQueue.forEach((beatmapId) => {
-      queueTasks.push({
-        kind: 'beatmap',
-        id: beatmapId,
-        promise: publishFetchBeatmapMessage(
-          { beatmapId },
-          correlationId ? { metadata: { correlationId } } : undefined
-        ),
-      });
-    });
-
-    const topicId = parseForumTopicId(input.forumUrl);
-    if (topicId !== null) {
-      queueTasks.push({
-        kind: 'forumTopic',
-        id: topicId,
-        promise: publishFetchForumTopicMessage(
-          { topicId },
-          correlationId ? { metadata: { correlationId } } : undefined
-        ),
-      });
-    }
-
-    const warnings: string[] = [];
-
-    if (queueTasks.length > 0) {
-      const results = await Promise.allSettled(
-        queueTasks.map((task) => task.promise)
-      );
-
-      const failures = results
-        .map((result, index) => ({ result, task: queueTasks[index] }))
-        .filter(
-          (
-            entry
-          ): entry is {
-            result: PromiseRejectedResult;
-            task: (typeof queueTasks)[number];
-          } => entry.result.status === 'rejected'
-        );
-
-      if (failures.length > 0) {
-        warnings.push(QUEUE_FAILURE_WARNING);
-
-        failures.forEach(({ task, result }) => {
-          console.error('Failed to publish tournament data fetch message', {
-            type: task.kind,
-            id: task.id,
-            error: result.reason,
-          });
-        });
-      }
-    }
-
-    return {
-      id: response.id,
-      warnings: warnings.length ? warnings : undefined,
-    };
+    return { id: response.id };
   } catch (error) {
     if (error instanceof ORPCError) {
       throw error;

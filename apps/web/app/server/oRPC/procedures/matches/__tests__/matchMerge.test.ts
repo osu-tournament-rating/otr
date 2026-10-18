@@ -10,20 +10,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { call, ORPCError } from '@orpc/server';
-import { eq, inArray, like } from 'drizzle-orm';
+import { eq, inArray, like, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-import { MessagePriority } from '@otr/core';
 import { dbSchema } from '@otr/core/db';
 import * as schema from '@otr/core/db/schema';
 import { Ruleset } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
-import {
-  resetQueuePublishersForTesting,
-  setQueuePublishersForTesting,
-  type QueuePublisherRegistry,
-} from '@/lib/queue/publishers';
 
 import { getMatch, getMatchMerge } from '../../matchesProcedures';
 import { manageTournamentMatchesAdminHandler } from '../../tournaments/matchAdminProcedures';
@@ -120,9 +114,7 @@ describe.skipIf(!url)('match merges', () => {
     }
   });
 
-  afterEach(() => {
-    resetQueuePublishersForTesting();
-  });
+  afterEach(() => {});
 
   afterAll(async () => {
     await removeSeed();
@@ -201,22 +193,6 @@ describe.skipIf(!url)('match merges', () => {
     const [parent, child] = matchIds as [number, number];
     await merge(parent, [child]);
 
-    const queued: number[] = [];
-    // Only match fetches can follow; any other publisher throws if called.
-    setQueuePublishersForTesting({
-      fetchMatch: async ({ osuMatchId, isLazer }) => {
-        queued.push(osuMatchId);
-        return {
-          type: 'match' as const,
-          osuMatchId,
-          isLazer,
-          requestedAt: new Date().toISOString(),
-          correlationId: 'test',
-          priority: MessagePriority.Normal,
-        };
-      },
-    } as Partial<QueuePublisherRegistry> as QueuePublisherRegistry);
-
     const result = await manageTournamentMatchesAdminHandler({
       input: {
         tournamentId,
@@ -230,6 +206,10 @@ describe.skipIf(!url)('match merges', () => {
     expect(result.warnings).toEqual([
       `Match ${MATCH_OSU_ID_BASE + 1} was merged into match ${parent}`,
     ]);
+    const { rows: queued } = await db.execute(sql`
+      SELECT id FROM jobs
+      WHERE queue = 'data.osu'
+        AND (payload->>'osuMatchId')::bigint = ${MATCH_OSU_ID_BASE + 1}`);
     expect(queued).toEqual([]);
 
     const rows = await db
