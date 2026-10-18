@@ -38,6 +38,10 @@ import {
   cascadeGameRejection,
   cascadeMatchRejection,
 } from '@otr/core/db/rejection-cascade';
+import {
+  findMatchHoldingGames,
+  mergeMatchesInto,
+} from '@otr/core/db/match-merge';
 import { coerceNumericEnumValue } from '@otr/core';
 import { resolveRulesetWithTournament } from './ruleset-utils';
 
@@ -157,7 +161,32 @@ export class MatchFetchService {
 
     const beatmapsToQueue = new Map<number, { beatmapDbId: number }>();
 
-    await this.db.transaction(async (tx) => {
+    const gameEvents = (allEvents ?? []).filter(
+      (event) => event?.detail?.type === 'other' && event.game != null
+    );
+
+    const mergedInto = await this.db.transaction(async (tx) => {
+      // Another match holding these games means this match was merged into
+      // it, so it takes its place in match_merges instead of taking the games.
+      const holderMatchId = await findMatchHoldingGames(
+        tx,
+        matchRow.id,
+        gameEvents.map((event) => event.game!.id)
+      );
+
+      if (holderMatchId != null) {
+        await mergeMatchesInto(tx, holderMatchId, [
+          {
+            id: matchRow.id,
+            osuId: osuMatchId,
+            isLazer: false,
+            name: initialMatch.match?.name ?? '',
+            tournamentId: matchRow.tournamentId,
+          },
+        ]);
+        return holderMatchId;
+      }
+
       await tx
         .update(schema.matches)
         .set({
@@ -177,10 +206,6 @@ export class MatchFetchService {
         userMap.set(userId, meta);
         await getOrCreatePlayerId(tx, userId, meta);
       }
-
-      const gameEvents = (allEvents ?? []).filter(
-        (event) => event?.detail?.type === 'other' && event.game != null
-      );
 
       const isMatchRejected =
         matchRow.verificationStatus === VerificationStatus.Rejected;
@@ -316,7 +341,24 @@ export class MatchFetchService {
           updatedAt: nowIso,
         });
       }
+
+      return null;
     });
+
+    if (mergedInto != null) {
+      this.logger.info(
+        'Match games are held by another match; recorded it as merged',
+        {
+          osuMatchId,
+          matchId: matchRow.id,
+          mergedInto,
+        }
+      );
+      await this.dataCompletion.checkAndTriggerAutomationChecksIfComplete(
+        matchRow.tournamentId
+      );
+      return true;
+    }
 
     for (const [beatmapId, { beatmapDbId }] of beatmapsToQueue) {
       try {

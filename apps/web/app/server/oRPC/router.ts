@@ -4,7 +4,7 @@ import {
   getLeaderboard,
   getLeaderboardFriends,
 } from './procedures/leaderboardProcedures';
-import { getMatch } from './procedures/matchesProcedures';
+import { getMatch, getMatchMerge } from './procedures/matchesProcedures';
 import {
   deleteGameAdmin,
   lookupGamesAdmin,
@@ -165,6 +165,7 @@ export const router = base.router({
   },
   matches: {
     get: getMatch,
+    getMerge: getMatchMerge,
     admin: {
       update: updateMatchAdmin,
       delete: deleteMatchAdmin,

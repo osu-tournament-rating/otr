@@ -99,10 +99,14 @@ possible.
 Use the template that matches the type, from `.github/ISSUE_TEMPLATE/`:
 `bug.md` for a `Bug`, `request.md` for a `Feature` or `Improvement` (set
 `--type Improvement` when it changes something that already works), and
-`task.md` for a `Task`. Keep its `## Summary`, `## Impact`, and `## Evidence`
-headings, follow the guidance in its comments, and delete the comments.
+`task.md` for a `Task`. Keep its `## Summary`, `## Impact`, `## Evidence`, and
+`## Recommendations` headings, follow the guidance in its comments, and delete
+the comments.
 
-- Keep it under 150 words, not counting the signature.
+- Keep Summary, Impact, and Evidence under 150 words together.
+- Under `## Recommendations`, propose one or more solutions as a numbered
+  list. Give each one's cost or risk, put the one you would pick first, and
+  say why.
 - Keep it high level. Describe behavior and outcomes: what a user, admin, or
   operator sees. Leave out file paths, function names, and code.
 - Never link to files, lines, or commits. Link only to pages on the site or

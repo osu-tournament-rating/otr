@@ -8,6 +8,8 @@ import { AdminNoteSchema, AdminNoteUserSchema } from '@/lib/orpc/schema/common';
 import {
   GameScoreSchema,
   MatchDetailSchema,
+  MatchIdInputSchema,
+  MatchMergeLookupSchema,
   RatingAdjustment,
 } from '@/lib/orpc/schema/match';
 import { PlayerSchema } from '@/lib/orpc/schema/player';
@@ -473,6 +475,18 @@ export const getMatch = publicProcedure
       .from(schema.matchRosters)
       .where(eq(schema.matchRosters.matchId, matchId));
 
+    const mergedMatchesPromise = context.db
+      .select({
+        mergedMatchId: schema.matchMerges.mergedMatchId,
+        osuId: schema.matchMerges.osuId,
+        isLazer: schema.matchMerges.isLazer,
+        name: schema.matchMerges.name,
+        created: schema.matchMerges.created,
+      })
+      .from(schema.matchMerges)
+      .where(eq(schema.matchMerges.matchId, matchId))
+      .orderBy(asc(schema.matchMerges.mergedMatchId));
+
     const [
       gameAdminNotesRows,
       scoreRows,
@@ -480,6 +494,7 @@ export const getMatch = publicProcedure
       ratingAdjustmentsRows,
       matchAdminNotesRows,
       rosterRows,
+      mergedMatches,
     ] = await Promise.all([
       gameAdminNotesPromise,
       scoreRowsPromise,
@@ -487,6 +502,7 @@ export const getMatch = publicProcedure
       ratingAdjustmentsPromise,
       matchAdminNotesPromise,
       rosterRowsPromise,
+      mergedMatchesPromise,
     ]);
 
     const scoreIds = scoreRows.map((row) => row.id);
@@ -785,7 +801,50 @@ export const getMatch = publicProcedure
       winRecord,
       rosters,
       verifiedByUsername,
+      mergedMatches,
     });
 
     return matchDetail;
+  });
+
+/**
+ * A match that was merged into another, by its old o!TR ID, so its page can
+ * point at the match that holds its games.
+ */
+export const getMatchMerge = publicProcedure
+  .input(MatchIdInputSchema)
+  .output(MatchMergeLookupSchema)
+  .route({
+    summary: 'Get the match a merged match went into',
+    tags: ['matches'],
+    method: 'GET',
+    path: '/matches/merges/{id}',
+  })
+  .handler(async ({ input, context }) => {
+    const [row] = await context.db
+      .select({
+        mergedMatchId: schema.matchMerges.mergedMatchId,
+        osuId: schema.matchMerges.osuId,
+        isLazer: schema.matchMerges.isLazer,
+        name: schema.matchMerges.name,
+        created: schema.matchMerges.created,
+        matchId: schema.matches.id,
+        matchName: schema.matches.name,
+      })
+      .from(schema.matchMerges)
+      .innerJoin(
+        schema.matches,
+        eq(schema.matches.id, schema.matchMerges.matchId)
+      )
+      .where(eq(schema.matchMerges.mergedMatchId, input.id))
+      .limit(1);
+
+    if (!row) {
+      throw new ORPCError('NOT_FOUND', {
+        message: `Match ${input.id} was not merged`,
+      });
+    }
+
+    const { matchId, matchName, ...merge } = row;
+    return { ...merge, match: { id: matchId, name: matchName } };
   });
