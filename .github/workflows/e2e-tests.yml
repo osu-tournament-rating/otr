@@ -1,8 +1,11 @@
 name: E2E Tests
 
-# Manual-only: spins up Postgres + RabbitMQ in the runner, restores a
-# production-replica dump via apps/scripts, and runs playwright.
+# Nightly on master, and by hand on any branch: spins up Postgres + RabbitMQ
+# in the runner, restores a production-replica dump via apps/scripts, and runs
+# playwright.
 on:
+  schedule:
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 concurrency:
