@@ -20,7 +20,14 @@ Each score in each game is evaluated against the following checks in order.
 
 ### Invalid lazer mods
 
-osu!lazer games and scores keep every mod they were played with. These lazer mods are invalid: Autoplay (AT), Cinema (CN), Relax (RX), Autopilot (AP), Sudden Death (SD), and Perfect (PF). Every other lazer mod is allowed, including fun mods such as Barrel Roll, since lazer tournaments pool them. Mod settings are not checked, so custom speeds such as DT at 1.2x pass.
+Games and scores featuring any of these lazer mods are not allowed:
+
+- Autoplay (AT)
+- Cinema (CN)
+- Relax (RX)
+- Autopilot (AP)
+- Sudden Death (SD)
+- Perfect (PF)
 
 ## Game Checks
 
