@@ -9,7 +9,8 @@ name: Dev tier
 # install the operations scripts in apps/scripts at
 # <DEV_REMOTE_PATH>/apps/scripts, with the dev environment's SCRIPTS_ENV secret
 # as their .env. dev-db.sh restores the replica with them. Only a deploy
-# replaces the tier's .env and docker-compose.yml.
+# replaces the tier's .env and docker-compose.yml, so a push to the default
+# branch that changes scripts/preview or docker-compose-dev.yml runs one.
 
 on:
   workflow_dispatch:
@@ -28,6 +29,11 @@ on:
   schedule:
     # Nightly replica refresh, after the processor run at 12:00 UTC.
     - cron: '0 14 * * *'
+  push:
+    branches: [master]
+    paths:
+      - 'scripts/preview/**'
+      - 'docker-compose-dev.yml'
 
 concurrency:
   group: dev-tier
@@ -39,9 +45,12 @@ permissions:
 
 jobs:
   run:
-    name: ${{ github.event.inputs.action || 'nightly' }}
+    name: ${{ github.event.inputs.action || (github.event_name == 'push' && 'deploy') || 'nightly' }}
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      # A push only runs when files a deploy installs have changed.
+      ACTION: ${{ github.event.inputs.action || (github.event_name == 'push' && 'deploy') || 'nightly' }}
 
     steps:
       - name: Checkout repository
@@ -84,7 +93,7 @@ jobs:
           ping: ${{ secrets.SSH_HOST }}
 
       - name: Upload dev tier assets
-        if: ${{ (github.event.inputs.action || 'nightly') == 'deploy' }}
+        if: ${{ env.ACTION == 'deploy' }}
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -107,7 +116,7 @@ jobs:
       # still waits for that lock, so a dev-db.sh run that holds it keeps one
       # copy from start to finish.
       - name: Install the preview scripts
-        if: ${{ contains(fromJSON('["deploy", "nightly"]'), github.event.inputs.action || 'nightly') }}
+        if: ${{ contains(fromJSON('["deploy", "nightly"]'), env.ACTION) }}
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -171,7 +180,7 @@ jobs:
           EOF
 
       - name: Bring up dev tier
-        if: ${{ (github.event.inputs.action || 'nightly') == 'deploy' }}
+        if: ${{ env.ACTION == 'deploy' }}
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -192,7 +201,7 @@ jobs:
           EOF
 
       - name: Install the operations scripts
-        if: ${{ contains(fromJSON('["deploy", "nightly"]'), github.event.inputs.action || 'nightly') }}
+        if: ${{ contains(fromJSON('["deploy", "nightly"]'), env.ACTION) }}
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -209,7 +218,6 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           DEV_REMOTE_PATH: ${{ secrets.DEV_REMOTE_PATH }}
           PREVIEW_REMOTE_PATH: ${{ secrets.PREVIEW_REMOTE_PATH }}
-          ACTION: ${{ github.event.inputs.action || 'nightly' }}
           EXPECTED_JOURNAL: ${{ steps.journal.outputs.expected }}
         run: |
           set -euo pipefail

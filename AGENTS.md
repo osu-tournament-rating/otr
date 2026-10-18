@@ -87,9 +87,9 @@ the rating run: admin writes return 503 and the worker defers osu! fetches.
 - The dev tier is a shared environment, restored nightly from a redacted copy of
   production.
 - Dev tier `deploy` and nightly runs install `scripts/preview` on the dev host
-  from `master`, and previews use that copy. After a change to
-  `scripts/preview` merges, tell the user to run the Dev tier `deploy` action
-  to apply it before the next nightly run.
+  from `master`, and previews use that copy. A merge that changes
+  `scripts/preview` or `docker-compose-dev.yml` runs the `deploy` action by
+  itself.
 
 ## Starting in a worktree
 
