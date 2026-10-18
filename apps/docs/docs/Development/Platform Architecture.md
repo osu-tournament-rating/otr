@@ -32,6 +32,32 @@ The data worker lives under `otr/apps/data-worker`. This Bun-based application c
 
 Further, it natively supports message queue priority. The platform utilizes priority queues to separate background data fetching from manual data fetching requests. This means admin actions and user submissions are always handled as fast as possible.
 
+#### Beatmap files and attributes
+
+Each time the data worker fetches a beatmap, it queues a `processing.attributes.beatmaps` job. The job stores the beatmap's `.osu` file, downloaded from `https://osu.ppy.sh/osu/{id}`, and calculates difficulty attributes from it with [rosu-pp-js](https://github.com/MaxOhn/rosu-pp-js). Files are stored for every ruleset, but attributes are calculated only for osu! standard beatmaps.
+
+- Files are stored at `beatmaps/{osu! beatmap ID}/{MD5}.osu` in the Google Cloud Storage bucket named by `BEATMAP_FILES_BUCKET`, or under `BEATMAP_FILES_DIR` for local development. `.env.example` lists the settings. With neither set, the feature is off.
+- The bucket's HMAC key needs a service account that can create, read, and overwrite objects in the bucket, such as one with the Storage Object User role (`roles/storage.objectUser`) on it. Storage Object Creator is not enough: overwriting an object needs `storage.objects.delete`, and the probe the data worker runs at startup overwrites `beatmaps/.probe`. When the probe fails, jobs from beatmap fetches wait in the queue until a start passes it.
+- The `beatmap_files` table records the checksum of each beatmap's stored file and a `fetch_status`.
+- `beatmap_attributes` holds one row per beatmap and mod key, with `sr`, `ar`, `cs`, `od`, and `hp`. A key is a bitmask of `EZ`, `HD`, `HR`, and `DT`, so `HDHR` and `HRHD` share a row.
+- `NC` counts as `DT`, and mods that do not change difficulty, such as `NF` and `SD`, are dropped from the key. Plays with `HT`, `FL`, `TD`, `RX`, or `AP` have no row yet. Values assume each mod's default settings, such as `DT` at 1.5x speed.
+- A beatmap gets an `NM` row, plus a row for each key played by any score in its verified osu! standard games, whatever the score's own status. A row whose key is no longer played, such as after a game is rejected, is removed the next time a job runs for that beatmap.
+- `ar` and `od` include the speed change of `DT`. `cs` and `hp` change only with `EZ` and `HR`.
+- Values follow the osu! difficulty algorithm of the pinned rosu-pp-js release, which can lag behind the star rating osu! shows. The `NM` row can therefore differ from `beatmaps.sr`, which comes from the osu! API. The `calculator` column names the release that produced each row.
+- o!TR fetches a beatmap once, unless someone refetches it, and the job stores the file osu! serves at that time. The backfill stores the current file, even for beatmaps from old matches, so a stored file can be newer than the version that was played. A refetch downloads the file again when osu! reports a new checksum.
+- When a download gives no usable file but an older file is stored, the job calculates from the stored file. A refusal, an HTML page, or a server error from osu! fails the job, so the queue retries it.
+- A beatmap without a usable stored file, because osu! never served one or the calculator rejects it, has no attributes until a refetch gets a usable file. The calculator rejects maps that rosu-pp-js flags as suspicious, and maps whose slider curves would take too long to calculate.
+
+Every 10 minutes, when the queue is empty, the data worker queues up to 1,000 low-priority jobs, so jobs from beatmap fetches go first. It picks osu! standard beatmaps whose attributes are missing or came from another calculator, then fetched beatmaps in a game or mappool that have no stored file yet. This sweep is the backfill, and it also adds rows for mods that newly verified games played. Once it finds no beatmap that needs attributes, it looks again only after an hour. A failed sweep job is not retried, because the next sweep finds the beatmap again.
+
+To roll out a star rating change once rosu-pp-js releases it:
+
+1. In `apps/data-worker`, run `bun add --exact rosu-pp-js@<version>`.
+1. Set `CALCULATOR` in `apps/data-worker/src/beatmap-attributes/calculator.ts` to `rosu-pp-js@<version>`. A test fails while the two differ.
+1. Merge the change, which deploys it. The sweep then recalculates every row from the stored files, with no downloads from osu!. At 1,000 jobs per sweep this takes hours, and until it finishes, rows from both releases coexist.
+
+Files the calculator rejected keep `fetch_status` 4 (Error) and are not recalculated. To try them with the new release, set `fetch_status` to 2 (Fetched) on the `beatmap_files` rows that have a checksum, and the sweep picks them up.
+
 ### Processor
 
 The processor, located under `otr/apps/processor`, is a [Rust](https://www.rust-lang.org/) CLI tool. A cron job on the production host runs it [[Rating Calculation Overview#Rating update schedule|once a week]], on Tuesdays at 12:00 UTC. It looks at all verified tournament data and builds a rating network from individual match data by utilizing OpenSkill[^1], an open-source multiplayer rating algorithm ([source code](https://crates.io/crates/openskill)). For each game the processor hasn't processed before, placements for the game's scores are stored in the `game_scores` table.

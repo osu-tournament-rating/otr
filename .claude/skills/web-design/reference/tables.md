@@ -220,7 +220,7 @@ Owner decision (finding 28, 15 Oct): no new whole-row links or row dialogs.
 | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---- |
 | Beatmap list (all three views), tournament list, pooled beatmaps              | the whole row opens the entity (`DataTableLinkRow`, `PhoneRow href`, `RowListItem href`) | yes  |
 | Home cards and search results                                                 | the whole card or result opens the entity                                                | yes  |
-| Profile tournament cards, audit rows                                          | expand in place                                                                          | no   |
+| Profile tournament cards, audit rows                                          | expand in place; a profile card with no record (no player stats) has no Matches button   | no   |
 | Leaderboard, filter results, match lists, tournament matches, everything else | only the name links (`EntityLink`), secondary links stay inline                          | no   |
 | My reports, admin reports                                                     | a labelled "View" button opens the modal; the entity link works on its own               | no   |
 

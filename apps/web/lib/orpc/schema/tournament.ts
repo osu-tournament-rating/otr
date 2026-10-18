@@ -90,6 +90,17 @@ export const PlayerTournamentListItemSchema = TournamentListItemSchema.omit({
   matchesLost: z.number().int(),
 });
 
+/**
+ * A row of a player's tournament history on the profile. The record is null
+ * when the player has no stats for the tournament.
+ */
+export const PlayerTournamentHistoryItemSchema = TournamentListItemSchema.omit({
+  adminNotes: true,
+}).extend({
+  matchesWon: z.number().int().nullable(),
+  matchesLost: z.number().int().nullable(),
+});
+
 export const TournamentAdminNoteSchema = AdminNoteSchema;
 
 const AdminNoteContentSchema = z.string().trim().min(1);
@@ -311,6 +322,9 @@ export type TournamentListPageResponse = z.infer<
 >;
 export type PlayerTournamentListItem = z.infer<
   typeof PlayerTournamentListItemSchema
+>;
+export type PlayerTournamentHistoryItem = z.infer<
+  typeof PlayerTournamentHistoryItemSchema
 >;
 export type TournamentAdminNote = z.infer<typeof TournamentAdminNoteSchema>;
 export type TournamentAdminNoteCreateInput = z.infer<

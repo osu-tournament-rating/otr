@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { PlayerBeatmapStats } from '@/lib/orpc/schema/playerBeatmaps';
-import type { PlayerTournamentListItem } from '@/lib/orpc/schema/tournament';
+import type { PlayerTournamentHistoryItem } from '@/lib/orpc/schema/tournament';
 
 // Bun loads SVG imports as file paths, which React cannot render.
 mock.module('@/components/icons/RulesetIcon', () => ({
@@ -22,7 +22,10 @@ const { default: PlayerTournamentsList } =
 const render = (node: React.ReactNode) =>
   renderToStaticMarkup(<TooltipProvider>{node}</TooltipProvider>);
 
-function tournament(id: number): PlayerTournamentListItem {
+function tournament(
+  id: number,
+  overrides: Partial<PlayerTournamentHistoryItem> = {}
+): PlayerTournamentHistoryItem {
   return {
     id,
     created: '2024-07-01T00:00:00.000Z',
@@ -41,8 +44,13 @@ function tournament(id: number): PlayerTournamentListItem {
     verifiedByUsername: null,
     matchesWon: 2,
     matchesLost: 1,
-  } as PlayerTournamentListItem;
+    ...overrides,
+  };
 }
+
+/** A tournament the player has no stats for, so no record. */
+const withoutStats = (id: number, verificationStatus: VerificationStatus) =>
+  tournament(id, { verificationStatus, matchesWon: null, matchesLost: null });
 
 function beatmap(id: number): PlayerBeatmapStats {
   return {
@@ -77,7 +85,7 @@ describe('PlayerTournamentsList', () => {
   it('shows five tournaments and a Show more footer with the counts in its readout', () => {
     const html = render(
       <PlayerTournamentsList
-        tournaments={range(27).map(tournament)}
+        tournaments={range(27).map((id) => tournament(id))}
         adjustments={[]}
       />
     );
@@ -92,12 +100,73 @@ describe('PlayerTournamentsList', () => {
   it('has no footer when every tournament fits in the first five', () => {
     const html = render(
       <PlayerTournamentsList
-        tournaments={range(5).map(tournament)}
+        tournaments={range(5).map((id) => tournament(id))}
         adjustments={[]}
       />
     );
 
     expect(html).not.toContain('data-slot="load-more"');
+  });
+
+  it('counts rows without a record in the readout', () => {
+    const html = render(
+      <PlayerTournamentsList
+        tournaments={[
+          ...range(4).map((id) => tournament(id)),
+          ...range(3).map((id) =>
+            withoutStats(10 + id, VerificationStatus.Rejected)
+          ),
+        ]}
+        adjustments={[]}
+      />
+    );
+
+    expect(html).toContain('Showing 5 of 7');
+    expect(html).toContain('7 tournaments');
+  });
+});
+
+describe('PlayerTournamentCard', () => {
+  const renderRow = (row: PlayerTournamentHistoryItem) =>
+    render(<PlayerTournamentsList tournaments={[row]} adjustments={[]} />);
+
+  it('shows a rejected row without a record as its name and status only', () => {
+    const html = renderRow(withoutStats(1, VerificationStatus.Rejected));
+
+    expect(html).toContain('href="/tournaments/1"');
+    expect(html).toContain('data-slot="verification-status-icon"');
+    expect(html).toContain('aria-label="Rejected"');
+    expect(html).not.toContain('>Record<');
+    expect(html).not.toContain('>Rating change<');
+    expect(html).not.toContain('Matches in Tournament 1');
+    expect(html).not.toContain('data-slot="not-in-ratings"');
+  });
+
+  it('says a pre-verified row without a record is not in ratings yet', () => {
+    const html = renderRow(withoutStats(1, VerificationStatus.PreVerified));
+
+    expect(html).toContain('data-slot="not-in-ratings"');
+    expect(html).toContain('Not in ratings yet');
+    expect(html).not.toContain('>Record<');
+  });
+
+  it('shows a verified row awaiting stats with neither a record nor the label', () => {
+    const html = renderRow(withoutStats(1, VerificationStatus.Verified));
+
+    expect(html).toContain('aria-label="Verified"');
+    expect(html).not.toContain('>Record<');
+    expect(html).not.toContain('Matches in Tournament 1');
+    expect(html).not.toContain('data-slot="not-in-ratings"');
+  });
+
+  it('keeps the record and Matches button on a verified row with stats', () => {
+    const html = renderRow(tournament(1));
+
+    expect(html).toContain('>Record<');
+    expect(html).toContain('2 wins and 1 loss');
+    expect(html).toContain('>Rating change<');
+    expect(html).toContain('aria-label="Matches in Tournament 1"');
+    expect(html).not.toContain('data-slot="not-in-ratings"');
   });
 });
 

@@ -236,8 +236,15 @@
     {
       "idx": 33,
       "version": "7",
-      "when": 1792260980975,
-      "tag": "0033_lazer_mods",
+      "when": 1792265860448,
+      "tag": "0033_beatmap_files_and_attributes",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792287545217,
+      "tag": "0034_lazer_mods",
       "breakpoints": true
     }
   ]

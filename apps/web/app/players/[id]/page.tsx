@@ -26,7 +26,7 @@ import PlayerTournamentsList from '@/components/player/PlayerTournamentsList';
 import { resolvePlayerIdFromKey } from '@/lib/db/player-resolve';
 import { getPlayerBeatmapsCached } from '@/lib/orpc/queries/playerBeatmaps';
 import { getPlayerStatsCached } from '@/lib/orpc/queries/playerStats';
-import { getPlayerTournamentsCached } from '@/lib/orpc/queries/playerTournaments';
+import { getPlayerTournamentHistoryCached } from '@/lib/orpc/queries/playerTournaments';
 import type {
   PlayerRatingAdjustment,
   PlayerStats,
@@ -115,7 +115,7 @@ async function PlayerTournaments({
   filter: PlayerPageFilter;
   adjustments: PlayerRatingAdjustment[];
 }) {
-  const tournaments = await getPlayerTournamentsCached(
+  const tournaments = await getPlayerTournamentHistoryCached(
     playerId,
     filter.dateMin,
     filter.dateMax,
