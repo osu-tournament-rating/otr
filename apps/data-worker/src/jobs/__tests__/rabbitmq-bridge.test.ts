@@ -3,6 +3,7 @@ import { JobQueue, JobStatus } from '@otr/core/jobs';
 
 import {
   insertFailedJob,
+  osuFetchJobFromMessage,
   tournamentStatsJobFromMessage,
 } from '../rabbitmq-bridge';
 import {
@@ -32,6 +33,53 @@ describe('tournamentStatsJobFromMessage', () => {
       tournamentStatsJobFromMessage({ correlationId: 'run-1' })
     ).toBeNull();
     expect(tournamentStatsJobFromMessage({ tournamentId: 'abc' })).toBeNull();
+  });
+});
+
+describe('osuFetchJobFromMessage', () => {
+  const metadata = {
+    requestedAt: '2026-10-13T12:05:00Z',
+    correlationId: 'req-1',
+    priority: 0,
+  };
+
+  it('keeps each kind of osu! fetch the site and worker published', () => {
+    expect(
+      [
+        { type: 'match', osuMatchId: 1, isLazer: true },
+        { type: 'beatmap', beatmapId: 2, skipAutomationChecks: true },
+        { type: 'player', osuPlayerId: 3 },
+        { type: 'forumTopic', topicId: 4 },
+      ].map((payload) => osuFetchJobFromMessage({ ...metadata, ...payload }))
+    ).toEqual([
+      {
+        payload: { type: 'match', osuMatchId: 1, isLazer: true },
+        priority: 0,
+        correlationId: 'req-1',
+      },
+      {
+        payload: { type: 'beatmap', beatmapId: 2, skipAutomationChecks: true },
+        priority: 0,
+        correlationId: 'req-1',
+      },
+      {
+        payload: { type: 'player', osuPlayerId: 3 },
+        priority: 0,
+        correlationId: 'req-1',
+      },
+      {
+        payload: { type: 'forumTopic', topicId: 4 },
+        priority: 0,
+        correlationId: 'req-1',
+      },
+    ]);
+  });
+
+  it('drops a message of an unknown kind or without its id', () => {
+    expect(osuFetchJobFromMessage({ type: 'room', roomId: 1 })).toBeNull();
+    expect(
+      osuFetchJobFromMessage({ type: 'match', isLazer: false })
+    ).toBeNull();
   });
 });
 

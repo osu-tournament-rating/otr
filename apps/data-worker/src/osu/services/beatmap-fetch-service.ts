@@ -15,14 +15,13 @@ import {
   claimPlayerFetchLease,
   getOrCreatePlayerId,
   getPlayerOsuFetchState,
-  releasePlayerFetchLease,
-  type PlayerFetchState,
 } from '../player-store';
 import { TournamentDataCompletionService } from './tournament-data-completion-service';
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
 import * as schema from '@otr/core/db/schema';
+import type { JobExecutor } from '@otr/core/jobs';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 
 interface BeatmapFetchServiceOptions {
@@ -31,7 +30,11 @@ interface BeatmapFetchServiceOptions {
   rateLimiter: RateLimiter;
   logger: Logger;
   dataCompletion: TournamentDataCompletionService;
-  publishPlayerFetch: (osuPlayerId: number) => Promise<void>;
+  /** Queues player fetches inside the transaction that claims their leases. */
+  publishPlayerFetches: (
+    db: JobExecutor,
+    osuPlayerIds: number[]
+  ) => Promise<void>;
   /** Absent while beatmap file storage is off. */
   publishBeatmapAttributes?: (payload: BeatmapAttributesJob) => Promise<void>;
 }
@@ -71,7 +74,10 @@ export class BeatmapFetchService {
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
   private readonly dataCompletion: TournamentDataCompletionService;
-  private readonly publishPlayerFetch: (osuPlayerId: number) => Promise<void>;
+  private readonly publishPlayerFetches: (
+    db: JobExecutor,
+    osuPlayerIds: number[]
+  ) => Promise<void>;
   private readonly publishBeatmapAttributes:
     ((payload: BeatmapAttributesJob) => Promise<void>) | undefined;
 
@@ -81,7 +87,7 @@ export class BeatmapFetchService {
     this.rateLimiter = options.rateLimiter;
     this.logger = options.logger;
     this.dataCompletion = options.dataCompletion;
-    this.publishPlayerFetch = options.publishPlayerFetch;
+    this.publishPlayerFetches = options.publishPlayerFetches;
     this.publishBeatmapAttributes = options.publishBeatmapAttributes;
   }
 
@@ -222,37 +228,24 @@ export class BeatmapFetchService {
         }
       }
 
-      for (const userId of userIds) {
-        let previous: PlayerFetchState | null = null;
-        let claimed = false;
-        try {
-          previous = await getPlayerOsuFetchState(tx, userId);
-          if (previous?.status === DataFetchStatus.Fetching) {
-            this.logger.debug('Skipping player enqueue - already fetching', {
-              userId,
-            });
-            continue;
-          }
-          if (previous) {
-            claimed = await claimPlayerFetchLease(
-              tx,
-              'osu',
-              userId,
-              previous,
-              nowIso
-            );
-          }
-          await this.publishPlayerFetch(userId);
-        } catch (error) {
-          this.logger.error('Failed to enqueue player fetch', {
+      // The leases and the jobs commit with the beatmap, or not at all.
+      // Players lock in id order and their jobs go in one batch, so this
+      // transaction locks rows in the same order as anyone else's.
+      const playersToQueue: number[] = [];
+      for (const userId of [...userIds].sort((a, b) => a - b)) {
+        const previous = await getPlayerOsuFetchState(tx, userId);
+        if (previous?.status === DataFetchStatus.Fetching) {
+          this.logger.debug('Skipping player enqueue - already fetching', {
             userId,
-            error,
           });
-          if (claimed && previous) {
-            await releasePlayerFetchLease(tx, 'osu', userId, previous, nowIso);
-          }
+          continue;
         }
+        if (previous) {
+          await claimPlayerFetchLease(tx, 'osu', userId, previous, nowIso);
+        }
+        playersToQueue.push(userId);
       }
+      await this.publishPlayerFetches(tx, playersToQueue);
 
       const affectedBeatmaps: BeatmapAttributesJob[] = [];
 

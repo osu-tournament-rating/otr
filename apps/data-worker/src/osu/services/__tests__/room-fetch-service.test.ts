@@ -40,7 +40,7 @@ const createService = (existingScore?: {
     api: {} as never,
     rateLimiter: {} as never,
     logger: { warn: () => {}, error: () => {}, info: () => {} } as never,
-    publishBeatmapFetch: async () => {},
+    publishBeatmapFetches: async () => {},
     dataCompletion: {} as never,
   });
 
@@ -193,16 +193,20 @@ const createRoomEvents = (requiredMods: ModInput[]) => ({
   ],
 });
 
-const fetchRoom = async (requiredMods: ModInput[]) => {
+const fetchRoom = async (
+  requiredMods: ModInput[],
+  beatmapStatus: DataFetchStatus = DataFetchStatus.Fetched
+) => {
   const insertedGames: Record<string, unknown>[] = [];
+  const queued: Array<{ executor: unknown; osuBeatmapId: number }> = [];
 
   const tx = {
     query: {
-      // Already fetched, so the room fetch queues no beatmap job.
+      // Already fetched by default, so the room fetch queues no beatmap job.
       beatmaps: {
         findFirst: async () => ({
           id: 9,
-          dataFetchStatus: DataFetchStatus.Fetched,
+          dataFetchStatus: beatmapStatus,
         }),
       },
       games: { findFirst: async () => undefined },
@@ -225,7 +229,14 @@ const fetchRoom = async (requiredMods: ModInput[]) => {
         };
       },
     }),
-    update: () => ({ set: () => ({ where: async () => {} }) }),
+    update: () => ({
+      set: () => ({
+        where: () =>
+          Object.assign(Promise.resolve(), {
+            returning: async () => [{ id: 9 }],
+          }),
+      }),
+    }),
   };
 
   const service = new RoomFetchService({
@@ -236,7 +247,11 @@ const fetchRoom = async (requiredMods: ModInput[]) => {
     api: { getRoomEvents: async () => createRoomEvents(requiredMods) } as never,
     rateLimiter: { schedule: (task: () => unknown) => task() } as never,
     logger: { warn: () => {}, error: () => {}, info: () => {} } as never,
-    publishBeatmapFetch: async () => {},
+    publishBeatmapFetches: async (executor, osuBeatmapIds) => {
+      for (const osuBeatmapId of osuBeatmapIds) {
+        queued.push({ executor, osuBeatmapId });
+      }
+    },
     dataCompletion: { updateMatchFetchStatus: async () => {} } as never,
   });
 
@@ -249,7 +264,7 @@ const fetchRoom = async (requiredMods: ModInput[]) => {
     tournament: { id: 2, ruleset: Ruleset.Osu },
   });
 
-  return { fetched, insertedGames };
+  return { fetched, insertedGames, queued, tx };
 };
 
 describe('fetchAndPersistRoom', () => {
@@ -265,5 +280,17 @@ describe('fetchAndPersistRoom', () => {
       { acronym: 'DT', settings: { speed_change: 1.2 } },
       { acronym: 'BR' },
     ]);
+  });
+
+  it("queues the fetch of a game's unfetched beatmap in the transaction that stores the game", async () => {
+    const { fetched, queued, tx } = await fetchRoom(
+      ['BR'],
+      DataFetchStatus.NotFetched
+    );
+
+    expect(fetched).toBe(true);
+    expect(queued).toHaveLength(1);
+    expect(queued[0]!.osuBeatmapId).toBe(1234);
+    expect(queued[0]!.executor).toBe(tx);
   });
 });

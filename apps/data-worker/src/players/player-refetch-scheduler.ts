@@ -1,23 +1,21 @@
 import { and, asc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm';
-import type {
-  FetchOsuMessage,
-  FetchPlayerOsuTrackMessage,
-  MessageEnvelope,
-} from '@otr/core';
+import type { FetchPlayerOsuTrackMessage, MessageEnvelope } from '@otr/core';
 import { MessagePriority } from '@otr/core';
 import { Ruleset } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { enqueueJob, JobQueue } from '@otr/core/jobs';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
 import type { QueuePublisher } from '@otr/core/queues';
 import {
   claimPlayerFetchLease,
-  releasePlayerFetchLease,
   type PlayerFetchSource,
   type PlayerFetchState,
 } from '../osu/player-store';
+
+type Transaction = Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
 
 type AutoRefetchConfig = {
   enabled: boolean;
@@ -61,7 +59,6 @@ type QueuePublisherContract<TMessage extends MessageEnvelope<unknown>> = Pick<
 interface PlayerRefetchSchedulerOptions {
   db: DatabaseClient;
   logger: Logger;
-  osuPublisher: QueuePublisherContract<FetchOsuMessage>;
   osuTrackPublisher: QueuePublisherContract<FetchPlayerOsuTrackMessage>;
   config: SchedulerConfig;
 }
@@ -69,7 +66,6 @@ interface PlayerRefetchSchedulerOptions {
 export class PlayerRefetchScheduler {
   private readonly db: DatabaseClient;
   private readonly logger: Logger;
-  private readonly osuPublisher: QueuePublisherContract<FetchOsuMessage>;
   private readonly osuTrackPublisher: QueuePublisherContract<FetchPlayerOsuTrackMessage>;
   private readonly config: SchedulerConfig;
 
@@ -82,7 +78,6 @@ export class PlayerRefetchScheduler {
   constructor(options: PlayerRefetchSchedulerOptions) {
     this.db = options.db;
     this.logger = options.logger;
-    this.osuPublisher = options.osuPublisher;
     this.osuTrackPublisher = options.osuTrackPublisher;
     this.config = options.config;
   }
@@ -208,17 +203,12 @@ export class PlayerRefetchScheduler {
 
     const enqueued = await this.enqueuePlayers({
       players,
-      publish: async (osuPlayerId, player) => {
+      publish: async (tx, osuPlayerId, player) => {
         const cadence = Number(player.cadenceDays);
-        await this.osuPublisher.publish(
-          { type: 'player', osuPlayerId },
-          {
-            metadata: {
-              priority:
-                cadence <= 1 ? MessagePriority.Normal : MessagePriority.Low,
-            },
-          }
-        );
+        await enqueueJob(tx, JobQueue.OsuFetch, {
+          payload: { type: 'player', osuPlayerId },
+          priority: cadence <= 1 ? MessagePriority.Normal : MessagePriority.Low,
+        });
         enqueuedByCadence.set(
           cadence,
           (enqueuedByCadence.get(cadence) ?? 0) + 1
@@ -297,7 +287,7 @@ export class PlayerRefetchScheduler {
 
     const enqueued = await this.enqueuePlayers({
       players,
-      publish: async (osuPlayerId) => {
+      publish: async (_tx, osuPlayerId) => {
         await this.osuTrackPublisher.publish(
           { osuPlayerId },
           { metadata: { priority: MessagePriority.Low } }
@@ -319,7 +309,11 @@ export class PlayerRefetchScheduler {
     TPlayer extends PlayerFetchState & { osuPlayerId: number },
   >(options: {
     players: Array<TPlayer>;
-    publish: (osuPlayerId: number, player: TPlayer) => Promise<void>;
+    publish: (
+      tx: Transaction,
+      osuPlayerId: number,
+      player: TPlayer
+    ) => Promise<void>;
     source: PlayerFetchSource;
     logContext: string;
   }): Promise<{ count: number; expiredLeases: number }> {
@@ -328,23 +322,30 @@ export class PlayerRefetchScheduler {
 
     for (const player of options.players) {
       const osuPlayerId = player.osuPlayerId;
-      // Claimed before publishing, so the lease never lands on top of a fetch
-      // that a fast worker has already finished.
+      // The lease and the job commit together, so a failed enqueue leaves
+      // the player as it was. Claimed first, so the lease never lands on top
+      // of a fetch that a fast worker has already finished.
       const leaseIso = new Date().toISOString();
-      let claimed = false;
 
       try {
-        claimed = await claimPlayerFetchLease(
-          this.db,
-          options.source,
-          osuPlayerId,
-          player,
-          leaseIso
-        );
+        const claimed = await this.db.transaction(async (tx) => {
+          if (
+            !(await claimPlayerFetchLease(
+              tx,
+              options.source,
+              osuPlayerId,
+              player,
+              leaseIso
+            ))
+          ) {
+            return false;
+          }
+          await options.publish(tx, osuPlayerId, player);
+          return true;
+        });
         if (!claimed) {
           continue;
         }
-        await options.publish(osuPlayerId, player);
         count += 1;
         if (player.status === DataFetchStatus.Fetching) {
           expiredLeases += 1;
@@ -355,36 +356,10 @@ export class PlayerRefetchScheduler {
           queue: options.logContext,
           error,
         });
-        if (claimed) {
-          await this.releaseLease(options, player, leaseIso);
-        }
       }
     }
 
     return { count, expiredLeases };
-  }
-
-  private async releaseLease(
-    options: { source: PlayerFetchSource; logContext: string },
-    player: PlayerFetchState & { osuPlayerId: number },
-    leaseIso: string
-  ) {
-    try {
-      await releasePlayerFetchLease(
-        this.db,
-        options.source,
-        player.osuPlayerId,
-        player,
-        leaseIso
-      );
-    } catch (error) {
-      // The lease expires on its own after FETCH_LEASE_DAYS.
-      this.logger.error('Failed to release auto-refetch lease', {
-        osuPlayerId: player.osuPlayerId,
-        queue: options.logContext,
-        error,
-      });
-    }
   }
 
   private calculateCutoff(outdatedDays: number) {

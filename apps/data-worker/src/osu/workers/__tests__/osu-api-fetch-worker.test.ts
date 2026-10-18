@@ -1,9 +1,13 @@
 import { describe, expect, it, mock } from 'bun:test';
-import type { FetchOsuMessage, OsuApiPayload } from '@otr/core';
+import type { OsuApiPayload } from '@otr/core';
 import { MessagePriority } from '@otr/core';
-import { OsuApiFetchWorker } from '../osu-api-fetch-worker';
+import { JobQueue } from '@otr/core/jobs';
+
+import { PermanentJobError, RetryableJobError } from '../../../jobs/errors';
+import type { ClaimedJob } from '../../../jobs/types';
 import type { Logger } from '../../../logging/logger';
-import type { QueueConsumer, QueueMessage } from '@otr/core/queues';
+import { captureOsuRetryAfter } from '../../retry-after';
+import { OsuApiFetchWorker } from '../osu-api-fetch-worker';
 
 const createMockLogger = (): Logger => ({
   debug: mock(() => {}),
@@ -13,227 +17,194 @@ const createMockLogger = (): Logger => ({
   child: mock(() => createMockLogger()),
 });
 
-const createMockMessage = (
+const job = (
   payload: OsuApiPayload,
-  correlationId = 'test-correlation-id'
-): QueueMessage<FetchOsuMessage> => {
-  const metadata = {
-    requestedAt: new Date().toISOString(),
-    correlationId,
-    priority: MessagePriority.Normal,
-  };
-  return {
-    metadata,
-    payload: { ...metadata, ...payload },
-    ack: mock(() => Promise.resolve()),
-    nack: mock(() => Promise.resolve()),
-  };
-};
+  created = '2026-10-18T12:00:00.000Z'
+): ClaimedJob<JobQueue.OsuFetch> => ({
+  id: 1,
+  queue: JobQueue.OsuFetch,
+  payload,
+  priority: MessagePriority.Normal,
+  attempts: 1,
+  maxAttempts: 5,
+  correlationId: 'test-correlation-id',
+  tournamentId: null,
+  requestedByUserId: null,
+  traceContext: null,
+  created,
+});
 
-const createMockConsumer = (): QueueConsumer<FetchOsuMessage> & {
-  emit: (message: QueueMessage<FetchOsuMessage>) => Promise<void>;
-} => {
-  let handler:
-    ((message: QueueMessage<FetchOsuMessage>) => Promise<void>) | null = null;
+const createWorker = (overrides: {
+  beatmap?: (...args: unknown[]) => Promise<boolean>;
+  match?: (...args: unknown[]) => Promise<boolean>;
+  player?: (...args: unknown[]) => Promise<boolean>;
+  forumTopic?: (...args: unknown[]) => Promise<boolean>;
+}) => {
+  const services = {
+    beatmap: mock(overrides.beatmap ?? (() => Promise.resolve(true))),
+    match: mock(overrides.match ?? (() => Promise.resolve(true))),
+    player: mock(overrides.player ?? (() => Promise.resolve(true))),
+    forumTopic: mock(overrides.forumTopic ?? (() => Promise.resolve(true))),
+  };
 
-  return {
-    start: mock(async (h) => {
-      handler = h;
-    }),
-    stop: mock(async () => {
-      handler = null;
-    }),
-    emit: async (message) => {
-      if (!handler) throw new Error('Consumer not started');
-      await handler(message);
+  const worker = new OsuApiFetchWorker({
+    beatmapService: { fetchAndPersist: services.beatmap },
+    matchService: { fetchAndPersist: services.match },
+    playerService: { fetchAndPersist: services.player },
+    forumTopicService: { fetchAndPersist: services.forumTopic },
+    dataCompletion: {
+      updateMatchFetchStatus: mock(() => Promise.resolve()),
+      updateBeatmapFetchStatus: mock(() => Promise.resolve()),
+      recheckTournaments: mock(() => Promise.resolve()),
+      tournamentsUsingBeatmap: mock(() => Promise.resolve(new Set<number>())),
     },
-  };
+    logger: createMockLogger(),
+    maintenanceWindowEnabled: false,
+  });
+
+  return { worker, services };
 };
 
 describe('OsuApiFetchWorker', () => {
-  describe('beatmap messages', () => {
-    it('routes beatmap fetch messages to beatmapService', async () => {
-      const consumer = createMockConsumer();
-      const logger = createMockLogger();
-      const fetchAndPersistBeatmap = mock(() => Promise.resolve(true));
-      const fetchAndPersistMatch = mock(() => Promise.resolve(true));
-      const fetchAndPersistPlayer = mock(() => Promise.resolve(true));
+  it('routes beatmap fetches to the beatmap service', async () => {
+    const { worker, services } = createWorker({});
 
-      const worker = new OsuApiFetchWorker({
-        queue: consumer,
-        beatmapService: { fetchAndPersist: fetchAndPersistBeatmap },
-        matchService: { fetchAndPersist: fetchAndPersistMatch },
-        playerService: { fetchAndPersist: fetchAndPersistPlayer },
-        forumTopicService: {
-          fetchAndPersist: mock(() => Promise.resolve(true)),
-        },
-        logger,
-        maintenanceWindowEnabled: false,
-      });
+    await worker.handle(job({ type: 'beatmap', beatmapId: 123 }));
+    await worker.handle(
+      job({ type: 'beatmap', beatmapId: 456, skipAutomationChecks: true })
+    );
 
-      await worker.start();
-
-      const message = createMockMessage({ type: 'beatmap', beatmapId: 123 });
-      await consumer.emit(message);
-
-      expect(fetchAndPersistBeatmap).toHaveBeenCalledWith(123, {
-        skipAutomationChecks: undefined,
-      });
-      expect(message.ack).toHaveBeenCalled();
-      expect(message.nack).not.toHaveBeenCalled();
-    });
-
-    it('passes skipAutomationChecks option', async () => {
-      const consumer = createMockConsumer();
-      const logger = createMockLogger();
-      const fetchAndPersistBeatmap = mock(() => Promise.resolve(true));
-
-      const worker = new OsuApiFetchWorker({
-        queue: consumer,
-        beatmapService: { fetchAndPersist: fetchAndPersistBeatmap },
-        matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        forumTopicService: {
-          fetchAndPersist: mock(() => Promise.resolve(true)),
-        },
-        logger,
-        maintenanceWindowEnabled: false,
-      });
-
-      await worker.start();
-
-      const message = createMockMessage({
-        type: 'beatmap',
-        beatmapId: 456,
-        skipAutomationChecks: true,
-      });
-      await consumer.emit(message);
-
-      expect(fetchAndPersistBeatmap).toHaveBeenCalledWith(456, {
-        skipAutomationChecks: true,
-      });
-    });
+    expect(services.beatmap.mock.calls).toEqual([
+      [123, { skipAutomationChecks: undefined }],
+      [456, { skipAutomationChecks: true }],
+    ]);
+    expect(services.match).not.toHaveBeenCalled();
   });
 
-  describe('match messages', () => {
-    it('routes match fetch messages to matchService', async () => {
-      const consumer = createMockConsumer();
-      const logger = createMockLogger();
-      const fetchAndPersistMatch = mock(() => Promise.resolve(true));
+  it('routes match fetches to the match service', async () => {
+    const { worker, services } = createWorker({});
 
-      const worker = new OsuApiFetchWorker({
-        queue: consumer,
-        beatmapService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        matchService: { fetchAndPersist: fetchAndPersistMatch },
-        playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        forumTopicService: {
-          fetchAndPersist: mock(() => Promise.resolve(true)),
-        },
-        logger,
-        maintenanceWindowEnabled: false,
-      });
+    await worker.handle(job({ type: 'match', osuMatchId: 789, isLazer: true }));
 
-      await worker.start();
-
-      const message = createMockMessage({
-        type: 'match',
-        osuMatchId: 789,
-        isLazer: true,
-      });
-      await consumer.emit(message);
-
-      expect(fetchAndPersistMatch).toHaveBeenCalledWith(789, true);
-      expect(message.ack).toHaveBeenCalled();
-    });
+    expect(services.match.mock.calls).toEqual([[789, true]]);
   });
 
-  describe('player messages', () => {
-    it('routes player fetch messages to playerService', async () => {
-      const consumer = createMockConsumer();
-      const logger = createMockLogger();
-      const fetchAndPersistPlayer = mock(() => Promise.resolve(true));
+  it('routes player fetches to the player service', async () => {
+    const { worker, services } = createWorker({});
 
-      const worker = new OsuApiFetchWorker({
-        queue: consumer,
-        beatmapService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        playerService: { fetchAndPersist: fetchAndPersistPlayer },
-        forumTopicService: {
-          fetchAndPersist: mock(() => Promise.resolve(true)),
-        },
-        logger,
-        maintenanceWindowEnabled: false,
-      });
+    await worker.handle(job({ type: 'player', osuPlayerId: 42 }));
 
-      await worker.start();
-
-      const message = createMockMessage({ type: 'player', osuPlayerId: 12345 });
-      await consumer.emit(message);
-
-      expect(fetchAndPersistPlayer).toHaveBeenCalledWith(12345);
-      expect(message.ack).toHaveBeenCalled();
-    });
+    expect(services.player.mock.calls).toEqual([[42]]);
   });
 
-  describe('forum topic messages', () => {
-    it('routes forum topic fetches with the request time', async () => {
-      const consumer = createMockConsumer();
-      const logger = createMockLogger();
-      const fetchAndPersistForumTopic = mock(() => Promise.resolve(true));
+  it("passes forum topic fetches the job's creation as the request time", async () => {
+    const { worker, services } = createWorker({});
 
-      const worker = new OsuApiFetchWorker({
-        queue: consumer,
-        beatmapService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        forumTopicService: { fetchAndPersist: fetchAndPersistForumTopic },
-        logger,
-        maintenanceWindowEnabled: false,
-      });
+    await worker.handle(
+      job({ type: 'forumTopic', topicId: 7 }, '2026-10-01T00:00:00.000Z')
+    );
 
-      await worker.start();
-
-      const message = createMockMessage({
-        type: 'forumTopic',
-        topicId: 2212242,
-      });
-      await consumer.emit(message);
-
-      expect(fetchAndPersistForumTopic).toHaveBeenCalledWith(
-        2212242,
-        message.metadata.requestedAt
-      );
-      expect(message.ack).toHaveBeenCalled();
-    });
+    expect(services.forumTopic.mock.calls).toEqual([
+      [7, '2026-10-01T00:00:00.000Z'],
+    ]);
   });
 
-  describe('error handling', () => {
-    it('leaves a service error to the consumer retry policy', async () => {
-      const consumer = createMockConsumer();
-      const logger = createMockLogger();
-      const fetchAndPersistBeatmap = mock(() =>
-        Promise.reject(new Error('API error'))
-      );
-
-      const worker = new OsuApiFetchWorker({
-        queue: consumer,
-        beatmapService: { fetchAndPersist: fetchAndPersistBeatmap },
-        matchService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        playerService: { fetchAndPersist: mock(() => Promise.resolve(true)) },
-        forumTopicService: {
-          fetchAndPersist: mock(() => Promise.resolve(true)),
-        },
-        logger,
-        maintenanceWindowEnabled: false,
-      });
-
-      await worker.start();
-
-      const message = createMockMessage({ type: 'beatmap', beatmapId: 999 });
-      await expect(consumer.emit(message)).rejects.toThrow('API error');
-
-      expect(message.nack).not.toHaveBeenCalled();
-      expect(message.ack).not.toHaveBeenCalled();
+  it('leaves a service error to the runner retry policy', async () => {
+    const { worker } = createWorker({
+      match: () => Promise.reject(new Error('database is down')),
     });
+
+    const error = await worker
+      .handle(job({ type: 'match', osuMatchId: 1, isLazer: false }))
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(RetryableJobError);
+    expect((error as Error).message).toBe('database is down');
+  });
+
+  it('fails a job it does not recognise without retrying', async () => {
+    const { worker } = createWorker({});
+
+    await expect(
+      worker.handle(job({ type: 'unknown' } as unknown as OsuApiPayload))
+    ).rejects.toBeInstanceOf(PermanentJobError);
+  });
+
+  it('retries a rate-limited fetch no sooner than osu! asked', async () => {
+    const osuFetch = captureOsuRetryAfter(
+      async (_input: RequestInfo | URL) =>
+        new Response('{}', {
+          status: 429,
+          headers: { 'Retry-After': '120' },
+        })
+    );
+    const { worker } = createWorker({
+      // As the osu! client does: call fetch, then throw without the headers.
+      player: async () => {
+        await osuFetch('https://osu.ppy.sh/api/v2/users/42');
+        // Shaped like the client's APIError, which other test files mock.
+        throw Object.assign(new Error('Too Many Requests'), {
+          response: { status_code: 429, json: {} },
+        });
+      },
+    });
+
+    const error = await worker
+      .handle(job({ type: 'player', osuPlayerId: 42 }))
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(RetryableJobError);
+    expect((error as RetryableJobError).delayMs).toBe(120_000);
+  });
+
+  it("keeps osu!'s wait when its 429 or 503 body wasn't JSON", async () => {
+    const osuFetch = captureOsuRetryAfter(
+      async (_input: RequestInfo | URL) =>
+        new Response('<html>busy</html>', {
+          status: 503,
+          headers: { 'Retry-After': '300' },
+        })
+    );
+    const { worker } = createWorker({
+      // The client then throws without a response status.
+      match: async () => {
+        await osuFetch('https://osu.ppy.sh/api/v2/matches/1');
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    });
+
+    const error = await worker
+      .handle(job({ type: 'match', osuMatchId: 1, isLazer: false }))
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(RetryableJobError);
+    expect((error as RetryableJobError).delayMs).toBe(300_000);
+  });
+
+  it('pauses the whole queue for as long as osu! asked one job to wait', async () => {
+    const osuFetch = captureOsuRetryAfter(
+      async (_input: RequestInfo | URL) =>
+        new Response('{}', { status: 429, headers: { 'Retry-After': '60' } })
+    );
+    const { worker } = createWorker({
+      player: async () => {
+        await osuFetch('https://osu.ppy.sh/api/v2/users/42');
+        throw Object.assign(new Error('Too Many Requests'), {
+          response: { status_code: 429, json: {} },
+        });
+      },
+    });
+    const before = Date.now();
+    expect(worker.pausedUntil(new Date(before))).toBeNull();
+
+    await worker
+      .handle(job({ type: 'player', osuPlayerId: 42 }))
+      .catch(() => {});
+
+    const until = worker.pausedUntil(new Date())!.getTime();
+    expect(until).toBeGreaterThanOrEqual(before + 60_000);
+    expect(until).toBeLessThanOrEqual(Date.now() + 60_000);
+    expect(worker.pausedUntil(new Date(until + 1))).toBeNull();
   });
 });

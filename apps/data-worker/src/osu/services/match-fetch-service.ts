@@ -1,10 +1,7 @@
 import { and, eq, not } from 'drizzle-orm';
 import type { API, Match } from 'osu-api-v2-js';
 
-import {
-  ensureBeatmapPlaceholder,
-  updateBeatmapStatus,
-} from '../beatmap-store';
+import { ensureBeatmapPlaceholder } from '../beatmap-store';
 import { TournamentDataCompletionService } from './tournament-data-completion-service';
 import { RoomFetchService } from './room-fetch-service';
 import {
@@ -27,6 +24,7 @@ import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
 import * as schema from '@otr/core/db/schema';
+import type { JobExecutor } from '@otr/core/jobs';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import {
   GameRejectionReason,
@@ -50,7 +48,11 @@ interface MatchFetchServiceOptions {
   api: API;
   rateLimiter: RateLimiter;
   logger: Logger;
-  publishBeatmapFetch: (osuBeatmapId: number) => Promise<void>;
+  /** Queues beatmap fetches inside the transaction that stores the games using them. */
+  publishBeatmapFetches: (
+    db: JobExecutor,
+    osuBeatmapIds: number[]
+  ) => Promise<void>;
   dataCompletion: TournamentDataCompletionService;
 }
 
@@ -61,7 +63,10 @@ export class MatchFetchService {
   private readonly api: API;
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
-  private readonly publishBeatmapFetch: (osuBeatmapId: number) => Promise<void>;
+  private readonly publishBeatmapFetches: (
+    db: JobExecutor,
+    osuBeatmapIds: number[]
+  ) => Promise<void>;
   private readonly dataCompletion: TournamentDataCompletionService;
   private readonly roomFetchService: RoomFetchService;
 
@@ -70,7 +75,7 @@ export class MatchFetchService {
     this.api = options.api;
     this.rateLimiter = options.rateLimiter;
     this.logger = options.logger;
-    this.publishBeatmapFetch = options.publishBeatmapFetch;
+    this.publishBeatmapFetches = options.publishBeatmapFetches;
     this.dataCompletion = options.dataCompletion;
     this.roomFetchService = new RoomFetchService(options);
   }
@@ -341,6 +346,9 @@ export class MatchFetchService {
           updatedAt: nowIso,
         });
       }
+      // Queued with the games, so a beatmap marked Fetching always has a job.
+      // One batch, so its keys lock in the same order as anyone else's.
+      await this.publishBeatmapFetches(tx, [...beatmapsToQueue.keys()]);
 
       return null;
     });
@@ -358,20 +366,6 @@ export class MatchFetchService {
         matchRow.tournamentId
       );
       return true;
-    }
-
-    for (const [beatmapId, { beatmapDbId }] of beatmapsToQueue) {
-      try {
-        await this.publishBeatmapFetch(beatmapId);
-      } catch (error) {
-        await updateBeatmapStatus(
-          this.db,
-          beatmapDbId,
-          DataFetchStatus.NotFetched,
-          new Date().toISOString()
-        );
-        throw error;
-      }
     }
 
     await this.dataCompletion.updateMatchFetchStatus(

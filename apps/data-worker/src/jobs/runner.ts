@@ -271,7 +271,7 @@ export class JobRunner {
       const pausedUntil = loop.registration.pausedUntil?.(this.now());
       if (pausedUntil) {
         if (!loop.paused) {
-          this.logger.info('Pausing queue for the maintenance window', {
+          this.logger.info('Pausing queue', {
             queue,
             until: pausedUntil.toISOString(),
           });

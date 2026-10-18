@@ -3,12 +3,11 @@ import './tracing';
 
 import {
   QueueConstants,
-  type FetchOsuMessage,
   type FetchPlayerOsuTrackMessage,
   type ProcessBeatmapAttributesMessage,
   type ProcessTournamentAutomationCheckMessage,
 } from '@otr/core';
-import { getJobQueueSummary, JobQueue } from '@otr/core/jobs';
+import { enqueueJobs, getJobQueueSummary, JobQueue } from '@otr/core/jobs';
 import { withoutTracing } from '@otr/core/tracing';
 
 import { databaseUrl, db } from './db';
@@ -61,9 +60,12 @@ import { JobRunner } from './jobs/runner';
 import { JobListener } from './jobs/listener';
 import { JobPruner } from './jobs/pruner';
 import {
+  osuFetchJobFromMessage,
   RabbitMqBridge,
   tournamentStatsJobFromMessage,
 } from './jobs/rabbitmq-bridge';
+import { StrandedFetchSweep } from './jobs/stranded-fetch-sweep';
+import { captureOsuRetryAfter } from './osu/retry-after';
 
 const logger = consoleLogger;
 
@@ -73,6 +75,9 @@ const consumers: Array<{ readonly isConsuming: boolean }> = [];
 const API_REQUEST_STATS_FLUSH_MS = 60_000;
 
 const runner = new JobRunner({ db, logger: consoleLogger });
+
+// osu!'s Retry-After on a 429 or 503 decides when a fetch job runs again.
+globalThis.fetch = captureOsuRetryAfter(globalThis.fetch);
 
 /**
  * Starts the attribute job consumer and the sweep, or returns null and leaves
@@ -183,21 +188,9 @@ const bootstrap = async () => {
     },
   });
 
-  const osuPublisher = new RabbitMqPublisher<FetchOsuMessage>({
-    url: dataWorkerEnv.amqpUrl,
-    queue: QueueConstants.osu,
-  });
-
   const osuTrackPublisher = new RabbitMqPublisher<FetchPlayerOsuTrackMessage>({
     url: dataWorkerEnv.amqpUrl,
     queue: QueueConstants.osuTrack,
-  });
-
-  const osuConsumer = new RabbitMqConsumer<FetchOsuMessage>({
-    url: dataWorkerEnv.amqpUrl,
-    queue: QueueConstants.osu,
-    prefetch: 1,
-    logger,
   });
 
   const osuTrackConsumer = new RabbitMqConsumer<FetchPlayerOsuTrackMessage>({
@@ -233,8 +226,14 @@ const bootstrap = async () => {
     rateLimiter: osuApiRateLimiter,
     logger,
     dataCompletion,
-    publishPlayerFetch: async (osuPlayerId) => {
-      await osuPublisher.publish({ type: 'player', osuPlayerId });
+    publishPlayerFetches: async (tx, osuPlayerIds) => {
+      await enqueueJobs(
+        tx,
+        JobQueue.OsuFetch,
+        osuPlayerIds.map((osuPlayerId) => ({
+          payload: { type: 'player' as const, osuPlayerId },
+        }))
+      );
     },
     publishBeatmapAttributes: beatmapAttributesPublisher
       ? async (payload) => {
@@ -249,8 +248,14 @@ const bootstrap = async () => {
     rateLimiter: osuApiRateLimiter,
     logger,
     dataCompletion,
-    publishBeatmapFetch: async (osuBeatmapId) => {
-      await osuPublisher.publish({ type: 'beatmap', beatmapId: osuBeatmapId });
+    publishBeatmapFetches: async (tx, osuBeatmapIds) => {
+      await enqueueJobs(
+        tx,
+        JobQueue.OsuFetch,
+        osuBeatmapIds.map((beatmapId) => ({
+          payload: { type: 'beatmap' as const, beatmapId },
+        }))
+      );
     },
   });
 
@@ -268,16 +273,11 @@ const bootstrap = async () => {
     logger,
   });
 
-  const forumPostBackfill = new ForumPostBackfill({
-    db,
-    logger,
-    osuPublisher,
-  });
+  const forumPostBackfill = new ForumPostBackfill({ db, logger });
 
   const playerRefetchScheduler = new PlayerRefetchScheduler({
     db,
     logger,
-    osuPublisher,
     osuTrackPublisher,
     config: dataWorkerEnv.playerAutoRefetch,
   });
@@ -299,11 +299,18 @@ const bootstrap = async () => {
   });
 
   const osuWorker = new OsuApiFetchWorker({
-    queue: osuConsumer,
     beatmapService,
     matchService,
     playerService,
     forumTopicService,
+    dataCompletion,
+    logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
+  runner.register(osuWorker.registration());
+
+  const strandedFetchSweep = new StrandedFetchSweep({
+    db,
     logger,
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
   });
@@ -363,6 +370,7 @@ const bootstrap = async () => {
         queue: JobQueue.TournamentStats,
         toJob: tournamentStatsJobFromMessage,
       },
+      { queue: JobQueue.OsuFetch, toJob: osuFetchJobFromMessage },
     ],
   });
 
@@ -379,16 +387,13 @@ const bootstrap = async () => {
 
   logger.info('Starting data worker services');
 
-  await Promise.all([
-    osuWorker.start(),
-    osuTrackWorker.start(),
-    automationWorker.start(),
-  ]);
-  consumers.push(osuConsumer, osuTrackConsumer, automationConsumer);
+  await Promise.all([osuTrackWorker.start(), automationWorker.start()]);
+  consumers.push(osuTrackConsumer, automationConsumer);
 
   await jobListener.start();
   runner.start();
   jobPruner.start();
+  strandedFetchSweep.start();
   await rabbitMqBridge.start();
   consumers.push(rabbitMqBridge);
 
@@ -399,20 +404,19 @@ const bootstrap = async () => {
     logger.info('Shutting down data worker services');
     clearInterval(apiRequestStatsFlush);
     await Promise.allSettled([
-      osuWorker.stop(),
       osuTrackWorker.stop(),
       automationWorker.stop(),
       runner.stop(),
       jobPruner.stop(),
+      strandedFetchSweep.stop(),
       rabbitMqBridge.stop(),
       playerRefetchScheduler.stop(),
       beatmapAttributes?.worker.stop(),
       beatmapAttributes?.scheduler.stop(),
-      osuPublisher.close(),
       automationPublisher.close(),
       osuTrackPublisher.close(),
     ]);
-    // Closed after the osu! worker and the sweep stop, since both publish to it.
+    // Closed after the job runner and the sweep stop, since both publish to it.
     await beatmapAttributesPublisher?.close();
     await Promise.allSettled([
       jobListener.stop(),

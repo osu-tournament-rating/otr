@@ -162,6 +162,12 @@ class TournamentDataTestDb {
     },
   } as const;
 
+  // The service locks tournaments with raw SQL inside a transaction of its own.
+  execute = async () => ({ rows: [] });
+
+  transaction = async <T>(fn: (tx: TournamentDataTestDb) => Promise<T>) =>
+    fn(this);
+
   update(table: unknown) {
     if (table === schema.matches) {
       return {

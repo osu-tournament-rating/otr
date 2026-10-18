@@ -1,22 +1,15 @@
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
-import type { FetchOsuMessage, MessageEnvelope } from '@otr/core';
 import { MessagePriority } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import { forumTopicIdSql } from '@otr/core/osu/forum';
-import type { QueuePublisher } from '@otr/core/queues';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
 
-type QueuePublisherContract<TMessage extends MessageEnvelope<unknown>> = Pick<
-  QueuePublisher<TMessage>,
-  'publish'
->;
-
 interface ForumPostBackfillOptions {
   db: DatabaseClient;
   logger: Logger;
-  osuPublisher: QueuePublisherContract<FetchOsuMessage>;
 }
 
 /**
@@ -27,12 +20,10 @@ interface ForumPostBackfillOptions {
 export class ForumPostBackfill {
   private readonly db: DatabaseClient;
   private readonly logger: Logger;
-  private readonly osuPublisher: QueuePublisherContract<FetchOsuMessage>;
 
   constructor(options: ForumPostBackfillOptions) {
     this.db = options.db;
     this.logger = options.logger;
-    this.osuPublisher = options.osuPublisher;
   }
 
   /** Never throws: a failed sweep only delays the backfill to the next start. */
@@ -69,20 +60,21 @@ export class ForumPostBackfill {
       .from(tournaments)
       .where(and(isNull(tournaments.forumPostId), isNotNull(topicId)));
 
-    let enqueued = 0;
-    for (const row of topics) {
-      if (row.topicId === null) {
-        continue;
-      }
+    const topicIds = topics
+      .map((row) => row.topicId)
+      .filter((id): id is number => id !== null);
 
-      // Low priority, so the backfill waits behind submitted data.
-      await this.osuPublisher.publish(
-        { type: 'forumTopic', topicId: row.topicId },
-        { metadata: { priority: MessagePriority.Low } }
-      );
-      enqueued += 1;
-    }
+    // Low priority, so the backfill waits behind submitted data. A topic
+    // already queued merges into its job.
+    await enqueueJobs(
+      this.db,
+      JobQueue.OsuFetch,
+      topicIds.map((topicId) => ({
+        payload: { type: 'forumTopic' as const, topicId },
+        priority: MessagePriority.Low,
+      }))
+    );
 
-    return { linked: linkedRows.length, enqueued };
+    return { linked: linkedRows.length, enqueued: topicIds.length };
   }
 }
