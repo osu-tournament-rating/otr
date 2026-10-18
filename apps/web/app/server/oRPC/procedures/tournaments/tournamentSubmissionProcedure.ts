@@ -4,6 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { TournamentRejectionReason, VerificationStatus } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
 import { withAuditUserId } from '@otr/core/db';
+import { parseForumTopicId } from '@otr/core/osu/forum';
 import {
   TournamentSubmissionInputSchema,
   TournamentSubmissionResponseSchema,
@@ -12,6 +13,7 @@ import {
 import type { DatabaseClient } from '@/lib/db';
 import {
   publishFetchBeatmapMessage,
+  publishFetchForumTopicMessage,
   publishFetchMatchMessage,
 } from '@/lib/queue/publishers';
 import { createPlaceholderBeatmap } from './beatmapPlaceholders';
@@ -329,7 +331,7 @@ export async function submitTournamentHandler({
 
     const correlationId = getCorrelationId(context);
     const queueTasks: Array<{
-      kind: 'match' | 'beatmap';
+      kind: 'match' | 'beatmap' | 'forumTopic';
       id: number;
       promise: Promise<unknown>;
     }> = [];
@@ -355,6 +357,18 @@ export async function submitTournamentHandler({
         ),
       });
     });
+
+    const topicId = parseForumTopicId(input.forumUrl);
+    if (topicId !== null) {
+      queueTasks.push({
+        kind: 'forumTopic',
+        id: topicId,
+        promise: publishFetchForumTopicMessage(
+          { topicId },
+          correlationId ? { metadata: { correlationId } } : undefined
+        ),
+      });
+    }
 
     const warnings: string[] = [];
 

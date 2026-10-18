@@ -165,6 +165,13 @@ const noopQueuePublishers: QueuePublisherRegistry = {
     correlationId: 'noop',
     priority: MessagePriority.Normal,
   }),
+  fetchForumTopic: async ({ topicId }) => ({
+    type: 'forumTopic' as const,
+    topicId,
+    requestedAt: new Date().toISOString(),
+    correlationId: 'noop',
+    priority: MessagePriority.Normal,
+  }),
   processAutomationCheck: async ({ tournamentId, overrideVerifiedState }) => ({
     tournamentId,
     overrideVerifiedState,

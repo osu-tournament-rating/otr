@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, describe, expect, it } from 'bun:test';
 
 import {
   updateTournamentAdminHandler,
@@ -12,6 +12,12 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
+import {
+  resetQueuePublishersForTesting,
+  setQueuePublishersForTesting,
+  type QueuePublisherRegistry,
+} from '@/lib/queue/publishers';
+import { MessagePriority } from '@otr/core';
 
 type RequireKeys<T, K extends keyof T> = Pick<T, K> & Partial<Omit<T, K>>;
 
@@ -31,6 +37,8 @@ type TestGameScoreRow = RequireKeys<
   typeof schema.gameScores.$inferSelect,
   'id' | 'gameId'
 >;
+
+const STORED_FORUM_URL = 'https://osu.ppy.sh/community/forums/topics/1';
 
 class UpdateTournamentTestDb {
   public readonly matches: TestMatchRow[];
@@ -57,7 +65,11 @@ class UpdateTournamentTestDb {
 
   query = {
     tournaments: {
-      findFirst: async () => this.existingTournament,
+      // Unchanged from baseInput unless a test sets its own.
+      findFirst: async () => ({
+        forumUrl: STORED_FORUM_URL,
+        ...this.existingTournament,
+      }),
     },
   } as const;
 
@@ -417,6 +429,67 @@ describe('updateTournamentAdminHandler', () => {
       ])
     );
     expect(db.gameScoreUpdates.length).toBeGreaterThan(0);
+  });
+
+  describe('forum URL edits', () => {
+    afterEach(() => {
+      resetQueuePublishersForTesting();
+    });
+
+    it.each([
+      [
+        'another topic',
+        'https://osu.ppy.sh/community/forums/topics/2',
+        true,
+        [2],
+      ],
+      [
+        'a wiki page',
+        'https://osu.ppy.sh/wiki/en/Tournaments/TT/2026',
+        true,
+        [],
+      ],
+      ['the same URL', STORED_FORUM_URL, false, []],
+    ])(
+      'moving to %s unlinks the post: %p, queues topics: %p',
+      async (_label, forumUrl, unlinks, expectedTopics) => {
+        const queuedTopics: number[] = [];
+        setQueuePublishersForTesting({
+          fetchForumTopic: async ({ topicId }) => {
+            queuedTopics.push(topicId);
+            return {
+              type: 'forumTopic' as const,
+              topicId,
+              requestedAt: new Date().toISOString(),
+              correlationId: 'test',
+              priority: MessagePriority.Normal,
+            };
+          },
+        } as QueuePublisherRegistry);
+
+        const db = new UpdateTournamentTestDb({
+          id: 1,
+          verificationStatus: VerificationStatus.None,
+          verifiedByUserId: null,
+          ruleset: Ruleset.Mania4k,
+        });
+
+        await updateTournamentAdminHandler({
+          input: { ...baseInput, forumUrl },
+          context: {
+            db: db as unknown as DatabaseClient,
+            session: adminSession,
+          },
+        });
+
+        expect(db.tournamentUpdates).toHaveLength(1);
+        const set = db.tournamentUpdates[0]!;
+        expect(
+          Object.hasOwn(set, 'forumPostId') ? set.forumPostId : 'absent'
+        ).toBe(unlinks ? null : 'absent');
+        expect(queuedTopics).toEqual(expectedTopics);
+      }
+    );
   });
 
   describe('submittedByUserId and verifiedByUserId', () => {
