@@ -148,20 +148,15 @@ for (const entity of ENTITY_CASES) {
           })
           .first();
 
-        if (await entry.isVisible()) {
-          // Entries with fewer than 10 changes open on their own.
-          if ((await entry.getAttribute('data-state')) !== 'open') {
-            await entry
-              .locator('[data-testid="timeline-entry-toggle"]')
-              .click();
-          }
-
-          const diff = entry.locator('[data-testid="timeline-entry-diff"]');
-          await expect(diff).toBeVisible({ timeout: 5000 });
-          expect(
-            await entry.locator('[data-audit-field]').count()
-          ).toBeGreaterThan(0);
+        await expect(entry).toBeVisible();
+        // Entries with fewer than 10 changes open on their own.
+        if ((await entry.getAttribute('data-state')) !== 'open') {
+          await entry.locator('[data-testid="timeline-entry-toggle"]').click();
         }
+
+        const diff = entry.locator('[data-testid="timeline-entry-diff"]');
+        await expect(diff).toBeVisible({ timeout: 5000 });
+        await expect(entry.locator('[data-audit-field]').first()).toBeVisible();
       });
 
       test('timeline entries display timestamps', async ({ page }) => {

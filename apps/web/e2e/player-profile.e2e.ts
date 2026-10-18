@@ -59,8 +59,9 @@ test.describe('Player Profile Page', () => {
       await page.goto(ROUTES.playerProfile(TEST_PLAYER_ID));
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      const username = page.locator('[data-testid="player-username"]');
+      await expect(username).not.toBeEmpty({ timeout: 10000 });
+      await expect(page).toHaveTitle(`${await username.innerText()} | o!TR`);
     });
   });
 
@@ -105,18 +106,31 @@ test.describe('Player Profile Page', () => {
     });
 
     test('updates page content when ruleset changes', async ({ page }) => {
-      await page.goto(ROUTES.playerProfile(TEST_PLAYER_ID));
+      await page.goto(
+        `${ROUTES.playerProfile(TEST_PLAYER_ID)}?ruleset=${Ruleset.Osu}`
+      );
       await page.waitForLoadState('networkidle');
 
-      const rulesetChips = page
-        .getByRole('radiogroup', { name: 'Ruleset' })
-        .getByRole('radio');
-      const chipCount = await rulesetChips.count();
+      const rating = page.locator('[data-testid="stat-card-rating"]');
+      await expect(rating).toBeVisible({ timeout: 10000 });
+      const osuRating = await rating.textContent();
 
-      if (chipCount > 1) {
-        await rulesetChips.nth(1).click();
-        await page.waitForLoadState('networkidle');
-      }
+      // A click before hydration does nothing, so retry until it lands.
+      const taiko = page.getByRole('radio', { name: 'taiko' });
+      await expect(async () => {
+        await taiko.click();
+        await expect(page).toHaveURL(new RegExp(`ruleset=${Ruleset.Taiko}`), {
+          timeout: 2000,
+        });
+      }).toPass({ timeout: 15000 });
+
+      // The taiko rating, or no rating at all, replaces the osu! one.
+      await expect
+        .poll(() => rating.allTextContents(), { timeout: 10000 })
+        .not.toEqual([osuRating]);
+      await expect(
+        rating.or(page.getByText('No rating data', { exact: true }))
+      ).toBeVisible();
     });
   });
 
@@ -137,12 +151,20 @@ test.describe('Player Profile Page', () => {
       await page.goto(ROUTES.playerProfile(TEST_PLAYER_ID));
       await page.waitForLoadState('networkidle');
 
-      const toggleGroup = page.locator('[data-testid="rating-chart-toggle"]');
-      if (await toggleGroup.isVisible({ timeout: 10000 })) {
-        const toggleButtons = toggleGroup.locator('button');
-        const buttonCount = await toggleButtons.count();
-        expect(buttonCount).toBeGreaterThanOrEqual(2);
-      }
+      const chart = page.locator('[data-testid="player-rating-chart"]');
+      const toggleGroup = chart.locator('[data-testid="rating-chart-toggle"]');
+      const chartView = toggleGroup.getByRole('radio', { name: 'Chart' });
+      const tableView = toggleGroup.getByRole('radio', { name: 'Table' });
+      await expect(chartView).toBeChecked({ timeout: 10000 });
+      await expect(
+        chart.getByRole('region', { name: 'Rating history' })
+      ).toHaveCount(0);
+
+      await tableView.click();
+      await expect(tableView).toBeChecked();
+      await expect(
+        chart.getByRole('region', { name: 'Rating history' })
+      ).toBeVisible();
     });
 
     test('rating history views stay in the address', async ({ page }) => {
@@ -186,9 +208,18 @@ test.describe('Player Profile Page', () => {
       await page.goto(ROUTES.playerProfile(TEST_PLAYER_ID));
       await page.waitForLoadState('networkidle');
 
-      const frequencyCharts = page.locator('.recharts-bar-rectangles');
-      const chartCount = await frequencyCharts.count();
-      expect(chartCount).toBeGreaterThanOrEqual(0);
+      for (const title of ['Frequent teammates', 'Frequent opponents']) {
+        const panel = page.locator('[data-slot="panel"]').filter({
+          has: page.getByRole('heading', { name: title, exact: true }),
+        });
+        await expect(
+          panel.locator('.recharts-bar-rectangle').first()
+        ).toBeVisible({ timeout: 15000 });
+        // Each bar's player is a link under it.
+        await expect(
+          panel.locator('a[href^="/players/"]').first()
+        ).toBeVisible();
+      }
     });
   });
 
@@ -353,11 +384,12 @@ test.describe('Player Profile Page', () => {
       await page.goto(ROUTES.playerProfile(TEST_PLAYER_ID));
       await page.waitForLoadState('networkidle');
 
-      const countryLink = page.locator('a[href*="/leaderboard?country="]');
-      if (await countryLink.first().isVisible({ timeout: 10000 })) {
-        const href = await countryLink.first().getAttribute('href');
-        expect(href).toContain('country=');
-      }
+      const countryLink = page.getByRole('link', { name: / leaderboard$/ });
+      await expect(countryLink).toBeVisible({ timeout: 10000 });
+      await expect(countryLink).toHaveAttribute(
+        'href',
+        /^\/leaderboard\?(.+&)?country=[A-Z]{2}(&|$)/
+      );
     });
   });
 });

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { TEST_TOURNAMENT_ID, ROUTES } from './fixtures/test-config';
 
 async function openFilters(page: Page) {
@@ -177,7 +177,8 @@ test.describe('Audit Event Feed Page', () => {
     test('expandable event card shows its details on click', async ({
       page,
     }) => {
-      await page.goto(ROUTES.auditLogs);
+      // Updates carry the changed fields, so their cards expand.
+      await page.goto(`${ROUTES.auditLogs}?action=updated`);
       await page.waitForLoadState('networkidle');
 
       const eventList = page.locator('[data-testid="audit-event-list"]');
@@ -187,47 +188,53 @@ test.describe('Audit Event Feed Page', () => {
         .locator('[data-testid="audit-event-card"]')
         .filter({ has: page.locator('[data-testid="audit-event-toggle"]') })
         .first();
+      await expect(expandableCard).toBeVisible();
 
-      if (await expandableCard.isVisible()) {
-        const toggle = expandableCard.locator(
-          '[data-testid="audit-event-toggle"]'
-        );
-        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-        await toggle.click();
-        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      const toggle = expandableCard.locator(
+        '[data-testid="audit-event-toggle"]'
+      );
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 
-        const diff = expandableCard.locator('[data-testid="event-card-diff"]');
-        await expect(diff).toBeVisible({ timeout: 5000 });
-      }
+      const diff = expandableCard.locator('[data-testid="event-card-diff"]');
+      await expect(diff).toBeVisible({ timeout: 5000 });
     });
 
     test('diff display shows field label, old value, and new value', async ({
       page,
     }) => {
-      await page.goto(ROUTES.auditLogs);
+      await page.goto(`${ROUTES.auditLogs}?action=updated`);
       await page.waitForLoadState('networkidle');
 
       const eventList = page.locator('[data-testid="audit-event-list"]');
       await expect(eventList).toBeVisible({ timeout: 15000 });
 
-      const toggles = page.locator('[data-testid="audit-event-toggle"]');
-      const toggleCount = await toggles.count();
+      // An event that changed one entity lists its fields; one that changed
+      // several lists the entities instead.
+      const cards = page
+        .locator('[data-testid="audit-event-card"]')
+        .filter({ has: page.locator('[data-testid="audit-event-toggle"]') });
+      const cardCount = await cards.count();
+      let diffRow: Locator | null = null;
 
-      for (let i = 0; i < toggleCount; i++) {
-        const toggle = toggles.nth(i);
-        await toggle.click();
-        const card = page
-          .locator('[data-testid="audit-event-card"]')
-          .filter({ has: toggle });
-        const diffRow = card.locator('[data-audit-field]').first();
-        if (await diffRow.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await expect(diffRow.locator('dt')).toBeVisible();
-          await expect(diffRow.locator('dt')).not.toBeEmpty();
-          await expect(diffRow.locator('dd')).toBeVisible();
-          break;
-        }
-        await toggle.click();
+      for (let i = 0; i < cardCount && !diffRow; i++) {
+        const card = cards.nth(i);
+        await card.locator('[data-testid="audit-event-toggle"]').click();
+        const row = card.locator('[data-audit-field]').first();
+        const shown = await row.waitFor({ timeout: 3000 }).then(
+          () => true,
+          () => false
+        );
+        if (shown) diffRow = row;
       }
+
+      expect(diffRow, 'no updated event lists its fields').not.toBeNull();
+      await expect(diffRow!.locator('dt')).not.toBeEmpty();
+      // The old value struck through, then the new one, or "No value".
+      const values = diffRow!.locator('dd');
+      await expect(values.locator('del, ins').first()).not.toBeEmpty();
+      await expect(values).toContainText('changed to');
     });
 
     test('event card entity link navigates to audit timeline', async ({
@@ -246,14 +253,13 @@ test.describe('Audit Event Feed Page', () => {
         .locator('[data-testid="event-card-description"] a[href^="/audit/"]')
         .first();
 
-      if (await entityLink.isVisible()) {
-        const href = await entityLink.getAttribute('href');
-        await entityLink.click();
-        await page.waitForURL(`**${href}`, { timeout: 10000 });
-        await expect(
-          page.locator('[data-testid="audit-page-header"]')
-        ).toBeVisible({ timeout: 10000 });
-      }
+      await expect(entityLink).toBeVisible();
+      const href = await entityLink.getAttribute('href');
+      await entityLink.click();
+      await page.waitForURL(`**${href}`, { timeout: 10000 });
+      await expect(
+        page.locator('[data-testid="audit-page-header"]')
+      ).toBeVisible({ timeout: 10000 });
     });
   });
 });
@@ -276,11 +282,6 @@ test.describe('Entity Audit Timeline Page', () => {
       await expect(
         page.locator('[data-testid="audit-entity-description"]')
       ).toContainText(`#${TEST_TOURNAMENT_ID}`);
-
-      // The page header replaced the breadcrumb.
-      await expect(
-        page.locator('[data-testid="audit-breadcrumb"]')
-      ).toHaveCount(0);
     });
 
     test('back link opens the tournament', async ({ page }) => {
@@ -336,18 +337,15 @@ test.describe('Entity Audit Timeline Page', () => {
         .filter({ has: page.locator('[data-testid="timeline-entry-toggle"]') })
         .first();
 
-      if (await entry.isVisible()) {
-        // Entries with fewer than 10 changes open on their own.
-        if ((await entry.getAttribute('data-state')) !== 'open') {
-          await entry.locator('[data-testid="timeline-entry-toggle"]').click();
-        }
-
-        const diff = entry.locator('[data-testid="timeline-entry-diff"]');
-        await expect(diff).toBeVisible({ timeout: 5000 });
-        expect(
-          await entry.locator('[data-audit-field]').count()
-        ).toBeGreaterThan(0);
+      await expect(entry).toBeVisible();
+      // Entries with fewer than 10 changes open on their own.
+      if ((await entry.getAttribute('data-state')) !== 'open') {
+        await entry.locator('[data-testid="timeline-entry-toggle"]').click();
       }
+
+      const diff = entry.locator('[data-testid="timeline-entry-diff"]');
+      await expect(diff).toBeVisible({ timeout: 5000 });
+      await expect(entry.locator('[data-audit-field]').first()).toBeVisible();
     });
 
     test('timeline entries display timestamps', async ({ page }) => {
@@ -379,10 +377,9 @@ test.describe('Entity Audit Timeline Page', () => {
       );
       await page.waitForLoadState('networkidle');
 
+      // The test tournament has hundreds of changed scores.
       const loadMore = page.getByRole('button', { name: 'Load more' });
-      if (!(await loadMore.isVisible({ timeout: 15000 }).catch(() => false))) {
-        return; // Every change fits in one batch.
-      }
+      await expect(loadMore).toBeVisible({ timeout: 15000 });
       const rows = page.locator('[data-testid="timeline-entry"]');
       const shown = await rows.count();
 

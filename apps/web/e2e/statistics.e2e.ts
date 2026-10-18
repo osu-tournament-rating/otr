@@ -22,8 +22,7 @@ test.describe('Statistics Page', () => {
       await page.goto(ROUTES.stats);
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      await expect(page).toHaveTitle('Platform statistics | o!TR');
     });
   });
 
@@ -187,12 +186,12 @@ test.describe('Statistics Page', () => {
 
       // Every ruleset's distribution is on the page already, so a switch
       // only rewrites the address: no React Server Components request.
+      // Production builds prefetch the links in view, which is not a render.
       const serverRenders: string[] = [];
       page.on('request', (request) => {
-        if (
-          request.headers()['rsc'] === '1' ||
-          request.url().includes('_rsc=')
-        ) {
+        const headers = request.headers();
+        if (headers['next-router-prefetch']) return;
+        if (headers['rsc'] === '1' || request.url().includes('_rsc=')) {
           serverRenders.push(request.url());
         }
       });

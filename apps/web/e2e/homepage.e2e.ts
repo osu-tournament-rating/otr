@@ -24,8 +24,7 @@ test.describe('Homepage and Global Navigation', () => {
       await page.goto(ROUTES.home);
       await page.waitForLoadState('networkidle');
 
-      const title = await page.title();
-      expect(title.length).toBeGreaterThan(0);
+      await expect(page).toHaveTitle('osu! Tournament Rating');
     });
 
     test('renders the rating ladder section', async ({ page }) => {
