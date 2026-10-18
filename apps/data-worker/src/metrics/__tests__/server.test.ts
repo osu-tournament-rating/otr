@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { resolveMetricsPort } from '../server';
+import { handleMetricsRequest, resolveMetricsPort } from '../server';
 
 describe('resolveMetricsPort', () => {
   it('uses METRICS_PORT when it is set', () => {
@@ -13,4 +13,20 @@ describe('resolveMetricsPort', () => {
       expect(resolveMetricsPort(value)).toBe(9091);
     }
   );
+});
+
+describe('handleMetricsRequest /health', () => {
+  const health = (isHealthy: boolean) =>
+    handleMetricsRequest(
+      new Request('http://localhost/health'),
+      () => isHealthy
+    );
+
+  it('returns 200 while every consumer is subscribed', async () => {
+    expect((await health(true)).status).toBe(200);
+  });
+
+  it('returns 503 while a consumer is not subscribed', async () => {
+    expect((await health(false)).status).toBe(503);
+  });
 });
