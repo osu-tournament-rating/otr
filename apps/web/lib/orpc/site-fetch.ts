@@ -5,6 +5,12 @@ import { BUILD_ID_HEADER } from '@/lib/build-id';
 /** Dispatched on `window` when an /rpc call is answered by another build. */
 export const SITE_UPDATED_EVENT = 'otr:site-updated';
 
+/** Where an open tab asks which build the site runs. */
+export const BUILD_CHECK_PATH = '/api/health';
+
+/** How often an open tab in view asks the site for its build. */
+export const BUILD_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
 /**
  * The site did not answer: the request failed before a response came back, or
  * the server error came from something in front of the site, as when a
