@@ -12,6 +12,16 @@ name: Deploy
 # GitHub has no tag for. `latest`, which production's compose file pulls, moves
 # last, and only to images built from the commit the release tag points at.
 #
+# The site runs in two containers, `web` on port 3000 and `web-standby` on
+# 3002, and a deploy replaces them one at a time. The Caddy reverse proxy in
+# front of the host, whose config is not in this repository, proxies to both:
+# it health-checks /api/health with an `x-otr-readiness` header, prefers
+# `web`, and retries a request on the other container when one refuses it. A
+# stopping container answers that check with 503 and keeps serving for a
+# while before it exits, so requests move over without errors. Builds from
+# before this ignore the header and pass the check, so a rollback to one
+# works with the same Caddy config.
+#
 # The docs site in apps/docs is part of the compose stack too. Every release
 # builds its image, `stagecodes/otr-docs`, alongside the web and data worker
 # images, and production serves it on port 8090.
@@ -660,6 +670,19 @@ jobs:
               [[ "$labels" != *com.docker.compose.project* ]]; then
               docker rm -f otr-docs
             fi
+            # One web container at a time, so the other keeps serving. --wait
+            # holds until the new container passes its health check, and a
+            # container that never does stops the deploy with the other one
+            # still serving. `web-standby` goes first because Caddy sends it
+            # traffic only while `web` is down. A rollback to a release whose
+            # compose file has no `web-standby` restarts `web` alone, and
+            # --remove-orphans below then removes the standby.
+            services="$(docker compose config --services)" || exit
+            for service in web-standby web; do
+              grep -qx "$service" <<<"$services" || continue
+              docker compose up -d --wait --wait-timeout 300 "$service" || exit
+            done
+            # Both web containers are current by now, so this leaves them be.
             docker compose --profile node-exporter up -d --remove-orphans
             # up -d leaves a container alone when only a file it mounts
             # changed, so Prometheus and Alertmanager reread their config and

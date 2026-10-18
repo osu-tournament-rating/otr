@@ -138,3 +138,5 @@ It is possible to run the entire stack locally identically to how it runs in pro
 - Build the `otr-web:local` and `otr-data-worker:local` images: `./scripts/local-up.sh`
 - (Linux only) Start the compose stack with system monitoring `docker compose --profile node-exporter up`
 - (Windows & MacOS) Start the compose stack `docker compose up`
+
+As in production, the site runs in two containers: `web` on port 3000 and `web-standby` on port 3002. Set `WEB_PORT` or `WEB_STANDBY_PORT` in `.env` if either port is taken.

@@ -42,7 +42,7 @@ scrape_configs:
       type: Bearer
       credentials_file: /etc/prometheus/secrets/metrics_token
     static_configs:
-      - targets: ['otr-web:3000']
+      - targets: ['otr-web:3000', 'otr-web-standby:3000']
 
   - job_name: 'data-worker'
     static_configs:
