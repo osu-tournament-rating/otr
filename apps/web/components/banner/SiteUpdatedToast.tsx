@@ -1,8 +1,10 @@
 'use client';
 
+import { Info, RotateCw } from 'lucide-react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { Button } from '@/components/kit/controls/Button';
 import { BUILD_ID } from '@/lib/build-id';
 import {
   BUILD_CHECK_INTERVAL_MS,
@@ -28,18 +30,14 @@ export default function SiteUpdatedToast() {
 
     const show = () => {
       updated = true;
-      toast('o!TR has been updated', {
+      toast.custom(() => <SiteUpdatedNotice />, {
         id: SITE_UPDATED_EVENT,
         duration: Infinity,
         dismissible: false,
-        action: {
-          label: 'Reload',
-          onClick: (event) => {
-            // Sonner closes a toast after its action unless told not to.
-            event.preventDefault();
-            window.location.reload();
-          },
-        },
+        position: 'bottom-center',
+        // The notice draws its own pill, so the toast around it fills the
+        // stack to centre it and drops the Toaster's surface.
+        className: 'w-full bg-transparent! shadow-none!',
       });
     };
 
@@ -74,4 +72,30 @@ export default function SiteUpdatedToast() {
   }, []);
 
   return null;
+}
+
+/**
+ * A pill centred under the page, set apart from the action toasts in the
+ * corner. The reload icon turns every few seconds to draw the eye, and stays
+ * still for visitors who ask for reduced motion.
+ */
+function SiteUpdatedNotice() {
+  return (
+    <div className="flex w-full justify-center">
+      {/* rounded-3xl, not full: on the narrowest phones the text wraps. */}
+      <div className="flex max-w-full items-center gap-4 rounded-3xl border bg-background py-2 pr-2 pl-4 text-foreground shadow-lg dark:bg-popover">
+        <div className="flex min-w-0 items-center gap-2">
+          <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="text-sm font-medium">o!TR has been updated</span>
+        </div>
+        <Button
+          icon={RotateCw}
+          className="shrink-0 rounded-full motion-safe:[&_svg]:animate-spin-pause"
+          onClick={() => window.location.reload()}
+        >
+          Reload
+        </Button>
+      </div>
+    </div>
+  );
 }
