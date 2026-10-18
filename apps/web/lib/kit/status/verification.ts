@@ -8,7 +8,7 @@ import { VerificationStatus } from '@otr/core/osu';
 export interface VerificationStatusCopy {
   /** The state's one name, used on every page. */
   name: string;
-  /** Plain-language line read after "<name>: ", so it starts lower case. */
+  /** Short line read after "<name>: ", capitalised and with no full stop. */
   summary: string;
 }
 
@@ -21,33 +21,29 @@ export const VERIFICATION_STATUS_COPY: Record<
 > = {
   [VerificationStatus.Verified]: {
     name: 'Verified',
-    summary:
-      'approved by an admin. Counts toward ratings from the Tuesday update after it was verified.',
+    summary: 'Approved by an admin, counted in ratings',
   },
   [VerificationStatus.PreVerified]: {
     name: 'Pre-verified',
-    summary:
-      'passed automated checks. Not counted in ratings until an admin verifies it.',
+    summary: 'Passed automated checks, awaiting admin review',
   },
   [VerificationStatus.None]: {
     name: 'Pending',
-    summary:
-      'submitted, but automated checks have not run yet. Not counted in ratings until an admin verifies it.',
+    summary: 'Awaiting automated checks',
   },
   [VerificationStatus.PreRejected]: {
     name: 'Pre-rejected',
-    summary:
-      'failed automated checks. Not counted in ratings unless an admin verifies it.',
+    summary: 'Failed automated checks, awaiting admin review',
   },
   [VerificationStatus.Rejected]: {
     name: 'Rejected',
-    summary: 'rejected by an admin. Not counted in ratings.',
+    summary: 'Excluded from ratings by an admin',
   },
 };
 
 const UNKNOWN_STATUS_COPY: VerificationStatusCopy = {
   name: 'Unknown status',
-  summary: 'this status is not recognised.',
+  summary: 'Not recognised',
 };
 
 /** Legends, filters and the status sheet list the states in this order. */
@@ -69,7 +65,7 @@ export function getVerificationStatusName(status: VerificationStatus): string {
   return getVerificationStatusCopy(status).name;
 }
 
-/** The tooltip line, such as "Pre-verified: passed automated checks. …". */
+/** The tooltip line, such as "Pre-verified: Passed automated checks, …". */
 export function getVerificationStatusTooltip(
   status: VerificationStatus
 ): string {

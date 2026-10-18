@@ -178,7 +178,7 @@ function PlayerHeroDemo() {
         <IconButton
           variant="outline"
           icon={ExternalLink}
-          label="View profile on osu! website"
+          label="View on osu!"
         />
       }
     >
@@ -361,7 +361,7 @@ export default function LayoutSection() {
               <IconButton
                 variant="overlay"
                 icon={ExternalLink}
-                label="View tournament on osu! website"
+                label="View on osu!"
               />
             </>
           }
@@ -450,7 +450,7 @@ export default function LayoutSection() {
               <IconButton
                 variant="outline"
                 icon={ExternalLink}
-                label="View tournament on osu! website"
+                label="View on osu!"
               />
             </>
           }

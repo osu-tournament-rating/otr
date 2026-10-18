@@ -239,7 +239,7 @@ export default function TournamentHero({
               asChild
               variant="outline"
               icon={ExternalLink}
-              label="View tournament on osu! website"
+              label="View on osu!"
             >
               <a
                 href={tournament.forumUrl}

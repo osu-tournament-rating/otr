@@ -191,7 +191,7 @@ export default function MatchHero({
               asChild
               variant="outline"
               icon={ExternalLink}
-              label="View match on osu! website"
+              label="View on osu!"
             >
               <a href={osuUrl} target="_blank" rel="noopener noreferrer" />
             </IconButton>

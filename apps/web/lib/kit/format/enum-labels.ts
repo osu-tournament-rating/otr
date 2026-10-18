@@ -168,20 +168,14 @@ export const FILTERING_FAIL_REASON_DESCRIPTIONS: Readonly<
   Record<FilteringFailReason, string>
 > = {
   [FilteringFailReason.None]: 'No failure reason',
-  [FilteringFailReason.MinRating]:
-    "The player's rating is below the minimum threshold",
-  [FilteringFailReason.MaxRating]:
-    "The player's rating is above the maximum threshold",
+  [FilteringFailReason.MinRating]: 'Rating below the minimum',
+  [FilteringFailReason.MaxRating]: 'Rating above the maximum',
   [FilteringFailReason.NotEnoughTournaments]:
-    'The player has not played in the minimum specified number of tournaments',
-  [FilteringFailReason.PeakRatingTooHigh]:
-    "The player's all-time peak rating exceeds the maximum allowed",
-  [FilteringFailReason.NotEnoughMatches]:
-    'The player has not played in the minimum specified number of matches',
-  [FilteringFailReason.TooManyMatches]:
-    'The player has played in more than the maximum specified number of matches',
-  [FilteringFailReason.TooManyTournaments]:
-    'The player has participated in more than the maximum specified number of tournaments',
+    'Fewer tournaments than the minimum',
+  [FilteringFailReason.PeakRatingTooHigh]: 'Peak rating above the maximum',
+  [FilteringFailReason.NotEnoughMatches]: 'Fewer matches than the minimum',
+  [FilteringFailReason.TooManyMatches]: 'More matches than the maximum',
+  [FilteringFailReason.TooManyTournaments]: 'More tournaments than the maximum',
 };
 
 /** The osu! API's beatmap `ranked` values; o!TR stores them as they come. */

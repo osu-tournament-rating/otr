@@ -145,7 +145,7 @@ import { VerificationStatusBadge } from '@/components/kit/status/VerificationSta
     <IconButton
       variant="outline"
       icon={ExternalLink}
-      label="View tournament on osu! website"
+      label="View on osu!"
     />
   }
   tabs={<HeroTabs aria-label="Tournament views" value={tab} items={…} />}

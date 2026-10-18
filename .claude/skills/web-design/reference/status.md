@@ -54,7 +54,7 @@ import {
 import { formatBadgeCount } from '@/lib/kit/status/count';
 
 getVerificationStatusTooltip(VerificationStatus.PreVerified);
-// "Pre-verified: passed automated checks. Not counted in ratings until an admin verifies it."
+// "Pre-verified: Passed automated checks, awaiting admin review"
 isNotInRatingsYet(tournament.verificationStatus); // Pending, Pre-verified, Pre-rejected
 getWarningTexts('match', match.warningFlags); // ["Low game count", …]
 formatBadgeCount(140); // "99+"
@@ -275,7 +275,7 @@ import { ReportStatusBadge } from '@/components/kit/status/ReportStatusBadge';
 <ReportStatusBadge status={report.status} tooltip="tap" />;
 ```
 
-- `size` as for Badge; `tooltip` adds the plain-language line ("Dismissed: an admin reviewed it and found nothing to change."), `tap` or `hover` as for the verification components.
+- `size` as for Badge; `tooltip` adds the plain-language line ("Dismissed: Reviewed by an admin, no changes made"), `tap` or `hover` as for the verification components.
 
 Don't:
 
