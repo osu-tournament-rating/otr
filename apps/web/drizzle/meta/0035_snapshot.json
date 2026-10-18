@@ -1,5 +1,5 @@
 {
-  "id": "f064a941-2c15-4940-9933-854345411a27",
+  "id": "2c5da179-6d8f-49cd-ab18-fc37b80a1685",
   "prevId": "a05530fe-fdb9-475c-bc48-773e7305a9b1",
   "version": "7",
   "dialect": "postgresql",
@@ -6594,6 +6594,18 @@
             "cache": "1",
             "cycle": false
           }
+        },
+        "profile_ruleset": {
+          "name": "profile_ruleset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "browsing_ruleset": {
+          "name": "browsing_ruleset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "user_id": {
           "name": "user_id",

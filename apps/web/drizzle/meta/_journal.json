@@ -250,15 +250,8 @@
     {
       "idx": 35,
       "version": "7",
-      "when": 1792287885248,
-      "tag": "0035_drop_default_ruleset",
-      "breakpoints": true
-    },
-    {
-      "idx": 36,
-      "version": "7",
-      "when": 1792287885705,
-      "tag": "0036_user_ruleset_settings",
+      "when": 1792288632443,
+      "tag": "0035_default_ruleset_settings",
       "breakpoints": true
     }
   ]
