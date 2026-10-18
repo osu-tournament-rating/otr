@@ -14,8 +14,8 @@ import {
 } from '../osu-sign-in.test-utils';
 
 // Admin rights come only from `users.scopes`, through the site's own
-// procedures. Better Auth's admin endpoints act on `auth_users.role`
-// instead, so the auth handler must not serve them.
+// procedures, so the auth handler must not serve Better Auth's admin
+// endpoints.
 describe('auth admin endpoints', () => {
   test('none are served', () => {
     const paths = Object.values(auth.api).flatMap((endpoint) =>
@@ -34,7 +34,7 @@ describe('auth admin endpoints', () => {
 const url = process.env.SEARCH_TEST_DATABASE_URL;
 const enabled = !!url && process.env.DATABASE_URL === url;
 
-describe.skipIf(!enabled)('a non-admin whose auth user has role admin', () => {
+describe.skipIf(!enabled)('a signed-in non-admin', () => {
   const osuUser = useFakeOsuUser();
   // Another player, which the user tries to take over.
   const otherOsuId = osuUser.osuId + 1;
@@ -62,12 +62,6 @@ describe.skipIf(!enabled)('a non-admin whose auth user has role admin', () => {
       where: eq(schema.users.playerId, playerId),
     });
     expect(appUser?.scopes ?? []).not.toContain('admin');
-
-    // The role sign-in used to grant to admins, and never took back.
-    await db
-      .update(schema.auth_users)
-      .set({ role: 'admin' })
-      .where(eq(schema.auth_users.id, userId));
 
     const [otherPlayer] = await db
       .insert(schema.players)

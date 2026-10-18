@@ -54,7 +54,6 @@ export const auth_users = pgTable(
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
-    role: text('role'),
     banned: boolean('banned').default(false),
     banReason: text('ban_reason'),
     banExpires: timestamp('ban_expires'),
@@ -78,7 +77,6 @@ export const auth_sessions = pgTable('auth_sessions', {
   userId: text('user_id')
     .notNull()
     .references(() => auth_users.id, { onDelete: 'cascade' }),
-  impersonatedBy: text('impersonated_by'),
 });
 
 export const auth_accounts = pgTable('auth_accounts', {

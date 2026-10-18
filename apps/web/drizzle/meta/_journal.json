@@ -253,6 +253,13 @@
       "when": 1792288632443,
       "tag": "0035_default_ruleset_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792293708874,
+      "tag": "0036_drop_auth_admin_columns",
+      "breakpoints": true
     }
   ]
 }
