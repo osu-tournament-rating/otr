@@ -67,16 +67,16 @@ async function clickReportTrigger(
 
   const scope: Page | Locator = card ?? page;
   const trigger = scope.locator(`${triggerSelector}:visible`);
+  const actions = scope.getByRole('button', { name: /^Actions for/ }).first();
+  // The flag renders once the page knows the session, after hydration.
+  await expect(trigger.or(actions).first()).toBeVisible({ timeout: 5000 });
   if ((await trigger.count()) > 0) {
     await expect(trigger).toHaveCount(1);
     await trigger.click();
     return;
   }
 
-  await scope
-    .getByRole('button', { name: /^Actions for/ })
-    .first()
-    .click();
+  await actions.click();
   await page.getByRole('menuitem', { name: 'Report an issue' }).click();
 }
 
