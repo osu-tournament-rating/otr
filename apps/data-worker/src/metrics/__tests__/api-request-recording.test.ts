@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { sql } from 'drizzle-orm';
 
 import { BeatmapFileDownloader } from '../../beatmap-attributes/downloader';
@@ -8,9 +8,18 @@ import {
   silentLogger,
   testDatabaseUrl,
 } from '../../jobs/__tests__/test-db';
-import { withApiMetrics } from '../../osu/api-helpers';
 import { OsuTrackClient } from '../../osu-track/client';
 import { apiRequestStats } from '../api-request-stats';
+
+// The client module reads worker env at import time.
+class FakeAPIError extends Error {
+  constructor(readonly response: { status_code: number }) {
+    super(`HTTP ${response.status_code}`);
+  }
+}
+mock.module('../../osu/client', () => ({ APIError: FakeAPIError }));
+
+const { withApiMetrics } = await import('../../osu/api-helpers');
 
 describe.skipIf(!testDatabaseUrl)(
   'outbound requests in the daily totals',
