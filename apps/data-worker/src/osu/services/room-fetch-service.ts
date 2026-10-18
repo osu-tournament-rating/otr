@@ -34,6 +34,10 @@ import {
   cascadeGameRejection,
   cascadeMatchRejection,
 } from '@otr/core/db/rejection-cascade';
+import {
+  findMatchHoldingGames,
+  mergeMatchesInto,
+} from '@otr/core/db/match-merge';
 import { coerceNumericEnumValue } from '@otr/core';
 
 interface RoomFetchServiceOptions {
@@ -154,7 +158,28 @@ export class RoomFetchService {
 
     const beatmapsToQueue = new Map<number, { beatmapDbId: number }>();
 
-    await this.db.transaction(async (tx) => {
+    const mergedInto = await this.db.transaction(async (tx) => {
+      // Another match holding these games means this room was merged into
+      // it, so it takes its place in match_merges instead of taking the games.
+      const holderMatchId = await findMatchHoldingGames(
+        tx,
+        matchRow.id,
+        (playlist_items ?? []).map((playlistItem) => playlistItem.id)
+      );
+
+      if (holderMatchId != null) {
+        await mergeMatchesInto(tx, holderMatchId, [
+          {
+            id: matchRow.id,
+            osuId: roomId,
+            isLazer: true,
+            name: room.name ?? '',
+            tournamentId: matchRow.tournamentId,
+          },
+        ]);
+        return holderMatchId;
+      }
+
       await tx
         .update(schema.matches)
         .set({
@@ -343,7 +368,24 @@ export class RoomFetchService {
           updatedAt: nowIso,
         });
       }
+
+      return null;
     });
+
+    if (mergedInto != null) {
+      this.logger.info(
+        'Room games are held by another match; recorded it as merged',
+        {
+          roomId,
+          matchId: matchRow.id,
+          mergedInto,
+        }
+      );
+      await this.dataCompletion.checkAndTriggerAutomationChecksIfComplete(
+        matchRow.tournamentId
+      );
+      return true;
+    }
 
     for (const [osuBeatmapId, { beatmapDbId }] of beatmapsToQueue) {
       try {

@@ -153,7 +153,23 @@ const matchBaseSchema = matchSelectSchema.omit(CreatedUpdatedOmit).extend({
 
 export const MatchSchema = matchBaseSchema;
 
-export const MatchDetailSchema = MatchSchema;
+/** A match deleted by merging its games into another match. */
+export const MatchMergeSchema = z.object({
+  mergedMatchId: z.number().int(),
+  osuId: z.number().int(),
+  isLazer: z.boolean(),
+  name: z.string(),
+  created: z.string(),
+});
+
+export const MatchDetailSchema = MatchSchema.extend({
+  mergedMatches: z.array(MatchMergeSchema).default([]),
+});
+
+/** A merged match and the match its games went into. */
+export const MatchMergeLookupSchema = MatchMergeSchema.extend({
+  match: matchSelectSchema.pick({ id: true, name: true }),
+});
 
 export const MatchIdInputSchema = z.object({
   id: z.number().int().positive(),
@@ -329,6 +345,8 @@ export type RatingAdjustment = z.infer<typeof RatingAdjustmentSchema>;
 export type MatchWinRecord = z.infer<typeof MatchWinRecordSchema>;
 export type Match = z.infer<typeof MatchSchema>;
 export type MatchDetail = z.infer<typeof MatchDetailSchema>;
+export type MatchMerge = z.infer<typeof MatchMergeSchema>;
+export type MatchMergeLookup = z.infer<typeof MatchMergeLookupSchema>;
 export type MatchAdminUpdateInput = z.infer<typeof MatchAdminUpdateInputSchema>;
 export type MatchAdminMutationResponse = z.infer<
   typeof MatchAdminMutationResponseSchema

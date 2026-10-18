@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 
 import { DELETE_CASCADE_DESCRIPTION } from '@/components/admin-forms/adminFormFields';
@@ -51,6 +51,12 @@ import MergeMatchDialog from './MergeMatchDialog';
 
 export type MatchTab = 'games' | 'stats';
 
+function osuMatchUrl(match: { osuId: number; isLazer: boolean }) {
+  return match.isLazer
+    ? `https://osu.ppy.sh/multiplayer/rooms/${match.osuId}`
+    : `https://osu.ppy.sh/community/matches/${match.osuId}`;
+}
+
 /**
  * The top of the match page: the match's name, status, tournament and time,
  * the Admin menu, public actions (report, audit history, osu!, in the
@@ -77,9 +83,8 @@ export default function MatchHero({
     games.flatMap((game) => game.scores.map((score) => score.playerId))
   ).size;
   const noteCount = match.adminNotes?.length ?? 0;
-  const osuUrl = match.isLazer
-    ? `https://osu.ppy.sh/multiplayer/rooms/${match.osuId}`
-    : `https://osu.ppy.sh/community/matches/${match.osuId}`;
+  const mergedMatches = match.mergedMatches ?? [];
+  const osuUrl = osuMatchUrl(match);
   const tabHref = (value: MatchTab) => `/matches/${match.id}?tab=${value}`;
 
   return (
@@ -119,6 +124,24 @@ export default function MatchHero({
             {playerCount > 0 ? (
               <HeroMetaItem icon={Users}>
                 {formatCountOf(playerCount, 'player')}
+              </HeroMetaItem>
+            ) : null}
+            {mergedMatches.length > 0 ? (
+              <HeroMetaItem icon={GitMerge} data-testid="match-merged-from">
+                Merged from{' '}
+                {mergedMatches.map((merged, index) => (
+                  <Fragment key={merged.mergedMatchId}>
+                    {index > 0 ? ', ' : null}
+                    <EntityLink
+                      variant="inline"
+                      href={osuMatchUrl(merged)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {merged.osuId}
+                    </EntityLink>
+                  </Fragment>
+                ))}
               </HeroMetaItem>
             ) : null}
             {match.isLazer ? <Badge variant="outline">lazer</Badge> : null}

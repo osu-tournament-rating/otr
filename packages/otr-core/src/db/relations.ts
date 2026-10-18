@@ -25,6 +25,7 @@ import {
   matchAudits,
   matchRosters,
   matchAdminNotes,
+  matchMerges,
   tournaments,
   playerAdminNotes,
   playerHighestRanks,
@@ -272,6 +273,7 @@ export const matchesRelations = relations(matches, ({ one, many }) => ({
   matchAudits: many(matchAudits),
   matchRosters: many(matchRosters),
   matchAdminNotes: many(matchAdminNotes),
+  matchMerges: many(matchMerges),
   tournament: one(tournaments, {
     fields: [matches.tournamentId],
     references: [tournaments.id],
@@ -329,6 +331,13 @@ export const matchAuditsRelations = relations(matchAudits, ({ one }) => ({
 export const matchRostersRelations = relations(matchRosters, ({ one }) => ({
   match: one(matches, {
     fields: [matchRosters.matchId],
+    references: [matches.id],
+  }),
+}));
+
+export const matchMergesRelations = relations(matchMerges, ({ one }) => ({
+  match: one(matches, {
+    fields: [matchMerges.matchId],
     references: [matches.id],
   }),
 }));

@@ -158,6 +158,26 @@ export async function submitTournamentHandler({
               )
           : [];
 
+        const mergedMatches = matchOsuIds.length
+          ? await tx
+              .select({ osuId: schema.matchMerges.osuId })
+              .from(schema.matchMerges)
+              .where(
+                and(
+                  inArray(schema.matchMerges.osuId, matchOsuIds),
+                  eq(schema.matchMerges.isLazer, input.isLazer)
+                )
+              )
+          : [];
+
+        if (mergedMatches.length) {
+          throw errors.MATCH_ASSIGNMENT_CONFLICT({
+            message: `The following matches were merged into other matches: ${formatIdList(
+              mergedMatches.map((match) => Number(match.osuId))
+            )}.`,
+          });
+        }
+
         const conflictingMatches = existingMatches.filter(
           (match) =>
             match.tournamentId !== null && match.tournamentId !== tournamentId

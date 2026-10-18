@@ -15,7 +15,10 @@ import {
 
 import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
-import { updateMatchAdminHandler } from './matchAdminHandlers';
+import {
+  mergeMatchAdminHandler,
+  updateMatchAdminHandler,
+} from './matchAdminHandlers';
 
 export const updateMatchAdmin = adminMutationProcedure
   .input(MatchAdminUpdateInputSchema)
@@ -37,89 +40,7 @@ export const mergeMatchAdmin = adminMutationProcedure
     method: 'POST',
     path: '/matches:merge',
   })
-  .handler(async ({ input, context }) => {
-    const { adminUserId } = ensureAdminSession(context.session);
-
-    const childIds = Array.from(new Set(input.childMatchIds));
-
-    if (childIds.includes(input.id)) {
-      throw new ORPCError('BAD_REQUEST', {
-        message: 'Cannot merge a match into itself',
-      });
-    }
-
-    if (childIds.length === 0) {
-      throw new ORPCError('BAD_REQUEST', {
-        message: 'At least one child match is required',
-      });
-    }
-
-    return context.db.transaction((tx) =>
-      withAuditUserId(tx, adminUserId, async () => {
-        const parentMatch = await tx.query.matches.findFirst({
-          columns: {
-            id: true,
-            tournamentId: true,
-          },
-          where: eq(schema.matches.id, input.id),
-        });
-
-        if (!parentMatch) {
-          throw new ORPCError('NOT_FOUND', {
-            message: 'Parent match not found',
-          });
-        }
-
-        const childMatches = await tx.query.matches.findMany({
-          columns: {
-            id: true,
-            tournamentId: true,
-          },
-          where: inArray(schema.matches.id, childIds),
-        });
-
-        if (childMatches.length !== childIds.length) {
-          const foundIds = new Set(childMatches.map((match) => match.id));
-          const missingIds = childIds.filter((id) => !foundIds.has(id));
-
-          throw new ORPCError('NOT_FOUND', {
-            message: `Matches not found: ${missingIds.join(', ')}`,
-          });
-        }
-
-        const mismatchedTournament = childMatches.find(
-          (match) => match.tournamentId !== parentMatch.tournamentId
-        );
-
-        if (mismatchedTournament) {
-          throw new ORPCError('BAD_REQUEST', {
-            message:
-              'All child matches must belong to the same tournament as the parent match to merge',
-          });
-        }
-
-        const reassignedGames = await tx
-          .update(schema.games)
-          .set({ matchId: parentMatch.id })
-          .where(inArray(schema.games.matchId, childIds))
-          .returning({ id: schema.games.id });
-
-        await tx
-          .delete(schema.matches)
-          .where(inArray(schema.matches.id, childIds));
-
-        if (parentMatch.tournamentId != null) {
-          await syncTournamentDateRange(tx, parentMatch.tournamentId);
-        }
-
-        return {
-          success: true,
-          mergedMatchCount: childIds.length,
-          rehomedGameCount: reassignedGames.length,
-        } as const;
-      })
-    );
-  });
+  .handler(({ input, context }) => mergeMatchAdminHandler({ input, context }));
 
 export const deleteMatchAdmin = adminMutationProcedure
   .input(MatchAdminDeleteInputSchema)
