@@ -7,8 +7,8 @@ import {
 
 import { withSpan } from './tracer';
 
-const MESSAGING_SYSTEM = 'rabbitmq';
-const JOBS_SYSTEM = 'otr_jobs';
+/** Background work runs from the Postgres jobs table, with no message broker. */
+const MESSAGING_SYSTEM = 'otr_jobs';
 
 const queueAttributes = (queue: string, extra?: Attributes): Attributes => ({
   'messaging.system': MESSAGING_SYSTEM,
@@ -25,11 +25,9 @@ export function traceEnqueue<T>(
     `enqueue ${queue}`,
     {
       kind: SpanKind.PRODUCER,
-      attributes: {
-        'messaging.system': JOBS_SYSTEM,
-        'messaging.destination.name': queue,
+      attributes: queueAttributes(queue, {
         'messaging.operation.name': 'publish',
-      },
+      }),
     },
     run
   );
