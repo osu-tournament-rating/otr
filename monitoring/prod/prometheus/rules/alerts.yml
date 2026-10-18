@@ -88,42 +88,6 @@ groups:
         annotations:
           summary: '{{ $labels.datname }} grew by {{ $value | humanizePercentage }} in a day'
 
-  - name: rabbitmq
-    rules:
-      - alert: RabbitMQDown
-        expr: rabbitmq_up == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: RabbitMQ is down
-
-      - alert: RabbitMQRestarting
-        expr: resets(rabbitmq_erlang_uptime_seconds[15m]) > 2
-        labels:
-          severity: critical
-        annotations:
-          summary: RabbitMQ restarted {{ $value }} times in 15 minutes
-
-      - alert: QueueDepthHigh
-        expr: rabbitmq_detailed_queue_messages{queue!~".+\\.failed"} > 1000
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: Queue {{ $labels.queue }} depth is high
-
-      # A message lands here after five failed attempts, and nothing retries it.
-      # Only new arrivals alert, so messages left parked don't repeat forever.
-      - alert: FailedQueueMessages
-        expr: |
-          rabbitmq_detailed_queue_messages{queue=~".+\\.failed"}
-            - rabbitmq_detailed_queue_messages{queue=~".+\\.failed"} offset 15m > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: '{{ $value }} more messages failed for good in {{ $labels.queue }}'
-
   # The data worker's jobs table in PostgreSQL. The worker exports its counts
   # by queue and state, and whether each queue's loop is claiming jobs.
   - name: jobs
@@ -139,9 +103,8 @@ groups:
           summary: '{{ $value }} jobs are waiting in {{ $labels.queue }}'
 
       # A job is parked after five failed attempts, and nothing retries it.
-      # Only queues that run from the jobs table; RabbitMQ parks have their own alert.
       - alert: JobsFailed
-        expr: increase(data_worker_queue_messages_processed_total{status="parked"}[15m]) > 0 and on (queue) group by (queue) (data_worker_jobs_loop_active)
+        expr: increase(data_worker_queue_messages_processed_total{status="parked"}[15m]) > 0
         labels:
           severity: warning
         annotations:
