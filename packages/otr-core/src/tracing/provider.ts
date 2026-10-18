@@ -1,4 +1,11 @@
-import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
+import {
+  context,
+  diag,
+  DiagConsoleLogger,
+  DiagLogLevel,
+  propagation,
+  trace,
+} from '@opentelemetry/api';
 import {
   CompositePropagator,
   W3CBaggagePropagator,
@@ -7,6 +14,8 @@ import {
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import {
   defaultResource,
+  detectResources,
+  envDetector,
   resourceFromAttributes,
 } from '@opentelemetry/resources';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -20,6 +29,11 @@ import { optionalEnv } from '../utils/env';
 export interface StartTracingOptions {
   /** Fallback when OTEL_SERVICE_NAME is unset. */
   serviceName: string;
+  /**
+   * Flush and stop on SIGTERM or SIGINT. Off for a process that keeps working
+   * after the signal and calls shutdownTracing itself before it exits.
+   */
+  flushOnSignal?: boolean;
 }
 
 let provider: NodeTracerProvider | null = null;
@@ -36,6 +50,7 @@ export const resolveServiceName = (fallback: string): string =>
  */
 export function startTracing({
   serviceName,
+  flushOnSignal = true,
 }: StartTracingOptions): NodeTracerProvider | null {
   if (provider) {
     return provider;
@@ -50,12 +65,16 @@ export function startTracing({
   }
 
   provider = new NodeTracerProvider({
-    resource: defaultResource().merge(
-      resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: resolveServiceName(serviceName),
-        [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: resolveEnvironment(),
-      })
-    ),
+    // OTEL_RESOURCE_ATTRIBUTES adds attributes such as service.instance.id,
+    // which tells apart containers that run the same service.
+    resource: defaultResource()
+      .merge(detectResources({ detectors: [envDetector] }))
+      .merge(
+        resourceFromAttributes({
+          [ATTR_SERVICE_NAME]: resolveServiceName(serviceName),
+          [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: resolveEnvironment(),
+        })
+      ),
     spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
   });
 
@@ -68,17 +87,27 @@ export function startTracing({
     }),
   });
 
-  const flush = () => {
-    void provider?.shutdown().catch(() => undefined);
-  };
+  if (flushOnSignal) {
+    const flush = () => {
+      void provider?.shutdown().catch(() => undefined);
+    };
 
-  process.once('SIGTERM', flush);
-  process.once('SIGINT', flush);
+    process.once('SIGTERM', flush);
+    process.once('SIGINT', flush);
+  }
 
   return provider;
 }
 
+/**
+ * Flushes and stops the provider, and unregisters the globals startTracing set,
+ * so a later startTracing registers its own instead of being refused as a
+ * duplicate.
+ */
 export async function shutdownTracing(): Promise<void> {
   await provider?.shutdown();
   provider = null;
+  trace.disable();
+  propagation.disable();
+  context.disable();
 }
