@@ -8,7 +8,7 @@ import { resolveTournamentVerification } from '@otr/core/db/verification-resolve
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { withAuditUserId } from '@otr/core/db';
 import { parseForumTopicId } from '@otr/core/osu/forum';
-import { enqueueJobs, JobQueue } from '@otr/core/jobs';
+import { enqueueJob, enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
   TournamentAdminMutationResponseSchema,
   TournamentAdminUpdateInputSchema,
@@ -26,13 +26,9 @@ import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { getCorrelationId } from '../logging/helpers';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
-import { publishProcessTournamentAutomationCheckMessage } from '@/lib/queue/publishers';
 import { MessagePriority } from '@otr/core';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
-
-export const AUTOMATION_QUEUE_WARNING =
-  'We could not queue automated checks. Please contact the o!TR developers.';
 
 interface RefetchMatchDataContext {
   db: DatabaseClient;
@@ -186,35 +182,29 @@ export interface ResetAutomatedChecksArgs {
   context: ResetAutomatedChecksContext;
 }
 
+/**
+ * Queues the tournament's automated checks. The request merges into a check
+ * already waiting and clears its backoff, or runs again after one that is
+ * running. A failed enqueue fails the call, since nothing else was saved.
+ */
 export async function resetTournamentAutomatedChecksHandler({
   input,
   context,
 }: ResetAutomatedChecksArgs) {
-  ensureAdminSession(context.session);
+  const { adminUserId } = ensureAdminSession(context.session);
 
-  const warnings: string[] = [];
-  const correlationId = getCorrelationId(context);
-
-  try {
-    await publishProcessTournamentAutomationCheckMessage(
-      {
-        tournamentId: input.id,
-        overrideVerifiedState: input.overrideVerifiedState ?? false,
-      },
-      correlationId ? { metadata: { correlationId } } : undefined
-    );
-  } catch (error) {
-    console.error('Failed to publish automated checks reset message', {
+  await enqueueJob(context.db, JobQueue.TournamentChecks, {
+    payload: {
       tournamentId: input.id,
-      error,
-    });
-    warnings.push(AUTOMATION_QUEUE_WARNING);
-  }
+      overrideVerifiedState: input.overrideVerifiedState ?? false,
+    },
+    correlationId: getCorrelationId(context),
+    tournamentId: input.id,
+    requestedByUserId: adminUserId,
+    explicit: true,
+  });
 
-  return {
-    success: true,
-    warnings: warnings.length ? warnings : undefined,
-  } as const;
+  return { success: true } as const;
 }
 
 interface UpdateTournamentAdminContext {
