@@ -4,7 +4,6 @@ import './tracing';
 import {
   QueueConstants,
   type ProcessBeatmapAttributesMessage,
-  type ProcessTournamentAutomationCheckMessage,
 } from '@otr/core';
 import { enqueueJobs, getJobQueueSummary, JobQueue } from '@otr/core/jobs';
 import { withoutTracing } from '@otr/core/tracing';
@@ -62,6 +61,7 @@ import {
   osuFetchJobFromMessage,
   osuTrackJobFromMessage,
   RabbitMqBridge,
+  tournamentChecksJobFromMessage,
   tournamentStatsJobFromMessage,
 } from './jobs/rabbitmq-bridge';
 import { StrandedFetchSweep } from './jobs/stranded-fetch-sweep';
@@ -171,30 +171,7 @@ const bootstrap = async () => {
     label: 'osu-track',
   });
 
-  const automationPublisher =
-    new RabbitMqPublisher<ProcessTournamentAutomationCheckMessage>({
-      url: dataWorkerEnv.amqpUrl,
-      queue: QueueConstants.automatedChecks.tournaments,
-    });
-
-  const dataCompletion = new TournamentDataCompletionService({
-    db,
-    logger,
-    publishAutomationCheck: async ({ tournamentId, overrideVerifiedState }) => {
-      await automationPublisher.publish({
-        tournamentId,
-        overrideVerifiedState,
-      });
-    },
-  });
-
-  const automationConsumer =
-    new RabbitMqConsumer<ProcessTournamentAutomationCheckMessage>({
-      url: dataWorkerEnv.amqpUrl,
-      queue: QueueConstants.automatedChecks.tournaments,
-      prefetch: 1,
-      logger,
-    });
+  const dataCompletion = new TournamentDataCompletionService({ db, logger });
 
   // Exists before the osu! consumer starts, so no beatmap fetch drops its
   // job. With a store configured, jobs queue even while the store fails its
@@ -321,11 +298,11 @@ const bootstrap = async () => {
   runner.register(osuTrackWorker.registration());
 
   const automationWorker = new TournamentAutomationCheckWorker({
-    queue: automationConsumer,
     service: automationService,
-    dataCompletion,
     logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
   });
+  runner.register(automationWorker.registration());
 
   const statsWorker = new TournamentStatsWorker({
     service: statsService,
@@ -358,6 +335,10 @@ const bootstrap = async () => {
       },
       { queue: JobQueue.OsuFetch, toJob: osuFetchJobFromMessage },
       { queue: JobQueue.OsuTrackFetch, toJob: osuTrackJobFromMessage },
+      {
+        queue: JobQueue.TournamentChecks,
+        toJob: tournamentChecksJobFromMessage,
+      },
     ],
   });
 
@@ -374,9 +355,6 @@ const bootstrap = async () => {
 
   logger.info('Starting data worker services');
 
-  await automationWorker.start();
-  consumers.push(automationConsumer);
-
   await jobListener.start();
   runner.start();
   jobPruner.start();
@@ -391,7 +369,6 @@ const bootstrap = async () => {
     logger.info('Shutting down data worker services');
     clearInterval(apiRequestStatsFlush);
     await Promise.allSettled([
-      automationWorker.stop(),
       runner.stop(),
       jobPruner.stop(),
       strandedFetchSweep.stop(),
@@ -399,7 +376,6 @@ const bootstrap = async () => {
       playerRefetchScheduler.stop(),
       beatmapAttributes?.worker.stop(),
       beatmapAttributes?.scheduler.stop(),
-      automationPublisher.close(),
     ]);
     // Closed after the job runner and the sweep stop, since both publish to it.
     await beatmapAttributesPublisher?.close();

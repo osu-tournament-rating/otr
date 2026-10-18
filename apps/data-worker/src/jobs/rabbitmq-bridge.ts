@@ -124,6 +124,27 @@ export const osuTrackJobFromMessage = (
     : { payload: { osuPlayerId }, ...messageMetadata(envelope) };
 };
 
+/**
+ * The job for an automated checks message the site or worker used to
+ * publish: `{ requestedAt, correlationId, priority, tournamentId,
+ * overrideVerifiedState }`.
+ */
+export const tournamentChecksJobFromMessage = (
+  envelope: Record<string, unknown>
+): EnqueueJob<JobQueue.TournamentChecks> | null => {
+  const tournamentId = positiveId(envelope.tournamentId);
+  return tournamentId === null
+    ? null
+    : {
+        payload: {
+          tournamentId,
+          overrideVerifiedState: envelope.overrideVerifiedState === true,
+        },
+        ...messageMetadata(envelope),
+        tournamentId,
+      };
+};
+
 const FAILED_IN_RABBITMQ =
   'Failed in RabbitMQ before the move to the jobs table';
 
