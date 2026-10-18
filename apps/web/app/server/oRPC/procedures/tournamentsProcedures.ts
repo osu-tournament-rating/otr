@@ -511,6 +511,38 @@ export const getTournament = publicProcedure
         pooledModsByBeatmapId.set(row.beatmapId, rows);
       }
 
+      // Attributes are osu! standard values, so a convert pooled in another
+      // ruleset's tournament gets none.
+      const beatmapAttributeRows =
+        beatmapIds.length && tournament.ruleset === Ruleset.Osu
+          ? await context.db
+              .select({
+                beatmapId: schema.beatmapAttributes.beatmapId,
+                id: schema.beatmapAttributes.id,
+                mods: schema.beatmapAttributes.mods,
+                sr: schema.beatmapAttributes.sr,
+                ar: schema.beatmapAttributes.ar,
+                cs: schema.beatmapAttributes.cs,
+                od: schema.beatmapAttributes.od,
+                hp: schema.beatmapAttributes.hp,
+                created: schema.beatmapAttributes.created,
+              })
+              .from(schema.beatmapAttributes)
+              .where(inArray(schema.beatmapAttributes.beatmapId, beatmapIds))
+              .orderBy(asc(schema.beatmapAttributes.mods))
+          : [];
+
+      const attributesByBeatmapId = new Map<
+        number,
+        Omit<(typeof beatmapAttributeRows)[number], 'beatmapId'>[]
+      >();
+
+      for (const { beatmapId, ...attribute } of beatmapAttributeRows) {
+        const rows = attributesByBeatmapId.get(beatmapId) ?? [];
+        rows.push(attribute);
+        attributesByBeatmapId.set(beatmapId, rows);
+      }
+
       const beatmapCreatorsRows = beatmapIds.length
         ? await context.db
             .select({
@@ -999,7 +1031,7 @@ export const getTournament = publicProcedure
           artistOverride: beatmap.artistOverride ?? null,
           setOwnerIdOverride: beatmap.setOwnerIdOverride ?? null,
           beatmapset,
-          attributes: [],
+          attributes: attributesByBeatmapId.get(beatmap.beatmapId) ?? [],
           creators,
           topMods: filterBeatmapModDistribution(
             calculateBeatmapListModDistribution(

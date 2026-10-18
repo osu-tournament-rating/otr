@@ -20,6 +20,10 @@ export const BeatmapAttributeSchema = beatmapAttributeSelectSchema.pick({
   id: true,
   mods: true,
   sr: true,
+  ar: true,
+  cs: true,
+  od: true,
+  hp: true,
   created: true,
 });
 

@@ -1,4 +1,7 @@
+import { Mods, type Ruleset } from '@otr/core/osu';
+
 import type { BeatmapListSortKey } from '@/lib/beatmaps/list-params';
+import { getModdedDifficultyStats } from '@/lib/beatmaps/mod-attributes';
 import {
   getBeatmapArtist,
   getBeatmapTitle,
@@ -12,7 +15,6 @@ import type {
   TournamentBeatmap,
   TournamentMatchGame,
 } from '@/lib/orpc/schema/tournament';
-import type { Ruleset } from '@otr/core/osu';
 
 /**
  * The flat shape the beatmap table renders: global counts from the beatmap list,
@@ -90,6 +92,18 @@ export function toTournamentBeatmapTableRows(
 
   return beatmaps.map((beatmap) => {
     const creator = beatmap.creators[0] ?? beatmap.beatmapset?.creator;
+    const [leadingMod] = beatmap.topMods;
+    // A pooled beatmap reads like a mappool sheet: its values under the mod
+    // it was played with most. NM keeps osu!'s own values, like the list's.
+    const stats =
+      (leadingMod &&
+        leadingMod.mods !== Mods.None &&
+        getModdedDifficultyStats(
+          beatmap,
+          beatmap.attributes,
+          leadingMod.mods
+        )) ||
+      beatmap;
 
     return {
       id: beatmap.id,
@@ -100,13 +114,13 @@ export function toTournamentBeatmapTableRows(
       creator: creator?.username ?? null,
       beatmapsetOsuId: beatmap.beatmapset?.osuId ?? null,
       ruleset: beatmap.ruleset,
-      sr: beatmap.sr,
-      bpm: beatmap.bpm,
-      totalLength: beatmap.totalLength,
-      cs: beatmap.cs,
-      ar: beatmap.ar,
-      od: beatmap.od,
-      hp: beatmap.hp,
+      sr: stats.sr,
+      bpm: stats.bpm,
+      totalLength: stats.totalLength,
+      cs: stats.cs,
+      ar: stats.ar,
+      od: stats.od,
+      hp: stats.hp,
       gameCount: gameCounts.get(beatmap.osuId) ?? 0,
       tournamentCount: 1,
       topMods: beatmap.topMods,
