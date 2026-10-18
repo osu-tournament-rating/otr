@@ -207,6 +207,14 @@ const fetchRoom = async (requiredMods: ModInput[]) => {
       },
       games: { findFirst: async () => undefined },
     },
+    // No other match holds the room's games.
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          groupBy: () => ({ orderBy: () => ({ limit: async () => [] }) }),
+        }),
+      }),
+    }),
     insert: () => ({
       values: (values: Record<string, unknown>) => {
         insertedGames.push(values);

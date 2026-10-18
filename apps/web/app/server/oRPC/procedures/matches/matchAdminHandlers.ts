@@ -2,7 +2,7 @@ import { ORPCError } from '@orpc/server';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
-import { syncTournamentDateRange, withAuditUserId } from '@otr/core/db';
+import { mergeMatchesInto, withAuditUserId } from '@otr/core/db';
 import { cascadeMatchRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeMatchVerification } from '@otr/core/db/verification-cascade';
 import { resolveMatchVerification } from '@otr/core/db/verification-resolve';
@@ -189,41 +189,16 @@ export async function mergeMatchAdminHandler({
         });
       }
 
-      const reassignedGames = await tx
-        .update(schema.games)
-        .set({ matchId: parentMatch.id })
-        .where(inArray(schema.games.matchId, childIds))
-        .returning({ id: schema.games.id });
-
-      // Matches merged into a child earlier now lead to the parent, which
-      // holds their games.
-      await tx
-        .update(schema.matchMerges)
-        .set({ matchId: parentMatch.id })
-        .where(inArray(schema.matchMerges.matchId, childIds));
-
-      await tx.insert(schema.matchMerges).values(
-        childMatches.map((match) => ({
-          matchId: parentMatch.id,
-          mergedMatchId: match.id,
-          osuId: match.osuId,
-          isLazer: match.isLazer,
-          name: match.name,
-        }))
+      const rehomedGameCount = await mergeMatchesInto(
+        tx,
+        parentMatch.id,
+        childMatches
       );
-
-      await tx
-        .delete(schema.matches)
-        .where(inArray(schema.matches.id, childIds));
-
-      if (parentMatch.tournamentId != null) {
-        await syncTournamentDateRange(tx, parentMatch.tournamentId);
-      }
 
       return {
         success: true,
         mergedMatchCount: childIds.length,
-        rehomedGameCount: reassignedGames.length,
+        rehomedGameCount,
       } as const;
     })
   );
