@@ -1,279 +1,151 @@
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { asc, inArray, like } from 'drizzle-orm';
 
-import {
-  REFETCH_QUEUE_WARNING,
-  refetchTournamentMatchDataHandler,
-  type RefetchMatchDataArgs,
-} from '../adminProcedures';
-import {
-  resetQueuePublishersForTesting,
-  setQueuePublishersForTesting,
-  type QueuePublisherRegistry,
-} from '@/lib/queue/publishers';
+import { refetchTournamentMatchDataHandler } from '../adminProcedures';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import { MessagePriority } from '@otr/core';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
+import { Ruleset } from '@otr/core/osu';
 
-interface MatchRow {
-  id: number;
-  tournamentId: number;
-  osuId: number;
-  dataFetchStatus: number;
-  isLazer: boolean;
-}
+import {
+  adminSession,
+  backOffJobs,
+  createTestDb,
+  deleteJobs,
+  queuedFetches,
+  removePlayers,
+  seedAdminUser,
+  testDatabaseUrl,
+  transactionFaults,
+} from '../../__tests__/test-utils';
 
-const extractNumbers = (condition: unknown): number[] => {
-  if (
-    !condition ||
-    typeof condition !== 'object' ||
-    !('queryChunks' in condition) ||
-    !Array.isArray((condition as { queryChunks: unknown[] }).queryChunks)
-  ) {
-    return [];
-  }
+const NAME_PREFIX = 'tournament-refetch-match-jobs-';
+const USER_OSU_ID = 991_201_200;
+const STABLE_MATCH_ID = 991_201_201;
+const LAZER_MATCH_ID = 991_201_202;
+const OTHER_MATCH_ID = 991_201_203;
 
-  const numbers: number[] = [];
+describe.skipIf(!testDatabaseUrl)('refetchTournamentMatchDataHandler', () => {
+  const { pool, db } = createTestDb(testDatabaseUrl!);
+  let userId = 0;
+  let tournamentId = 0;
 
-  for (const chunk of (condition as { queryChunks: unknown[] }).queryChunks) {
-    const value = (chunk as { value?: unknown }).value;
-
-    if (typeof value === 'number') {
-      numbers.push(value);
-      continue;
+  const removeSeed = async () => {
+    if (userId) {
+      await deleteJobs(db, userId);
     }
+    await db
+      .delete(schema.tournaments)
+      .where(like(schema.tournaments.name, `${NAME_PREFIX}%`));
+  };
 
-    if (Array.isArray(chunk)) {
-      for (const item of chunk) {
-        if (typeof item === 'number') {
-          numbers.push(item);
-        } else if (
-          item &&
-          typeof (item as { value?: unknown }).value === 'number'
-        ) {
-          numbers.push((item as { value: number }).value);
-        }
-      }
-      continue;
-    }
+  beforeEach(async () => {
+    await removeSeed();
+    userId ||= await seedAdminUser(db, USER_OSU_ID);
 
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (typeof entry === 'number') {
-          numbers.push(entry);
-        }
-      }
-    }
-
-    if (chunk && typeof chunk === 'object') {
-      for (const entry of Object.values(chunk as Record<string, unknown>)) {
-        if (typeof entry === 'number') {
-          numbers.push(entry);
-        } else if (
-          entry &&
-          typeof (entry as { value?: unknown }).value === 'number'
-        ) {
-          numbers.push((entry as { value: number }).value);
-        }
-      }
-    }
-  }
-
-  return numbers;
-};
-
-class RefetchMatchDataTestDb {
-  public matches: MatchRow[];
-
-  constructor(options: { matches: MatchRow[] }) {
-    this.matches = options.matches.map((row) => ({ ...row }));
-  }
-
-  async transaction<T>(
-    callback: (
-      tx: ReturnType<RefetchMatchDataTestDb['createTransaction']>
-    ) => Promise<T>
-  ): Promise<T> {
-    const tx = this.createTransaction();
-    return callback(tx);
-  }
-
-  private createTransaction() {
-    return {
-      execute: async () => undefined,
-      update: (table: unknown) => this.update(table),
-    };
-  }
-
-  update(table: unknown) {
-    if (table === schema.matches) {
-      return {
-        set: (values: Partial<MatchRow>) => ({
-          where: (condition: unknown) => ({
-            returning: () => {
-              const [tournamentId] = extractNumbers(condition);
-              return this.matches
-                .filter((match) => match.tournamentId === tournamentId)
-                .map((match) => {
-                  if (typeof values.dataFetchStatus === 'number') {
-                    match.dataFetchStatus = values.dataFetchStatus;
-                  }
-                  return {
-                    id: match.id,
-                    osuId: match.osuId,
-                    isLazer: match.isLazer,
-                  };
-                });
-            },
-          }),
-        }),
-      };
-    }
-
-    throw new Error('Unsupported update table in test');
-  }
-}
-
-type TestContext = RefetchMatchDataArgs['context'];
-
-const createAdminSession = (): NonNullable<TestContext['session']> => ({
-  dbUser: {
-    id: 1,
-    scopes: ['admin'],
-  },
-});
-
-const noopPublishers: QueuePublisherRegistry = {
-  fetchBeatmap: async ({ beatmapId }) => ({
-    type: 'beatmap' as const,
-    beatmapId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchMatch: async ({ osuMatchId, isLazer }) => ({
-    type: 'match' as const,
-    osuMatchId,
-    isLazer,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchPlayer: async ({ osuPlayerId }) => ({
-    type: 'player' as const,
-    osuPlayerId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchForumTopic: async ({ topicId }) => ({
-    type: 'forumTopic' as const,
-    topicId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  processAutomationCheck: async ({ tournamentId, overrideVerifiedState }) => ({
-    tournamentId,
-    overrideVerifiedState,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-};
-
-afterEach(() => {
-  resetQueuePublishersForTesting();
-});
-
-describe('refetchTournamentMatchDataHandler', () => {
-  it('queues a fetch for every match in the tournament', async () => {
-    const db = new RefetchMatchDataTestDb({
-      matches: [
-        {
-          id: 1,
-          tournamentId: 100,
-          osuId: 123,
-          dataFetchStatus: DataFetchStatus.Fetched,
-          isLazer: false,
-        },
-        {
-          id: 2,
-          tournamentId: 100,
-          osuId: 456,
-          dataFetchStatus: DataFetchStatus.Fetched,
-          isLazer: true,
-        },
-        {
-          id: 3,
-          tournamentId: 200,
-          osuId: 789,
-          dataFetchStatus: DataFetchStatus.Fetched,
-          isLazer: false,
-        },
-      ],
+    const tournament = (suffix: string) => ({
+      name: `${NAME_PREFIX}${suffix}`,
+      abbreviation: 'TRM',
+      forumUrl: 'https://osu.ppy.sh/community/forums/topics/1',
+      rankRangeLowerBound: 1,
+      ruleset: Ruleset.Osu,
+      lobbySize: 1,
     });
+    const [target, other] = await db
+      .insert(schema.tournaments)
+      .values([tournament('target'), tournament('other')])
+      .returning({ id: schema.tournaments.id });
+    tournamentId = target!.id;
 
-    const queuedMatches: Array<{ osuMatchId: number; isLazer: boolean }> = [];
-
-    setQueuePublishersForTesting({
-      fetchBeatmap: noopPublishers.fetchBeatmap,
-      fetchMatch: async ({ osuMatchId, isLazer }) => {
-        queuedMatches.push({ osuMatchId, isLazer });
-        return noopPublishers.fetchMatch({ osuMatchId, isLazer });
-      },
-      fetchPlayer: noopPublishers.fetchPlayer,
-      fetchForumTopic: noopPublishers.fetchForumTopic,
-      processAutomationCheck: noopPublishers.processAutomationCheck,
-    });
-
-    const result = await refetchTournamentMatchDataHandler({
-      input: { id: 100 },
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
-    });
-
-    expect(result.matchesUpdated).toBe(2);
-    expect(result.warnings).toBeUndefined();
-    expect(queuedMatches).toEqual([
-      { osuMatchId: 123, isLazer: false },
-      { osuMatchId: 456, isLazer: true },
+    const fetched = { dataFetchStatus: DataFetchStatus.Fetched };
+    await db.insert(schema.matches).values([
+      { ...fetched, osuId: STABLE_MATCH_ID, tournamentId, isLazer: false },
+      { ...fetched, osuId: LAZER_MATCH_ID, tournamentId, isLazer: true },
+      { ...fetched, osuId: OTHER_MATCH_ID, tournamentId: other!.id },
     ]);
   });
 
-  it('returns warnings when publishing fails', async () => {
-    const db = new RefetchMatchDataTestDb({
-      matches: [
-        {
-          id: 1,
-          tournamentId: 100,
-          osuId: 123,
-          dataFetchStatus: DataFetchStatus.Fetched,
-          isLazer: false,
-        },
-      ],
-    });
-
-    setQueuePublishersForTesting({
-      fetchBeatmap: noopPublishers.fetchBeatmap,
-      fetchMatch: async () => {
-        throw new Error('match queue offline');
-      },
-      fetchPlayer: noopPublishers.fetchPlayer,
-      fetchForumTopic: noopPublishers.fetchForumTopic,
-      processAutomationCheck: noopPublishers.processAutomationCheck,
-    });
-
-    const result = await refetchTournamentMatchDataHandler({
-      input: { id: 100 },
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
-    });
-
-    expect(result.warnings).toEqual([REFETCH_QUEUE_WARNING]);
+  afterAll(async () => {
+    await removeSeed();
+    await removePlayers(db, [USER_OSU_ID]);
+    await pool.end();
   });
+
+  const refetch = (client: DatabaseClient = db) =>
+    refetchTournamentMatchDataHandler({
+      input: { id: tournamentId },
+      context: { db: client, session: adminSession(userId) },
+    });
+
+  const matchStatuses = () =>
+    db
+      .select({
+        osuId: schema.matches.osuId,
+        dataFetchStatus: schema.matches.dataFetchStatus,
+      })
+      .from(schema.matches)
+      .where(
+        inArray(schema.matches.osuId, [
+          STABLE_MATCH_ID,
+          LAZER_MATCH_ID,
+          OTHER_MATCH_ID,
+        ])
+      )
+      .orderBy(asc(schema.matches.osuId));
+
+  it('resets and queues a fetch for every match in the tournament', async () => {
+    const result = await refetch();
+
+    expect(result).toEqual({ success: true, matchesUpdated: 2 });
+    expect(await matchStatuses()).toEqual([
+      { osuId: STABLE_MATCH_ID, dataFetchStatus: DataFetchStatus.NotFetched },
+      { osuId: LAZER_MATCH_ID, dataFetchStatus: DataFetchStatus.NotFetched },
+      { osuId: OTHER_MATCH_ID, dataFetchStatus: DataFetchStatus.Fetched },
+    ]);
+    expect(await queuedFetches(db, userId)).toEqual([
+      expect.objectContaining({
+        payload: { type: 'match', osuMatchId: STABLE_MATCH_ID, isLazer: false },
+        tournamentId,
+      }),
+      expect.objectContaining({
+        payload: { type: 'match', osuMatchId: LAZER_MATCH_ID, isLazer: true },
+        tournamentId,
+      }),
+    ]);
+  });
+
+  it('runs a fetch waiting out a retry now', async () => {
+    await enqueueJobs(db, JobQueue.OsuFetch, [
+      {
+        payload: { type: 'match', osuMatchId: STABLE_MATCH_ID, isLazer: false },
+        requestedByUserId: userId,
+      },
+    ]);
+    await backOffJobs(db, userId);
+
+    await refetch();
+
+    const [job] = await queuedFetches(db, userId);
+    expect(job!.payload.osuMatchId).toBe(STABLE_MATCH_ID);
+    expect(job!.attempts).toBe(0);
+    // The backoff put it an hour out.
+    expect(job!.runAfter.getTime()).toBeLessThan(Date.now() + 60_000);
+  });
+
+  it.each(transactionFaults)(
+    'leaves match statuses alone when %s',
+    async (_label, fault, message) => {
+      await expect(refetch(fault(db))).rejects.toThrow(message);
+
+      expect(
+        (await matchStatuses()).map((match) => match.dataFetchStatus)
+      ).toEqual([
+        DataFetchStatus.Fetched,
+        DataFetchStatus.Fetched,
+        DataFetchStatus.Fetched,
+      ]);
+      expect(await queuedFetches(db, userId)).toEqual([]);
+    }
+  );
 });

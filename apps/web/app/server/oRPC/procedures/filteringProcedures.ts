@@ -16,8 +16,8 @@ import {
   StoredFilteringRequestSchema,
   type PlayerFilteringResult,
 } from '@/lib/orpc/schema/filtering';
-import { publishFetchPlayerMessage } from '@/lib/queue/publishers';
 import * as schema from '@otr/core/db/schema';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import { getCorrelationId } from './logging';
 
 type FilterReportPlayerRow = typeof schema.filterReportPlayers.$inferSelect & {
@@ -50,8 +50,6 @@ export const filterRegistrants = protectedMutationProcedure
 
     const uniqueOsuIds = Array.from(new Set(input.osuPlayerIds));
 
-    const seededPlayerOsuIds: number[] = [];
-
     let players = await context.db
       .select({
         id: schema.players.id,
@@ -68,12 +66,26 @@ export const filterRegistrants = protectedMutationProcedure
       );
 
       if (missingOsuIds.length > 0) {
-        seededPlayerOsuIds.push(...missingOsuIds);
+        const correlationId = getCorrelationId(context);
+
         // Placeholder rows, so filters can record results before ingestion
-        await context.db
-          .insert(schema.players)
-          .values(missingOsuIds.map((osuId) => ({ osuId })))
-          .onConflictDoNothing({ target: schema.players.osuId });
+        await context.db.transaction(async (tx) => {
+          await tx
+            .insert(schema.players)
+            .values(missingOsuIds.map((osuId) => ({ osuId })))
+            .onConflictDoNothing({ target: schema.players.osuId });
+
+          await enqueueJobs(
+            tx,
+            JobQueue.OsuFetch,
+            missingOsuIds.map((osuPlayerId) => ({
+              payload: { type: 'player', osuPlayerId },
+              correlationId,
+              requestedByUserId: userId,
+              explicit: true,
+            }))
+          );
+        });
 
         players = await context.db
           .select({
@@ -84,28 +96,6 @@ export const filterRegistrants = protectedMutationProcedure
           .from(schema.players)
           .where(inArray(schema.players.osuId, uniqueOsuIds));
       }
-    }
-
-    if (seededPlayerOsuIds.length > 0) {
-      const correlationId = getCorrelationId(context);
-      const publishResults = await Promise.allSettled(
-        seededPlayerOsuIds.map((osuId) =>
-          publishFetchPlayerMessage(
-            { osuPlayerId: osuId },
-            correlationId ? { metadata: { correlationId } } : undefined
-          )
-        )
-      );
-
-      publishResults.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.error('Failed to enqueue missing player fetch', {
-            osuId: seededPlayerOsuIds[index],
-            correlationId,
-            error: result.reason,
-          });
-        }
-      });
     }
 
     const playerIdByOsuId = new Map<number, number>();

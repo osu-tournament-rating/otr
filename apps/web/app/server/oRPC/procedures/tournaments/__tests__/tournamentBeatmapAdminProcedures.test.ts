@@ -1,298 +1,142 @@
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
+import { eq, inArray, like } from 'drizzle-orm';
 
-import {
-  manageTournamentBeatmapsAdminHandler,
-  type ManageTournamentBeatmapsArgs,
-} from '../beatmapAdminProcedures';
-import {
-  resetQueuePublishersForTesting,
-  setQueuePublishersForTesting,
-} from '@/lib/queue/publishers';
-import type { QueuePublisherRegistry } from '@/lib/queue/publishers';
+import { manageTournamentBeatmapsAdminHandler } from '../beatmapAdminProcedures';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import { MessagePriority } from '@otr/core';
+import { Ruleset } from '@otr/core/osu';
+import { createPlaceholderBeatmap } from '../beatmapPlaceholders';
 
-interface BeatmapRow {
-  id: number;
-  osuId: number;
-  dataFetchStatus: number;
-}
+import {
+  adminSession,
+  createTestDb,
+  deleteJobs,
+  queuedFetches,
+  removePlayers,
+  seedAdminUser,
+  testDatabaseUrl,
+  transactionFaults,
+} from '../../__tests__/test-utils';
 
-class ManageBeatmapsTestDb {
-  public beatmaps: BeatmapRow[];
-  public joinRows: Array<{
-    pooledBeatmapsId: number;
-    tournamentsPooledInId: number;
-  }> = [];
-  private nextBeatmapId = 10_000;
+const NAME_PREFIX = 'tournament-beatmap-admin-jobs-';
+const USER_OSU_ID = 991_201_400;
+const NEW_BEATMAP_ID = 991_201_401;
+const PENDING_BEATMAP_ID = 991_201_402;
+const FETCHED_BEATMAP_ID = 991_201_403;
+const BEATMAP_IDS = [NEW_BEATMAP_ID, PENDING_BEATMAP_ID, FETCHED_BEATMAP_ID];
 
-  constructor(initialBeatmaps: BeatmapRow[] = []) {
-    this.beatmaps = [...initialBeatmaps];
-  }
+describe.skipIf(!testDatabaseUrl)(
+  'manageTournamentBeatmapsAdminHandler',
+  () => {
+    const { pool, db } = createTestDb(testDatabaseUrl!);
+    let userId = 0;
+    let tournamentId = 0;
 
-  query = {
-    tournaments: {
-      findFirst: async () => ({ id: 1, ruleset: 0 }),
-    },
-  } as const;
-
-  async transaction<T>(
-    callback: (
-      tx: ReturnType<ManageBeatmapsTestDb['createTransaction']>
-    ) => Promise<T>
-  ): Promise<T> {
-    const tx = this.createTransaction();
-    return callback(tx);
-  }
-
-  private createTransaction() {
-    return {
-      query: this.query,
-      insert: (table: unknown) => {
-        if (table === schema.beatmaps) {
-          return {
-            values: (values: Array<{ osuId: number }>) => {
-              const inserted = values.map((value) => {
-                const row: BeatmapRow = {
-                  id: this.nextBeatmapId++,
-                  osuId: value.osuId,
-                  dataFetchStatus: DataFetchStatus.NotFetched,
-                };
-                this.beatmaps.push(row);
-                return row;
-              });
-
-              return {
-                onConflictDoNothing: () => ({
-                  returning: () =>
-                    inserted.map((row) => ({
-                      id: row.id,
-                      osuId: row.osuId,
-                      dataFetchStatus: row.dataFetchStatus,
-                    })),
-                }),
-              };
-            },
-          };
-        }
-
-        if (table === schema.joinPooledBeatmaps) {
-          return {
-            values: (
-              values: Array<{
-                pooledBeatmapsId: number;
-                tournamentsPooledInId: number;
-              }>
-            ) => {
-              this.joinRows.push(...values);
-              return {
-                onConflictDoNothing: () => undefined,
-              };
-            },
-          };
-        }
-
-        throw new Error('Unsupported insert target in test database');
-      },
-      select: () => ({
-        from: (table: unknown) => ({
-          where: () => {
-            if (table === schema.beatmaps) {
-              return this.beatmaps.map((row) => ({
-                id: row.id,
-                osuId: row.osuId,
-                dataFetchStatus: row.dataFetchStatus,
-              }));
-            }
-
-            if (table === schema.joinPooledBeatmaps) {
-              return this.joinRows.map((row) => ({
-                beatmapId: row.pooledBeatmapsId,
-              }));
-            }
-
-            return [];
-          },
-        }),
-      }),
-      delete: (table: unknown) => {
-        if (table === schema.joinPooledBeatmaps) {
-          return {
-            where: () => {
-              this.joinRows = [];
-              return undefined;
-            },
-          };
-        }
-
-        throw new Error('Unsupported delete target in test database');
-      },
+    const removeSeed = async () => {
+      if (userId) {
+        await deleteJobs(db, userId);
+      }
+      await db
+        .delete(schema.tournaments)
+        .where(like(schema.tournaments.name, `${NAME_PREFIX}%`));
+      await db
+        .delete(schema.beatmaps)
+        .where(inArray(schema.beatmaps.osuId, BEATMAP_IDS));
     };
+
+    beforeEach(async () => {
+      await removeSeed();
+      userId ||= await seedAdminUser(db, USER_OSU_ID);
+
+      const [tournament] = await db
+        .insert(schema.tournaments)
+        .values({
+          name: `${NAME_PREFIX}pool`,
+          abbreviation: 'TBA',
+          forumUrl: 'https://osu.ppy.sh/community/forums/topics/1',
+          rankRangeLowerBound: 1,
+          ruleset: Ruleset.Osu,
+          lobbySize: 1,
+        })
+        .returning({ id: schema.tournaments.id });
+      tournamentId = tournament!.id;
+
+      await db.insert(schema.beatmaps).values([
+        {
+          ...createPlaceholderBeatmap(PENDING_BEATMAP_ID, Ruleset.Osu),
+          dataFetchStatus: DataFetchStatus.NotFetched,
+        },
+        {
+          ...createPlaceholderBeatmap(FETCHED_BEATMAP_ID, Ruleset.Osu),
+          dataFetchStatus: DataFetchStatus.Fetched,
+        },
+      ]);
+    });
+
+    afterAll(async () => {
+      await removeSeed();
+      await removePlayers(db, [USER_OSU_ID]);
+      await pool.end();
+    });
+
+    const addBeatmaps = (client: DatabaseClient = db) =>
+      manageTournamentBeatmapsAdminHandler({
+        input: {
+          tournamentId,
+          addBeatmapOsuIds: BEATMAP_IDS,
+          removeBeatmapIds: [],
+        },
+        context: { db: client, session: adminSession(userId) },
+      });
+
+    const pooledOsuIds = async () =>
+      (
+        await db
+          .select({ osuId: schema.beatmaps.osuId })
+          .from(schema.joinPooledBeatmaps)
+          .innerJoin(
+            schema.beatmaps,
+            eq(schema.beatmaps.id, schema.joinPooledBeatmaps.pooledBeatmapsId)
+          )
+          .where(
+            eq(schema.joinPooledBeatmaps.tournamentsPooledInId, tournamentId)
+          )
+      )
+        .map((row) => row.osuId)
+        .sort();
+
+    it('queues fetches for new placeholders and pooled beatmaps still pending data', async () => {
+      const result = await addBeatmaps();
+
+      expect(result).toEqual({ success: true, addedCount: 3, skippedCount: 0 });
+      expect(await pooledOsuIds()).toEqual(BEATMAP_IDS);
+      expect(await queuedFetches(db, userId)).toEqual([
+        expect.objectContaining({
+          payload: { type: 'beatmap', beatmapId: NEW_BEATMAP_ID },
+          tournamentId,
+        }),
+        expect.objectContaining({
+          payload: { type: 'beatmap', beatmapId: PENDING_BEATMAP_ID },
+          tournamentId,
+        }),
+      ]);
+    });
+
+    it.each(transactionFaults)(
+      'adds no placeholder or pool entry when %s',
+      async (_label, fault, message) => {
+        await expect(addBeatmaps(fault(db))).rejects.toThrow(message);
+
+        expect(await pooledOsuIds()).toEqual([]);
+        expect(
+          await db
+            .select({ id: schema.beatmaps.id })
+            .from(schema.beatmaps)
+            .where(eq(schema.beatmaps.osuId, NEW_BEATMAP_ID))
+        ).toEqual([]);
+        expect(await queuedFetches(db, userId)).toEqual([]);
+      }
+    );
   }
-}
-
-type AdminSession = ManageTournamentBeatmapsArgs['context']['session'];
-
-const createAdminSession = (): AdminSession => ({
-  dbUser: {
-    id: 1,
-    scopes: ['admin'],
-  },
-});
-
-const noopQueuePublishers: QueuePublisherRegistry = {
-  fetchBeatmap: async ({ beatmapId }) => ({
-    type: 'beatmap' as const,
-    beatmapId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchMatch: async ({ osuMatchId }) => ({
-    type: 'match' as const,
-    osuMatchId,
-    isLazer: false,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchPlayer: async ({ osuPlayerId }) => ({
-    type: 'player' as const,
-    osuPlayerId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  fetchForumTopic: async ({ topicId }) => ({
-    type: 'forumTopic' as const,
-    topicId,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-  processAutomationCheck: async ({ tournamentId, overrideVerifiedState }) => ({
-    tournamentId,
-    overrideVerifiedState,
-    requestedAt: new Date().toISOString(),
-    correlationId: 'noop',
-    priority: MessagePriority.Normal,
-  }),
-};
-
-afterEach(() => {
-  resetQueuePublishersForTesting();
-});
-
-describe('manageTournamentBeatmapsAdminHandler', () => {
-  it('queues beatmap fetches for newly inserted placeholders', async () => {
-    const db = new ManageBeatmapsTestDb();
-    const queuedBeatmaps: number[] = [];
-
-    setQueuePublishersForTesting({
-      ...noopQueuePublishers,
-      fetchBeatmap: async ({ beatmapId }) => {
-        queuedBeatmaps.push(beatmapId);
-        return {
-          type: 'beatmap' as const,
-          beatmapId,
-          requestedAt: new Date().toISOString(),
-          correlationId: 'test',
-          priority: MessagePriority.Normal,
-        };
-      },
-      fetchMatch: async () => {
-        throw new Error('match queue should not be called');
-      },
-    });
-
-    const result = await manageTournamentBeatmapsAdminHandler({
-      input: {
-        tournamentId: 1,
-        addBeatmapOsuIds: [111],
-        removeBeatmapIds: [],
-      },
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
-    });
-
-    expect(result.addedCount).toBe(1);
-    expect(result.warnings).toBeUndefined();
-    expect(queuedBeatmaps).toEqual([111]);
-  });
-
-  it('requeues existing beatmaps with pending data', async () => {
-    const db = new ManageBeatmapsTestDb([
-      {
-        id: 7,
-        osuId: 222,
-        dataFetchStatus: DataFetchStatus.NotFetched,
-      },
-    ]);
-    const queuedBeatmaps: number[] = [];
-
-    setQueuePublishersForTesting({
-      ...noopQueuePublishers,
-      fetchBeatmap: async ({ beatmapId }) => {
-        queuedBeatmaps.push(beatmapId);
-        return {
-          type: 'beatmap' as const,
-          beatmapId,
-          requestedAt: new Date().toISOString(),
-          correlationId: 'test',
-          priority: MessagePriority.Normal,
-        };
-      },
-      fetchMatch: async () => {
-        throw new Error('match queue should not be called');
-      },
-    });
-
-    const result = await manageTournamentBeatmapsAdminHandler({
-      input: {
-        tournamentId: 1,
-        addBeatmapOsuIds: [222],
-        removeBeatmapIds: [],
-      },
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
-    });
-
-    expect(result.addedCount).toBe(1);
-    expect(queuedBeatmaps).toEqual([222]);
-  });
-
-  it('surfaces warnings when queue publishing fails', async () => {
-    const db = new ManageBeatmapsTestDb();
-
-    setQueuePublishersForTesting({
-      ...noopQueuePublishers,
-      fetchBeatmap: async () => {
-        throw new Error('queue down');
-      },
-      fetchMatch: async () => {
-        throw new Error('unexpected match publish');
-      },
-    });
-
-    const result = await manageTournamentBeatmapsAdminHandler({
-      input: {
-        tournamentId: 1,
-        addBeatmapOsuIds: [333],
-        removeBeatmapIds: [],
-      },
-      context: {
-        db: db as unknown as DatabaseClient,
-        session: createAdminSession(),
-      },
-    });
-
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings?.[0]).toContain('contact the o!TR developers');
-  });
-});
+);

@@ -20,7 +20,15 @@ export interface RabbitMqPublisherOptions {
   assertQueueOptions?: Options.AssertQueue;
   publishOptions?: Options.Publish;
   connectionFactory?: () => Promise<AmqpConnection>;
+  /**
+   * How long a publish waits for the broker to confirm it. A broker under a
+   * memory or disk alarm blocks publishers without disconnecting them, and a
+   * caller may be holding database locks while it publishes.
+   */
+  confirmTimeoutMs?: number;
 }
+
+const DEFAULT_CONFIRM_TIMEOUT_MS = 10_000;
 
 export class RabbitMqPublisher<
   TMessage extends MessageEnvelope<unknown>,
@@ -29,6 +37,7 @@ export class RabbitMqPublisher<
   private readonly createConnection: () => Promise<AmqpConnection>;
   private readonly assertQueueOptions: Options.AssertQueue | undefined;
   private readonly basePublishOptions: Options.Publish | undefined;
+  private readonly confirmTimeoutMs: number;
 
   private connection: AmqpConnection | null = null;
   private channelPromise: Promise<ConfirmChannel> | null = null;
@@ -39,6 +48,8 @@ export class RabbitMqPublisher<
       options.connectionFactory ?? (() => connect(options.url));
     this.assertQueueOptions = options.assertQueueOptions;
     this.basePublishOptions = options.publishOptions;
+    this.confirmTimeoutMs =
+      options.confirmTimeoutMs ?? DEFAULT_CONFIRM_TIMEOUT_MS;
   }
 
   async publish(
@@ -66,7 +77,25 @@ export class RabbitMqPublisher<
         publishOptions
       );
 
-      await channel.waitForConfirms();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          channel.waitForConfirms(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `RabbitMQ did not confirm a message on ${this.queue} within ${this.confirmTimeoutMs} ms`
+                  )
+                ),
+              this.confirmTimeoutMs
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
       return message;
     });
   }

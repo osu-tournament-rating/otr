@@ -33,35 +33,6 @@ describe('resetTournamentAutomatedChecksHandler', () => {
     }> = [];
 
     setQueuePublishersForTesting({
-      fetchBeatmap: async ({ beatmapId }) => ({
-        type: 'beatmap' as const,
-        beatmapId,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
-      fetchMatch: async ({ osuMatchId }) => ({
-        type: 'match' as const,
-        osuMatchId,
-        isLazer: false,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
-      fetchPlayer: async ({ osuPlayerId }) => ({
-        type: 'player' as const,
-        osuPlayerId,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
-      fetchForumTopic: async ({ topicId }) => ({
-        type: 'forumTopic' as const,
-        topicId,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
       processAutomationCheck: async ({
         tournamentId,
         overrideVerifiedState,
@@ -94,35 +65,6 @@ describe('resetTournamentAutomatedChecksHandler', () => {
 
   it('returns warnings when publishing fails', async () => {
     setQueuePublishersForTesting({
-      fetchBeatmap: async ({ beatmapId }) => ({
-        type: 'beatmap' as const,
-        beatmapId,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
-      fetchMatch: async ({ osuMatchId }) => ({
-        type: 'match' as const,
-        osuMatchId,
-        isLazer: false,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
-      fetchPlayer: async ({ osuPlayerId }) => ({
-        type: 'player' as const,
-        osuPlayerId,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
-      fetchForumTopic: async ({ topicId }) => ({
-        type: 'forumTopic' as const,
-        topicId,
-        requestedAt: new Date().toISOString(),
-        correlationId: 'noop',
-        priority: MessagePriority.Normal,
-      }),
       processAutomationCheck: async () => {
         throw new Error('automation queue offline');
       },

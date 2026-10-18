@@ -218,25 +218,3 @@ export const claimPlayerFetchLease = async (
 
   return claimed.length > 0;
 };
-
-/**
- * Restores `previous` after the fetch message failed to publish. Leaves the
- * row alone once a worker has finished the fetch or taken a newer lease.
- */
-export const releasePlayerFetchLease = async (
-  db: UpdateExecutor,
-  source: PlayerFetchSource,
-  osuPlayerId: number,
-  previous: PlayerFetchState,
-  leaseIso: string
-) => {
-  await db
-    .update(schema.players)
-    .set(fetchStateValues(source, previous, new Date().toISOString()))
-    .where(
-      fetchStateMatches(source, osuPlayerId, {
-        status: DataFetchStatus.Fetching,
-        lastFetch: leaseIso,
-      })
-    );
-};

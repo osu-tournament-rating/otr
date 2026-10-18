@@ -338,8 +338,8 @@ const createService = (
       db: client,
       logger,
     }),
-    publishPlayerFetch: async (osuPlayerId) => {
-      published.push(osuPlayerId);
+    publishPlayerFetches: async (_tx, osuPlayerIds) => {
+      published.push(...osuPlayerIds);
     },
     publishBeatmapAttributes,
   });

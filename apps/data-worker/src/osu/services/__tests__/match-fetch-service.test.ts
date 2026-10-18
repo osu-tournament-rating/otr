@@ -88,7 +88,7 @@ describe.skipIf(!url)(
       } as unknown as API,
       rateLimiter,
       logger: silentLogger,
-      publishBeatmapFetch: async () => {},
+      publishBeatmapFetches: async () => {},
       dataCompletion: {
         checkAndTriggerAutomationChecksIfComplete: async (id: number) => {
           completedTournaments.push(id);

@@ -51,6 +51,67 @@ export const tournamentStatsJobFromMessage = (
   };
 };
 
+/** The job for an osu! fetch message the site or worker used to publish. */
+export const osuFetchJobFromMessage = (
+  envelope: Record<string, unknown>
+): EnqueueJob<JobQueue.OsuFetch> | null => {
+  const id = (value: unknown) =>
+    Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+  const metadata = {
+    priority:
+      typeof envelope.priority === 'number' ? envelope.priority : undefined,
+    correlationId:
+      typeof envelope.correlationId === 'string'
+        ? envelope.correlationId
+        : undefined,
+  };
+
+  switch (envelope.type) {
+    case 'match': {
+      const osuMatchId = id(envelope.osuMatchId);
+      return osuMatchId === null
+        ? null
+        : {
+            payload: {
+              type: 'match',
+              osuMatchId,
+              isLazer: envelope.isLazer === true,
+            },
+            ...metadata,
+          };
+    }
+    case 'beatmap': {
+      const beatmapId = id(envelope.beatmapId);
+      return beatmapId === null
+        ? null
+        : {
+            payload: {
+              type: 'beatmap',
+              beatmapId,
+              ...(envelope.skipAutomationChecks === true
+                ? { skipAutomationChecks: true }
+                : {}),
+            },
+            ...metadata,
+          };
+    }
+    case 'player': {
+      const osuPlayerId = id(envelope.osuPlayerId);
+      return osuPlayerId === null
+        ? null
+        : { payload: { type: 'player', osuPlayerId }, ...metadata };
+    }
+    case 'forumTopic': {
+      const topicId = id(envelope.topicId);
+      return topicId === null
+        ? null
+        : { payload: { type: 'forumTopic', topicId }, ...metadata };
+    }
+    default:
+      return null;
+  }
+};
+
 const FAILED_IN_RABBITMQ =
   'Failed in RabbitMQ before the move to the jobs table';
 

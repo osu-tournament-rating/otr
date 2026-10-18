@@ -9,7 +9,7 @@ import { ROUTES } from './fixtures/test-config';
 
 /**
  * Coverage for `/tools/filter` and the public `/tools/filter-reports` lookup.
- * Submitting the filter form writes a report and publishes queue messages, so
+ * Submitting the filter form writes a report and queues osu! fetch jobs, so
  * these specs never submit it.
  */
 

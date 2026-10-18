@@ -1,14 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { eq, inArray, like } from 'drizzle-orm';
+import { eq, inArray, like, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-import type { FetchOsuMessage } from '@otr/core';
 import { MessagePriority } from '@otr/core';
 import { dbSchema } from '@otr/core/db';
 import * as schema from '@otr/core/db/schema';
 import { Ruleset } from '@otr/core/osu';
-import type { QueuePublishOptions } from '@otr/core/queues';
 
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
@@ -40,7 +38,10 @@ describe.skipIf(!url)('ForumPostBackfill', () => {
   const db = drizzle(pool, { schema: dbSchema }) as unknown as DatabaseClient;
   const topics = [STORED_TOPIC, UNSTORED_TOPIC, LINKED_TOPIC];
 
-  const published: Array<{ topicId: number; priority?: MessagePriority }> = [];
+  let published: Array<{ topicId: number; priority?: MessagePriority }> = [];
+
+  const topicJobs = sql`queue = 'data.osu' AND payload->>'type' = 'forumTopic'
+    AND (payload->>'topicId')::bigint IN (${STORED_TOPIC}, ${UNSTORED_TOPIC}, ${LINKED_TOPIC})`;
   const ids: Record<string, number> = {};
   const postIds: Record<number, number> = {};
 
@@ -114,24 +115,21 @@ describe.skipIf(!url)('ForumPostBackfill', () => {
       'https://osu.ppy.sh/wiki/en/Tournaments/FPB/2026'
     );
 
-    await new ForumPostBackfill({
-      db,
-      logger: silentLogger,
-      osuPublisher: {
-        publish: async (payload, options?: QueuePublishOptions) => {
-          if (payload.type === 'forumTopic') {
-            published.push({
-              topicId: payload.topicId,
-              priority: options?.metadata?.priority,
-            });
-          }
-          return payload as FetchOsuMessage;
-        },
-      },
-    }).run();
+    await db.execute(sql`DELETE FROM jobs WHERE ${topicJobs}`);
+
+    await new ForumPostBackfill({ db, logger: silentLogger }).run();
+
+    const { rows } = await db.execute<{ topic_id: string; priority: number }>(
+      sql`SELECT payload->>'topicId' AS topic_id, priority FROM jobs WHERE ${topicJobs}`
+    );
+    published = rows.map((row) => ({
+      topicId: Number(row.topic_id),
+      priority: row.priority,
+    }));
   });
 
   afterAll(async () => {
+    await db.execute(sql`DELETE FROM jobs WHERE ${topicJobs}`);
     await removeSeed();
     await pool.end();
   });

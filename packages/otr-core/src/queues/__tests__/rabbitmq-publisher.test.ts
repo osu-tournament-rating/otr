@@ -43,12 +43,13 @@ class FakeChannel {
   }
 }
 
-const createPublisher = (queue: string) => {
+const createPublisher = (queue: string, confirmTimeoutMs?: number) => {
   const channel = new FakeChannel();
   let connections = 0;
   const publisher = new RabbitMqPublisher<TestMessage>({
     url: 'amqp://unused',
     queue,
+    confirmTimeoutMs,
     connectionFactory: async () => {
       connections += 1;
       return {
@@ -117,6 +118,17 @@ describe('RabbitMqPublisher', () => {
     });
     expect(JSON.parse(channel.published[0]!.content.toString())).toEqual(
       message
+    );
+  });
+
+  it("gives up on a message the broker doesn't confirm in time", async () => {
+    const { channel, publisher } = createPublisher('test.blocked', 50);
+    // A broker under a resource alarm holds the confirm far past the timeout.
+    channel.waitForConfirms = () =>
+      new Promise<void>((resolve) => setTimeout(resolve, 1_000));
+
+    await expect(publisher.publish({ beatmapId: 1 })).rejects.toThrow(
+      'RabbitMQ did not confirm a message on test.blocked within 50 ms'
     );
   });
 });

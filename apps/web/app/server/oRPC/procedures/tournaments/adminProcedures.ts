@@ -8,6 +8,7 @@ import { resolveTournamentVerification } from '@otr/core/db/verification-resolve
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { withAuditUserId } from '@otr/core/db';
 import { parseForumTopicId } from '@otr/core/osu/forum';
+import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
   TournamentAdminMutationResponseSchema,
   TournamentAdminUpdateInputSchema,
@@ -25,17 +26,10 @@ import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { getCorrelationId } from '../logging/helpers';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
-import {
-  publishFetchBeatmapMessage,
-  publishFetchForumTopicMessage,
-  publishFetchMatchMessage,
-  publishProcessTournamentAutomationCheckMessage,
-} from '@/lib/queue/publishers';
+import { publishProcessTournamentAutomationCheckMessage } from '@/lib/queue/publishers';
 import { MessagePriority } from '@otr/core';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
-export const REFETCH_QUEUE_WARNING =
-  'We could not queue match or beatmap fetches. Please contact the o!TR developers.';
 
 export const AUTOMATION_QUEUE_WARNING =
   'We could not queue automated checks. Please contact the o!TR developers.';
@@ -60,90 +54,39 @@ export async function refetchTournamentMatchDataHandler({
   context,
 }: RefetchMatchDataArgs) {
   const { adminUserId } = ensureAdminSession(context.session);
-
-  const matches: Array<{ id: number; osuId: number; isLazer: boolean }> =
-    await context.db.transaction((tx) =>
-      withAuditUserId(tx, adminUserId, () =>
-        tx
-          .update(schema.matches)
-          .set({
-            dataFetchStatus: DataFetchStatus.NotFetched,
-            updated: NOW,
-          })
-          .where(eq(schema.matches.tournamentId, input.id))
-          .returning({
-            id: schema.matches.id,
-            osuId: schema.matches.osuId,
-            isLazer: schema.matches.isLazer,
-          })
-      )
-    );
-
-  const uniqueMatches = Array.from(
-    new Map(
-      matches
-        .filter((match) => Number.isFinite(Number(match.osuId)))
-        .map((match) => [
-          `${match.osuId}-${match.isLazer}`,
-          { osuMatchId: Number(match.osuId), isLazer: match.isLazer },
-        ])
-    ).values()
-  );
-
   const correlationId = getCorrelationId(context);
-  const queueTasks: Array<{
-    kind: 'match' | 'beatmap';
-    id: number;
-    promise: Promise<unknown>;
-  }> = [];
 
-  uniqueMatches.forEach(({ osuMatchId, isLazer }) => {
-    queueTasks.push({
-      kind: 'match',
-      id: osuMatchId,
-      promise: publishFetchMatchMessage(
-        { osuMatchId, isLazer },
-        correlationId ? { metadata: { correlationId } } : undefined
-      ),
-    });
-  });
+  const matchesUpdated = await context.db.transaction((tx) =>
+    withAuditUserId(tx, adminUserId, async () => {
+      const matches = await tx
+        .update(schema.matches)
+        .set({
+          dataFetchStatus: DataFetchStatus.NotFetched,
+          updated: NOW,
+        })
+        .where(eq(schema.matches.tournamentId, input.id))
+        .returning({
+          osuId: schema.matches.osuId,
+          isLazer: schema.matches.isLazer,
+        });
 
-  const warnings: string[] = [];
-
-  if (queueTasks.length > 0) {
-    const results = await Promise.allSettled(
-      queueTasks.map((task) => task.promise)
-    );
-
-    const failures = results
-      .map((result, index) => ({ result, task: queueTasks[index] }))
-      .filter(
-        (
-          entry
-        ): entry is {
-          result: PromiseRejectedResult;
-          task: (typeof queueTasks)[number];
-        } => entry.result.status === 'rejected'
+      await enqueueJobs(
+        tx,
+        JobQueue.OsuFetch,
+        matches.map(({ osuId, isLazer }) => ({
+          payload: { type: 'match', osuMatchId: osuId, isLazer },
+          correlationId,
+          tournamentId: input.id,
+          requestedByUserId: adminUserId,
+          explicit: true,
+        }))
       );
 
-    if (failures.length > 0) {
-      warnings.push(REFETCH_QUEUE_WARNING);
+      return matches.length;
+    })
+  );
 
-      failures.forEach(({ task, result }) => {
-        console.error('Failed to publish refetch message', {
-          type: task.kind,
-          id: task.id,
-          error: result.reason,
-        });
-      });
-    }
-  }
-
-  return {
-    success: true,
-    matchesUpdated: matches.length,
-    warnings: warnings.length ? warnings : undefined,
-  } as const;
+  return { success: true, matchesUpdated } as const;
 }
 
 interface RefetchBeatmapDataContext {
@@ -166,73 +109,66 @@ export async function refetchTournamentBeatmapsHandler({
   context,
 }: RefetchBeatmapDataArgs) {
   const { adminUserId } = ensureAdminSession(context.session);
+  const correlationId = getCorrelationId(context);
 
-  const beatmapRows = await context.db
-    .select({
-      id: schema.beatmaps.id,
-      osuId: schema.beatmaps.osuId,
-      dataFetchStatus: schema.beatmaps.dataFetchStatus,
-    })
-    .from(schema.joinPooledBeatmaps)
-    .innerJoin(
-      schema.beatmaps,
-      eq(schema.beatmaps.id, schema.joinPooledBeatmaps.pooledBeatmapsId)
-    )
-    .where(eq(schema.joinPooledBeatmaps.tournamentsPooledInId, input.id));
+  return context.db.transaction((tx) =>
+    withAuditUserId(tx, adminUserId, async () => {
+      const beatmapRows = await tx
+        .select({
+          id: schema.beatmaps.id,
+          osuId: schema.beatmaps.osuId,
+          dataFetchStatus: schema.beatmaps.dataFetchStatus,
+        })
+        .from(schema.joinPooledBeatmaps)
+        .innerJoin(
+          schema.beatmaps,
+          eq(schema.beatmaps.id, schema.joinPooledBeatmaps.pooledBeatmapsId)
+        )
+        .where(eq(schema.joinPooledBeatmaps.tournamentsPooledInId, input.id));
 
-  const beatmapIdsToUpdate = beatmapRows
-    .filter((b) => b.dataFetchStatus !== DataFetchStatus.NotFound)
-    .map((b) => b.id);
+      const beatmapsToRefetch = beatmapRows.filter(
+        (b) => b.dataFetchStatus !== DataFetchStatus.NotFound
+      );
 
-  if (beatmapIdsToUpdate.length > 0) {
-    await context.db.transaction((tx) =>
-      withAuditUserId(tx, adminUserId, () =>
-        tx
+      if (beatmapsToRefetch.length > 0) {
+        await tx
           .update(schema.beatmaps)
           .set({
             dataFetchStatus: DataFetchStatus.NotFetched,
             updated: NOW,
           })
-          .where(inArray(schema.beatmaps.id, beatmapIdsToUpdate))
-      )
-    );
-  }
+          .where(
+            inArray(
+              schema.beatmaps.id,
+              beatmapsToRefetch.map((b) => b.id)
+            )
+          );
 
-  const correlationId = getCorrelationId(context);
-  const queueTasks = beatmapRows
-    .filter((b) => b.dataFetchStatus !== DataFetchStatus.NotFound)
-    .map((b) => ({
-      beatmapId: b.osuId,
-      promise: publishFetchBeatmapMessage(
-        {
-          beatmapId: b.osuId,
-          skipAutomationChecks: true,
-        },
-        {
-          metadata: {
+        await enqueueJobs(
+          tx,
+          JobQueue.OsuFetch,
+          beatmapsToRefetch.map((b) => ({
+            payload: {
+              type: 'beatmap',
+              beatmapId: b.osuId,
+              skipAutomationChecks: true,
+            },
             priority: MessagePriority.High,
-            ...(correlationId && { correlationId }),
-          },
-        }
-      ),
-    }));
+            correlationId,
+            tournamentId: input.id,
+            requestedByUserId: adminUserId,
+            explicit: true,
+          }))
+        );
+      }
 
-  const warnings: string[] = [];
-
-  if (queueTasks.length > 0) {
-    const results = await Promise.allSettled(queueTasks.map((t) => t.promise));
-    const failures = results.filter((r) => r.status === 'rejected');
-    if (failures.length > 0) {
-      warnings.push(REFETCH_QUEUE_WARNING);
-    }
-  }
-
-  return {
-    success: true,
-    beatmapsUpdated: beatmapIdsToUpdate.length,
-    beatmapsSkipped: beatmapRows.length - beatmapIdsToUpdate.length,
-    warnings: warnings.length ? warnings : undefined,
-  } as const;
+      return {
+        success: true,
+        beatmapsUpdated: beatmapsToRefetch.length,
+        beatmapsSkipped: beatmapRows.length - beatmapsToRefetch.length,
+      } as const;
+    })
+  );
 }
 
 interface ResetAutomatedChecksContext {
@@ -388,26 +324,23 @@ export async function updateTournamentAdminHandler({
           updatedAt: NOW,
         });
       }
+
+      const topicId = forumUrlChanged
+        ? parseForumTopicId(input.forumUrl)
+        : null;
+      if (topicId !== null) {
+        await enqueueJobs(tx, JobQueue.OsuFetch, [
+          {
+            payload: { type: 'forumTopic', topicId },
+            correlationId: getCorrelationId(context),
+            tournamentId: input.id,
+            requestedByUserId: adminUserId,
+            explicit: true,
+          },
+        ]);
+      }
     })
   );
-
-  const topicId = forumUrlChanged ? parseForumTopicId(input.forumUrl) : null;
-  if (topicId !== null) {
-    const correlationId = getCorrelationId(context);
-    try {
-      await publishFetchForumTopicMessage(
-        { topicId },
-        correlationId ? { metadata: { correlationId } } : undefined
-      );
-    } catch (error) {
-      // The data worker's startup backfill queues it again.
-      console.error('Failed to publish forum topic fetch message', {
-        tournamentId: input.id,
-        topicId,
-        error,
-      });
-    }
-  }
 
   return { success: true } as const;
 }
