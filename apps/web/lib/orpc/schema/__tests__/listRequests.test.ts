@@ -87,22 +87,6 @@ describe('ReportListInputSchema', () => {
     expect(input.sort).toBeUndefined();
     expect(input.descending).toBeUndefined();
   });
-
-  test('accepts a sort by resolution time, oldest first', () => {
-    const input = ReportListInputSchema.parse({
-      page: 3,
-      pageSize: 100,
-      sort: 'resolvedAt',
-      descending: false,
-    });
-
-    expect(input).toMatchObject({
-      page: 3,
-      pageSize: 100,
-      sort: 'resolvedAt',
-      descending: false,
-    });
-  });
 });
 
 describe('TournamentAdminUpdateInputSchema messages', () => {

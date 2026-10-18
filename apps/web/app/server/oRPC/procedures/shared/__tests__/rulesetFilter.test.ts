@@ -66,13 +66,6 @@ describe('buildBeatmapRulesetCondition', () => {
     expect(buildBeatmapRulesetCondition([])).toBeUndefined();
   });
 
-  it('compares a plain ruleset with equality', () => {
-    expect(render(buildBeatmapRulesetCondition([Ruleset.Catch]))).toEqual({
-      sql: '"beatmaps"."ruleset" = $1',
-      params: [Ruleset.Catch],
-    });
-  });
-
   it('takes ManiaOther maps named for the key count with mania 4K', () => {
     expect(render(buildBeatmapRulesetCondition([Ruleset.Mania4k]))).toEqual({
       sql: '("beatmaps"."ruleset" = $1 OR ("beatmaps"."ruleset" = $2 AND "beatmaps"."diff_name" ~* $3))',

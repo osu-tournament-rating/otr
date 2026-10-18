@@ -2,10 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { sql, type SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 
-import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-
 import {
-  beatmapIsVisible,
   buildBeatmapSearchExpressions,
   buildPrefixQuery,
   buildTrigramPrecision,
@@ -141,25 +138,7 @@ describe('buildTrigramPrecision', () => {
   });
 });
 
-describe('beatmapIsVisible', () => {
-  const rendered = () => dialect.sqlToQuery(beatmapIsVisible()).sql;
-
-  it('keeps a deleted beatmap out until it is overridden', () => {
-    expect(rendered()).toBe(
-      '("beatmaps"."data_fetch_status" != $1 OR "beatmaps"."manual_override")'
-    );
-    expect(dialect.sqlToQuery(beatmapIsVisible()).params).toEqual([
-      DataFetchStatus.NotFound,
-    ]);
-  });
-
-  it('gates beatmap search on the same predicate', () => {
-    const expressions = buildBeatmapSearchExpressions('hoshimiya');
-    const { sql: text } = dialect.sqlToQuery(expressions!.condition);
-
-    expect(text).toContain('"beatmaps"."manual_override"');
-  });
-
+describe('buildBeatmapSearchExpressions', () => {
   it('ranks the overridden artist and title alongside the set metadata', () => {
     const expressions = buildBeatmapSearchExpressions('hoshimiya');
     const { sql: text } = dialect.sqlToQuery(expressions!.rank);

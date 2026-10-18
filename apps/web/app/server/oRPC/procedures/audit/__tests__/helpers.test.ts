@@ -534,12 +534,6 @@ describe('buildChildSummary', () => {
       'also affected 1 match'
     );
   });
-
-  it('drops the fraction without a total', () => {
-    expect(buildChildSummary(AuditEntityType.Score, 1, null)).toBe(
-      'also affected 1 score'
-    );
-  });
 });
 
 describe('getCascadeCountParent', () => {

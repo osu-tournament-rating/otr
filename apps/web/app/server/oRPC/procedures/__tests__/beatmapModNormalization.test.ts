@@ -10,34 +10,6 @@ import {
 
 // Parity with NORMALIZED_SCORE_MODS_SQL in beatmapProcedures
 describe('normalizeScoreModsArithmetic', () => {
-  const namedCases: Array<[string, number]> = [
-    ['NM', Mods.None],
-    ['HD', Mods.Hidden],
-    ['HR', Mods.HardRock],
-    ['DT', Mods.DoubleTime],
-    ['NC', Mods.Nightcore],
-    ['DTNC', Mods.DoubleTime | Mods.Nightcore],
-    ['HDNC', Mods.Hidden | Mods.Nightcore],
-    ['NF', Mods.NoFail],
-    ['SO', Mods.SpunOut],
-    ['HDNF', Mods.Hidden | Mods.NoFail],
-    ['HDHRNCSO', Mods.Hidden | Mods.HardRock | Mods.Nightcore | Mods.SpunOut],
-    ['EZDT', Mods.Easy | Mods.DoubleTime],
-    ['FL', Mods.Flashlight],
-    ['HDFL', Mods.Hidden | Mods.Flashlight],
-    ['NFSO', Mods.NoFail | Mods.SpunOut],
-    ['EZNC', Mods.Easy | Mods.Nightcore],
-  ];
-
-  test.each(namedCases)(
-    'matches normalizeBeatmapDisplayMods for %s',
-    (_label, mods) => {
-      expect(normalizeScoreModsArithmetic(mods)).toBe(
-        normalizeBeatmapDisplayMods(mods)
-      );
-    }
-  );
-
   test('matches normalizeBeatmapDisplayMods for every 14-bit bitmask', () => {
     for (let mods = 0; mods < 1 << 14; mods++) {
       const arithmetic = normalizeScoreModsArithmetic(mods);

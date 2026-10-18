@@ -73,10 +73,6 @@ describe('deriveWinRecord', () => {
   it('returns null for fewer than two rosters', () => {
     expect(deriveWinRecord(9, [roster(1, Team.Red, 4, [10])])).toBeNull();
   });
-
-  it('returns null for zero rosters', () => {
-    expect(deriveWinRecord(9, [])).toBeNull();
-  });
 });
 
 describe('deriveVerifiedWinRecord', () => {

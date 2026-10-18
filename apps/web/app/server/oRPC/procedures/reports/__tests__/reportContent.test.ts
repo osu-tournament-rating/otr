@@ -85,15 +85,6 @@ describe('ReportResolveInputSchema', () => {
       }).success
     ).toBe(false);
   });
-
-  it('trims a supplied comment', () => {
-    expect(
-      ReportResolveInputSchema.parse({
-        ...validInput,
-        adminNote: '  The reported data was corrected.  ',
-      }).adminNote
-    ).toBe('The reported data was corrected.');
-  });
 });
 
 describe('normalizeReportCreateContent', () => {

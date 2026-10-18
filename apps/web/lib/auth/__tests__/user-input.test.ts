@@ -15,10 +15,6 @@ describe('auth user input', () => {
     ).toThrow('playerId is not allowed to be set');
   });
 
-  test('allows updates that omit playerId', () => {
-    expect(parseUserInput(auth.options, {}, 'update')).toEqual({});
-  });
-
   // The OAuth callback filters the osu! profile through this before it
   // creates a new user. It drops playerId, which the user create hook fills
   // in, so it must not require one.

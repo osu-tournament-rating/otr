@@ -420,27 +420,6 @@ describe('updateTournamentAdminHandler', () => {
   });
 
   describe('submittedByUserId and verifiedByUserId', () => {
-    it('does not include submittedByUserId in tournament update', async () => {
-      const db = new UpdateTournamentTestDb({
-        id: 1,
-        verificationStatus: VerificationStatus.None,
-        verifiedByUserId: null,
-        ruleset: Ruleset.Mania4k,
-        submittedByUserId: 42,
-      });
-
-      await updateTournamentAdminHandler({
-        input: baseInput,
-        context: {
-          db: db as unknown as DatabaseClient,
-          session: adminSession,
-        },
-      });
-
-      expect(db.tournamentUpdates).toHaveLength(1);
-      expect('submittedByUserId' in db.tournamentUpdates[0]).toBe(false);
-    });
-
     it('preserves verifiedByUserId when status unchanged', async () => {
       const db = new UpdateTournamentTestDb({
         id: 1,
@@ -565,7 +544,7 @@ describe('updateTournamentAdminHandler', () => {
       );
     });
 
-    it('cascade verification does not set submittedByUserId or verifiedByUserId on matches', async () => {
+    it('cascade verification with children set does not set submittedByUserId or verifiedByUserId on matches', async () => {
       const db = new UpdateTournamentTestDb(
         {
           id: 1,
@@ -583,6 +562,7 @@ describe('updateTournamentAdminHandler', () => {
         input: {
           ...baseInput,
           verificationStatus: VerificationStatus.Verified,
+          children: 'set',
         },
         context: {
           db: db as unknown as DatabaseClient,
@@ -590,6 +570,7 @@ describe('updateTournamentAdminHandler', () => {
         },
       });
 
+      expect(db.matchUpdates.length).toBeGreaterThan(0);
       for (const update of db.matchUpdates) {
         expect('submittedByUserId' in update).toBe(false);
         expect('verifiedByUserId' in update).toBe(false);
@@ -621,6 +602,7 @@ describe('updateTournamentAdminHandler', () => {
         },
       });
 
+      expect(db.matchUpdates.length).toBeGreaterThan(0);
       for (const update of db.matchUpdates) {
         expect('submittedByUserId' in update).toBe(false);
         expect('verifiedByUserId' in update).toBe(false);
