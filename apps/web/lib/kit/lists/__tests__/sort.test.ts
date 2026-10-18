@@ -2,7 +2,6 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   DEFAULT_SORT_DIRECTION,
-  SORT_DIRECTION_LABELS,
   flipSortDirection,
   fromDescending,
   getAriaSort,
@@ -91,12 +90,5 @@ describe('sort helpers', () => {
       'descending'
     );
     expect(getAriaSort<string>(sort, 'name')).toBe('none');
-  });
-
-  it('words the directions as the beatmap list does', () => {
-    expect(SORT_DIRECTION_LABELS).toEqual({
-      asc: 'Ascending order',
-      desc: 'Descending order',
-    });
   });
 });

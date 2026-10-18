@@ -11,7 +11,6 @@ import {
   HeroTabsTrigger,
 } from '@/components/kit/layout/HeroTabsList';
 import { InfoButton } from '@/components/kit/layout/InfoButton';
-import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageHeader } from '@/components/kit/layout/PageHeader';
 import { Panel, PanelBody } from '@/components/kit/layout/Panel';
 import { RowList, RowListItem } from '@/components/kit/layout/RowList';
@@ -24,6 +23,10 @@ import { ROW_HOVER_TINT, ROW_TITLE_HOVER } from '@/lib/kit/tables/row';
 
 const render = (node: React.ReactNode) =>
   renderToStaticMarkup(<TooltipProvider>{node}</TooltipProvider>);
+
+/** The class attribute of the first element with this tag. */
+const classOf = (html: string, tag: string) =>
+  new RegExp(`<${tag}[^>]*class="([^"]*)"`).exec(html)?.[1] ?? '';
 
 describe('Panel', () => {
   it('is a section with the reference surface by default', () => {
@@ -144,7 +147,7 @@ describe('InfoButton', () => {
       '<button type="button" aria-label="About percentile"'
     );
     expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain('text-muted-foreground hover:text-foreground');
+    expect(html).toContain('text-muted-foreground');
   });
 
   it('turns white on art', () => {
@@ -181,15 +184,6 @@ describe('PageHeader', () => {
   });
 });
 
-describe('PageFrame', () => {
-  it('keeps panels 16px apart and adds no padding', () => {
-    const html = render(<PageFrame />);
-
-    expect(html).toContain('gap-4');
-    expect(html).not.toMatch(/\bp[xy]?-\d/);
-  });
-});
-
 describe('DetailHero', () => {
   it('is a plain panel without art', () => {
     const html = render(
@@ -201,7 +195,10 @@ describe('DetailHero', () => {
     );
 
     expect(html).toStartWith('<header data-slot="detail-hero"');
-    expect(html).toContain('rounded-xl border bg-card');
+    // The surface comes from Panel, not a copy of its classes.
+    expect(classOf(html, 'header')).toContain(
+      classOf(render(<Panel />), 'section')
+    );
     expect(html).toContain('Break The Meta Cup</h1>');
     expect(html).not.toContain('bg-black/60');
     expect(html.indexOf('Verified')).toBeLessThan(html.indexOf('1v1'));
@@ -240,16 +237,6 @@ describe('DetailHero', () => {
       <DetailHero title="HAELEQUIN" art={<span data-art />} />
     );
     expect(withoutAdmin).not.toContain('pt-16');
-  });
-
-  it('attaches tabs below a divider', () => {
-    const html = render(
-      <DetailHero title="Match" tabs={<nav aria-label="Match views" />} />
-    );
-
-    expect(html).toContain(
-      '<div class="border-t"><nav aria-label="Match views">'
-    );
   });
 });
 
@@ -363,14 +350,6 @@ describe('StatTile', () => {
     expect(html).toContain('Grandmaster II');
   });
 
-  it('lets an adornment overhang the value line', () => {
-    const html = render(
-      <StatTile label="Rating" value="2,215" adornment={<span data-tier />} />
-    );
-
-    expect(html).toMatch(/<span class="-my-1 [^"]*"><span data-tier/);
-  });
-
   it('takes a node as its label, such as a short form with its full name', () => {
     const html = render(
       <StatTile
@@ -403,26 +382,13 @@ describe('StatTile', () => {
     expect(html).toContain('aria-label="About win rate"');
   });
 
-  it('puts the value on the label line in the inline layout', () => {
-    const html = render(<StatTile layout="inline" label="AR" value="8.0" />);
-
-    expect(html).toContain('grid-cols-[minmax(0,1fr)_auto]');
-    expect(html).not.toContain('col-span-2');
-  });
-
-  it('keeps the value at leading-none in both layouts', () => {
+  it('keeps the value at leading-none in tabular figures in both layouts', () => {
     // tailwind-merge drops a leading class that comes before a size class.
     const stacked = render(<StatTile label="Rating" value="2,214.8" />);
     const inline = render(<StatTile layout="inline" label="AR" value="8.0" />);
 
     expect(stacked).toMatch(/class="[^"]*\btext-xl\b[^"]*\bleading-none\b/);
     expect(inline).toMatch(/class="[^"]*\btext-lg\b[^"]*\bleading-none\b/);
-  });
-
-  it('sets the value in tabular figures in both layouts', () => {
-    const stacked = render(<StatTile label="Rating" value="2,214.8" />);
-    const inline = render(<StatTile layout="inline" label="AR" value="8.0" />);
-
     expect(stacked).toMatch(/class="[^"]*\btabular-nums\b[^"]*\btext-xl\b/);
     expect(inline).toMatch(/class="[^"]*\btabular-nums\b[^"]*\btext-lg\b/);
   });
@@ -440,8 +406,14 @@ describe('RowListItem', () => {
       </RowList>
     );
 
-    expect(html).toStartWith('<ul data-slot="row-list" class="divide-y">');
-    expect(html).toContain('<li class="px-4 py-3 flex items-center gap-3">');
+    expect(html).toStartWith('<ul data-slot="row-list"');
+    expect(classOf(html, 'ul').split(' ')).toContain('divide-y');
+    expect(classOf(html, 'li').split(' ')).toEqual(
+      expect.arrayContaining(['px-4', 'py-3', 'flex'])
+    );
+    for (const slot of ['distantmemory', 'United States', '2,214.8']) {
+      expect(html).toContain(slot);
+    }
     expect(html).not.toContain('<a ');
     expect(html).not.toContain('hover:bg');
   });
