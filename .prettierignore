@@ -5,3 +5,7 @@ apps/processor/
 apps/docs/
 # The replay tool's fixtures copy real GitHub, Docker Hub, and GCS responses.
 apps/replay/tests/fixtures/
+# Agent worktrees are full checkouts of their own, hidden from git only by the
+# local exclude list, which prettier does not read. Without this, a format run
+# from the main checkout would rewrite every agent's uncommitted work.
+.claude/worktrees/
