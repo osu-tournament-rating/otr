@@ -20,10 +20,7 @@ import {
 import { PanelBody } from '@/components/kit/layout/Panel';
 import { StatTile, StatTileGrid } from '@/components/kit/layout/StatTile';
 import { PhoneRow, PhoneRowList } from '@/components/kit/tables/PhoneRow';
-import {
-  MATCH_STATISTICS_INFO,
-  PLAYER_PERFORMANCE_INFO,
-} from '@/components/matches/MatchStatsUtils';
+import { PLAYER_PERFORMANCE_INFO } from '@/components/matches/MatchStatsUtils';
 
 /**
  * Game cards while the games list loads: the recessed frame with its cover
@@ -155,7 +152,6 @@ export function MatchStatsSkeleton() {
         <SectionHeaderSkeleton
           icon={ChartColumn}
           title="Match statistics"
-          infoText={MATCH_STATISTICS_INFO}
           meta={false}
         />
         <PanelBody>

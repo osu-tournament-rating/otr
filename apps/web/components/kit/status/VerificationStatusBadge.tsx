@@ -47,13 +47,15 @@ export function VerificationStatusBadge({
   rejectionReasons,
   reviewer,
   context,
+  showContext,
+  pendingRating,
   tooltip,
   className,
 }: VerificationStatusDetailsProps & {
   size?: BadgeSize;
   /** `overlay` only on cover art. */
   variant?: 'soft' | 'overlay';
-  /** Adds the plain-language line, reviewer, warnings and reasons. */
+  /** Adds the status line with its reviewer, then reasons and warnings. */
   tooltip?: VerificationStatusTooltipMode;
   className?: string;
 }) {
@@ -97,6 +99,8 @@ export function VerificationStatusBadge({
       rejectionReasons={rejectionReasons}
       reviewer={reviewer}
       context={context}
+      showContext={showContext}
+      pendingRating={pendingRating}
     >
       {badge}
     </VerificationStatusTooltip>

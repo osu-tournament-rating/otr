@@ -427,8 +427,7 @@ function InlineErrorDemo() {
   );
 }
 
-const TIER_BREAKDOWN_INFO =
-  "Charts NM, HD, HR and DT scores only, grouped by each player's pre-match rating at the time of play. Tiers with fewer than 5 scores are hidden.";
+const TIER_BREAKDOWN_INFO = 'Shows tiers with 5+ scores';
 
 function OverviewSkeletonDemo() {
   const [loading, setLoading] = useState(true);

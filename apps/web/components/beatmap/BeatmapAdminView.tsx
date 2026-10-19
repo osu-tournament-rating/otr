@@ -428,7 +428,7 @@ function BeatmapEditDialog({
           <FieldGroup
             icon={Gauge}
             title="Difficulty and timing"
-            info="CS carries the key count in osu!mania."
+            info="CS is the key count in osu!mania"
           >
             <FormField
               control={form.control}

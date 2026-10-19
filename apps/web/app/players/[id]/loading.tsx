@@ -23,7 +23,6 @@ import {
 import {
   MOD_DISTRIBUTION_INFO,
   MOD_PERFORMANCE_INFO,
-  RATING_HISTORY_INFO,
 } from '@/components/player/section-info';
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import type { KitIcon } from '@/lib/kit/layout/icon';
@@ -108,7 +107,6 @@ export default function PlayerLoading() {
         <SectionHeaderSkeleton
           icon={ChartLine}
           title="Rating history"
-          infoText={RATING_HISTORY_INFO}
           meta="w-28"
         />
         {/* The two control groups (the view switches, then the decay chip

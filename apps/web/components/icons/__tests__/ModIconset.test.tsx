@@ -20,8 +20,8 @@ const iconDir = join(import.meta.dir, '../../../public/icons/mods');
 const renderToStaticMarkup = (node: ReactNode) =>
   renderMarkup(<TooltipProvider>{node}</TooltipProvider>);
 
-/** Each badge is a button named for its mod. */
-const BADGE = /<button[^>]*aria-label="[^"]+"/g;
+/** Each badge is an image named for its mod. */
+const BADGE = /role="img" aria-label="[^"]+"/g;
 
 const singleBitMods = Object.values(Mods).filter(
   (value): value is Mods =>

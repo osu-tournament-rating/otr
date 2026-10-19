@@ -1,6 +1,5 @@
 import { Fragment, type CSSProperties } from 'react';
 
-import TapTooltip from '@/components/tap-tooltip';
 import {
   FREEMOD_COLOR,
   FREEMOD_NAME,
@@ -87,55 +86,30 @@ function ModBadgeArt({
 }
 
 /**
- * Lifts a badge's art 2px while its `group` trigger is hovered or focused,
- * with the default 150ms transition, and keeps it still for reduced motion.
- */
-export const MOD_BADGE_LIFT =
-  'absolute inset-0 transition-transform motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus-visible:-translate-y-0.5';
-
-/**
- * One mod's badge; its height sets its size. Its full name, with a custom
- * `speed` such as `Double Time 1.2x`, opens in a tooltip on hover, tap and
- * keyboard focus. Without `tooltip`, it is a plain image named for assistive
- * tech, for places that write the name beside it.
+ * One mod's badge; its height sets its size. It is an image named for
+ * assistive tech by the mod's full name, with a custom `speed` such as
+ * `Double Time 1.2x`. Sighted players read the acronym, so it has no tooltip.
  */
 export function ModBadgeIcon({
   acronym,
   speed = null,
   className,
-  tooltip = true,
 }: {
   acronym: string;
   speed?: number | null;
   className?: string;
-  tooltip?: boolean;
 }) {
-  const name = getModEntryName({ acronym, speed });
-  const sizing = cn(
-    '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
-    className
-  );
-  const art = <ModBadgeArt acronym={acronym} badge={getModBadge(acronym)} />;
-
-  if (!tooltip) {
-    return (
-      <div role="img" aria-label={name} className={sizing}>
-        {art}
-      </div>
-    );
-  }
-
-  // The art lifts, not the button, so the tooltip's anchor and the row's
-  // layout stay still.
   return (
-    <TapTooltip
-      content={name}
-      side="top"
-      triggerAriaLabel={name}
-      triggerClassName={cn('group w-auto rounded-none', sizing)}
+    <div
+      role="img"
+      aria-label={getModEntryName({ acronym, speed })}
+      className={cn(
+        '[container-type:size] relative aspect-[10/7] h-full max-h-12 shrink-0',
+        className
+      )}
     >
-      <span className={MOD_BADGE_LIFT}>{art}</span>
-    </TapTooltip>
+      <ModBadgeArt acronym={acronym} badge={getModBadge(acronym)} />
+    </div>
   );
 }
 

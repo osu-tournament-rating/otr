@@ -121,6 +121,8 @@ export function VerificationStatusIcon({
   rejectionReasons,
   reviewer,
   context,
+  showContext,
+  pendingRating,
   tooltip,
   decorative = false,
   className,
@@ -172,6 +174,8 @@ export function VerificationStatusIcon({
       rejectionReasons={rejectionReasons}
       reviewer={reviewer}
       context={context}
+      showContext={showContext}
+      pendingRating={pendingRating}
     >
       {icon}
     </VerificationStatusTooltip>

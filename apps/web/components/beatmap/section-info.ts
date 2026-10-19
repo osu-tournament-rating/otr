@@ -4,11 +4,8 @@
  * header strips wrap where the loaded ones do.
  */
 
-export const SCORE_DISTRIBUTION_INFO =
-  'Charts NM, HD, HR and DT scores only. Mod rows with fewer than 5 scores are hidden.';
+export const SCORE_DISTRIBUTION_INFO = 'Shows mods with 5+ scores';
 
-export const TIER_BREAKDOWN_INFO =
-  "Charts NM, HD, HR and DT scores only, grouped by each player's pre-match rating at the time of play. Tiers with fewer than 5 scores are hidden.";
+export const TIER_BREAKDOWN_INFO = 'Shows tiers with 5+ scores';
 
-export const GAME_CLOSENESS_INFO =
-  'How far the winning score finishes ahead of the losing one, ranked against every other map played in the same ruleset and lobby size.';
+export const GAME_CLOSENESS_INFO = 'Winning margin, as % of the winning score';

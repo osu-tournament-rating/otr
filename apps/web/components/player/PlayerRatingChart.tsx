@@ -32,7 +32,6 @@ import PlayerRatingChartSummaryStats from './PlayerRatingChartSummaryStats';
 import PlayerRatingChartTable from './PlayerRatingChartTable';
 import PlayerRatingChartView from './PlayerRatingChartView';
 import type { RatingMetric } from './rating-adjustment';
-import { RATING_HISTORY_INFO } from './section-info';
 
 type TimeRangeOption = 'all' | '1y' | '6m' | '3m' | 'custom';
 
@@ -238,7 +237,6 @@ export default function PlayerRatingChart({
       <SectionHeader
         icon={ChartLine}
         title="Rating history"
-        infoText={RATING_HISTORY_INFO}
         meta={
           peak && highestRating !== undefined ? (
             <span

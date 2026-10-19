@@ -33,7 +33,6 @@ import {
   PlayerStatsTableRow,
 } from './MatchStatsPlayerRow';
 import {
-  MATCH_STATISTICS_INFO,
   PLAYER_PERFORMANCE_INFO,
   calculateHighlightStats,
   processMatchStatistics,
@@ -167,11 +166,7 @@ function VerifiedMatchStats({ match }: { match: MatchDetail }) {
   return (
     <>
       <Panel data-testid="match-stats-summary">
-        <SectionHeader
-          icon={ChartColumn}
-          title="Match statistics"
-          infoText={MATCH_STATISTICS_INFO}
-        />
+        <SectionHeader icon={ChartColumn} title="Match statistics" />
         <PanelBody>
           <MatchStatsHighlights stats={highlights} ruleset={ruleset} />
         </PanelBody>

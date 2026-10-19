@@ -13,10 +13,8 @@
         U = O.ui,
         F = O.format,
         h = React.createElement;
-      var ABBREVIATION_INFO =
-        "The prefix of each tournament lobby, such as 'OWC2024' from OWC2024: (United States) vs. (Canada)";
-      var RANK_RESTRICTION_INFO =
-        "The 'best' global rank allowed to participate. Use 1 for open rank.";
+      var ABBREVIATION_INFO = 'Lobby prefix such as OWC2024';
+      var RANK_RESTRICTION_INFO = 'Best global rank allowed, 1 if open';
       var FORUM_URL_PLACEHOLDER =
         'https://osu.ppy.sh/community/forums/topics/...';
       var MATCHES_PLACEHOLDER =
@@ -166,7 +164,7 @@
                 form,
                 'forumUrl',
                 'Forum post URL',
-                { info: 'Forum post URL or wiki page for the tournament' },
+                { info: 'Also accepts osu! wiki pages' },
                 { required: 'Forum post URL is required' },
                 { placeholder: FORUM_URL_PLACEHOLDER }
               ),
@@ -186,7 +184,7 @@
                   form,
                   'lobbySize',
                   'Lobby size',
-                  { info: 'Number of players per team in each match' },
+                  {},
                   { required: 'Lobby size is required' },
                   'Select size',
                   sizes

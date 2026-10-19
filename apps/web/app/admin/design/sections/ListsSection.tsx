@@ -615,7 +615,7 @@ function LeaderboardToolbarDemo({ hasFriends }: { hasFriends: boolean }) {
                 value: 'friends',
                 label: 'Friends',
                 disabled: !hasFriends,
-                disabledReason: 'Sync friends in settings to enable',
+                disabledReason: 'Sync friends in Settings',
               },
             ]}
           />
@@ -1102,7 +1102,7 @@ function ScopeSwitchDemo() {
             value: 'friends',
             label: 'Friends',
             disabled: true,
-            disabledReason: 'Sync friends in settings to enable',
+            disabledReason: 'Sync friends in Settings',
           },
         ]}
       />
@@ -1340,7 +1340,7 @@ function TournamentFiltersDemo() {
       <RangeFilter
         label="Rank restriction"
         valueLabel="rank"
-        info="The 'best' global rank allowed to participate. Use 1 for open rank."
+        info="Best global rank allowed, 1 if open"
         min={1}
         max={1_000_000}
         scale={tournamentRankScale}

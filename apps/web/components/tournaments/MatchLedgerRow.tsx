@@ -24,11 +24,11 @@ import { parseTeamNames, type MatchRow } from './matchRow';
 function getMissingResultText(status: VerificationStatus) {
   switch (status) {
     case VerificationStatus.Verified:
-      return 'No result yet, awaiting stats';
+      return 'No result yet, pending rating calculation';
     case VerificationStatus.Rejected:
-      return 'No result, match rejected';
+      return 'No result';
     default:
-      return 'No result yet, awaiting verification';
+      return 'No result yet, pending verification';
   }
 }
 
@@ -78,7 +78,7 @@ function Scoreline({ match }: { match: MatchRow }) {
     return <span className="w-14 shrink-0">{pill}</span>;
   }
 
-  const explanation = 'Draw, some games may not be counted';
+  const explanation = 'Draw, excludes rejected games';
 
   return (
     <TapTooltip
@@ -135,7 +135,6 @@ function MatchTitle({ match }: { match: MatchRow }) {
     <Link
       href={`/matches/${match.id}`}
       prefetch={false}
-      title={name}
       className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 rounded-sm font-medium text-foreground transition-colors outline-none hover:text-link focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:flex-nowrap"
     >
       {content}
@@ -200,6 +199,7 @@ function GamePips({ games }: { games: MatchRow['games'] }) {
               game.rejectionReason
             )}
             context={`Game ${index + 1}`}
+            showContext
             tooltip="tap"
           />
         </li>

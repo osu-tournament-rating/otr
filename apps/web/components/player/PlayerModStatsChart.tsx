@@ -28,7 +28,7 @@ import {
 import type { PlayerModStats } from '@/lib/orpc/schema/playerStats';
 import { cn } from '@/lib/utils';
 
-import { groupModStats } from './mod-stats';
+import { groupModStats, type ModGroup } from './mod-stats';
 import {
   MOD_PERFORMANCE_EASY_NOTE,
   MOD_PERFORMANCE_INFO,
@@ -54,19 +54,13 @@ export default function PlayerModStatsChart({
     () => groupModStats(modStats, 'averageScore'),
     [modStats]
   );
-  const hasEasyMod = chartData.some((entry) => entry.mods & Mods.Easy);
-
-  const infoText = hasEasyMod
-    ? `${MOD_PERFORMANCE_INFO} ${MOD_PERFORMANCE_EASY_NOTE}`
-    : MOD_PERFORMANCE_INFO;
-
   if (chartData.length === 0) {
     return (
       <Panel className={className}>
         <SectionHeader
           icon={ChartBarBig}
           title="Mod performance"
-          infoText={infoText}
+          infoText={MOD_PERFORMANCE_INFO}
         />
         <EmptyState
           size="compact"
@@ -88,7 +82,7 @@ export default function PlayerModStatsChart({
       <SectionHeader
         icon={ChartBarBig}
         title="Mod performance"
-        infoText={infoText}
+        infoText={MOD_PERFORMANCE_INFO}
       />
       <PanelBody className="flex flex-1 flex-col justify-center">
         <ChartContainer
@@ -120,6 +114,12 @@ export default function PlayerModStatsChart({
                 <ChartTooltipContent
                   nameFormatter={() => 'Average score'}
                   valueFormatter={formatCountTick}
+                  footer={(payload) => {
+                    const entry = payload[0]?.payload as ModGroup | undefined;
+                    return entry && entry.mods & Mods.Easy
+                      ? MOD_PERFORMANCE_EASY_NOTE
+                      : null;
+                  }}
                 />
               }
             />

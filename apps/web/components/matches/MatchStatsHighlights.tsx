@@ -105,7 +105,6 @@ export default function MatchStatsHighlights({
                 subTier={stat.tierIcon.subTier}
                 width={22}
                 height={22}
-                tooltip
               />
             ) : undefined
           }

@@ -108,6 +108,7 @@ import {
 } from '@/lib/kit/color/tokens';
 import { getStatusHueColor } from '@/lib/kit/color/verification';
 import {
+  NOT_IN_RATINGS_YET_LABEL,
   RATINGS_GROUPS,
   getVerificationStatusCopy,
 } from '@/lib/kit/status/verification';
@@ -381,9 +382,7 @@ function MatchSurfaceDemo() {
  * tooltip surface, where muted text switches to its accent value.
  */
 function ThemeTextDemo() {
-  const { name, summary } = getVerificationStatusCopy(
-    VerificationStatus.PreVerified
-  );
+  const { name } = getVerificationStatusCopy(VerificationStatus.PreVerified);
 
   return (
     <div className="@container">
@@ -413,7 +412,7 @@ function ThemeTextDemo() {
           )}
         >
           <p className="font-semibold">{name}</p>
-          <p className="text-muted-foreground">{summary}</p>
+          <p className="text-muted-foreground">{NOT_IN_RATINGS_YET_LABEL}</p>
         </div>
       </div>
     </div>

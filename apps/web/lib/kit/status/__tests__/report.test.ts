@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { ReportStatus } from '@otr/core/osu';
-import {
-  REPORT_STATUS_ORDER,
-  getReportStatusCopy,
-  getReportStatusTooltip,
-} from '../report';
+import { REPORT_STATUS_ORDER, getReportStatusCopy } from '../report';
 
 describe('report status copy', () => {
   it('uses the names the report pages already show', () => {
@@ -18,14 +14,6 @@ describe('report status copy', () => {
     expect(REPORT_STATUS_ORDER.map((s) => getReportStatusCopy(s).tone)).toEqual(
       ['neutral', 'success', 'destructive']
     );
-  });
-
-  it('writes each tooltip as "<name>: <plain-language line>"', () => {
-    expect(REPORT_STATUS_ORDER.map(getReportStatusTooltip)).toEqual([
-      'Pending: Awaiting admin review',
-      'Confirmed: Accepted by an admin',
-      'Dismissed: Reviewed by an admin, no changes made',
-    ]);
   });
 
   it('falls back instead of throwing on an unknown value', () => {
