@@ -1,4 +1,4 @@
-# The Rust processor formats with rustfmt, and its JSON is test data.
+# The Rust processor formats with rustfmt.
 apps/processor/
 # The docs are formatted for markdownlint, and quartz.config.yaml keeps the
 # layout of Quartz's default config so the two compare line by line.
