@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 
 import SectionError from '@/components/error/SectionError';
@@ -29,10 +29,9 @@ import {
   getSearchMinimumHint,
   isBelowSearchMinimum,
   MAX_SEARCH_LENGTH,
-  normalizeSearchTerm,
-  SEARCH_DEBOUNCE_MS,
 } from '@/lib/kit/lists/search';
 import type { KitIcon } from '@/lib/kit/layout/icon';
+import { useDebouncedSearchTerm } from '@/lib/hooks/useDebouncedSearchTerm';
 import { useSearch } from '@/lib/hooks/useSearch';
 import { SearchRequestSchema } from '@/lib/orpc/schema/search';
 import { cn } from '@/lib/utils';
@@ -80,32 +79,23 @@ function GroupHeading({ icon: Icon, label }: { icon: KitIcon; label: string }) {
 export default function SearchCommandDialog() {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
-  const [term, setTerm] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const hintId = useId();
   const router = useRouter();
+  const { term, typed, waiting, searchNow, reset } =
+    useDebouncedSearchTerm(text);
   const { data, error, isLoading, isValidating, mutate } = useSearch(term);
 
-  const typed = normalizeSearchTerm(text);
-  const waiting = typed !== term;
-
-  // Search once typing pauses; a cleared or too-short term clears at once.
-  useEffect(() => {
-    if (typed === term) return;
-    const timer = window.setTimeout(
-      () => setTerm(typed),
-      typed ? SEARCH_DEBOUNCE_MS : 0
-    );
-    return () => window.clearTimeout(timer);
-  }, [term, typed]);
-
-  const changeOpen = useCallback((next: boolean) => {
-    setOpen(next);
-    if (!next) {
-      setText('');
-      setTerm('');
-    }
-  }, []);
+  const changeOpen = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      if (!next) {
+        setText('');
+        reset();
+      }
+    },
+    [reset]
+  );
 
   useHotkeys(
     'mod+k',
@@ -215,7 +205,7 @@ export default function SearchCommandDialog() {
                 // highlighted one.
                 if (event.key === 'Enter' && waiting) {
                   event.preventDefault();
-                  setTerm(typed);
+                  searchNow();
                 }
               }}
               className="h-12 min-w-0 flex-1 bg-transparent text-base outline-hidden placeholder:text-muted-foreground sm:text-sm"
