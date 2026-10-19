@@ -1,0 +1,104 @@
+name: Dev archive
+
+# Makes a fresh dev archive every week. The dev archive is the redacted copy of
+# production that the dev tier restores every night, and that PR previews, the
+# nightly E2E tests, and template-db read. dev-db.sh's check fails a database
+# whose newest match is more than 14 days old, so without new copies the dev
+# tier's nightly run and every preview start to fail.
+#
+# Like a production run of run-script.yml, it runs
+# `src/main.py --script archive --archive-bucket dev` on the production host
+# over SSH, with the copy of apps/scripts the last deploy installed there and
+# that copy's .env. Nothing is checked out. The command is fixed, so the
+# workflow takes no inputs. Run it by hand for a fresh copy between weeks.
+#
+# It runs on Wednesdays at 06:17 UTC:
+# - Once a week keeps the newest copy about a week old at most. When one run
+#   fails, about a week remains before the copy it would have replaced is 14
+#   days old.
+# - On Tuesdays the public archive, the maintenance window, and the rating run
+#   start between 11:45 and 13:00 UTC, an hour later while US daylight saving
+#   is off. Wednesday morning stays well clear of them, and the copy carries
+#   the ratings that run computed.
+# - It finishes hours before the dev tier's nightly restore at 14:00 UTC, so
+#   the dev tier serves the new copy the same day.
+# - It starts at 17 minutes past, because GitHub delays scheduled runs most at
+#   the top of the hour.
+#
+# It uses the production environment that deploys use, not the production-ops
+# environment run-script.yml uses. production-ops waits for a reviewer because
+# run-script.yml takes any arguments, including a recovery that replaces
+# production's database. This workflow runs one command that only reads the
+# database. production's SSH_USER is the user that installs the scripts and
+# owns their .env, and the environment's branch policy admits only master.
+# `deployment: false` keeps these runs out of production's deployment history.
+#
+# Two things report a failure. main.py records each dev archive run in
+# node-exporter's textfile collector, as it does for production's cron runs.
+# The rules in monitoring/prod/prometheus/rules then alert in Discord when the
+# last run failed, or when no run has finished for a week. A run that fails
+# before main.py starts, for example because it cannot reach the host, records
+# nothing and raises only the overdue alert. GitHub also notifies whoever last
+# changed the cron line below of each scheduled run that fails.
+
+on:
+  schedule:
+    - cron: '17 6 * * 3'
+  workflow_dispatch:
+
+# Not deploy.yml's or run-script.yml's group. A concurrency group holds only
+# one waiting run, so a run of this workflow could cancel one of theirs that
+# was waiting.
+concurrency:
+  group: dev-archive
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  archive:
+    name: Make dev archive
+    runs-on: ubuntu-latest
+    # A run takes a few minutes, so one still going after an hour is stuck.
+    timeout-minutes: 60
+    environment:
+      name: production
+      deployment: false
+
+    steps:
+      - name: Connect to tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.SSH_HOST }}
+
+      - name: Make the dev archive
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          # The directory the scripts are installed under.
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          : "${SSH_USER:?the production environment has no SSH_USER}"
+          : "${REMOTE_PATH:?the repository has no REMOTE_PATH}"
+          # Keepalives make a dropped connection fail the job instead of
+          # leaving it waiting.
+          ssh -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "$SSH_USER@$SSH_HOST" \
+            bash -s -- "$REMOTE_PATH" <<'EOF'
+            set -euo pipefail
+            cd "$1/apps/scripts"
+            # One unbuffered stream keeps the script's logs and its
+            # subprocesses' output in order. stdin is the rest of this
+            # script, so nothing the script runs may read it.
+            status=0
+            PYTHONUNBUFFERED=1 .venv/bin/python src/main.py \
+              --script archive --archive-bucket dev </dev/null 2>&1 ||
+              status=$?
+            echo "src/main.py exited with status $status"
+            exit "$status"
+          EOF
