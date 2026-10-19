@@ -2376,3 +2376,22 @@ export const apiRequestStatsDaily = pgTable(
     }),
   ]
 );
+
+/**
+ * Players signed in to the website on each UTC day. Never pruned, and keyed on
+ * the player rather than the auth user, so signing out, deleting an account,
+ * or signing up again leaves past days intact.
+ */
+export const userActivityDaily = pgTable(
+  'user_activity_daily',
+  {
+    day: date({ mode: 'string' }).notNull(),
+    playerId: integer('player_id').notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.day, table.playerId],
+      name: 'pk_user_activity_daily',
+    }),
+  ]
+);
