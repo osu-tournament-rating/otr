@@ -17,6 +17,10 @@ export interface RequestLoggingContext {
   actor: ActorInfo;
   procedurePath: string;
   requestPath: string | null;
+  /** browser or internal on /rpc, api on the REST API. */
+  caller: 'browser' | 'internal' | 'api' | 'unknown';
+  /** The caller's IP as a daily-rotating ID (`sourceId`), when known. */
+  source: string | null;
   startTime: number;
   logger: Logger;
 }
