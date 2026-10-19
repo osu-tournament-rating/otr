@@ -71,7 +71,7 @@ export function ReportDetails({
       data-testid="report-details"
     >
       <ReportDetailRow label="Status">
-        <ReportStatusBadge status={report.status} size="sm" tooltip="tap" />
+        <ReportStatusBadge status={report.status} size="sm" />
       </ReportDetailRow>
       <ReportDetailRow label="Reason">
         <span className="font-medium">{report.reason.label}</span>

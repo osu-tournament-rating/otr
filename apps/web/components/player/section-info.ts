@@ -6,14 +6,9 @@ import { MOD_CHART_DISPLAY_THRESHOLD } from '@/lib/utils/playerModCharts';
  * chart modules a server component cannot read constants from.
  */
 
-// The chart labels its dashed line "Peak" itself.
-export const RATING_HISTORY_INFO =
-  'Each entry represents a rating adjustment from a match or rating decay.';
+export const MOD_PERFORMANCE_INFO = `Mods used in ${MOD_CHART_DISPLAY_THRESHOLD}%+ of verified ScoreV2 games`;
 
-/** Mod performance adds a sentence when a charted group includes EZ. */
-export const MOD_PERFORMANCE_INFO = `Mods played in at least ${MOD_CHART_DISPLAY_THRESHOLD}% of all verified ScoreV2 games.`;
+/** The footer of an EZ bar's tooltip in Mod performance. */
+export const MOD_PERFORMANCE_EASY_NOTE = 'Includes 1.75x multiplier';
 
-export const MOD_PERFORMANCE_EASY_NOTE =
-  'All EZ scores are multiplied by 1.75x.';
-
-export const MOD_DISTRIBUTION_INFO = `Mods played in at least ${MOD_CHART_DISPLAY_THRESHOLD}% of all verified games.`;
+export const MOD_DISTRIBUTION_INFO = `Mods used in ${MOD_CHART_DISPLAY_THRESHOLD}%+ of verified games`;

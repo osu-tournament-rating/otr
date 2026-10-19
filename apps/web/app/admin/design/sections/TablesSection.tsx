@@ -480,7 +480,6 @@ function SortableHeaderDemo() {
               onSortChange={setSort}
               numeric
               showFrom="sm"
-              info="Number of players per team in each match"
             >
               Lobby size
             </SortableHeader>

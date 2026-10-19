@@ -1,15 +1,13 @@
 import { VerificationStatus } from '@otr/core/osu';
 
 /**
- * Status names and plain-language copy. Statuses are compared by identity
- * only: their numbers are not ordered by meaning, so never use `<` or `>`.
+ * Status names. Statuses are compared by identity only: their numbers are
+ * not ordered by meaning, so never use `<` or `>`.
  */
 
 export interface VerificationStatusCopy {
-  /** The state's one name, used on every page. */
+  /** The state's one name, used on every page and in its tooltip. */
   name: string;
-  /** Short line read after "<name>: ", capitalised and with no full stop. */
-  summary: string;
 }
 
 /** The hue that reinforces a status: green, red or neutral. */
@@ -19,32 +17,14 @@ export const VERIFICATION_STATUS_COPY: Record<
   VerificationStatus,
   VerificationStatusCopy
 > = {
-  [VerificationStatus.Verified]: {
-    name: 'Verified',
-    summary: 'Approved by an admin, counts from the next Tuesday update',
-  },
-  [VerificationStatus.PreVerified]: {
-    name: 'Pre-verified',
-    summary: 'Passed automated checks, awaiting admin review',
-  },
-  [VerificationStatus.None]: {
-    name: 'Pending',
-    summary: 'Awaiting automated checks',
-  },
-  [VerificationStatus.PreRejected]: {
-    name: 'Pre-rejected',
-    summary: 'Failed automated checks, awaiting admin review',
-  },
-  [VerificationStatus.Rejected]: {
-    name: 'Rejected',
-    summary: 'Excluded from ratings by an admin',
-  },
+  [VerificationStatus.Verified]: { name: 'Verified' },
+  [VerificationStatus.PreVerified]: { name: 'Pre-verified' },
+  [VerificationStatus.None]: { name: 'Pending' },
+  [VerificationStatus.PreRejected]: { name: 'Pre-rejected' },
+  [VerificationStatus.Rejected]: { name: 'Rejected' },
 };
 
-const UNKNOWN_STATUS_COPY: VerificationStatusCopy = {
-  name: 'Unknown status',
-  summary: 'Not recognised',
-};
+const UNKNOWN_STATUS_COPY: VerificationStatusCopy = { name: 'Unknown status' };
 
 /** Legends, filters and the status sheet list the states in this order. */
 export const VERIFICATION_STATUS_ORDER: readonly VerificationStatus[] = [
@@ -65,12 +45,29 @@ export function getVerificationStatusName(status: VerificationStatus): string {
   return getVerificationStatusCopy(status).name;
 }
 
-/** The tooltip line, such as "Pre-verified: Passed automated checks, …". */
-export function getVerificationStatusTooltip(
-  status: VerificationStatus
+/**
+ * The status line a tooltip opens with: the name, who decided it, and for a
+ * verified item the next Tuesday update has not rated yet, that it is
+ * waiting. "Verified by apricot, pending rating calculation". Only Verified
+ * and Rejected have a reviewer.
+ */
+export function getVerificationStatusLine(
+  status: VerificationStatus,
+  {
+    reviewer,
+    pendingRating = false,
+  }: { reviewer?: string | null; pendingRating?: boolean } = {}
 ): string {
-  const { name, summary } = getVerificationStatusCopy(status);
-  return `${name}: ${summary}`;
+  const name = getVerificationStatusName(status);
+  const decided =
+    status === VerificationStatus.Verified ||
+    status === VerificationStatus.Rejected;
+  const by = decided && reviewer ? ` by ${reviewer}` : '';
+  const pending =
+    pendingRating && status === VerificationStatus.Verified
+      ? ', pending rating calculation'
+      : '';
+  return `${name}${by}${pending}`;
 }
 
 /**

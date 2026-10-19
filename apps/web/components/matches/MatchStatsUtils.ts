@@ -39,11 +39,8 @@ export interface HighlightStat {
   helpText?: string;
 }
 
-/** The help behind the Stats tab's headers, shared with its loading screen. */
-export const MATCH_STATISTICS_INFO =
-  'Performance across verified games in this match';
-export const PLAYER_PERFORMANCE_INFO =
-  'Score, accuracy, misses, and placement are per-game averages';
+/** The help behind Player performance, shared with its loading screen. */
+export const PLAYER_PERFORMANCE_INFO = 'Averages per game';
 
 export type TeamColor = 'red' | 'blue';
 
@@ -193,9 +190,7 @@ function createResultStat(
               ? `${winner.username} wins`
               : 'Final score',
       icon: 'Swords',
-      helpText: winRecord.isTied
-        ? 'A draw can result when games are rejected during verification.'
-        : undefined,
+      helpText: winRecord.isTied ? 'Excludes rejected games' : undefined,
     };
   }
 

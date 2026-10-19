@@ -380,8 +380,8 @@ import ModIconset from '@/components/icons/ModIconset';
 
 - `mods`: the stored bitflags, every one drawn, NF included; NC and PF stand for the DT and SD they imply (`getModBadgeAcronyms`). No mods draws nothing; there is no No Mod badge.
 - `lazerMods`: a lazer game's or score's lazer mods, drawn instead of the flags in play order, lazer-only mods included (`getModBadgeEntries`). A custom speed joins the badge's name ("Double Time 1.2x", `getModEntryName`) and is written after the badge in 12px semibold; `FittingModIconset` keeps it in the name only, so every badge keeps one slot. Pass `null` or leave it out for stable data.
-- Every badge is a TapTooltip button named for its mod, so its full name opens on hover, tap and keyboard focus. Names come from `getModName` in `@/lib/utils/mod-badges`: osu!'s official names from osu-web's mod list ("Spun Out", "Hard Rock", "Seven Keys") and "Free Mods" for FM. Mod names are proper names, so they keep osu!'s Title Case; don't sentence-case them. `ModBadgeIcon` with `tooltip={false}` is the plain image, for places that write the name beside it.
-- Hovering or focusing a badge, or the "+N" chip, lifts its art 2px with the default 150ms transition (`MOD_BADGE_LIFT`, under `motion-safe:`). The art moves, not the button, so layout, row height and the tooltip's anchor stay still; a clipping parent clips sideways only (`overflow-x-clip`) so the lift keeps its top.
+- Every badge is an image named for its mod for assistive tech, with no tooltip: players read osu!'s acronyms on sight, as the owner decided for "Elite GM". Names come from `getModName` in `@/lib/utils/mod-badges`: osu!'s official names from osu-web's mod list ("Spun Out", "Hard Rock", "Seven Keys") and "Free Mods" for FM. Mod names are proper names, so they keep osu!'s Title Case; don't sentence-case them. `FittingModIconset`'s "+N" chip is the one mod tooltip: it lists the badges that did not fit.
+- Badges and the "+N" chip stay still on hover and focus: no lift or bounce, since nothing else on the page moves that way.
 - `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in `FREEMOD_COLOR`, osu-web's green-1: the type colours' 70% lightness step in a hue no mod type uses, so it doesn't read as a System mod.
 - Badges sit side by side, 2px apart, and never overlap or shrink. Size them by height, no taller than the text line beside them: a game header's are 20px, 24px from tablet up; a score's 16px, 20px from tablet up.
 - `FittingModIconset` (`@/components/icons/FittingModIconset`) is the row for tight spaces, such as a score card's: give it a height and a width (`h-4 flex-1 basis-0`). It measures its width, shows the badges that fit and folds the rest into a grey "+N" chip whose tooltip (tap, hover or focus) lists them with their names. It never wraps, so the grade and score beside it keep their spot; the fit logic is `countModBadgeSlots` and `fitModBadges` in `@/lib/utils/mod-badges`.
@@ -675,7 +675,7 @@ import { ChartContainer } from '@/components/ui/chart';
     icon={ChartColumn}
     title="Tournament verification status"
     meta="2,993 tournaments"
-    infoText='"Not in ratings yet" covers Pending, Pre-verified and Pre-rejected tournaments.'
+    infoText="Not in ratings yet includes Pending, Pre-verified and Pre-rejected"
   />
   <PanelBody className="flex flex-col gap-3">
     <ChartLegend items={…} />
@@ -687,7 +687,7 @@ import { ChartContainer } from '@/components/ui/chart';
 ```
 
 - The SectionHeader icon is muted, the title is the chart's name in sentence case, and the meta is a short count or the peak.
-- An info button only when it tells the reader something the chart does not: a threshold ("Mods played in at least 1% of all verified games"), a grouping, how a value is counted. Most charts have none: "Tournaments by year" with "2,540 verified" beside it needs no help, and neither do the profile's frequent teammates and opponents.
+- An info button only when it tells the reader something the chart does not: a threshold ("Mods used in 1%+ of verified games"), a grouping, how a value is counted. Most charts have none: "Tournaments by year" with "2,540 verified" beside it needs no help, and neither do the profile's frequent teammates and opponents.
 - The legend goes at the top of the body; the plot is 240px tall (`h-60`) unless the chart needs more.
 - Empty data uses the shared empty state inside the same panel.
 

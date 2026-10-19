@@ -388,10 +388,11 @@ export default function LayoutSection() {
           }
           meta={
             <>
+              <HeroMetaItem icon={Users}>2v2</HeroMetaItem>
               <span className="inline-flex items-center gap-1">
-                <HeroMetaItem icon={Users}>2v2</HeroMetaItem>
-                <InfoButton onArt label="About lobby size">
-                  Number of players per team in each match
+                Manually configured
+                <InfoButton onArt label="About manually configured">
+                  No longer available in the osu! API
                 </InfoButton>
               </span>
               <HeroMetaItem icon={CalendarDays}>Jan 8 – 30, 2022</HeroMetaItem>
@@ -620,7 +621,7 @@ export default function LayoutSection() {
             <SectionHeader
               icon={Medal}
               title="Tier breakdown"
-              infoText="Charts NM, HD, HR and DT scores only, grouped by each player's pre-match rating at the time of play. Tiers with fewer than 5 scores are hidden."
+              infoText="Shows tiers with 5+ scores"
               meta="1,368 of 1,368 scores rated"
             />
             <PanelBody className={typeScale.bodyMuted}>Chart</PanelBody>
@@ -657,9 +658,9 @@ export default function LayoutSection() {
       >
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium">Lobby size</span>
-            <InfoButton label="About lobby size">
-              Number of players per team in each match
+            <span className="text-sm font-medium">Rank restriction</span>
+            <InfoButton label="About rank restriction">
+              Best global rank allowed, 1 if open
             </InfoButton>
           </div>
           <div className="flex items-center gap-1">
@@ -670,9 +671,9 @@ export default function LayoutSection() {
           </div>
           {/* onArt: on a hero's dark matte, white in both themes. */}
           <div className="flex items-center gap-1.5 rounded-md bg-black/60 px-3 py-2 text-sm font-medium text-white">
-            Lobby size
-            <InfoButton label="About lobby size" onArt>
-              Number of players per team in each match
+            Rank restriction
+            <InfoButton label="About rank restriction" onArt>
+              Best global rank allowed, 1 if open
             </InfoButton>
           </div>
         </div>

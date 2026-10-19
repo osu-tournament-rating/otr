@@ -338,7 +338,7 @@ import { SectionHeader } from '@/components/kit/layout/SectionHeader';
 <SectionHeader
   icon={Medal}
   title="Tier breakdown"
-  infoText="Charts NM, HD, HR and DT scores only, grouped by each player's pre-match rating at the time of play. Tiers with fewer than 5 scores are hidden."
+  infoText="Shows tiers with 5+ scores"
   meta="1,368 of 1,368 scores rated"
 />;
 ```
@@ -373,17 +373,17 @@ The one help affordance: a muted circled "i" beside the thing it explains. It op
 import { InfoButton } from '@/components/kit/layout/InfoButton';
 
 <span className="flex items-center gap-1.5">
-  Lobby size
-  <InfoButton label="About lobby size">
-    Number of players per team in each match
+  Rank restriction
+  <InfoButton label="About rank restriction">
+    Best global rank allowed, 1 if open
   </InfoButton>
 </span>;
 ```
 
 Props:
 
-- `label`: the accessible name, such as "About lobby size". Required.
-- `children`: the explanation, a sentence or two.
+- `label`: the accessible name, such as "About rank restriction". Required.
+- `children`: the explanation: one short fragment with no full stop.
 - `size`: `md` (16px glyph) beside 14px and 16px text, `sm` (14px) beside 12px labels.
 - `onArt`: on a DetailHero's art, white at 80% and full white on hover, with a white focus ring, like the other controls there.
 - `side`, `align`: where the bubble opens.
@@ -392,12 +392,17 @@ Do:
 
 - Use it for every inline explanation: form labels, stat labels, table headers, chart cards.
 - Leave the hit area alone: the glyph is 16px (14px at `sm`) in a 20px button, and an invisible ring widens the target to 28px without moving the layout.
-- Keep the default arrow cursor on anything whose only job is a tooltip: InfoButton, TapTooltip triggers, mod badges, tier icons, flags. The pointer (hand) is for links and buttons that do something.
+- Keep the default arrow cursor on anything whose only job is a tooltip: InfoButton, TapTooltip triggers, tier icons, flags. The pointer (hand) is for links and buttons that do something.
+- Write the one fact the screen lacks, as a fragment the owner would write: "Shows mods with 5+ scores", "Only games this player played in", "Averages per game", "Lobby prefix such as OWC2024", "Best global rank allowed, 1 if open". Lead with the fact, often a verb such as Shows, Includes or Also accepts.
+- Use the site's words: "verified games", "used", "5+", "1%+", "1.75x".
 
 Don't:
 
 - Don't use a circled question mark (lucide's `CircleHelp`).
 - Don't explain anything in a hover-only tooltip or a `title` attribute.
+- Don't write sentences: no full stop, no second clause, no hedge ("may", "can result").
+- Don't name what the chart or table already shows, such as its mod rows or its grouping.
+- Don't add an info button whose only fact is visible, such as a select whose options read 1v1 to 8v8; leave the label alone.
 - Don't add `cursor-pointer` or `cursor-help` to a tooltip trigger, even one that pins its content on click; the hand promises a link.
 - Don't colour the glyph blue.
 - Don't put it inside another button or link, such as a sortable column header; it is a button itself, so place it beside that control.
@@ -466,7 +471,7 @@ Props:
 
 - `label`: sentence case, 12px muted, truncated. `icon` puts a small muted icon before it. A short form players know from osu!, such as CS, AR, OD or HP, shows as plain text, and screen readers hear the full name instead: `label={<><span aria-hidden="true">CS</span><span className="sr-only">Circle size</span></>}` (the beatmap attributes' names are in `lib/beatmaps/presentation.ts`). A plain word such as "Keys" needs neither.
 - `value`: already formatted (separators on counts, never on years or IDs). It renders 20px bold (18px semibold inline) with `leading-none`, so the value line is as tall as the text, like the beatmap tiles, and in tabular figures, so digits line up from tile to tile. Tabular figures also widen Inter's hyphen; a hyphenated word as a value (rare) takes `<span className="proportional-nums">`.
-- `adornment`: sits 4px left of the value and overhangs its 20px line, so a 20–24px icon does not push the value or sub line out of step with the next tile. The profile's tier icon goes here; there is no separate tier tile. Pass TierIcon's `tooltip`: it wraps the icon in a TapTooltip, so the tier's name opens on tap, hover and keyboard focus.
+- `adornment`: sits 4px left of the value and overhangs its 20px line, so a 20–24px icon does not push the value or sub line out of step with the next tile. The profile's tier icon goes here; there is no separate tier tile. Pass TierIcon's `tooltip` there: it wraps the icon in a TapTooltip, so the tier's name opens on tap, hover and keyboard focus. Leave it off when the tile writes the tier's name in `sub`, as the match stat tiles do.
 - `sub`: one muted line under the value.
 - `infoText`: adds a small InfoButton after the label, named "About {label}" (lower-cased: "About win rate"). With a node as the label, name it with `infoLabel` ("About circle size").
 - `layout="inline"`: the value on the label's line, with `children` (such as a gauge) underneath. For attribute grids like CS, AR, OD and HP.

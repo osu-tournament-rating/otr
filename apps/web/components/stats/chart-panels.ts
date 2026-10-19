@@ -31,7 +31,7 @@ export const STATS_PANELS = {
     icon: CircleCheck,
     title: 'Tournament verification status',
     infoText:
-      '"Not in ratings yet" covers Pending, Pre-verified and Pre-rejected tournaments.',
+      'Not in ratings yet includes Pending, Pre-verified and Pre-rejected',
   },
   year: {
     icon: Calendar,

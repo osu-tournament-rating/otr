@@ -33,6 +33,7 @@ import {
   RATINGS_GROUPS,
   VERIFICATION_STATUS_ORDER,
   getVerificationStatusCopy,
+  getVerificationStatusLine,
 } from '@/lib/kit/status/verification';
 import { cn } from '@/lib/utils';
 import { getBeatmapModLabel } from '@/lib/utils/mods';
@@ -142,7 +143,7 @@ function StatusSheet() {
             {VERIFICATION_STATUS_ORDER.filter((status) =>
               group.statuses.includes(status)
             ).map((status) => {
-              const { name, summary } = getVerificationStatusCopy(status);
+              const { name } = getVerificationStatusCopy(status);
               return (
                 <li
                   key={status}
@@ -159,9 +160,15 @@ function StatusSheet() {
                     </span>
                     <span className="font-medium">{name}</span>
                   </div>
-                  <p className="text-sm text-pretty text-muted-foreground">
-                    {summary.charAt(0).toUpperCase() + summary.slice(1)}
-                  </p>
+                  {/* Only a decision names its reviewer; the rest read as the name. */}
+                  {status === VerificationStatus.Verified ||
+                  status === VerificationStatus.Rejected ? (
+                    <p className="text-sm text-pretty text-muted-foreground">
+                      {getVerificationStatusLine(status, {
+                        reviewer: REVIEWER,
+                      })}
+                    </p>
+                  ) : null}
                 </li>
               );
             })}
@@ -246,6 +253,7 @@ export default function StatusSection() {
                     rejectionReasons={game.rejectionReasons}
                     reviewer={game.reviewer}
                     context={`Game ${index + 1}`}
+                    showContext
                     tooltip="tap"
                   />
                 </li>
@@ -320,6 +328,7 @@ export default function StatusSection() {
                       rejectionReasons={game.rejectionReasons}
                       reviewer={game.reviewer}
                       context={`Game ${index + 3}`}
+                      showContext
                       tooltip="tap"
                     />
                   </li>
@@ -598,7 +607,7 @@ export default function StatusSection() {
       >
         <Row label="States">
           {REPORT_STATUS_ORDER.map((status) => (
-            <ReportStatusBadge key={status} status={status} tooltip="tap" />
+            <ReportStatusBadge key={status} status={status} />
           ))}
         </Row>
       </Specimen>

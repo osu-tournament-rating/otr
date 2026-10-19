@@ -511,7 +511,7 @@ A field label with the one info button for help and an optional muted hint on th
 import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 
 <FormItem>
-  <FormFieldLabel info="The prefix of each tournament lobby, such as 'OWC2024' from OWC2024: (United States) vs. (Canada)">
+  <FormFieldLabel info="Lobby prefix such as OWC2024">
     Abbreviation
   </FormFieldLabel>
   <FormControl>
@@ -524,7 +524,7 @@ import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 Props:
 
 - `children`: the label text, sentence case. It turns red with the field's error, from `FormLabel`.
-- `info`: the explanation behind an InfoButton (its `md` size, the one beside 14px text), which opens on tap, hover and focus. `infoLabel` names it; it defaults to "About {label}", lower-cased mid-sentence ("About lobby size").
+- `info`: the explanation behind an InfoButton (its `md` size, the one beside 14px text), which opens on tap, hover and focus. `infoLabel` names it; it defaults to "About {label}", lower-cased mid-sentence ("About rank restriction"). Write it as a short fragment with no full stop; see [InfoButton](layout.md#infobutton).
 - `hint`: muted text on the right. `hintId` gives it an id, so the control can point `aria-describedby` at it, such as a "Required" hint: `hint="Required" hintId={hintId}`, not a hand-made `<span id>` inside `hint`.
 - `htmlFor`: the id of the control it labels, for a field outside a `FormItem`. It then renders the plain `Label` (`FormLabel` only works inside a form field). `invalid` turns it red, as a field error does inside a form.
 - `groupId`: labels a group of controls, such as a `RadioGroup`, that a `<label>` can't point at. The label is plain text with this id, in the same 20px row and text style, and the group takes `aria-labelledby={groupId}`; each option keeps its own `Label`. `invalid` works here too.
@@ -532,7 +532,7 @@ Props:
 ```tsx
 const id = useId();
 
-<FormFieldLabel htmlFor={id} info="Number of players per team in each match">
+<FormFieldLabel htmlFor={id} hint="Any">
   Lobby size
 </FormFieldLabel>
 <Select value={lobbySize} onValueChange={setLobbySize}>

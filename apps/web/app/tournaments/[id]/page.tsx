@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { VerificationStatus } from '@otr/core/osu';
 import { z } from 'zod';
 
 import { PageFrame } from '@/components/kit/layout/PageFrame';
@@ -141,6 +142,11 @@ export default async function Page({ params, searchParams }: PageProps) {
           matches: matches.length,
           beatmaps: visibleBeatmapCount,
         }}
+        // Player stats arrive with the Tuesday update that rates it.
+        pendingRating={
+          tournament.verificationStatus === VerificationStatus.Verified &&
+          playerStats.length === 0
+        }
       />
 
       <NotInRatings status={tournament.verificationStatus} variant="notice" />

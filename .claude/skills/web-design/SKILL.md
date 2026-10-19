@@ -87,8 +87,12 @@ it in `apps/web` from the kit, never from the mockup's markup.
 - **Help.** One info button, a circled "i", that opens on tap, hover and
   keyboard focus. Anything that only opens on hover is a bug. Help, captions
   and tooltips say what is not already on screen; never restate a label,
-  placeholder, hint or title. A tooltip trigger keeps the arrow cursor; the
-  pointer is only for links and buttons that act.
+  placeholder, hint or title, and never define the word beside them. Write a
+  short fragment, not a sentence: no full stop, at most one phrase, and a
+  list on its own lines ("Shows mods with 5+ scores", "Verified by
+  apricot"). When nothing is left to say, drop the tooltip. A tooltip
+  trigger keeps the arrow cursor; the pointer is only for links and buttons
+  that act.
 - **Formatting.** Dates "Jul 20 – Aug 3, 2024", timestamps "Jul 20, 2024,
   15:42 UTC", relative time only in feeds. Ranks "#1,234". Rating changes
   with one decimal. Rulesets osu!, taiko, catch, mania 4K, mania 7K. Never

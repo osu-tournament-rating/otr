@@ -43,8 +43,8 @@ import {
   RATINGS_GROUPS,
   VERIFICATION_STATUS_ORDER,
   getRatingsGroup,
+  getVerificationStatusLine,
   getVerificationStatusName,
-  getVerificationStatusTooltip,
   isNotInRatingsYet,
 } from '@/lib/kit/status/verification';
 import {
@@ -53,21 +53,22 @@ import {
 } from '@/lib/kit/status/reasons';
 import { formatBadgeCount } from '@/lib/kit/status/count';
 
-getVerificationStatusTooltip(VerificationStatus.PreVerified);
-// "Pre-verified: Passed automated checks, awaiting admin review"
+getVerificationStatusLine(VerificationStatus.Verified, { reviewer: 'apricot' });
+// "Verified by apricot"
 isNotInRatingsYet(tournament.verificationStatus); // Pending, Pre-verified, Pre-rejected
 getWarningTexts('match', match.warningFlags); // ["Low game count", …]
 formatBadgeCount(140); // "99+"
 ```
 
-- `getVerificationStatusName(status)`: the one name. `getVerificationStatusTooltip(status)`: "<name>: <plain-language line>", for a title, a chart tooltip or an `aria-description`. `getVerificationStatusCopy(status)` (from `VERIFICATION_STATUS_COPY`) gives both parts.
+- `getVerificationStatusName(status)`: the one name; `getVerificationStatusCopy(status)` (from `VERIFICATION_STATUS_COPY`) gives it as `{ name }`. There is no explanation line: the name is the whole message.
+- `getVerificationStatusLine(status, { reviewer, pendingRating })`: the line a status tooltip opens with. The reviewer joins Verified and Rejected only ("Rejected by apricot"); `pendingRating` adds ", pending rating calculation" to Verified only.
 - `getVerificationStatusLabel(status, { context, hasWarnings })`: the accessible name of an icon on its own, such as "Game 3: Pre-verified, with warnings".
 - `isNotInRatingsYet(status)`, `NOT_IN_RATINGS_YET_STATUSES` and `NOT_IN_RATINGS_YET_LABEL`: the group of the three undecided states.
 - `getVerificationStatusHue(status)` and `isAutomatedCheckStatus(status)`: the hue of an icon or badge (`success`, `neutral`, `destructive`) and whether it gets the dashed outline.
 - `RATINGS_GROUPS` and `getRatingsGroup(status)`: the three chart groups in order, each with a `key`, a `label`, a `hue` (`success`, `neutral`, `destructive`) and the `statuses` it counts.
 - `RATING_FAQ_URL`: the Rating FAQ answer on why a tournament is not in ratings.
 - `getWarningTexts(entityType, flags)` and `getRejectionReasonTexts(entityType, reason)`: one sentence-case line per set bitflag: the entity's labels from the format family, split by its `getFlagLabels`.
-- `REPORT_STATUS_COPY`, `getReportStatusCopy(status)` and `getReportStatusTooltip(status)`: Pending, Confirmed and Dismissed, with their tones. `REPORT_STATUS_ORDER` is their order in filters and legends, such as the admin queue's status switch.
+- `REPORT_STATUS_COPY` and `getReportStatusCopy(status)`: Pending, Confirmed and Dismissed, with their tones. `REPORT_STATUS_ORDER` is their order in filters and legends, such as the admin queue's status switch.
 - `formatBadgeCount(count, max = 99)`: a count for a badge, with thousands separators, capped as "99+".
 
 Don't:
@@ -101,7 +102,9 @@ Props that matter:
 - `size`: `sm` (14px) inside a line of text, `md` (16px, default) in rows and cells, `lg` (20px) next to a page or section heading.
 - `variant`: `default`, or `overlay` on cover art only. The overlay sets the glyph on a dark disc (80% black, `OVERLAY_DISC_ALPHA`, with a faint white ring, a 24px disc around the 16px glyph) and gives it the dark theme's lighter colours whatever the page's theme, so every state keeps 3:1 even over a white cover; a test checks it. Warnings make the disc a pill.
 - `tooltip`: `tap` opens on tap, hover and focus (it renders a button); `hover` adds no button, for an icon inside a link. Leave it out only when the name is written next to the icon.
-- `warnings`, `rejectionReasons`, `reviewer`, `context`: what the tooltip lists. Any warning shows the marker.
+- `warnings`, `rejectionReasons`, `reviewer`: what the tooltip lists. Any warning shows the marker.
+- `context`: starts the accessible name ("Game 3: Rejected"). `showContext` also heads the bubble with it; use it only in a row of look-alikes, such as game pips.
+- `pendingRating`: a verified item whose stats have not come yet, as the match and tournament heroes know from their player stats.
 - `decorative`: hides the icon from assistive tech when the name is already beside it.
 
 Related exports in the same file: `VerificationStatusGlyph` (the bare coloured glyph, for legends) and `StatusWarningMarker` (the triangle on its own).
@@ -109,7 +112,8 @@ Related exports in the same file: `VerificationStatusGlyph` (the bare coloured g
 Do:
 
 - Give every icon on its own a tooltip. Without one it still has an accessible name (`role="img"`), but sighted visitors cannot learn what the glyph means.
-- Use `context` when several icons sit together, such as the game pips of a match row, so each one is named ("Game 3: Rejected").
+- Use `context` when several icons sit together, such as the game pips of a match row, so each one is named ("Game 3: Rejected"). Add `showContext` there too, so sighted visitors see which pip they opened.
+- Leave `showContext` off where the row beside the icon already names it: a score card, a game card, a match or tournament row.
 - Keep tap icons at least 8px apart (`gap-2`): the icon is a 16px target, and the gap gives each one the 24px tap area WCAG 2.5.8 asks for.
 - Inside a whole-row link, use `tooltip="hover"`: the row is one link, so it can hold no button. The row link's `linkLabel` replaces the row's content for screen readers, icon included, so a status the row must say aloud goes into the label as well ([RowListItem](layout.md#rowlist-and-rowlistitem)).
 - On cover art (the game card header), use `variant="overlay"`, as `VerificationStatusBadge` uses its `overlay` variant there.
@@ -162,7 +166,7 @@ Gallery anchor: `/admin/design#status-verification-badge`
 
 ## VerificationStatusTooltip
 
-The explanation behind a status icon or badge: the name and its plain-language line, then who verified or rejected it, the warnings and the rejection reasons. The icon and badge use it through their `tooltip` prop; wrap something else with it only when that something is the status trigger.
+The facts behind a status icon or badge, in short lines with no full stops: the context when `showContext` is set, then the status line from `getVerificationStatusLine` ("Rejected by apricot"), then one bulleted line per rejection reason and one line per warning, each warning behind the warning triangle. The status line ends with a colon when a list follows. The icon and badge use it through their `tooltip` prop; wrap something else with it only when that something is the status trigger.
 
 ```tsx
 import {
@@ -181,6 +185,12 @@ import {
 
 - `mode="tap"` uses `TapTooltip` (a button that opens on tap, hover and focus); `mode="hover"` uses `SimpleTooltip` and adds no button. `side` places the bubble, and `triggerClassName` styles the tap button.
 - `VerificationStatusDetails` is the body on its own, for a chart tooltip or a popover that already exists.
+
+Don't:
+
+- Don't add a line that explains the status, such as "Approved by an admin" or "awaiting admin review": the name says it.
+- Don't head the lists with "Rejection reasons" or "Warnings": the bullet and the triangle tell them apart.
+- Don't promise when an item counts in ratings unless the page's data shows it has not been rated yet (`pendingRating`).
 
 Gallery anchors: `/admin/design#status-verification-icon`, `/admin/design#status-verification-badge` (the body on its own)
 
@@ -272,10 +282,10 @@ A data report's state on My reports and the admin queue, in the same status lang
 ```tsx
 import { ReportStatusBadge } from '@/components/kit/status/ReportStatusBadge';
 
-<ReportStatusBadge status={report.status} tooltip="tap" />;
+<ReportStatusBadge status={report.status} />;
 ```
 
-- `size` as for Badge; `tooltip` adds the plain-language line ("Dismissed: Reviewed by an admin, no changes made"), `tap` or `hover` as for the verification components.
+- `size` as for Badge. It has no tooltip: the name is the whole message.
 
 Don't:
 

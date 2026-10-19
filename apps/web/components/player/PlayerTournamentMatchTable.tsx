@@ -14,8 +14,7 @@ import { formatDate } from '@/lib/kit/format/date';
 import { formatRating } from '@/lib/kit/format/number';
 import type { PlayerRatingAdjustment } from '@/lib/orpc/schema/playerStats';
 
-const GAMES_INFO =
-  'Win-loss record for games this player participated in, not the entire team';
+const GAMES_INFO = 'Only games this player played in';
 
 /** `2–1`, or null when the record is unknown. */
 function formatGames(adjustment: PlayerRatingAdjustment): string | null {

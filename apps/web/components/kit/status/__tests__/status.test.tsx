@@ -10,6 +10,7 @@ import {
   OVERLAY_DISC_ALPHA,
   VerificationStatusIcon,
 } from '@/components/kit/status/VerificationStatusIcon';
+import { VerificationStatusDetails } from '@/components/kit/status/VerificationStatusTooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   CONTRAST_MARK,
@@ -123,5 +124,55 @@ describe('VerificationStatusIcon overlay', () => {
     );
     expect(html).toContain('data-variant="default"');
     expect(html).not.toContain('bg-black');
+  });
+});
+
+describe('VerificationStatusDetails', () => {
+  /** The bubble's text, one entry per line. */
+  const lines = (html: string) =>
+    [...html.matchAll(/<(?:p|li)[^>]*>(.*?)<\/(?:p|li)>/g)].map((m) =>
+      m[1].replace(/<[^>]+>/g, '')
+    );
+
+  it('heads the bubble with its context only when asked', () => {
+    const details = {
+      status: VerificationStatus.PreVerified,
+      context: 'Game 3',
+    };
+
+    expect(lines(render(<VerificationStatusDetails {...details} />))).toEqual([
+      'Pre-verified',
+    ]);
+    expect(
+      lines(render(<VerificationStatusDetails {...details} showContext />))
+    ).toEqual(['Game 3', 'Pre-verified']);
+  });
+
+  it('ends the status line with a colon when reasons or warnings follow', () => {
+    const html = render(
+      <VerificationStatusDetails
+        status={VerificationStatus.Rejected}
+        reviewer="apricot"
+        rejectionReasons={['Prefix mismatch']}
+        warnings={['Low game count']}
+      />
+    );
+
+    expect(lines(html)).toEqual([
+      'Rejected by apricot:',
+      'Prefix mismatch',
+      'Low game count',
+    ]);
+  });
+
+  it('ends the status line with a colon before warnings alone', () => {
+    const html = render(
+      <VerificationStatusDetails
+        status={VerificationStatus.PreVerified}
+        warnings={['Low game count']}
+      />
+    );
+
+    expect(lines(html)).toEqual(['Pre-verified:', 'Low game count']);
   });
 });

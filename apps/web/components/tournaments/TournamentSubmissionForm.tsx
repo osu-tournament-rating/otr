@@ -186,7 +186,7 @@ export default function TournamentSubmissionForm() {
               name="abbreviation"
               render={({ field }) => (
                 <FormItem>
-                  <FormFieldLabel info="The prefix of each tournament lobby, such as 'OWC2024' from OWC2024: (United States) vs. (Canada)">
+                  <FormFieldLabel info="Lobby prefix such as OWC2024">
                     Abbreviation
                   </FormFieldLabel>
                   <FormControl>
@@ -216,7 +216,7 @@ export default function TournamentSubmissionForm() {
             name="forumUrl"
             render={({ field }) => (
               <FormItem>
-                <FormFieldLabel info="Forum post URL or wiki page for the tournament">
+                <FormFieldLabel info="Also accepts osu! wiki pages">
                   Forum post URL
                 </FormFieldLabel>
                 <FormControl>
@@ -260,9 +260,7 @@ export default function TournamentSubmissionForm() {
               name="lobbySize"
               render={({ field }) => (
                 <FormItem>
-                  <FormFieldLabel info="Number of players per team in each match">
-                    Lobby size
-                  </FormFieldLabel>
+                  <FormFieldLabel>Lobby size</FormFieldLabel>
                   <Select
                     onValueChange={(value) => field.onChange(Number(value))}
                     value={field.value?.toString() ?? ''}
@@ -283,7 +281,7 @@ export default function TournamentSubmissionForm() {
               name="rankRangeLowerBound"
               render={({ field }) => (
                 <FormItem>
-                  <FormFieldLabel info="The 'best' global rank allowed to participate. Use 1 for open rank.">
+                  <FormFieldLabel info="Best global rank allowed, 1 if open">
                     Rank restriction
                   </FormFieldLabel>
                   <FormControl>

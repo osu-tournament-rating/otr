@@ -84,11 +84,14 @@ export default function TournamentHero({
   tournament,
   tab,
   counts,
+  pendingRating = false,
 }: {
   tournament: TournamentHeroData;
   tab: TournamentTab;
   /** What the Matches and Beatmaps tabs hold (visible pooled beatmaps). */
   counts: { matches: number; beatmaps: number };
+  /** Verified, but the Tuesday update has not rated it yet. */
+  pendingRating?: boolean;
 }) {
   const session = useSession();
   const router = useRouter();
@@ -118,6 +121,7 @@ export default function TournamentHero({
               tournament.rejectionReason
             )}
             reviewer={tournament.verifiedByUsername ?? undefined}
+            pendingRating={pendingRating}
             tooltip="tap"
           />
         }

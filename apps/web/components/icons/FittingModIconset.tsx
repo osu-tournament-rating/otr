@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { Mods } from '@otr/core/osu';
 import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
-import { MOD_BADGE_LIFT, ModBadgeIcon } from '@/components/icons/ModIconset';
+import { ModBadgeIcon } from '@/components/icons/ModIconset';
 import TapTooltip from '@/components/tap-tooltip';
 import {
   countModBadgeSlots,
@@ -27,7 +27,7 @@ function HiddenModsChip({ entries }: { entries: ModBadgeEntry[] }) {
     <TapTooltip
       side="top"
       triggerAriaLabel={`${acronyms.length} more ${acronyms.length === 1 ? 'mod' : 'mods'}: ${names.join(', ')}`}
-      triggerClassName="group [container-type:size] relative aspect-[10/7] h-full w-auto shrink-0 rounded-none"
+      triggerClassName="[container-type:size] relative aspect-[10/7] h-full w-auto shrink-0 rounded-none"
       content={
         <ul className="flex flex-col gap-1">
           {acronyms.map((acronym, index) => (
@@ -36,7 +36,6 @@ function HiddenModsChip({ entries }: { entries: ModBadgeEntry[] }) {
               <ModBadgeIcon
                 acronym={acronym}
                 speed={entries[index].speed}
-                tooltip={false}
                 className="h-4"
               />
               {names[index]}
@@ -45,7 +44,7 @@ function HiddenModsChip({ entries }: { entries: ModBadgeEntry[] }) {
         </ul>
       }
     >
-      <span className={MOD_BADGE_LIFT}>
+      <span className="absolute inset-0">
         <span
           aria-hidden
           className="absolute inset-0 bg-muted-foreground"

@@ -6,14 +6,13 @@ import {
   NOT_IN_RATINGS_YET_STATUSES,
   RATING_FAQ_URL,
   RATINGS_GROUPS,
-  VERIFICATION_STATUS_COPY,
   VERIFICATION_STATUS_ORDER,
   getRatingsGroup,
   getVerificationStatusCopy,
   getVerificationStatusHue,
   getVerificationStatusLabel,
+  getVerificationStatusLine,
   getVerificationStatusName,
-  getVerificationStatusTooltip,
   isAutomatedCheckStatus,
   isNotInRatingsYet,
 } from '../verification';
@@ -40,44 +39,48 @@ describe('verification status copy', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it('writes each tooltip as "<name>: <plain-language line>"', () => {
-    expect(getVerificationStatusTooltip(VerificationStatus.PreVerified)).toBe(
-      'Pre-verified: Passed automated checks, awaiting admin review'
-    );
-
-    for (const status of ALL_STATUSES) {
-      const { name, summary } = VERIFICATION_STATUS_COPY[status];
-      const tooltip = getVerificationStatusTooltip(status);
-
-      expect(tooltip.startsWith(`${name}: `)).toBe(true);
-      expect(summary[0]).toBe(summary[0].toUpperCase());
-      expect(summary.endsWith('.')).toBe(false);
-    }
+  it('opens the tooltip with the name, and the reviewer of a decision', () => {
+    expect(
+      ALL_STATUSES.map((status) => getVerificationStatusLine(status))
+    ).toEqual([
+      'Pending',
+      'Pre-rejected',
+      'Pre-verified',
+      'Rejected',
+      'Verified',
+    ]);
+    expect(
+      ALL_STATUSES.map((status) =>
+        getVerificationStatusLine(status, { reviewer: 'apricot' })
+      )
+    ).toEqual([
+      'Pending',
+      'Pre-rejected',
+      'Pre-verified',
+      'Rejected by apricot',
+      'Verified by apricot',
+    ]);
   });
 
-  it('says what each waiting state awaits and who decided the others', () => {
-    expect(NOT_IN_RATINGS_YET_STATUSES).toHaveLength(3);
-    for (const status of NOT_IN_RATINGS_YET_STATUSES) {
-      expect(getVerificationStatusTooltip(status).toLowerCase()).toContain(
-        'awaiting'
-      );
-    }
-    for (const status of [
-      VerificationStatus.Verified,
-      VerificationStatus.Rejected,
-    ]) {
-      expect(getVerificationStatusTooltip(status)).toContain('by an admin');
-      expect(getVerificationStatusTooltip(status)).not.toContain('awaiting');
-    }
+  it('marks only a verified item as pending rating calculation', () => {
+    expect(
+      getVerificationStatusLine(VerificationStatus.Verified, {
+        reviewer: 'apricot',
+        pendingRating: true,
+      })
+    ).toBe('Verified by apricot, pending rating calculation');
+    expect(
+      getVerificationStatusLine(VerificationStatus.Rejected, {
+        pendingRating: true,
+      })
+    ).toBe('Rejected');
   });
 
   it('falls back instead of throwing on an unknown value', () => {
     const unknown = 99 as VerificationStatus;
 
     expect(getVerificationStatusCopy(unknown).name).toBe('Unknown status');
-    expect(getVerificationStatusTooltip(unknown)).toBe(
-      'Unknown status: Not recognised'
-    );
+    expect(getVerificationStatusLine(unknown)).toBe('Unknown status');
   });
 
   it('lists every state exactly once in display order', () => {

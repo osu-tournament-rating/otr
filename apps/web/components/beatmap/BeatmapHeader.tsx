@@ -81,8 +81,7 @@ export default function BeatmapHeader({
               <PencilLine className="size-4 shrink-0" aria-hidden />
               Manually configured
               <InfoButton label="About manually configured" onArt={onArt}>
-                Set by an admin because the osu! API no longer serves this
-                beatmap
+                No longer available in the osu! API
               </InfoButton>
             </span>
           ) : null}

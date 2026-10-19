@@ -1012,10 +1012,8 @@ function ConfirmDialogDemo() {
 }
 
 // Help text and placeholders from components/tournaments/TournamentSubmissionForm.tsx.
-const ABBREVIATION_INFO =
-  "The prefix of each tournament lobby, such as 'OWC2024' from OWC2024: (United States) vs. (Canada)";
-const RANK_RESTRICTION_INFO =
-  "The 'best' global rank allowed to participate. Use 1 for open rank.";
+const ABBREVIATION_INFO = 'Lobby prefix such as OWC2024';
+const RANK_RESTRICTION_INFO = 'Best global rank allowed, 1 if open';
 const FORUM_URL_PLACEHOLDER = 'https://osu.ppy.sh/community/forums/topics/...';
 const MATCHES_PLACEHOLDER =
   'https://osu.ppy.sh/community/matches/12345\nhttps://osu.ppy.sh/mp/67890';
@@ -1158,7 +1156,7 @@ function FormLayoutDemo() {
               rules={{ validate: validateSubmittedForumPostUrl }}
               render={({ field }) => (
                 <FormItem>
-                  <FormFieldLabel info="Forum post URL or wiki page for the tournament">
+                  <FormFieldLabel info="Also accepts osu! wiki pages">
                     Forum post URL
                   </FormFieldLabel>
                   <FormControl>
@@ -1200,9 +1198,7 @@ function FormLayoutDemo() {
                 rules={{ required: LOBBY_SIZE_REQUIRED_MESSAGE }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormFieldLabel info="Number of players per team in each match">
-                      Lobby size
-                    </FormFieldLabel>
+                    <FormFieldLabel>Lobby size</FormFieldLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -1403,11 +1399,7 @@ function PlainFieldLabelDemo() {
   const [lobbySize, setLobbySize] = React.useState('');
   return (
     <div className="flex flex-col gap-2 border-t pt-4">
-      <FormFieldLabel
-        htmlFor={id}
-        info="Number of players per team in each match"
-        hint="htmlFor, no form"
-      >
+      <FormFieldLabel htmlFor={id} hint="htmlFor, no form">
         Lobby size
       </FormFieldLabel>
       <Select value={lobbySize} onValueChange={setLobbySize}>
