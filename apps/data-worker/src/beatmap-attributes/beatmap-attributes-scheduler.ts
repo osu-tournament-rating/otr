@@ -19,7 +19,7 @@ const SWEEP_INTERVAL_MS = 10 * 60_000;
 export const NEEDING_ATTRIBUTES_RECHECK_MS = 60 * 60_000;
 // Keeps the sweep's queries out of startup.
 const FIRST_SWEEP_DELAY_MS = 60_000;
-// The JobQueueDepthHigh alert fires above 1,000 jobs.
+// The JobQueueDepthHigh alert fires above 1,000 jobs in this queue.
 export const SWEEP_BATCH_SIZE = 1_000;
 
 type QueryExecutor = Pick<DatabaseClient, 'execute'>;
