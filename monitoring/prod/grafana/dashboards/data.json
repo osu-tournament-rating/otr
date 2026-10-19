@@ -847,12 +847,12 @@
           },
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT d AS time, count(DISTINCT s.user_id) AS \"Active in the last 30 days\"\nFROM generate_series(date_trunc('day', $__timeFrom()::timestamp), $__timeTo()::timestamp, interval '1 day') AS d\nJOIN auth_sessions s ON s.created_at <= d AND s.updated_at >= d - interval '30 days'\nGROUP BY 1\nORDER BY 1",
+          "rawSql": "WITH first AS (SELECT min(day) AS day FROM user_activity_daily)\nSELECT d AS time, count(DISTINCT p.player_id) AS \"Active in the last 30 days\"\nFROM generate_series(date_trunc('day', $__timeFrom()::timestamp), $__timeTo()::timestamp, interval '1 day') AS d\nCROSS JOIN first f\nLEFT JOIN LATERAL (\n  SELECT a.player_id FROM user_activity_daily a\n  WHERE a.day BETWEEN d::date - 29 AND d::date\n  UNION ALL\n  SELECT u.player_id FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id\n  WHERE (f.day IS NULL OR d::date - 29 <= f.day)\n    AND s.created_at < least(d, f.day) + interval '1 day'\n    AND s.updated_at >= d - interval '29 days'\n) p ON true\nGROUP BY 1\nORDER BY 1",
           "format": "time_series",
           "refId": "A"
         }
       ],
-      "description": "Signed-in users with a session in use during the 30 days up to each day. Counted from sessions that still exist: signing out, returning after a session expired, and deleting an account remove sessions, so older days read low. Banning a user marks their sessions as used that day.",
+      "description": "Signed-in players who used the site on at least one of the 30 days up to and including each day. Days before daily activity was recorded count sessions that still exist instead: signing out, returning after a session expired, and deleting an account remove sessions, and banning a user marks their sessions as used that day.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
