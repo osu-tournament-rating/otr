@@ -11,6 +11,7 @@ import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { legacyOAuthCallbackURL } from './osu-callback';
+import { recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -674,6 +675,10 @@ export const auth = betterAuth({
         : null;
 
       const osuId = dbPlayer?.osuId ?? parseOsuId(account?.accountId);
+
+      if (dbPlayer) {
+        await recordUserActivity(dbPlayer.id);
+      }
 
       return {
         user: {
