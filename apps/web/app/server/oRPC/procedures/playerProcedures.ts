@@ -377,10 +377,14 @@ const buildMatchAggregates = (
   if (adjustments.length > 0) {
     const firstAdjustment = adjustments[0];
     const lastAdjustment = adjustments[adjustments.length - 1];
+    // An initial rating's ratingBefore is a placeholder 0, so the gain starts from the rating it set
+    const startingRating =
+      firstAdjustment.adjustmentType === RatingAdjustmentType.Initial
+        ? firstAdjustment.ratingAfter
+        : firstAdjustment.ratingBefore;
 
     ratingGained =
-      toNumber(lastAdjustment.ratingAfter) -
-      toNumber(firstAdjustment.ratingAfter);
+      toNumber(lastAdjustment.ratingAfter) - toNumber(startingRating);
 
     highestRating = adjustments.reduce((max, adjustment) => {
       const ratingAfter = toNumber(adjustment.ratingAfter);
@@ -1007,6 +1011,21 @@ export const getPlayerStats = publicProcedure
 
     const adjustments = mapRatingAdjustments(adjustmentRows);
 
+    // Provisional describes the current rating, so it counts every change, not only those in the range
+    const totalAdjustmentCount =
+      ratingRow && (bounds.start || bounds.end)
+        ? await context.db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(schema.ratingAdjustments)
+            .where(
+              and(
+                eq(schema.ratingAdjustments.playerId, player.id),
+                eq(schema.ratingAdjustments.ruleset, resolvedRuleset)
+              )
+            )
+            .then(([row]) => toNumber(row?.count))
+        : adjustments.length;
+
     const matchFilters = [
       eq(schema.playerMatchStats.playerId, player.id),
       eq(schema.tournaments.ruleset, resolvedRuleset),
@@ -1116,7 +1135,7 @@ export const getPlayerStats = publicProcedure
             winRate: matchesPlayed > 0 ? matchesWon / matchesPlayed : null,
             tierProgress: tierProgressData,
             adjustments,
-            isProvisional: adjustments.length < 10,
+            isProvisional: totalAdjustmentCount < 10,
           };
         })()
       : null;
