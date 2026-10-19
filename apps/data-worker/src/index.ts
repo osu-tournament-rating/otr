@@ -237,6 +237,7 @@ const bootstrap = async () => {
     db,
     logger,
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+    players: dataWorkerEnv.playerAutoRefetch.osu.enabled,
   });
 
   const osuTrackClient = new OsuTrackClient({});
