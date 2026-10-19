@@ -358,7 +358,7 @@ import { ScopeSwitch } from '@/components/kit/lists/ScopeSwitch';
       value: 'friends',
       label: 'Friends',
       disabled: !hasFriends,
-      disabledReason: 'Sync friends in settings to enable',
+      disabledReason: 'Sync friends in Settings',
     },
   ]}
 />;
