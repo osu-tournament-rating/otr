@@ -1,4 +1,4 @@
-import { Counter, Gauge } from 'prom-client';
+import { Counter, Gauge, Histogram } from 'prom-client';
 import type { JobQueueSummary } from '@otr/core/jobs';
 
 import { metricsRegistry } from './registry';
@@ -85,5 +85,17 @@ export const jobsReclaimed = new Counter({
   name: 'data_worker_jobs_reclaimed_total',
   help: 'Job leases taken back from a worker that stopped renewing them',
   labelNames: ['queue'] as const,
+  registers: [metricsRegistry],
+});
+
+/**
+ * How long a job waited between becoming ready and a worker claiming it: the
+ * backlog as one job experiences it. A retry waits from the end of its backoff.
+ */
+export const jobWaitSeconds = new Histogram({
+  name: 'data_worker_job_wait_seconds',
+  help: 'Time from a job becoming ready to a worker claiming it',
+  labelNames: ['queue'] as const,
+  buckets: [1, 10, 60, 300, 900, 1800, 3600, 7200, 21600, 86400],
   registers: [metricsRegistry],
 });

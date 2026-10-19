@@ -13,6 +13,7 @@ import {
   queueMessageDuration,
   queueMessagesInFlight,
   queueMessagesProcessed,
+  jobWaitSeconds,
 } from '../metrics';
 import {
   recordAttemptSql,
@@ -366,9 +367,15 @@ export class JobRunner {
       WHERE j.id = next.id
       RETURNING j.id, j.queue, j.payload, j.priority, j.attempts,
         j.max_attempts, j.correlation_id, j.tournament_id,
-        j.requested_by_user_id, j.trace_context, j.created`);
+        j.requested_by_user_id, j.trace_context, j.created,
+        GREATEST(0, EXTRACT(EPOCH FROM now() - j.run_after))::float8 AS waited`);
 
-    return rows[0] ? toJob(rows[0]) : null;
+    if (!rows[0]) {
+      return null;
+    }
+
+    jobWaitSeconds.labels({ queue }).observe(Number(rows[0].waited));
+    return toJob(rows[0]);
   }
 
   private async run(
