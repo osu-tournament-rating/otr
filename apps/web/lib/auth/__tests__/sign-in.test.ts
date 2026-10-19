@@ -5,7 +5,7 @@ import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { db } from '@/lib/db';
 
-import { useFakeOsuUser } from '../osu-sign-in.test-utils';
+import { getSession, useFakeOsuUser } from '../osu-sign-in.test-utils';
 
 // Signing in writes through DATABASE_URL, so this runs only when that is the
 // disposable test database. CI points both at the same one.
@@ -60,5 +60,51 @@ describe.skipIf(!enabled)('osu! sign-in', () => {
     expect(player.country).toBe('UA');
     expect(player.dataFetchStatus).toBe(DataFetchStatus.Fetching);
     expect(new Date(player.osuLastFetch).toISOString()).toBe(leaseStart);
+  });
+
+  test("records each sign-in as the user's last login, and no one else's", async () => {
+    const { cookies } = await osuUser.signIn();
+    const session = await getSession(cookies);
+    const playerId = session!.dbPlayer!.id;
+    const oldLogin = '2026-01-01T00:00:00.000Z';
+    await db
+      .update(schema.users)
+      .set({ lastLogin: oldLogin })
+      .where(eq(schema.users.playerId, playerId));
+
+    const [otherPlayer] = await db
+      .insert(schema.players)
+      .values({ osuId: osuUser.osuId + 1 })
+      .returning({ id: schema.players.id });
+    await db
+      .insert(schema.users)
+      .values({ playerId: otherPlayer!.id, lastLogin: oldLogin });
+
+    const lastLoginMs = async (id: number) => {
+      const user = await db.query.users.findFirst({
+        where: eq(schema.users.playerId, id),
+      });
+      return new Date(user!.lastLogin!).getTime();
+    };
+
+    try {
+      // Postgres keeps microseconds; allow for the truncation to milliseconds.
+      const signInStartedMs = Date.now() - 1;
+      await osuUser.signIn();
+
+      expect(await lastLoginMs(playerId)).toBeGreaterThanOrEqual(
+        signInStartedMs
+      );
+      expect(await lastLoginMs(otherPlayer!.id)).toBe(
+        new Date(oldLogin).getTime()
+      );
+    } finally {
+      await db
+        .delete(schema.users)
+        .where(eq(schema.users.playerId, otherPlayer!.id));
+      await db
+        .delete(schema.players)
+        .where(eq(schema.players.id, otherPlayer!.id));
+    }
   });
 });
