@@ -95,20 +95,20 @@
   "panels": [
     {
       "type": "row",
-      "title": "Host",
+      "title": "Health",
       "collapsed": false,
+      "panels": [],
       "id": 1,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
-      },
-      "panels": []
+      }
     },
     {
       "type": "stat",
-      "title": "CPU",
+      "title": "Last archive",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -119,16 +119,17 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "expr": "(time() - otr_script_last_run_timestamp_seconds{script=\"archive\",bucket=\"production\"}) and on () (otr_script_last_run_success{script=\"archive\",bucket=\"production\"} == 1) or on () (otr_script_last_run_success{script=\"archive\",bucket=\"production\"} - 1)",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
           "refId": "A"
         }
       ],
+      "description": "Time since the last production archive finished. One runs every 6 hours.",
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "s",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -138,15 +139,25 @@
               },
               {
                 "color": "orange",
-                "value": 0.7
+                "value": 25200
               },
               {
                 "color": "red",
-                "value": 0.85
+                "value": 28800
               }
             ]
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "Failed",
+                  "color": "red"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "thresholds"
           },
@@ -169,76 +180,8 @@
       "id": 2,
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 0,
-        "y": 1
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Memory used",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.75
-              },
-              {
-                "color": "red",
-                "value": 0.85
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 3,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
         "y": 1
       }
     },
@@ -306,17 +249,17 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 4,
+      "id": 3,
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 1
       }
     },
     {
       "type": "stat",
-      "title": "Disk full in",
+      "title": "PostgreSQL up for",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -327,17 +270,94 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"} / clamp_min(-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[7d]), 1e-9)",
+          "expr": "((time() - max(pg_postmaster_start_time_seconds)) * max(pg_up)) or max(pg_up)",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
           "refId": "A"
         }
       ],
-      "description": "At the rate free space fell over the last 7 days.",
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 3600
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Down",
+                  "color": "red"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Connections used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(pg_stat_activity_count) / max(pg_settings_max_connections)",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -346,16 +366,12 @@
                 "value": null
               },
               {
-                "color": "red",
-                "value": 0
-              },
-              {
                 "color": "orange",
-                "value": 1209600
+                "value": 0.6
               },
               {
-                "color": "green",
-                "value": 5184000
+                "color": "red",
+                "value": 0.8
               }
             ]
           },
@@ -382,9 +398,145 @@
       "id": 5,
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
+        "w": 6,
+        "x": 18,
         "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Longest transaction",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(pg_stat_activity_max_tx_duration)",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 1800
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "description": "The weekly rating run holds one long transaction on Tuesdays from 12:00 UTC.",
+      "id": 6,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memory used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.85
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 5
       }
     },
     {
@@ -443,17 +595,17 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 6,
+      "id": 8,
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 1
+        "w": 6,
+        "x": 12,
+        "y": 5
       }
     },
     {
       "type": "stat",
-      "title": "Uptime",
+      "title": "Deadlocks",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -464,7 +616,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "time() - node_boot_time_seconds",
+          "expr": "sum(increase(pg_stat_database_deadlocks[$__range])) or vector(0)",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
@@ -473,13 +625,17 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "locale",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           },
@@ -503,17 +659,30 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 7,
+      "id": 9,
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 1
+        "w": 6,
+        "x": 18,
+        "y": 5
+      }
+    },
+    {
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "panels": [],
+      "id": 10,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
       }
     },
     {
       "type": "timeseries",
-      "title": "CPU by mode",
+      "title": "CPU and disk busy",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -528,6 +697,16 @@
           "legendFormat": "{{mode}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_disk_io_time_seconds_total[$__rate_interval])",
+          "legendFormat": "disk busy {{device}}",
+          "range": true,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -549,115 +728,29 @@
             "mode": "palette-classic"
           }
         },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 8,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 5
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Load",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "node_load1",
-          "legendFormat": "1 minute",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "node_load5",
-          "legendFormat": "5 minutes",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "node_load15",
-          "legendFormat": "15 minutes",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "count(count by (cpu) (node_cpu_seconds_total))",
-          "legendFormat": "Cores",
-          "range": true,
-          "refId": "D"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "Cores"
+              "id": "byFrameRefID",
+              "options": "B"
             },
             "properties": [
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none",
+                  "group": "B"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
               {
                 "id": "custom.lineStyle",
                 "value": {
                   "fill": "dash",
-                  "dash": [6, 6]
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "gray"
+                  "dash": [10, 10]
                 }
               }
             ]
@@ -676,12 +769,13 @@
           "sort": "desc"
         }
       },
-      "id": 9,
+      "description": "CPU time by mode, stacked, and the share of time each disk was busy, dashed.",
+      "id": 11,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 5
+        "w": 6,
+        "x": 0,
+        "y": 10
       }
     },
     {
@@ -779,17 +873,17 @@
           "sort": "desc"
         }
       },
-      "id": 10,
+      "id": 12,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 5
+        "w": 6,
+        "x": 6,
+        "y": 10
       }
     },
     {
       "type": "timeseries",
-      "title": "Free disk, and 7-day forecast",
+      "title": "Free disk and database size",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -814,6 +908,26 @@
           "legendFormat": "In 7 days at this rate",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(pg_database_size_bytes)",
+          "legendFormat": "Databases",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(pg_wal_size_bytes)",
+          "legendFormat": "WAL",
+          "range": true,
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -865,17 +979,18 @@
           "sort": "desc"
         }
       },
-      "id": 11,
+      "description": "Free space on /, where it would be in 7 days at the last 6 hours' rate, and what PostgreSQL holds.",
+      "id": 13,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 13
+        "w": 6,
+        "x": 12,
+        "y": 10
       }
     },
     {
-      "type": "timeseries",
-      "title": "Disk busy",
+      "type": "bargauge",
+      "title": "Free space by filesystem",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -886,674 +1001,73 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(node_disk_io_time_seconds_total[$__rate_interval])",
-          "legendFormat": "{{device}}",
-          "range": true,
+          "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*\"}",
+          "legendFormat": "{{mountpoint}}",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
           "color": {
-            "mode": "palette-classic"
-          }
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.15
+              },
+              {
+                "color": "green",
+                "value": 0.3
+              }
+            ]
+          },
+          "max": 1
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 12,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 13
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Disk I/O latency",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(node_disk_read_time_seconds_total[$__rate_interval]) / rate(node_disk_reads_completed_total[$__rate_interval])",
-          "legendFormat": "{{device}} read",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(node_disk_write_time_seconds_total[$__rate_interval]) / rate(node_disk_writes_completed_total[$__rate_interval])",
-          "legendFormat": "{{device}} write",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 13,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 13
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Network",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*|br-.*|tailscale.*\"}[$__rate_interval]))",
-          "legendFormat": "Received",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "-sum(rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*|br-.*|tailscale.*\"}[$__rate_interval]))",
-          "legendFormat": "Sent",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": null
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         }
       },
       "id": 14,
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 21
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Disk throughput",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(node_disk_read_bytes_total[$__rate_interval]))",
-          "legendFormat": "Read",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "-sum(rate(node_disk_written_bytes_total[$__rate_interval]))",
-          "legendFormat": "Written",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": null
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 15,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 21
+        "w": 6,
+        "x": 18,
+        "y": 10
       }
     },
     {
       "type": "row",
       "title": "PostgreSQL",
       "collapsed": false,
-      "id": 16,
+      "panels": [],
+      "id": 15,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "PostgreSQL",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(pg_up)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "Up",
-                  "color": "green"
-                },
-                "0": {
-                  "text": "Down",
-                  "color": "red"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 17,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 30
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Connections used",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(pg_stat_activity_count) / max(pg_settings_max_connections)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.6
-              },
-              {
-                "color": "red",
-                "value": 0.8
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 18,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 30
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Cache hits",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(pg_stat_database_blks_hit[$__range])) / (sum(increase(pg_stat_database_blks_hit[$__range])) + sum(increase(pg_stat_database_blks_read[$__range])))",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "description": "The share of block reads served from memory over the selected range.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 0.95
-              },
-              {
-                "color": "green",
-                "value": 0.99
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 19,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 30
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Database size",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(pg_database_size_bytes)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 20,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
-        "y": 30
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Growth per day",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(delta(pg_database_size_bytes[7d])) / 7",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "description": "The average over the last 7 days.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 21,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 30
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Longest transaction",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(pg_stat_activity_max_tx_duration)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 300
-              },
-              {
-                "color": "red",
-                "value": 1800
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 22,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 30
+        "y": 18
       }
     },
     {
@@ -1641,17 +1155,17 @@
           "sort": "desc"
         }
       },
-      "id": 23,
+      "id": 16,
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 34
+        "y": 19
       }
     },
     {
       "type": "timeseries",
-      "title": "Transactions per second",
+      "title": "Transactions and temporary files",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1663,7 +1177,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(pg_stat_database_xact_commit[$__rate_interval]))",
-          "legendFormat": "Committed",
+          "legendFormat": "Commits per second",
           "range": true,
           "refId": "A"
         },
@@ -1673,18 +1187,29 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(pg_stat_database_xact_rollback[$__rate_interval]))",
-          "legendFormat": "Rolled back",
+          "legendFormat": "Rollbacks per second",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_temp_bytes[$__rate_interval]))",
+          "legendFormat": "Temporary file bytes per second",
+          "range": true,
+          "refId": "C"
         }
       ],
+      "description": "Queries spill to temporary files when they outgrow work_mem, mostly during the rating run.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
@@ -1700,16 +1225,17 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "Rolled back"
+              "id": "byFrameRefID",
+              "options": "C"
             },
             "properties": [
               {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
+                "id": "unit",
+                "value": "Bps"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
               }
             ]
           }
@@ -1727,17 +1253,17 @@
           "sort": "desc"
         }
       },
-      "id": 24,
+      "id": 17,
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 34
+        "y": 19
       }
     },
     {
       "type": "timeseries",
-      "title": "Rows per second",
+      "title": "WAL size and limit",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1748,8 +1274,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(pg_stat_database_tup_fetched[$__rate_interval]))",
-          "legendFormat": "Fetched",
+          "expr": "max(pg_wal_size_bytes)",
+          "legendFormat": "WAL",
           "range": true,
           "refId": "A"
         },
@@ -1758,170 +1284,20 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(pg_stat_database_tup_inserted[$__rate_interval]))",
-          "legendFormat": "Inserted",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(pg_stat_database_tup_updated[$__rate_interval]))",
-          "legendFormat": "Updated",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(pg_stat_database_tup_deleted[$__rate_interval]))",
-          "legendFormat": "Deleted",
-          "range": true,
-          "refId": "D"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 25,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 34
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Cache hits",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(pg_stat_database_blks_hit[$__rate_interval])) / (sum(rate(pg_stat_database_blks_hit[$__rate_interval])) + sum(rate(pg_stat_database_blks_read[$__rate_interval])))",
-          "legendFormat": "Cache hits",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": null
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 26,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 42
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Temporary files and deadlocks",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(pg_stat_database_temp_bytes[$__rate_interval]))",
-          "legendFormat": "Temp bytes per second",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(pg_stat_database_deadlocks[$__rate_interval]))",
-          "legendFormat": "Deadlocks",
+          "expr": "max(pg_settings_max_wal_size_bytes)",
+          "legendFormat": "Checkpoint at",
           "range": true,
           "refId": "B"
         }
       ],
+      "description": "PostgreSQL forces a checkpoint when WAL reaches max_wal_size. The rating run writes the most.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "bytes",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
@@ -1938,24 +1314,19 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Temp bytes per second"
+              "options": "Checkpoint at"
             },
             "properties": [
               {
-                "id": "unit",
-                "value": "Bps"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Deadlocks"
-            },
-            "properties": [
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
               {
-                "id": "custom.axisPlacement",
-                "value": "right"
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [10, 10]
+                }
               },
               {
                 "id": "color",
@@ -1980,255 +1351,25 @@
           "sort": "desc"
         }
       },
-      "id": 27,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 42
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Longest transaction",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(pg_stat_activity_max_tx_duration)",
-          "legendFormat": "Longest",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 28,
+      "id": 18,
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 42
+        "y": 19
       }
     },
     {
-      "type": "timeseries",
-      "title": "Database size",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "pg_database_size_bytes{datname!~\"template.*\"}",
-          "legendFormat": "{{datname}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 29,
+      "type": "row",
+      "title": "Details",
+      "collapsed": false,
+      "panels": [],
+      "id": 19,
       "gridPos": {
-        "h": 8,
-        "w": 8,
+        "h": 1,
+        "w": 24,
         "x": 0,
-        "y": 50
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Index and sequential scans per second",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(pg_stat_user_tables_idx_scan[$__rate_interval]))",
-          "legendFormat": "Index",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(pg_stat_user_tables_seq_scan[$__rate_interval]))",
-          "legendFormat": "Sequential",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 30,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 50
-      }
-    },
-    {
-      "type": "bargauge",
-      "title": "Rows read by sequential scans, last hour",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "topk(10, sum by (relname) (increase(pg_stat_user_tables_seq_tup_read[1h])))",
-          "legendFormat": "{{relname}}",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "description": "Tables read row by row the most. A large table near the top may be missing an index.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "namePlacement": "left",
-        "sizing": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        }
-      },
-      "id": 31,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 50
+        "y": 27
       }
     },
     {
@@ -2298,6 +1439,18 @@
           "range": false,
           "format": "table",
           "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (relname) (increase(pg_stat_user_tables_seq_tup_read[1h]))",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "refId": "F"
         }
       ],
       "fieldConfig": {
@@ -2424,6 +1577,22 @@
                 "value": 0
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rows scanned, last hour"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -2456,7 +1625,8 @@
               "Value #B": "Live rows",
               "Value #C": "Dead rows",
               "Value #D": "Dead share",
-              "Value #E": "Since autovacuum"
+              "Value #E": "Since autovacuum",
+              "Value #F": "Rows scanned, last hour"
             }
           }
         },
@@ -2469,12 +1639,13 @@
           }
         }
       ],
-      "id": 32,
+      "description": "Rows scanned counts rows read by sequential scans. A large table near the top may be missing an index.",
+      "id": 20,
       "gridPos": {
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 28
       }
     }
   ]
