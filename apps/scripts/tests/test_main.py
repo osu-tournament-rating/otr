@@ -315,6 +315,17 @@ def test_a_run_records_its_result_for_the_alerts(monkeypatch, cli, metrics_dir):
     )
 
 
+def test_a_run_records_how_long_it_took(monkeypatch, cli, metrics_dir):
+    fake_processor(monkeypatch)
+    clock = iter([1_000.0, 1_642.4])
+    monkeypatch.setattr(main.time, "monotonic", lambda: next(clock))
+
+    cli("-s", "processor")
+
+    (text,) = recorded(metrics_dir).values()
+    assert 'otr_script_last_run_duration_seconds{script="processor"} 642\n' in text
+
+
 def test_each_archive_bucket_records_its_own_result(
     monkeypatch, cli, dirs, metrics_dir
 ):

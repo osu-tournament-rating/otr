@@ -17,6 +17,7 @@ import {
   PermanentJobError,
   RetryableJobError,
 } from '../errors';
+import { jobWaitSeconds } from '../../metrics';
 import { JobListener } from '../listener';
 import { JobRunner, LEASE_MS, RETRY_DELAYS_MS } from '../runner';
 import type { QueueRegistration } from '../types';
@@ -481,6 +482,33 @@ describe.skipIf(!testDatabaseUrl)('JobRunner', () => {
     expect(row!.attempts).toBe(0);
     expect(row!.locked_by).toBeNull();
   }, 15_000);
+
+  it('records how long a job waited after it became ready', async () => {
+    const waited = async () => {
+      const { values } = await jobWaitSeconds.get();
+      const forQueue = (name: string) =>
+        values.find(
+          (value) => value.metricName === name && value.labels.queue === QUEUE
+        )?.value ?? 0;
+      return {
+        count: forQueue('data_worker_job_wait_seconds_count'),
+        sum: forQueue('data_worker_job_wait_seconds_sum'),
+      };
+    };
+    const before = await waited();
+    await enqueue(1);
+    await db.execute(
+      sql`UPDATE jobs SET run_after = now() - interval '10 minutes'`
+    );
+
+    startRunner({ handler: async () => {} });
+
+    await waitFor(async () => (await statusOf(1)) === JobStatus.Succeeded);
+    const after = await waited();
+    expect(after.count - before.count).toBe(1);
+    expect(after.sum - before.sum).toBeGreaterThanOrEqual(600);
+    expect(after.sum - before.sum).toBeLessThan(660);
+  });
 
   it('holds the lease for the lease length when it claims', async () => {
     await enqueue(1);

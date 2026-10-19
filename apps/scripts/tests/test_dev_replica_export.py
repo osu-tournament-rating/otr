@@ -142,6 +142,37 @@ def test_production_export_is_still_a_full_dump():
     assert "redacted" not in command
 
 
+def pg_dump_commands(command: str) -> list[list[str]]:
+    tokens = shlex.split(command)
+    starts = [index for index, token in enumerate(tokens) if token == "pg_dump"]
+
+    # Each pg_dump call ends with its database, `-d <name>`.
+    return [tokens[start : tokens.index("-d", start) + 2] for start in starts]
+
+
+def test_production_export_creates_the_grafana_role_before_its_grants():
+    # Recovery stops at the first error, so on a fresh host a GRANT to a role
+    # that doesn't exist yet would abort the restore.
+    command = db._export_command(buckets.PROD, DEST)
+
+    create = command.find(f"CREATE ROLE {db.GRAFANA_ROLE}")
+    dump = command.find("pg_dump")
+    assert create != -1
+    assert create < dump
+    assert "--no-privileges" not in command
+
+
+@pytest.mark.parametrize("replica", [buckets.DEV, buckets.PUBLIC])
+def test_replica_exports_carry_no_grants(replica, monkeypatch):
+    monkeypatch.setattr(db, "_table_columns", columns_for)
+    dumps = pg_dump_commands(db._export_command(replica, DEST))
+
+    assert dumps
+    for dump in dumps:
+        assert "--no-privileges" in dump
+    assert "CREATE ROLE" not in db._export_command(replica, DEST)
+
+
 def test_public_export_is_unchanged():
     command = db._export_command(buckets.PUBLIC, DEST)
 

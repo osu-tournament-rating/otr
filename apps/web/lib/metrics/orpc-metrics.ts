@@ -5,8 +5,15 @@ export const orpcProcedureCalls = new Counter({
   name: 'web_orpc_procedure_calls_total',
   help: 'oRPC procedure calls',
   // status is success, error, or rate_limited (a 429). code is the HTTP
-  // status, so alerts can tell server errors from client ones.
-  labelNames: ['procedure', 'status', 'code', 'accessMethod'] as const,
+  // status, so alerts can tell server errors from client ones. caller is
+  // browser or internal (a server render) on /rpc, and api on the REST API.
+  labelNames: [
+    'procedure',
+    'status',
+    'code',
+    'accessMethod',
+    'caller',
+  ] as const,
   registers: [metricsRegistry],
 });
 
@@ -28,3 +35,20 @@ export const rpcRejections = new Counter({
   labelNames: ['reason', 'bucket', 'caller', 'enforced'] as const,
   registers: [metricsRegistry],
 });
+
+/**
+ * API keys refused before the procedure ran: `rate_limited` by the key's own
+ * limit, `disabled`, or `invalid`. These calls never reach the call counter.
+ */
+export const apiKeyRejections = new Counter({
+  name: 'web_api_key_rejections_total',
+  help: 'API keys refused before the procedure ran',
+  labelNames: ['reason'] as const,
+  registers: [metricsRegistry],
+});
+
+// Each series starts at zero, so increase() counts the first refusal after a
+// restart instead of treating it as where the series began.
+for (const reason of ['rate_limited', 'disabled', 'invalid']) {
+  apiKeyRejections.labels({ reason }).inc(0);
+}

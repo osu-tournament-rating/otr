@@ -16,10 +16,16 @@ import {
 } from '@/lib/api/api-key-header';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
-import { orpcProcedureCalls, orpcProcedureDuration } from '@/lib/metrics';
+import {
+  anonymousSources,
+  apiKeyRejections,
+  orpcProcedureCalls,
+  orpcProcedureDuration,
+} from '@/lib/metrics';
 import type { RpcCaller } from '@/lib/rpc/access';
 import { resolveClientIp } from '@/lib/rpc/client-ip';
 import { checkRateLimit, rateLimitedError } from '@/lib/rpc/rate-limit';
+import { sourceId } from '@/lib/rpc/source-id';
 
 import type { RequestLoggingContext } from './logging/types';
 import {
@@ -372,6 +378,31 @@ const extractApiKey = (headers?: Headers) => {
   return credential.kind === 'key' ? credential.key : null;
 };
 
+const toApiKeyRefusal = (error: unknown): ORPCError<string, unknown> => {
+  if (error instanceof ORPCError) {
+    return error;
+  }
+
+  if (error instanceof APIError) {
+    return toOrpcErrorFromBetterAuth(error);
+  }
+
+  return new ORPCError('UNAUTHORIZED', {
+    status: 401,
+    message: 'Invalid API key provided',
+    cause: error instanceof Error ? error : undefined,
+  });
+};
+
+/** The caller's IP as a daily-rotating ID, from the /rpc gate or the headers. */
+const resolveSource = (context: {
+  headers: Headers;
+  rpc?: RpcCaller;
+}): string | null => {
+  const ip = context.rpc?.clientIp ?? resolveClientIp(context.headers);
+  return ip ? sourceId(ip) : null;
+};
+
 export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   const candidate = extractApiKey(context.headers);
 
@@ -394,6 +425,10 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
     });
   }
 
+  let activeKey: NonNullable<
+    Awaited<ReturnType<typeof auth.api.verifyApiKey>>['key']
+  >;
+
   try {
     const verification = await auth.api.verifyApiKey({
       headers: context.headers,
@@ -410,7 +445,7 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
       );
     }
 
-    const activeKey = verifiedKey as NonNullable<typeof verifiedKey>;
+    activeKey = verifiedKey as NonNullable<typeof verifiedKey>;
 
     if (activeKey.enabled === false) {
       throw new ORPCError('FORBIDDEN', {
@@ -419,79 +454,82 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
         data: { code: 'KEY_DISABLED' },
       });
     }
+  } catch (error) {
+    const refusal = toApiKeyRefusal(error);
+    const reason =
+      refusal.status === 429
+        ? 'rate_limited'
+        : refusal.status === 403
+          ? 'disabled'
+          : 'invalid';
 
-    // Better Auth's API key plugin (v1.6+) renamed `userId` to `referenceId`.
-    const { id, referenceId, name, enabled } = activeKey;
-    const userId = referenceId;
-    let apiKeyActor: ApiKeyActor | null = null;
+    apiKeyRejections.labels({ reason }).inc();
+    rootLogger.info('api key refused', {
+      reason,
+      code: refusal.status,
+      source: resolveSource(context),
+    });
 
-    try {
-      const authUser = await db.query.auth_users.findFirst({
-        columns: {
-          id: true,
-          name: true,
-          playerId: true,
-        },
-        where: eq(schema.auth_users.id, userId),
-        with: {
-          player: {
-            columns: {
-              id: true,
-              osuId: true,
-              username: true,
-            },
+    throw refusal;
+  }
+
+  // Better Auth's API key plugin (v1.6+) renamed `userId` to `referenceId`.
+  const { id, referenceId, name, enabled } = activeKey;
+  const userId = referenceId;
+  let apiKeyActor: ApiKeyActor | null = null;
+
+  try {
+    const authUser = await db.query.auth_users.findFirst({
+      columns: {
+        id: true,
+        name: true,
+        playerId: true,
+      },
+      where: eq(schema.auth_users.id, userId),
+      with: {
+        player: {
+          columns: {
+            id: true,
+            osuId: true,
+            username: true,
           },
         },
-      });
-
-      if (authUser) {
-        const playerId = authUser.player?.id ?? authUser.playerId ?? null;
-
-        apiKeyActor = {
-          userId,
-          playerId,
-          osuId: authUser.player?.osuId ?? null,
-          osuUsername:
-            authUser.player?.username ?? (authUser.name ? authUser.name : null),
-        };
-      }
-    } catch (apiKeyActorError) {
-      const timestamp = new Date().toISOString();
-      const description = describeError(apiKeyActorError as ProcedureError);
-      console.error(
-        `${timestamp} [oRPC]: api-key-owner-lookup-failed apiKey=${maskApiKey(
-          id
-        )} error=${description}`
-      );
-    }
-
-    return next({
-      context: {
-        ...context,
-        apiKey: {
-          id,
-          userId,
-          name: name ?? null,
-          enabled,
-        },
-        apiKeyActor,
-      } as typeof context & VerifiedApiKeyContext,
+      },
     });
-  } catch (error) {
-    if (error instanceof ORPCError) {
-      throw error;
-    }
 
-    if (error instanceof APIError) {
-      throw toOrpcErrorFromBetterAuth(error);
-    }
+    if (authUser) {
+      const playerId = authUser.player?.id ?? authUser.playerId ?? null;
 
-    throw new ORPCError('UNAUTHORIZED', {
-      status: 401,
-      message: 'Invalid API key provided',
-      cause: error instanceof Error ? error : undefined,
-    });
+      apiKeyActor = {
+        userId,
+        playerId,
+        osuId: authUser.player?.osuId ?? null,
+        osuUsername:
+          authUser.player?.username ?? (authUser.name ? authUser.name : null),
+      };
+    }
+  } catch (apiKeyActorError) {
+    const timestamp = new Date().toISOString();
+    const description = describeError(apiKeyActorError as ProcedureError);
+    console.error(
+      `${timestamp} [oRPC]: api-key-owner-lookup-failed apiKey=${maskApiKey(
+        id
+      )} error=${description}`
+    );
   }
+
+  return next({
+    context: {
+      ...context,
+      apiKey: {
+        id,
+        userId,
+        name: name ?? null,
+        enabled,
+      },
+      apiKeyActor,
+    } as typeof context & VerifiedApiKeyContext,
+  });
 });
 
 const withDatabase = base.middleware(async ({ context, next }) => {
@@ -609,6 +647,8 @@ const withLoggingContext = base.middleware(async ({ context, path, next }) => {
     actor,
     procedurePath,
     requestPath,
+    caller: context.rpc?.kind ?? (context.apiKeyRequired ? 'api' : 'unknown'),
+    source: resolveSource(context),
     startTime: Date.now(),
     logger,
   };
@@ -653,6 +693,8 @@ const withRequestLogging = base.middleware(
       logging.logger.info('procedure completed', {
         accessMethod: logging.actor.accessMethod,
         user: formatUserDescriptor(logging.actor),
+        apiKeyId: logging.actor.apiKeyId ?? undefined,
+        source: logging.source ?? undefined,
         playerId: logging.actor.playerId,
         code: statusCode,
         duration: `${Math.round(durationMs)}ms`,
@@ -669,6 +711,8 @@ const withRequestLogging = base.middleware(
       const logContext = {
         accessMethod: logging.actor.accessMethod,
         user: formatUserDescriptor(logging.actor),
+        apiKeyId: logging.actor.apiKeyId ?? undefined,
+        source: logging.source ?? undefined,
         playerId: logging.actor.playerId,
         code: statusCode,
         duration: `${Math.round(durationMs)}ms`,
@@ -698,6 +742,12 @@ const withMetrics = base.middleware(async (options) => {
     logging?: RequestLoggingContext;
   };
   const accessMethod = loggingContext.logging?.actor?.accessMethod ?? 'unknown';
+  const caller = loggingContext.logging?.caller ?? 'unknown';
+  const source = loggingContext.logging?.source;
+
+  if (accessMethod === 'anonymous' && source) {
+    anonymousSources.record(source);
+  }
 
   try {
     const result = await next();
@@ -707,6 +757,7 @@ const withMetrics = base.middleware(async (options) => {
         status: 'success',
         code: String(resolveSuccessStatus(procedure)),
         accessMethod,
+        caller,
       })
       .inc();
     orpcProcedureDuration
@@ -723,6 +774,7 @@ const withMetrics = base.middleware(async (options) => {
         status: code === 429 ? 'rate_limited' : 'error',
         code: String(code),
         accessMethod,
+        caller,
       })
       .inc();
     orpcProcedureDuration

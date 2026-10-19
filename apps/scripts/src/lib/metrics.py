@@ -15,7 +15,9 @@ RECORDED = {scripts.ARCHIVE, scripts.PROCESSOR, scripts.REFRESH_INDEX}
 RECORDED_BUCKETS = {buckets.PROD, buckets.PUBLIC}
 
 
-def record_run(script: str, args: ScriptArgs, succeeded: bool) -> None:
+def record_run(
+    script: str, args: ScriptArgs, succeeded: bool, duration_seconds: float
+) -> None:
     """Records how a run ended for node-exporter's textfile collector
 
     The rules in monitoring/prod/prometheus/rules alert when the last run
@@ -42,6 +44,9 @@ def record_run(script: str, args: ScriptArgs, succeeded: bool) -> None:
         "# HELP otr_script_last_run_success Whether the last run succeeded.\n"
         "# TYPE otr_script_last_run_success gauge\n"
         f"otr_script_last_run_success{{{labels}}} {int(succeeded)}\n"
+        "# HELP otr_script_last_run_duration_seconds How long the last run took.\n"
+        "# TYPE otr_script_last_run_duration_seconds gauge\n"
+        f"otr_script_last_run_duration_seconds{{{labels}}} {duration_seconds:.0f}\n"
     )
 
     path = config.metrics_dir / f"otr_script_{name}.prom"
