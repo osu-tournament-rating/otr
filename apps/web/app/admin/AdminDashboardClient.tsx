@@ -1,9 +1,9 @@
 'use client';
 
-import { Gavel, KeyRound, ListRestart, Search, UserSearch } from 'lucide-react';
+import { Gavel, KeyRound, ListRestart, UserSearch } from 'lucide-react';
 import { useCallback, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 
 import SectionError from '@/components/error/SectionError';
 import { Button } from '@/components/kit/controls/Button';
@@ -18,7 +18,6 @@ import {
 import { EmptyState } from '@/components/kit/feedback/EmptyState';
 import {
   PhoneRowListSkeleton,
-  RowListSkeleton,
   TableSkeleton,
 } from '@/components/kit/feedback/Skeletons';
 import { Timestamp } from '@/components/kit/format/Timestamp';
@@ -36,7 +35,6 @@ import {
 } from '@/components/kit/tables/DataTable';
 import { EntityLink } from '@/components/kit/tables/EntityLink';
 import { PhoneRow, PhoneRowList } from '@/components/kit/tables/PhoneRow';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { OsuAvatar } from '@/components/ui/osu-avatar';
 import { Progress } from '@/components/ui/progress';
@@ -54,7 +52,11 @@ import {
 import { getApiKeyPreview } from '@/lib/utils/apiKey';
 import { cn } from '@/lib/utils';
 
-const USERNAME_REQUIRED_MESSAGE = 'Username is required';
+import {
+  ADMIN_USER_SEARCH_KEY,
+  UserLookupCombobox,
+} from './UserLookupCombobox';
+
 const PRIORITIES = ['Low', 'Normal', 'High'] as const;
 type Priority = (typeof PRIORITIES)[number];
 
@@ -92,14 +94,7 @@ export default function AdminDashboardClient() {
 }
 
 function UserLookup() {
-  const [query, setQuery] = useState('');
-  const [queryError, setQueryError] = useState<string | null>(null);
   const [result, setResult] = useState<AdminPlayerSearchResult | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [didSearch, setDidSearch] = useState(false);
-  // The term of a search that failed, so a failure never reads as "No users
-  // found" and Try again repeats that search.
-  const [failedSearch, setFailedSearch] = useState<string | null>(null);
   const [keysShownFor, setKeysShownFor] = useState<number | null>(null);
 
   const [banDialogOpen, setBanDialogOpen] = useState(false);
@@ -109,40 +104,7 @@ function UserLookup() {
   const [banError, setBanError] = useState<string | null>(null);
 
   const showKeys = result !== null && keysShownFor === result.playerId;
-
-  const search = useCallback(async (term: string) => {
-    setSearching(true);
-    setDidSearch(true);
-    setFailedSearch(null);
-
-    try {
-      // An empty result shows the panel's empty state; no toast repeats it.
-      const response = await orpc.users.admin.search({ query: term });
-      setResult(response[0] ?? null);
-    } catch (error) {
-      console.error('[admin] search failed', error);
-      setResult(null);
-      setFailedSearch(term);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
-
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const trimmed = query.trim();
-
-      if (!trimmed) {
-        setQueryError(USERNAME_REQUIRED_MESSAGE);
-        return;
-      }
-
-      setQueryError(null);
-      await search(trimmed);
-    },
-    [query, search]
-  );
+  const { mutate } = useSWRConfig();
 
   const openBanDialog = useCallback((player: AdminPlayerSearchResult) => {
     setPendingPlayer(player);
@@ -178,85 +140,27 @@ function UserLookup() {
         ? { ...previous, banned: true, banReason }
         : previous
     );
+    // Suggestions carry ban status too.
+    void mutate(
+      (key) => Array.isArray(key) && key[0] === ADMIN_USER_SEARCH_KEY
+    );
     toast.success(
       `${pendingPlayer.username} banned for ${banReason.toLowerCase()}.`
     );
-  }, [banReason, pendingPlayer]);
+  }, [banReason, mutate, pendingPlayer]);
 
   return (
     <Panel data-testid="admin-tool-user-lookup">
       <SectionHeader icon={UserSearch} title="User lookup" />
       <PanelBody className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          Search for users by username to review ban status and API access.
+          Search for users by username or osu! ID to review ban status and API
+          access.
         </p>
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
-          data-testid="admin-user-lookup-form"
-        >
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <FormFieldLabel
-              htmlFor="admin-player-search"
-              invalid={queryError !== null}
-            >
-              Username
-            </FormFieldLabel>
-            <Input
-              id="admin-player-search"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setQueryError(null);
-              }}
-              placeholder="osu! username"
-              disabled={searching}
-              maxLength={32}
-              aria-invalid={queryError ? true : undefined}
-              aria-describedby={
-                queryError ? 'admin-player-search-error' : undefined
-              }
-            />
-          </div>
-          <Button type="submit" icon={Search} pending={searching}>
-            {searching ? 'Searching…' : 'Search'}
-          </Button>
-        </form>
-        {queryError ? (
-          <p
-            id="admin-player-search-error"
-            role="alert"
-            className="-mt-2 text-sm text-destructive-foreground"
-          >
-            {queryError}
-          </p>
-        ) : null}
+        <UserLookupCombobox onSelect={setResult} />
       </PanelBody>
 
-      {searching ? (
-        <RowListSkeleton
-          rows={1}
-          leading="avatar"
-          trailing={false}
-          className="border-t"
-        />
-      ) : failedSearch !== null ? (
-        <SectionError
-          size="compact"
-          title="Search results could not load"
-          onRetry={() => void search(failedSearch)}
-          className="border-t"
-        />
-      ) : didSearch && !result ? (
-        <EmptyState
-          size="compact"
-          icon={UserSearch}
-          title="No users found"
-          description="No authenticated players matched that username."
-          className="border-t"
-        />
-      ) : result ? (
+      {result ? (
         <>
           <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-3">
