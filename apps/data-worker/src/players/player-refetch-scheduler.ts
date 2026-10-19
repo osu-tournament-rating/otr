@@ -21,8 +21,13 @@ type AutoRefetchConfig = {
   outdatedDays: number;
 };
 
+type OsuAutoRefetchConfig = AutoRefetchConfig & {
+  /** Cadence for players with no o!TR rating in any ruleset. */
+  unratedDays: number;
+};
+
 type SchedulerConfig = {
-  osu: AutoRefetchConfig;
+  osu: OsuAutoRefetchConfig;
   osuTrack: AutoRefetchConfig;
 };
 
@@ -35,6 +40,8 @@ const MS_PER_DAY = 86_400_000;
 const FETCH_LEASE_DAYS = 7;
 
 // Ceilings on player_ratings.global_rank; `maxRank: null` matches any rank.
+// Rated players outside every tier use `outdatedDays`, and players with no
+// rating use `unratedDays`.
 const REFETCH_TIERS = {
   osu: [
     { maxRank: 500, days: 1 },
@@ -156,7 +163,8 @@ export class PlayerRefetchScheduler {
 
   private async runOsuRefetch() {
     const cadenceDays = this.buildCadenceExpression(
-      this.config.osu.outdatedDays
+      this.config.osu.outdatedDays,
+      this.config.osu.unratedDays
     );
 
     const players = await this.db
@@ -219,7 +227,7 @@ export class PlayerRefetchScheduler {
     }
   }
 
-  private buildCadenceExpression(fallbackDays: number) {
+  private buildCadenceExpression(fallbackDays: number, unratedDays: number) {
     // Inlined as literals so postgres types them as integers rather than text parameters.
     const literal = (value: number) => sql.raw(String(Math.trunc(value)));
 
@@ -239,7 +247,11 @@ export class PlayerRefetchScheduler {
       ...REFETCH_TIERS.otherRulesets.map((tier) => branch(isNotOsu, tier)),
     ];
 
-    return sql<number>`coalesce(min(case ${sql.join(branches, sql` `)} else ${literal(fallbackDays)} end), ${literal(fallbackDays)})`;
+    // A player with no rating joins one row of nulls, which matches no
+    // branch, so min() is null and coalesce() gives the unrated cadence.
+    const isRated = sql`${schema.playerRatings.playerId} is not null`;
+
+    return sql<number>`coalesce(min(case ${sql.join(branches, sql` `)} when ${isRated} then ${literal(fallbackDays)} end), ${literal(unratedDays)})`;
   }
 
   private async runOsuTrackRefetch() {
