@@ -55,6 +55,18 @@ dev_secret_columns = {
 # belong to production, and a dev data worker would run them again.
 dev_excluded_table_data = ["public.jobs"]
 
+# Grafana reads production through this role, which web migration 0041
+# creates. pg_dump keeps its grants but not the role, and recovery stops at the
+# first error, so production archives create it first. The others carry no
+# grants: the dev tier and replica imports have no use for the role.
+GRAFANA_ROLE = "otr_grafana_read_only"
+_ROLE_PREAMBLE = (
+    "DO $$ BEGIN "
+    f"IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{GRAFANA_ROLE}') THEN "
+    f"CREATE ROLE {GRAFANA_ROLE} NOLOGIN; "
+    "END IF; END $$;"
+)
+
 # Redacted values are text keyed on the row id, keeping NOT NULL and UNIQUE.
 _redactable_types = {"text", "character varying", "character"}
 
@@ -219,8 +231,11 @@ def _pg_dump_options(option: str, patterns: list[str]) -> list[str]:
     )
 
 
-def _pg_dump_command(options: list[str], clean: bool = True) -> str:
+def _pg_dump_command(
+    options: list[str], clean: bool = True, privileges: bool = True
+) -> str:
     clean_options = ["-c", "--if-exists"] if clean else []
+    privilege_options = [] if privileges else ["--no-privileges"]
     return shlex.join(
         [
             "docker",
@@ -229,6 +244,7 @@ def _pg_dump_command(options: list[str], clean: bool = True) -> str:
             config.db_container,
             "pg_dump",
             *clean_options,
+            *privilege_options,
             "-U",
             config.db_user,
             *options,
@@ -352,7 +368,7 @@ def _dev_export_command(columns_by_table: dict[str, list[Column]], dest: Path) -
 
     return _gzip_dump_command(
         [
-            _pg_dump_command(["--section=pre-data"]),
+            _pg_dump_command(["--section=pre-data"], privileges=False),
             _pg_dump_command(
                 [
                     "--section=data",
@@ -361,12 +377,13 @@ def _dev_export_command(columns_by_table: dict[str, list[Column]], dest: Path) -
                     ),
                 ],
                 clean=False,
+                privileges=False,
             ),
             *(
                 _redacted_copy_command(table, columns_by_table[table])
                 for table in tables
             ),
-            _pg_dump_command(["--section=post-data"], clean=False),
+            _pg_dump_command(["--section=post-data"], clean=False, privileges=False),
         ],
         dest,
     )
@@ -384,7 +401,7 @@ def _export_command(replica: str, dest: Path) -> str:
         # data only for public-safe tables.
         return _gzip_dump_command(
             [
-                _pg_dump_command(["--schema-only"]),
+                _pg_dump_command(["--schema-only"], privileges=False),
                 _pg_dump_command(
                     [
                         "--data-only",
@@ -392,12 +409,14 @@ def _export_command(replica: str, dest: Path) -> str:
                         *_pg_dump_options("--table", public_data_table_whitelist),
                     ],
                     clean=False,
+                    privileges=False,
                 ),
             ],
             dest,
         )
 
-    return _gzip_dump_command([_pg_dump_command([])], dest)
+    preamble = shlex.join(["printf", "%s\\n", _ROLE_PREAMBLE])
+    return _gzip_dump_command([preamble, _pg_dump_command([])], dest)
 
 
 def _export(replica: str) -> Path | None:

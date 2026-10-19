@@ -54,9 +54,14 @@ configured application database.
 - Public archives contain the full schema and only data from
   `public_data_table_whitelist`, publish a SHA-256 file, and refresh the HTML
   index. Dev archives mirror production data except `dev_secret_columns`, which
-  are reinserted redacted. Add every new credential column to that list. They
-  also leave out the rows of `dev_excluded_table_data`, the queued jobs, whose
-  tables restore empty.
+  are reinserted redacted. Add every new credential column to that list, and
+  hide it from `otr_grafana_read_only` in a migration as web migration 0041
+  does. They also leave out the rows of `dev_excluded_table_data`, the queued
+  jobs, whose tables restore empty.
+- Production archives begin by creating `otr_grafana_read_only`, the role
+  Grafana reads through, because `pg_dump` keeps its grants but not the role,
+  and recovery stops at the first error. Public and dev archives carry no
+  grants at all. The deploy's migrate step gives the role its password.
 - `recovery` stops services, replaces its configured database, and replays the
   deployed image's pending migrations through the Compose `migrate` profile
   before the stack returns; a failed migration fails the run. It removes only
