@@ -102,12 +102,15 @@ type EnsurePlayerParams = {
   profile?: OsuProfileLike | null;
 };
 
+// Sign-in saves only the name and country, not ranks or pp, so it is not an
+// osu! fetch and never writes the last-fetch time. A new player keeps the
+// never-fetched default, which the data worker's refetch scheduler picks up.
+// While a fetch is pending, the time records when it started, and moving it
+// would stop the worker from ever retrying a lost fetch.
 const ensurePlayer = async ({
   osuId,
   profile,
 }: EnsurePlayerParams): Promise<typeof schema.players.$inferSelect | null> => {
-  const nowIso = new Date().toISOString();
-
   let player = await db.query.players.findFirst({
     where: eq(schema.players.osuId, osuId),
   });
@@ -126,7 +129,6 @@ const ensurePlayer = async ({
         osuId,
         username: sanitizedUsername,
         country: sanitizedCountry,
-        osuLastFetch: nowIso,
         osuTrackLastFetch: null,
       })
       .onConflictDoNothing({ target: schema.players.osuId })
@@ -141,7 +143,6 @@ const ensurePlayer = async ({
     const updatePayload = {
       username: sanitizedUsername || player.username,
       country: sanitizedCountry || player.country,
-      osuLastFetch: nowIso,
     };
 
     await db
