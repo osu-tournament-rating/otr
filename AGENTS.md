@@ -140,6 +140,10 @@ checkout's services on ports 5432 and 3000. This is a rule.
 - Apply migrations only to your own stack's database (see Your stack). The
   database at `localhost:5432` belongs to the developer: `otr` only reads it to
   make copies, and nothing else may touch it.
+- Grafana reads production through `otr_grafana_read_only`, which can read
+  every table, including ones added later, except credential columns. A
+  migration that adds a credential column must hide it from that role, as
+  migration 0041 does, and add it to `dev_secret_columns` in `apps/scripts`.
 - Generated columns, such as a score's final value and the search vectors,
   cannot be written. IDs are identity columns.
 - Admin writes go through `adminMutationProcedure` so the maintenance window

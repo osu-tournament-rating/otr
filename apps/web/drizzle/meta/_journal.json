@@ -288,6 +288,13 @@
       "when": 1792349242132,
       "tag": "0040_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792409410730,
+      "tag": "0041_grafana_read_only_role",
+      "breakpoints": true
     }
   ]
 }
