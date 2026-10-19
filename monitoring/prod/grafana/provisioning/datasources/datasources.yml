@@ -8,6 +8,8 @@ deleteDatasources:
     orgId: 1
   - name: Tempo
     orgId: 1
+  - name: PostgreSQL
+    orgId: 1
 
 datasources:
   - name: Prometheus
@@ -37,6 +39,25 @@ datasources:
           url: '$${__value.raw}'
           datasourceUid: tempo
           urlDisplayLabel: 'View trace'
+
+  # Product panels read production through a role that cannot write or see
+  # credentials (web migration 0041). Its password is Grafana's own secret
+  # key, which scripts/run-migrations.ts sets on every deploy and recovery.
+  - name: PostgreSQL
+    type: grafana-postgresql-datasource
+    uid: postgres
+    access: proxy
+    url: db:5432
+    user: otr_grafana_read_only
+    editable: false
+    jsonData:
+      database: ${OTR_DB_NAME}
+      sslmode: disable
+      postgresVersion: 1700
+      maxOpenConns: 2
+      timeInterval: 1m
+    secureJsonData:
+      password: ${GF_SECURITY_SECRET_KEY}
 
   # Shows the alerts Prometheus raises, and lets operators silence one, since
   # Alertmanager publishes no port of its own.

@@ -172,6 +172,29 @@ groups:
         annotations:
           summary: The slowest 5% of site requests take over {{ $value | humanizeDuration }}
 
+      # One IP making most of the anonymous calls, at a rate no reader keeps
+      # up for half an hour: about one call a second. The web dashboard's
+      # Scraping row has the source's calls.
+      - alert: AnonymousSourceDominates
+        expr: |
+          max(web_anonymous_top_source_calls / clamp_min(web_anonymous_window_calls, 1)) > 0.5
+          and max(web_anonymous_top_source_calls) >= 300
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: One source made {{ $value | humanizePercentage }} of anonymous calls for 30 minutes
+
+      # Keys over their 60-a-minute limit for a quarter of an hour. The web
+      # dashboard's API keys row shows whose.
+      - alert: ApiKeyRateLimited
+        expr: sum(increase(web_api_key_rejections_total{reason="rate_limited"}[15m])) > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: API keys were refused {{ printf "%.0f" $value }} times for their rate limit in 15 minutes
+
       - alert: OsuApiErrors
         expr: |
           sum(rate(data_worker_osu_api_requests_total{status="error"}[10m]))
@@ -203,6 +226,48 @@ groups:
           severity: warning
         annotations:
           summary: '{{ $value | humanizePercentage }} of osu!track requests are failing'
+
+      # The rules above wait out blips for 25 minutes or more, so a short
+      # outage never reaches them. These catch one within minutes. Both
+      # limiters allow 60 requests a minute, so 20 errors in 5 minutes is a
+      # real share of the traffic, not a stray failure.
+      - alert: OsuApiErrorSpike
+        expr: |
+          sum(increase(data_worker_osu_api_requests_total{status="error"}[5m])) >= 20
+          and
+          sum(rate(data_worker_osu_api_requests_total{status="error"}[5m]))
+            / sum(rate(data_worker_osu_api_requests_total[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ printf "%.0f" $value }} osu! API requests failed in the last 5 minutes'
+
+      - alert: OsuTrackApiErrorSpike
+        expr: |
+          sum(increase(data_worker_osutrack_api_requests_total{status="error"}[5m])) >= 20
+          and
+          sum(rate(data_worker_osutrack_api_requests_total{status="error"}[5m]))
+            / sum(rate(data_worker_osutrack_api_requests_total[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ printf "%.0f" $value }} osu!track requests failed in the last 5 minutes'
+
+      # API-key traffic is a sliver of the site's, so WebServerErrorRate can
+      # miss a public API outage. 503s come from the maintenance window.
+      - alert: PublicApiErrorSpike
+        expr: |
+          sum(increase(web_orpc_procedure_calls_total{accessMethod="api-key",code=~"5..",code!="503"}[5m])) >= 20
+          and
+          sum(rate(web_orpc_procedure_calls_total{accessMethod="api-key",code=~"5..",code!="503"}[5m]))
+            / sum(rate(web_orpc_procedure_calls_total{accessMethod="api-key",code!="503"}[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ printf "%.0f" $value }} public API requests failed with server errors in the last 5 minutes'
 
       - alert: HighErrorRate
         expr: rate(data_worker_queue_messages_processed_total{status="error"}[5m]) > 0.1
