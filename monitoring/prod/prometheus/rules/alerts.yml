@@ -174,7 +174,7 @@ groups:
 
       # One IP making most of the anonymous calls, at a rate no reader keeps
       # up for half an hour: about one call a second. The web dashboard's
-      # Scraping row has the source's calls.
+      # Visitors and API keys row has the source's calls.
       - alert: AnonymousSourceDominates
         expr: |
           max(web_anonymous_top_source_calls / clamp_min(web_anonymous_window_calls, 1)) > 0.5
@@ -186,7 +186,7 @@ groups:
           summary: One source made {{ $value | humanizePercentage }} of anonymous calls for 30 minutes
 
       # Keys over their 60-a-minute limit for a quarter of an hour. The web
-      # dashboard's API keys row shows whose.
+      # dashboard's Visitors and API keys row shows whose.
       - alert: ApiKeyRateLimited
         expr: sum(increase(web_api_key_rejections_total{reason="rate_limited"}[15m])) > 100
         for: 15m

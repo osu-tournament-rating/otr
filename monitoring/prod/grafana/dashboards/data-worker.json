@@ -119,20 +119,20 @@
   "panels": [
     {
       "type": "row",
-      "title": "Jobs",
+      "title": "Health",
       "collapsed": false,
+      "panels": [],
       "id": 1,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
-      },
-      "panels": []
+      }
     },
     {
       "type": "stat",
-      "title": "Succeeded",
+      "title": "Worker",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -143,7 +143,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(data_worker_queue_messages_processed_total{queue=~\"$queue\", status=\"success\"}[$__range])) or vector(0)",
+          "expr": "max(up{job=\"data-worker\"})",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
@@ -152,7 +152,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "locale",
+          "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -162,11 +162,24 @@
               }
             ]
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "Down",
+                  "color": "red"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "thresholds"
-          },
-          "decimals": 0
+          }
         },
         "overrides": []
       },
@@ -176,7 +189,7 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none",
         "textMode": "auto",
         "justifyMode": "auto",
@@ -192,7 +205,7 @@
     },
     {
       "type": "stat",
-      "title": "Retried",
+      "title": "Paused queues",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -203,13 +216,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(data_worker_queue_messages_processed_total{queue=~\"$queue\", status=\"error\"}[$__range])) or vector(0)",
+          "expr": "count(max by (queue) (data_worker_jobs_loop_active{queue=~\"$queue\"}) == 0) or vector(0)",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
           "refId": "A"
         }
       ],
+      "description": "Queues whose loop is stopped or paused. Most loops pause during the maintenance window.",
       "fieldConfig": {
         "defaults": {
           "unit": "locale",
@@ -217,8 +231,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "green",
                 "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
               }
             ]
           },
@@ -247,70 +265,6 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 1
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Failed",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(data_worker_queue_messages_processed_total{queue=~\"$queue\", status=\"parked\"}[$__range])) or vector(0)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 4,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
         "y": 1
       }
     },
@@ -366,11 +320,11 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 5,
+      "id": 4,
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 12,
+        "x": 8,
         "y": 1
       }
     },
@@ -433,17 +387,17 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 6,
+      "id": 5,
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 16,
+        "x": 12,
         "y": 1
       }
     },
     {
       "type": "stat",
-      "title": "Leases taken back",
+      "title": "Failed jobs",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -454,7 +408,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(data_worker_jobs_reclaimed_total{queue=~\"$queue\"}[$__range]))",
+          "expr": "sum(increase(data_worker_queue_messages_processed_total{queue=~\"$queue\", status=\"parked\"}[$__range])) or vector(0)",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
@@ -472,7 +426,7 @@
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "red",
                 "value": 1
               }
             ]
@@ -497,12 +451,94 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
+      "id": 6,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "osu! API errors",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(data_worker_osu_api_requests_total{status=~\"error|unauthorized\"}[$__range])) or vector(0)) / sum(increase(data_worker_osu_api_requests_total[$__range]))",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Requests that failed or were refused. A missing resource is not an error.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.2
+              }
+            ]
+          },
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
       "id": 7,
       "gridPos": {
         "h": 4,
         "w": 4,
         "x": 20,
         "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "panels": [],
+      "id": 8,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
       }
     },
     {
@@ -635,106 +671,12 @@
         }
       },
       "interval": "5m",
-      "id": 8,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Jobs succeeded per hour by queue",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (queue) (increase(data_worker_queue_messages_processed_total{queue=~\"$queue\", status=\"success\"}[1h]))",
-          "legendFormat": "{{queue}}",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(data_worker_queue_messages_processed_total{queue=~\"$queue\", status=\"success\"}[1h] offset 7d))",
-          "legendFormat": "All, a week earlier",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "All, a week earlier"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [6, 6]
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "gray"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "10m",
       "id": 9,
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 5
+        "x": 0,
+        "y": 6
       }
     },
     {
@@ -793,14 +735,14 @@
       "id": 10,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 13
+        "w": 12,
+        "x": 12,
+        "y": 6
       }
     },
     {
       "type": "timeseries",
-      "title": "Oldest ready job",
+      "title": "Oldest ready job by queue",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -854,70 +796,8 @@
       "gridPos": {
         "h": 8,
         "w": 8,
-        "x": 8,
-        "y": 13
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Wait from ready to claimed, p95",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, queue) (rate(data_worker_job_wait_seconds_bucket{queue=~\"$queue\"}[1h])))",
-          "legendFormat": "{{queue}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "description": "How long a job waited for a worker once it was due, over the hour before each point.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 12,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 13
+        "x": 0,
+        "y": 14
       }
     },
     {
@@ -983,74 +863,17 @@
           "mode": "single"
         }
       },
-      "id": 13,
+      "id": 12,
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 21
-      }
-    },
-    {
-      "type": "heatmap",
-      "title": "Job duration",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (le) (increase(data_worker_queue_message_duration_seconds_bucket{queue=~\"$queue\"}[$__interval]))",
-          "legendFormat": "{{le}}",
-          "range": true,
-          "format": "heatmap",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "calculate": false,
-        "yAxis": {
-          "unit": "s",
-          "axisPlacement": "left"
-        },
-        "cellGap": 1,
-        "color": {
-          "mode": "scheme",
-          "scheme": "Oranges",
-          "steps": 64,
-          "exponent": 0.5,
-          "fill": "dark-orange"
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "tooltip": {
-          "mode": "single",
-          "yHistogram": true
-        },
-        "legend": {
-          "show": true
-        },
-        "filterValues": {
-          "le": 1e-9
-        }
-      },
-      "interval": "10m",
-      "id": 14,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 21
+        "w": 8,
+        "x": 8,
+        "y": 14
       }
     },
     {
       "type": "timeseries",
-      "title": "Jobs running",
+      "title": "Memory",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1061,80 +884,29 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (queue) (data_worker_queue_messages_in_flight{queue=~\"$queue\"})",
-          "legendFormat": "{{queue}}",
+          "expr": "process_resident_memory_bytes{job=\"data-worker\"}",
+          "legendFormat": "resident",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nodejs_heap_size_used_bytes{job=\"data-worker\"}",
+          "legendFormat": "heap used",
+          "range": true,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "bytes",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 25,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 15,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 29
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Leases taken back per hour",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (queue) (increase(data_worker_jobs_reclaimed_total{queue=~\"$queue\"}[$__interval]))",
-          "legendFormat": "{{queue}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "description": "A lease is taken back when the worker holding a job stopped renewing it, usually because it restarted mid-job.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 80,
+            "fillOpacity": 8,
             "showPoints": "never",
             "spanNulls": true,
             "stacking": {
@@ -1161,92 +933,30 @@
           "sort": "desc"
         }
       },
-      "interval": "1h",
-      "id": 16,
+      "id": 13,
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 29
+        "w": 8,
+        "x": 16,
+        "y": 14
       }
     },
     {
       "type": "row",
-      "title": "osu! API",
+      "title": "External APIs",
       "collapsed": false,
-      "id": 17,
+      "panels": [],
+      "id": 14,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Requests per minute by endpoint",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (endpoint) (rate(data_worker_osu_api_requests_total[$__rate_interval])) * 60",
-          "legendFormat": "{{endpoint}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 25,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "2m",
-      "id": 18,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 38
+        "y": 22
       }
     },
     {
       "type": "timeseries",
-      "title": "Requests per minute by result",
+      "title": "osu! requests per minute by result",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1358,17 +1068,17 @@
         }
       },
       "interval": "2m",
-      "id": 19,
+      "id": 15,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 38
+        "w": 6,
+        "x": 0,
+        "y": 23
       }
     },
     {
       "type": "timeseries",
-      "title": "p95 response time by endpoint",
+      "title": "osu! p95 response time by endpoint",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1419,77 +1129,17 @@
         }
       },
       "interval": "5m",
-      "id": 20,
+      "id": 16,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 38
+        "w": 6,
+        "x": 6,
+        "y": 23
       }
     },
     {
       "type": "timeseries",
-      "title": "Rate limiter tokens left",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "data_worker_rate_limiter_remaining_tokens",
-          "legendFormat": "{{limiter}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 21,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 46
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Requests waiting for the rate limiter",
+      "title": "osu! requests waiting for the rate limiter",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1539,91 +1189,17 @@
           "sort": "desc"
         }
       },
-      "id": 22,
+      "id": 17,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 46
+        "w": 6,
+        "x": 12,
+        "y": 23
       }
     },
     {
       "type": "timeseries",
-      "title": "Rate limiter wait, p95",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, limiter) (rate(data_worker_rate_limiter_wait_seconds_bucket[1h])))",
-          "legendFormat": "{{limiter}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 23,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 46
-      }
-    },
-    {
-      "type": "row",
-      "title": "osu!track",
-      "collapsed": false,
-      "id": 24,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 54
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Requests per minute by result",
+      "title": "osu!track requests per minute by result",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1705,87 +1281,75 @@
         }
       },
       "interval": "2m",
-      "id": 25,
+      "id": 18,
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 55
+        "w": 6,
+        "x": 18,
+        "y": 23
       }
     },
     {
-      "type": "timeseries",
-      "title": "p95 response time",
+      "type": "row",
+      "title": "Failures",
+      "collapsed": false,
+      "panels": [],
+      "id": 19,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Recent job failures",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(data_worker_osutrack_api_duration_seconds_bucket[1h])))",
-          "legendFormat": "p95",
-          "range": true,
+          "expr": "{service=\"otr-data-worker\"} |= \"Job failed\" | logfmt | queue=~\"$queue\"",
+          "legendFormat": "",
+          "queryType": "range",
           "refId": "A"
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
+      "description": "Jobs that failed their last attempt and will not run again.",
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false
       },
-      "interval": "5m",
-      "id": 26,
+      "id": 20,
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 55
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 32
       }
     },
     {
       "type": "row",
       "title": "History",
       "collapsed": false,
-      "id": 27,
+      "panels": [],
+      "id": 21,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 63
-      },
-      "panels": []
+        "y": 42
+      }
     },
     {
       "type": "timeseries",
@@ -1842,12 +1406,12 @@
       },
       "timeFrom": "90d",
       "hideTimeOverride": false,
-      "id": 28,
+      "id": 22,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 64
+        "y": 43
       }
     },
     {
@@ -1936,12 +1500,12 @@
       },
       "timeFrom": "90d",
       "hideTimeOverride": false,
-      "id": 29,
+      "id": 23,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 64
+        "y": 43
       }
     },
     {
@@ -1999,12 +1563,12 @@
       },
       "timeFrom": "90d",
       "hideTimeOverride": false,
-      "id": 30,
+      "id": 24,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 72
+        "y": 51
       }
     },
     {
@@ -2062,215 +1626,12 @@
       },
       "timeFrom": "90d",
       "hideTimeOverride": false,
-      "id": 31,
+      "id": 25,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 72
-      }
-    },
-    {
-      "type": "row",
-      "title": "Runtime",
-      "collapsed": false,
-      "id": 32,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 80
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Memory",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "process_resident_memory_bytes{job=\"data-worker\"}",
-          "legendFormat": "resident",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "nodejs_heap_size_used_bytes{job=\"data-worker\"}",
-          "legendFormat": "heap used",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 33,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 81
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "CPU",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(process_cpu_seconds_total{job=\"data-worker\"}[$__rate_interval])",
-          "legendFormat": "CPU",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 34,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 81
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Event loop lag p99",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "nodejs_eventloop_lag_p99_seconds{job=\"data-worker\"}",
-          "legendFormat": "p99",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 35,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 81
+        "y": 51
       }
     }
   ]

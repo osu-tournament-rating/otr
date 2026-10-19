@@ -95,16 +95,90 @@
   "panels": [
     {
       "type": "row",
-      "title": "Traffic",
+      "title": "Health",
       "collapsed": false,
+      "panels": [],
       "id": 1,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Site",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
-      "panels": []
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(up{job=\"web\"})",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Up while either web instance answers scrapes.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "Up",
+                  "color": "green"
+                },
+                "0": {
+                  "text": "Down",
+                  "color": "red"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      }
     },
     {
       "type": "stat",
@@ -158,11 +232,11 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 2,
+      "id": 3,
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 0,
+        "x": 4,
         "y": 1
       }
     },
@@ -226,11 +300,11 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 3,
+      "id": 4,
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 4,
+        "x": 8,
         "y": 1
       }
     },
@@ -293,78 +367,6 @@
         "justifyMode": "auto",
         "orientation": "auto"
       },
-      "id": 4,
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 1
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Under 500 ms (7d)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(web_orpc_procedure_duration_seconds_bucket{le=\"0.5\"}[7d])) / sum(increase(web_orpc_procedure_duration_seconds_count[7d]))",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 0.9
-              },
-              {
-                "color": "green",
-                "value": 0.97
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
       "id": 5,
       "gridPos": {
         "h": 4,
@@ -375,7 +377,7 @@
     },
     {
       "type": "stat",
-      "title": "Under 500 ms (30d)",
+      "title": "API server errors",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -386,7 +388,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(web_orpc_procedure_duration_seconds_bucket{le=\"0.5\"}[30d])) / sum(increase(web_orpc_procedure_duration_seconds_count[30d]))",
+          "expr": "sum(increase(web_orpc_procedure_calls_total{accessMethod=\"api-key\", code=~\"5..\",code!=\"503\"}[$__range])) or vector(0)",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
@@ -395,7 +397,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "locale",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -405,15 +407,7 @@
               },
               {
                 "color": "red",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 0.9
-              },
-              {
-                "color": "green",
-                "value": 0.97
+                "value": 1
               }
             ]
           },
@@ -421,7 +415,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "decimals": 1
+          "decimals": 0
         },
         "overrides": []
       },
@@ -447,7 +441,7 @@
     },
     {
       "type": "stat",
-      "title": "API-key calls",
+      "title": "Calls refused",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -458,13 +452,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(web_orpc_procedure_calls_total{accessMethod=\"api-key\"}[$__range])) or vector(0)",
+          "expr": "(sum(increase(web_rpc_rejections_total{reason=~\"rate_limit|origin\", enforced=\"true\"}[$__range])) or vector(0)) + (sum(increase(web_api_key_rejections_total[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
           "refId": "A"
         }
       ],
+      "description": "Rate limits, /rpc gate refusals, and invalid, disabled, or rate-limited API keys.",
       "fieldConfig": {
         "defaults": {
           "unit": "locale",
@@ -506,62 +501,14 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Calls per minute by access method",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (accessMethod) (rate(web_orpc_procedure_calls_total[$__rate_interval])) * 60",
-          "legendFormat": "{{accessMethod}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 25,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": ["mean", "max"]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "2m",
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "panels": [],
       "id": 8,
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 1,
+        "w": 24,
         "x": 0,
         "y": 5
       }
@@ -624,8 +571,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 5
+        "x": 0,
+        "y": 6
       }
     },
     {
@@ -685,13 +632,13 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 13
+        "x": 12,
+        "y": 6
       }
     },
     {
       "type": "timeseries",
-      "title": "Calls per minute by instance",
+      "title": "Rate limits and gate refusals per minute",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -702,8 +649,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (instance) (rate(web_orpc_procedure_calls_total[$__rate_interval])) * 60",
-          "legendFormat": "{{instance}}",
+          "expr": "sum by (reason, bucket, caller, enforced) (rate(web_rpc_rejections_total[$__rate_interval])) * 60",
+          "legendFormat": "{{reason}} {{bucket}} {{caller}} enforced={{enforced}}",
           "range": true,
           "refId": "A"
         }
@@ -711,6 +658,77 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "5m",
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "process_resident_memory_bytes{job=\"web\"}",
+          "legendFormat": "{{instance}} resident",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "nodejs_heap_size_used_bytes{job=\"web\"}",
+          "legendFormat": "{{instance}} heap used",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -741,27 +759,26 @@
           "sort": "desc"
         }
       },
-      "interval": "2m",
-      "id": 11,
+      "id": 12,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 14
       }
     },
     {
       "type": "row",
       "title": "Procedures",
       "collapsed": false,
-      "id": 12,
+      "panels": [],
+      "id": 13,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
-      },
-      "panels": []
+        "y": 22
+      }
     },
     {
       "type": "table",
@@ -788,7 +805,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (procedure) (increase(web_orpc_procedure_calls_total{status=\"error\"}[$__range])) / sum by (procedure) (increase(web_orpc_procedure_calls_total[$__range]))",
+          "expr": "sum by (procedure) (increase(web_orpc_procedure_calls_total{code=~\"5..\",code!=\"503\"}[$__range])) / sum by (procedure) (increase(web_orpc_procedure_calls_total[$__range]))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false,
@@ -871,7 +888,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Errors"
+              "options": "Server errors"
             },
             "properties": [
               {
@@ -1017,7 +1034,7 @@
             },
             "renameByName": {
               "Value #A": "Calls",
-              "Value #B": "Errors",
+              "Value #B": "Server errors",
               "Value #C": "Rate limited",
               "Value #D": "p50",
               "Value #E": "p95"
@@ -1033,205 +1050,12 @@
           }
         }
       ],
-      "id": 13,
+      "id": 14,
       "gridPos": {
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 22
-      }
-    },
-    {
-      "type": "heatmap",
-      "title": "Latency of all calls",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (le) (increase(web_orpc_procedure_duration_seconds_bucket[$__interval]))",
-          "legendFormat": "{{le}}",
-          "range": true,
-          "format": "heatmap",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "calculate": false,
-        "yAxis": {
-          "unit": "s",
-          "axisPlacement": "left"
-        },
-        "cellGap": 1,
-        "color": {
-          "mode": "scheme",
-          "scheme": "Oranges",
-          "steps": 64,
-          "exponent": 0.5,
-          "fill": "dark-orange"
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "tooltip": {
-          "mode": "single",
-          "yHistogram": true
-        },
-        "legend": {
-          "show": true
-        },
-        "filterValues": {
-          "le": 1e-9
-        }
-      },
-      "interval": "10m",
-      "id": 14,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 34
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "p95 latency, procedures with 20+ calls an hour",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, procedure) (rate(web_orpc_procedure_duration_seconds_bucket[1h]))) and on (procedure) sum by (procedure) (increase(web_orpc_procedure_duration_seconds_count[1h])) >= 20",
-          "legendFormat": "{{procedure}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 15,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 34
-      }
-    },
-    {
-      "type": "row",
-      "title": "Traces and queries",
-      "collapsed": false,
-      "id": 16,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 42
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Procedure p95 from traces (dots open a trace)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_spanmetrics_latency_bucket{service=\"otr-web\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])))",
-          "legendFormat": "{{span_name}}",
-          "range": true,
-          "exemplar": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 17,
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 43
+        "y": 23
       }
     },
     {
@@ -1274,12 +1098,12 @@
         }
       },
       "transformations": [],
-      "id": 18,
+      "id": 15,
       "gridPos": {
         "h": 10,
         "w": 12,
-        "x": 12,
-        "y": 43
+        "x": 0,
+        "y": 35
       }
     },
     {
@@ -1327,418 +1151,25 @@
           "values": false
         }
       },
-      "id": 19,
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 53
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Query p95 from traces (dots open a trace)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, span_name) (rate(traces_spanmetrics_latency_bucket{service=\"otr-web\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"(SELECT|INSERT|UPDATE|DELETE|WITH|query)( .+)?\"}[$__rate_interval]))) and on (span_name) sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"otr-web\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"(SELECT|INSERT|UPDATE|DELETE|WITH|query)( .+)?\"}[1h])) >= 20",
-          "legendFormat": "{{span_name}}",
-          "range": true,
-          "exemplar": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 20,
+      "id": 16,
       "gridPos": {
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 53
+        "y": 35
       }
     },
     {
       "type": "row",
-      "title": "Scraping",
+      "title": "Visitors and API keys",
       "collapsed": false,
-      "id": 21,
+      "panels": [],
+      "id": 17,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 63
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Busiest source's share now",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(web_anonymous_top_source_calls / clamp_min(web_anonymous_window_calls, 1))",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "description": "The share of anonymous calls that the busiest single IP made in the last complete 5 minutes.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.25
-              },
-              {
-                "color": "red",
-                "value": 0.5
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 22,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 64
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Anonymous sources now",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(web_anonymous_sources)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "description": "Distinct IPs that made anonymous calls in the last complete 5 minutes.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 23,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 64
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Rate-limited calls",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(web_rpc_rejections_total{reason=\"rate_limit\"}[$__range])) or vector(0)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 24,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 64
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Refused by the /rpc gate",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(web_rpc_rejections_total{reason=\"origin\"}[$__range])) or vector(0)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 25,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 64
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Busiest source's share of anonymous calls",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(web_anonymous_top_source_calls / clamp_min(web_anonymous_window_calls, 1))",
-          "legendFormat": "Busiest source",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 0.5
-              }
-            ]
-          },
-          "max": 1
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 26,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 68
+        "y": 45
       }
     },
     {
@@ -1837,72 +1268,12 @@
         }
       },
       "interval": "2m",
-      "id": 27,
+      "id": 18,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 68
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Distinct anonymous sources",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(web_anonymous_sources)",
-          "legendFormat": "Sources per 5 minutes",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 28,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 68
+        "w": 12,
+        "x": 0,
+        "y": 46
       }
     },
     {
@@ -2024,399 +1395,12 @@
           }
         }
       ],
-      "id": 29,
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 76
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Anonymous calls per minute to detail pages",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (procedure) (rate(web_orpc_procedure_calls_total{accessMethod=\"anonymous\", procedure=~\"(players|tournaments|matches|beatmaps)[.]get\"}[$__rate_interval])) * 60",
-          "legendFormat": "{{procedure}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "description": "A scraper walking IDs keeps a steady rate around the clock; people come in bursts that follow the day.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 30,
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 12,
-        "y": 76
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Rate limits and gate refusals per minute",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (reason, bucket, caller, enforced) (rate(web_rpc_rejections_total[$__rate_interval])) * 60",
-          "legendFormat": "{{reason}} {{bucket}} {{caller}} enforced={{enforced}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 80,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 31,
+      "id": 19,
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 86
-      }
-    },
-    {
-      "type": "row",
-      "title": "API keys",
-      "collapsed": false,
-      "id": 32,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 94
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "Keys refused for their rate limit",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(web_api_key_rejections_total{reason=\"rate_limited\"}[$__range])) or vector(0)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 33,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 95
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Invalid or disabled keys",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(web_api_key_rejections_total{reason!=\"rate_limited\"}[$__range])) or vector(0)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 34,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 95
-      }
-    },
-    {
-      "type": "stat",
-      "title": "API server errors",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(web_orpc_procedure_calls_total{accessMethod=\"api-key\", code=~\"5..\",code!=\"503\"}[$__range])) or vector(0)",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 35,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
+        "w": 12,
         "x": 12,
-        "y": 95
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Active owners",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "count(sum by (user) (count_over_time({service=~\"otr-web.*\"} |= \"accessMethod=api-key\" | logfmt [$__range])))",
-          "legendFormat": "",
-          "queryType": "instant",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "locale",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      },
-      "id": 36,
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 95
+        "y": 46
       }
     },
     {
@@ -2584,93 +1568,12 @@
           }
         }
       ],
-      "id": 37,
+      "id": 20,
       "gridPos": {
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 99
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Calls per minute by key",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (user, apiKeyId) (count_over_time({service=~\"otr-web.*\"} |= \"accessMethod=api-key\" | logfmt [1m]))",
-          "legendFormat": "{{user}} {{apiKeyId}}",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "description": "Each key allows 60 calls a minute. A key held near the limit, or busy around the clock, is worth a look against the terms of use.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "line+area"
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 45
-              },
-              {
-                "color": "red",
-                "value": 60
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 38,
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 12,
-        "y": 99
+        "y": 54
       }
     },
     {
@@ -2726,286 +1629,12 @@
         }
       },
       "interval": "5m",
-      "id": 39,
+      "id": 21,
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 109
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "API keys refused per minute",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (reason) (rate(web_api_key_rejections_total[$__rate_interval])) * 60",
-          "legendFormat": "{{reason}}",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (code) (rate(web_orpc_procedure_calls_total{accessMethod=\"api-key\", status!=\"success\"}[$__rate_interval])) * 60",
-          "legendFormat": "failed {{code}}",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 80,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "interval": "5m",
-      "id": 40,
-      "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 12,
         "x": 12,
-        "y": 109
-      }
-    },
-    {
-      "type": "row",
-      "title": "Runtime",
-      "collapsed": false,
-      "id": 41,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 117
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Memory",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "process_resident_memory_bytes{job=\"web\"}",
-          "legendFormat": "{{instance}} resident",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "nodejs_heap_size_used_bytes{job=\"web\"}",
-          "legendFormat": "{{instance}} heap used",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 42,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 118
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "CPU",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(process_cpu_seconds_total{job=\"web\"}[$__rate_interval])",
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 43,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 118
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Event loop lag p99",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "nodejs_eventloop_lag_p99_seconds{job=\"web\"}",
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 44,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 118
+        "y": 54
       }
     }
   ]

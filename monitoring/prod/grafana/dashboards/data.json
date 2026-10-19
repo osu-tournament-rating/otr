@@ -97,14 +97,14 @@
       "type": "row",
       "title": "Now",
       "collapsed": false,
+      "panels": [],
       "id": 1,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
-      },
-      "panels": []
+      }
     },
     {
       "type": "stat",
@@ -818,6 +818,190 @@
         "x": 0,
         "y": 21
       }
+    },
+    {
+      "type": "row",
+      "title": "Usage",
+      "collapsed": false,
+      "panels": [],
+      "id": 14,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Monthly active users",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT d AS time, count(DISTINCT s.user_id) AS \"Active in the last 30 days\"\nFROM generate_series(date_trunc('day', $__timeFrom()::timestamp), $__timeTo()::timestamp, interval '1 day') AS d\nJOIN auth_sessions s ON s.created_at <= d AND s.updated_at >= d - interval '30 days'\nGROUP BY 1\nORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ],
+      "description": "Signed-in users with a session in use during the 30 days up to each day. Counted from sessions that still exist: signing out, returning after a session expired, and deleting an account remove sessions, so older days read low. Banning a user marks their sessions as used that day.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "timeFrom": "1y",
+      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Site calls by feature",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(sum by (feature) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(sum by (procedure) (increase(web_orpc_procedure_calls_total{caller!=\"api\", procedure!~\"reports[.](myUnreadCount|unseenCount)|audit[.]entityName\"}[$__range])), \"feature\", \"Other\", \"procedure\", \".+\"), \"feature\", \"Players\", \"procedure\", \"players[.].+\"), \"feature\", \"Search\", \"procedure\", \"search[.].+|players[.]lookup\"), \"feature\", \"Tournaments\", \"procedure\", \"tournaments[.](list|listPage|get)\"), \"feature\", \"Tournament submission\", \"procedure\", \"tournaments[.]submit\"), \"feature\", \"Matches\", \"procedure\", \"matches[.](get|getMerge)\"), \"feature\", \"Beatmaps\", \"procedure\", \"beatmaps[.](list|stats)\"), \"feature\", \"Leaderboard\", \"procedure\", \"leaderboard[.].+\"), \"feature\", \"Platform stats\", \"procedure\", \"stats[.].+\"), \"feature\", \"Filtering\", \"procedure\", \"filtering[.].+\"), \"feature\", \"Reports\", \"procedure\", \"reports[.](create|templates|listMine|markMineViewed)\"), \"feature\", \"Account\", \"procedure\", \"users[.](me|getSettings|updateSettings|deleteMe|deleteMyFriends)|user[.]get\"), \"feature\", \"API keys\", \"procedure\", \"apiClients[.].+\"), \"feature\", \"Admin\", \"procedure\", \"admin[.].+|audit[.].+|.+[.](admin|adminNotes)[.].+|reports[.](list|get|resolve|reopen|markViewed)\")))",
+          "legendFormat": "{{feature}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "description": "Calls from the site's pages, signed in or not, over the selected range. The REST API is left out.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Signed-in players by feature",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sort_desc(count by (feature) (sum by (feature, playerId) (count_over_time({service=~\"otr-web.*\"} |= \"procedure completed\" |= \"accessMethod=session\" | logfmt | accessMethod=\"session\" | procedure!~\"reports[.](myUnreadCount|unseenCount)|audit[.]entityName\" | label_format feature=procedure | label_format feature=`{{ regexReplaceAll \"^(admin[.].+|audit[.].+|.+[.](admin|adminNotes)[.].+|reports[.](list|get|resolve|reopen|markViewed))$\" .feature \"Admin\" }}` | label_format feature=`{{ regexReplaceAll \"^(apiClients[.].+)$\" .feature \"API keys\" }}` | label_format feature=`{{ regexReplaceAll \"^(users[.](me|getSettings|updateSettings|deleteMe|deleteMyFriends)|user[.]get)$\" .feature \"Account\" }}` | label_format feature=`{{ regexReplaceAll \"^(reports[.](create|templates|listMine|markMineViewed))$\" .feature \"Reports\" }}` | label_format feature=`{{ regexReplaceAll \"^(filtering[.].+)$\" .feature \"Filtering\" }}` | label_format feature=`{{ regexReplaceAll \"^(stats[.].+)$\" .feature \"Platform stats\" }}` | label_format feature=`{{ regexReplaceAll \"^(leaderboard[.].+)$\" .feature \"Leaderboard\" }}` | label_format feature=`{{ regexReplaceAll \"^(beatmaps[.](list|stats))$\" .feature \"Beatmaps\" }}` | label_format feature=`{{ regexReplaceAll \"^(matches[.](get|getMerge))$\" .feature \"Matches\" }}` | label_format feature=`{{ regexReplaceAll \"^(tournaments[.]submit)$\" .feature \"Tournament submission\" }}` | label_format feature=`{{ regexReplaceAll \"^(tournaments[.](list|listPage|get))$\" .feature \"Tournaments\" }}` | label_format feature=`{{ regexReplaceAll \"^(search[.].+|players[.]lookup)$\" .feature \"Search\" }}` | label_format feature=`{{ regexReplaceAll \"^(players[.].+)$\" .feature \"Players\" }}` | label_format feature=`{{ regexReplaceAll \"^.+[.].+$\" .feature \"Other\" }}` [$__range]))))",
+          "legendFormat": "{{feature}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "description": "Distinct signed-in players who used each feature over the last 7 days.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": true
+        }
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "timeFrom": "7d"
     }
   ]
 }
