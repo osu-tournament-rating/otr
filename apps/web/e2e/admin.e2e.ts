@@ -58,17 +58,24 @@ test.describe('Admin pages', () => {
         ).toBeVisible({ timeout: 10000 });
       });
 
-      test('user lookup form exposes its search controls', async ({ page }) => {
+      test('user lookup suggests players as you type', async ({ page }) => {
+        // The admin's own account: setup signed it in, so lookup finds it.
+        const { username } = await createOrpcClientForRole('admin').players.get(
+          { id: TEST_ADMIN_PLAYER_ID }
+        );
+
         await page.goto(ROUTES.admin);
         await page.waitForLoadState('networkidle');
 
-        const form = page.locator('[data-testid="admin-user-lookup-form"]');
-        await expect(form).toBeVisible({ timeout: 10000 });
-
-        const input = form.locator('#admin-player-search');
-        await expect(input).toBeVisible();
-        await input.fill('Stage');
-        await expect(input).toHaveValue('Stage');
+        const lookup = page.getByTestId('admin-tool-user-lookup');
+        await lookup.getByLabel('Username').fill(username);
+        await page
+          .getByRole('option')
+          .filter({ has: page.getByText(username, { exact: true }) })
+          .click();
+        await expect(
+          lookup.getByRole('link', { name: username, exact: true })
+        ).toBeVisible();
       });
 
       test('the ban dialog names its reason group', async ({ page }) => {
@@ -83,7 +90,10 @@ test.describe('Admin pages', () => {
 
         const lookup = page.getByTestId('admin-tool-user-lookup');
         await lookup.getByLabel('Username').fill(username);
-        await lookup.getByRole('button', { name: 'Search' }).click();
+        await page
+          .getByRole('option')
+          .filter({ has: page.getByText(username, { exact: true }) })
+          .click();
         await lookup
           .getByRole('button', { name: /^(Ban user|Update ban reason)$/ })
           .click();

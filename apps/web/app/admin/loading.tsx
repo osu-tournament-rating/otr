@@ -41,12 +41,10 @@ export default function AdminLoading() {
         />
         <div className="flex flex-col gap-4 p-4">
           <p className="text-sm text-muted-foreground">
-            Search for users by username to review ban status and API access.
+            Search for users by username or osu! ID to review ban status and API
+            access.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <FieldSkeleton inputClassName="h-9" />
-            <SkeletonText className="block h-9 w-full sm:w-24" />
-          </div>
+          <FieldSkeleton inputClassName="h-10" />
         </div>
       </PanelSkeleton>
       <PanelSkeleton>

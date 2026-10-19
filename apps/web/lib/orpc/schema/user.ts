@@ -117,7 +117,7 @@ export type AdminBanUserLookupResponse = z.infer<
 >;
 
 export const AdminPlayerSearchInputSchema = z.object({
-  query: z.string().trim().min(2, 'Enter at least two characters to search'),
+  query: z.string().trim().min(2).max(100),
 });
 
 export const AdminPlayerSearchResultSchema = z.object({
@@ -126,6 +126,8 @@ export const AdminPlayerSearchResultSchema = z.object({
   osuId: z.number().int(),
   banned: z.boolean(),
   banReason: z.string().nullable(),
+  /** The former username the query hit, or null when the current one did. */
+  matchedPreviousUsername: z.string().nullable(),
 });
 
 export const AdminPlayerSearchResponseSchema =
