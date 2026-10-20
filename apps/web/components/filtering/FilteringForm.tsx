@@ -206,8 +206,8 @@ function LookupSignInNotice({ usage }: { usage: FilterUsage | undefined }) {
       data-testid="filter-lookups-sign-in"
     >
       o!TR can no longer look up players with your osu! account, so{' '}
-      {formatCountOf(usage.pendingLookups, 'player')} from your filter reports
-      are waiting.
+      {formatCountOf(usage.pendingLookups, 'player')} from your filter reports{' '}
+      {usage.pendingLookups === 1 ? 'is' : 'are'} waiting.
     </Callout>
   );
 }
