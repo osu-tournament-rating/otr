@@ -1,11 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  AdminNoteRouteTarget,
-  Mods,
-  ScoreRejectionReason,
-} from '@otr/core/osu';
+import { AdminNoteRouteTarget, ScoreRejectionReason } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
@@ -22,7 +18,7 @@ import {
 } from '@/components/admin-forms/adminFormFields';
 import AdminNotesList from '@/components/admin-notes/AdminNoteList';
 import { getAdminNoteMutations } from '@/components/admin-notes/adminNoteMutations';
-import { modOptions } from '@/components/games/modOptions';
+import { modOptions, selectedMods } from '@/components/games/modOptions';
 import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
 import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
@@ -503,7 +499,7 @@ export default function ScoreEditDialog({
                       <MultipleSelect
                         className={changedFieldClass(fieldState)}
                         placeholder="No mods"
-                        selected={getEnumFlags(value, Mods).map(String)}
+                        selected={selectedMods(value)}
                         options={modOptions}
                         onChange={(values: string[]) =>
                           onChange(combineFlags(values))

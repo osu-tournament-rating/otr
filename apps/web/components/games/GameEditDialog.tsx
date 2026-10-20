@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   GameRejectionReason,
   GameWarningFlags,
-  Mods,
   VerificationStatus,
 } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
@@ -52,7 +51,7 @@ import type { Game } from '@/lib/orpc/schema/match';
 import { errorSaveToast, saveToast } from '@/lib/utils/toasts';
 import { gameEditFormSchema } from '@/lib/validation-schema';
 
-import { modOptions } from './modOptions';
+import { modOptions, selectedMods } from './modOptions';
 
 type GameEditValues = z.infer<typeof gameEditFormSchema>;
 
@@ -343,7 +342,7 @@ export default function GameEditDialog({
                     <MultipleSelect
                       className={changedFieldClass(fieldState)}
                       placeholder="No mods"
-                      selected={getEnumFlags(value, Mods).map(String)}
+                      selected={selectedMods(value)}
                       options={modOptions}
                       onChange={(values: string[]) =>
                         onChange(combineFlags(values))
