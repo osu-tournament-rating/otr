@@ -115,6 +115,18 @@ const TOURNAMENT_SORTS: readonly SortOption<TournamentSortKey>[] = [
   { value: 'lobbySize', label: 'Lobby size' },
 ];
 
+// The tournament list's keys while searching: Relevance has one order, best
+// match first, so it has no direction button.
+const SEARCH_SORTS: readonly SortOption<'relevance' | TournamentSortKey>[] = [
+  {
+    value: 'relevance',
+    label: 'Relevance',
+    defaultDirection: 'desc',
+    directionless: true,
+  },
+  ...TOURNAMENT_SORTS,
+];
+
 const LOBBY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 /**
@@ -1027,6 +1039,10 @@ function SortControlDemo() {
     key: TournamentSortKey;
     direction: 'asc' | 'desc';
   }>({ key: 'endTime', direction: 'desc' });
+  const [searchSort, setSearchSort] = useState<{
+    key: 'relevance' | TournamentSortKey;
+    direction: 'asc' | 'desc';
+  }>({ key: 'relevance', direction: 'desc' });
   return (
     <div className="flex flex-col gap-4">
       <SortControl
@@ -1038,6 +1054,13 @@ function SortControlDemo() {
       <p className="text-xs text-muted-foreground">
         State: {`{ key: '${sort.key}', direction: '${sort.direction}' }`}
       </p>
+      {/* Relevance has no direction; the dropdown takes the button's place. */}
+      <SortControl
+        label="Sort matching tournaments by"
+        options={SEARCH_SORTS}
+        value={searchSort}
+        onValueChange={setSearchSort}
+      />
       {/* size="sm": 32px, so the header strip keeps its 48px height. */}
       <Panel>
         <SectionHeader
@@ -1625,7 +1648,7 @@ export default function ListsSection() {
         id="lists-sort-control"
         name="SortControl"
         importPath={`${KIT}/SortControl`}
-        description="A key dropdown and a direction button. It shares { key, direction } with sortable table headers, so both show the same choice. 40px in a list toolbar; size sm (32px) in a section header's actions, as below, and in a DataTable's phone sort strip."
+        description="A key dropdown and a direction button. It shares { key, direction } with sortable table headers, so both show the same choice. A key with one order, such as Relevance in the second dropdown, has no direction button. 40px in a list toolbar; size sm (32px) in a section header's actions, as below, and in a DataTable's phone sort strip."
       >
         <SortControlDemo />
       </Specimen>
