@@ -14,6 +14,7 @@ import {
   primaryKey,
   customType,
   date,
+  unique,
 } from 'drizzle-orm/pg-core';
 import { sql, type SQL } from 'drizzle-orm';
 
@@ -2393,5 +2394,34 @@ export const userActivityDaily = pgTable(
       columns: [table.day, table.playerId],
       name: 'pk_user_activity_daily',
     }),
+  ]
+);
+
+/**
+ * The platform stats page's precomputed statistics, one row per statistic
+ * and ruleset, which the data worker rewrites daily and after each rating
+ * run. The definitions and payload shapes are in `platform-stats/`.
+ */
+export const platformStats = pgTable(
+  'platform_stats',
+  {
+    // PlatformStatKey: which statistic.
+    name: varchar({ length: 64 }).notNull(),
+    // Ruleset; null for a statistic over every ruleset.
+    ruleset: integer(),
+    payload: jsonb().$type<unknown>().notNull(),
+    // The definition's version when computed. Rows of another version are
+    // never served.
+    version: integer().notNull(),
+    // When the computation started.
+    computedAt: timestamp('computed_at', {
+      withTimezone: true,
+      mode: 'string',
+    }).notNull(),
+  },
+  (table) => [
+    unique('uq_platform_stats_name_ruleset')
+      .on(table.name, table.ruleset)
+      .nullsNotDistinct(),
   ]
 );
