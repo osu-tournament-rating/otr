@@ -143,3 +143,73 @@ describe('PlayerFetchService previous usernames', () => {
     expect(previousUsernamesOf(updates)).toEqual([]);
   });
 });
+
+// The mock above, whose constructor takes just a message.
+const APIError = (await import('../../client')).APIError as unknown as new (
+  message: string
+) => Error;
+
+describe('PlayerFetchService restricted players', () => {
+  // osu! answers 404 for a restricted player's profile.
+  const notFound = () =>
+    Promise.reject(
+      Object.assign(new APIError('Not found'), {
+        response: { status_code: 404 },
+      })
+    );
+
+  const fetchWith = async (getUser: () => Promise<unknown>) => {
+    const updates: PlayerUpdate[] = [];
+    const db = {
+      query: {
+        players: {
+          findFirst: async () => ({
+            id: PLAYER_ID,
+            dataFetchStatus: DataFetchStatus.Fetching,
+          }),
+        },
+      },
+      update: () => ({
+        set: (values: PlayerUpdate) => {
+          updates.push(values);
+          return { where: async () => undefined };
+        },
+      }),
+      insert: () => ({
+        values: () => ({ onConflictDoUpdate: async () => undefined }),
+      }),
+    } as unknown as DatabaseClient;
+
+    const service = new PlayerFetchService({
+      db,
+      api: { getUser } as unknown as API,
+      rateLimiter: {
+        schedule: <T>(task: () => Promise<T>) => task(),
+      } as unknown as RateLimiter,
+      logger: createLogger(),
+    });
+
+    const fetched = await service.fetchAndPersist(OSU_ID);
+    return { fetched, last: updates.at(-1) };
+  };
+
+  it('marks the player restricted when osu! returns not found', async () => {
+    const { fetched, last } = await fetchWith(notFound);
+
+    expect(fetched).toBe(false);
+    expect(last).toMatchObject({
+      dataFetchStatus: DataFetchStatus.NotFound,
+      restricted: true,
+    });
+  });
+
+  it('clears the restricted flag when a fetch succeeds', async () => {
+    const { fetched, last } = await fetchWith(async () => buildApiUser({}));
+
+    expect(fetched).toBe(true);
+    expect(last).toMatchObject({
+      dataFetchStatus: DataFetchStatus.Fetched,
+      restricted: false,
+    });
+  });
+});

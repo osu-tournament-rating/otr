@@ -107,6 +107,24 @@ export const ensurePlayerPlaceholder = async (
   return fallback;
 };
 
+/**
+ * Whether a fetch that ended in `status` says the player is restricted on
+ * osu!. osu! answers not found for a restricted player and never says so
+ * outright, so not found marks them restricted and a successful fetch clears
+ * it. Any other status leaves the flag as it was.
+ */
+const restrictedAfter = (status: number): { restricted?: boolean } => {
+  if (status === DataFetchStatus.NotFound) {
+    return { restricted: true };
+  }
+
+  if (status === DataFetchStatus.Fetched) {
+    return { restricted: false };
+  }
+
+  return {};
+};
+
 export const updatePlayerStatus = async (
   db: UpdateExecutor,
   playerId: number,
@@ -119,6 +137,7 @@ export const updatePlayerStatus = async (
       dataFetchStatus: status,
       osuLastFetch: updatedIso,
       updated: updatedIso,
+      ...restrictedAfter(status),
     })
     .where(eq(schema.players.id, playerId));
 };

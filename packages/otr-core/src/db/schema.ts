@@ -1467,6 +1467,10 @@ export const players = pgTable(
       .default(0)
       .notNull(),
     dataFetchStatus: integer('data_fetch_status').default(0).notNull(),
+    // osu! never says another user is restricted, so the data worker sets
+    // this when osu! returns not found for the player and clears it on a
+    // successful fetch. Sign-in sets it from the player's own profile.
+    restricted: boolean().default(false).notNull(),
     created: timestamp({ withTimezone: true, mode: 'string' })
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
