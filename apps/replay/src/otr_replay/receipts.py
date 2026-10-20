@@ -4,7 +4,7 @@ Each weekly rating run publishes a receipt beside the public replicas,
 recording when it ran and which processor image it ran (apps/scripts,
 lib/receipt.py). The ratings the site showed at an instant are the ones the
 last run before it published, so a replay of that instant replays that run:
-its processor, the newest replica from before it started, and its decay
+its processor, the public replica closest to the data it read, and its decay
 horizon. Only an instant no receipt covers falls back to choosing the replica
 and release by publication time.
 """
@@ -25,7 +25,7 @@ from otr_replay.discovery import (
     select_release,
     select_replica,
 )
-from otr_replay.models import Plan, Receipt, ReceiptRef, Release, ReplayError
+from otr_replay.models import Plan, Receipt, ReceiptRef, Release, ReplayError, ReplicaRef
 
 # The receipt layout this otr-replay reads.
 RECEIPT_VERSION = 1
@@ -35,6 +35,12 @@ RUN_INTERVAL = timedelta(days=7, hours=2)
 # weekly maintenance window opens 15 minutes before the run, takes the
 # replica, and holds admin writes until 15 minutes after the run starts.
 REPLICA_GAP = timedelta(minutes=30)
+# Until mid-January 2026, each weekly replica was taken about twelve hours
+# after Tuesday 12:00 UTC, the start back-populated receipts give those runs.
+# When no replica falls in the gap, one from the day after a run is a closer
+# copy of its data than a week-old one from before it, though it also holds
+# changes made after the run.
+REPLICA_AFTER = timedelta(days=1)
 
 _RECEIPT_NAME = re.compile(
     r"^otr-rating-receipt_(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\.json$"
@@ -141,11 +147,16 @@ def resolve(client: httpx.Client, requested: datetime) -> Plan:
             "gives the evidence for each."
         )
 
-    # The run read the live database, so the newest replica from before it
-    # started is the closest public copy of its data.
-    replica = select_replica(replicas, receipt.started_at)
+    replica = select_run_replica(replicas, receipt.started_at)
     gap = receipt.started_at - replica.timestamp
-    if gap > REPLICA_GAP:
+    if gap < timedelta(0):
+        warnings.append(
+            f"No replica was taken in the {_span(REPLICA_GAP)} before {run}. The "
+            f"closest one, taken {_span(-gap)} after it started, also holds changes "
+            "made after the run, so the ratings may differ from the ones the run "
+            "published."
+        )
+    elif gap > REPLICA_GAP:
         warnings.append(
             f"The newest replica before {run} was taken {_span(gap)} before it "
             "started, so changes made in between are missing and the ratings may "
@@ -166,6 +177,29 @@ def resolve(client: httpx.Client, requested: datetime) -> Plan:
             digest=_IMAGE.match(receipt.image).group(1),
         )
     return Plan(replica, release, receipt, receipt.horizon, tuple(warnings))
+
+
+def select_run_replica(refs: Sequence[ReplicaRef], started_at: datetime) -> ReplicaRef:
+    """The public replica closest to the data a run read.
+
+    The run read the live database, so a replica taken in the
+    `REPLICA_GAP` before it started holds that data. Otherwise the replica
+    nearest the start wins: the newest one from before it, or the first one
+    taken within `REPLICA_AFTER` after it.
+    """
+    before = [ref for ref in refs if ref.timestamp <= started_at]
+    newest_before = max(before, key=lambda ref: ref.timestamp, default=None)
+    if newest_before is not None and started_at - newest_before.timestamp <= REPLICA_GAP:
+        return newest_before
+    after = [ref for ref in refs if started_at < ref.timestamp <= started_at + REPLICA_AFTER]
+    first_after = min(after, key=lambda ref: ref.timestamp, default=None)
+    if first_after is None or (
+        newest_before is not None
+        and started_at - newest_before.timestamp <= first_after.timestamp - started_at
+    ):
+        # Fails, naming the oldest replica, when none precedes the run.
+        return select_replica(refs, started_at)
+    return first_after
 
 
 def ratings_warning(receipt: Receipt | None, row_count: int) -> str | None:

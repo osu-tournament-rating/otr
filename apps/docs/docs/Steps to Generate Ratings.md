@@ -16,7 +16,7 @@ cd otr/apps/replay
 uv run otr-replay --as-of 2026-06-27T23:59
 ```
 
-The program finds the receipt of the rating run in effect at the effective date, downloads the newest public replica taken before that run started from the [public replicas site](https://data.otr.stagec.net), verifies its checksum, imports it into a temporary database, runs the [[Development/Platform Architecture#processor|processor]] image the run ran, reconciles decay, and writes two files: a CSV with the columns `osu_id`, `username`, `ruleset`, `rating`, and `volatility`, and a metadata file describing the run.
+The program finds the receipt of the rating run in effect at the effective date, downloads the public replica closest to the data that run read from the [public replicas site](https://data.otr.stagec.net), verifies its checksum, imports it into a temporary database, runs the [[Development/Platform Architecture#processor|processor]] image the run ran, reconciles decay, and writes two files: a CSV with the columns `osu_id`, `username`, `ruleset`, `rating`, and `volatility`, and a metadata file describing the run.
 
 When something makes the replayed ratings likely to differ from the published ones, `otr-replay` prints a warning that says why. The warnings are also recorded in the metadata file.
 
@@ -46,7 +46,7 @@ Every weekly rating run publishes a receipt on the [public replicas site](https:
 - `run_id` identifies the run.
 - `inferred` lists each field that was inferred rather than recorded, with the evidence for it.
 
-`otr-replay` replays the newest run whose ratings were published at or before the effective date. It runs the image the receipt names, imports the newest replica taken at or before the run started, and reconciles decay to the run's decay horizon. A replica taken during the run's maintenance window holds exactly the data the run read. When the replica is older, `otr-replay` warns that changes made in between are missing.
+`otr-replay` replays the newest run whose ratings were published at or before the effective date. It runs the image the receipt names, imports the replica closest to the data the run read, and reconciles decay to the run's decay horizon. A replica taken in the 30 minutes before the run started, as each weekly replica is during the run's maintenance window, holds exactly the data the run read. Without one, `otr-replay` imports whichever is nearer the run's start: the newest replica taken before it, or the first one taken within a day after it. Replicas until mid-January 2026 were taken about twelve hours after Tuesday 12:00 UTC, so replays of those weeks use the replica taken that night. `otr-replay` warns that an older replica is missing changes made before the run, and that a later one holds changes made after it.
 
 Runs from before receipts existed have back-populated receipts. Their start times come from the weekly schedule and their processor images from release and deploy history, and their `inferred` field says so. `otr-replay` warns when it uses one.
 
@@ -117,7 +117,7 @@ docker exec otr-db pg_isready -h 127.0.0.1 -U postgres
 
 Public database replicas are published on the [public replicas site](https://data.otr.stagec.net).
 
-Download the most recent replica taken **at or before the rating run's `started_at`**, along with its `.sha256` checksum file. Without a receipt, download the most recent replica taken at or before the *effective date* instead. Then verify the download:
+Download the most recent replica taken **at or before the rating run's `started_at`**, along with its `.sha256` checksum file. If that replica is more than 30 minutes older than `started_at`, and a replica taken within a day after `started_at` is nearer to it, download that later replica instead. Without a receipt, download the most recent replica taken at or before the *effective date* instead. Then verify the download:
 
 ```bash
 # Note: Both the replica .gz and the
@@ -265,5 +265,5 @@ docker network rm otr-replay-net
 - **Adjustments after the snapshot are not decay**: The snapshot cannot be reconciled; please [[Contact|contact us]].
 - **`otr-replay` fails because a checksum is missing or does not match**: Every replica has a published checksum, and a download is never used unverified. Retry, and [[Contact|contact us]] if it persists.
 - **`otr-replay` cannot read a receipt**: A receipt of a newer version needs a newer `otr-replay`, so pull the latest otr and retry. [[Contact|Contact us]] if the receipt is invalid.
-- **`otr-replay` prints a warning**: The warning names the reason the replayed ratings may differ from the published ones, such as a back-populated receipt or a replica taken long before its rating run. It is also recorded in the metadata file's `warnings`.
+- **`otr-replay` prints a warning**: The warning names the reason the replayed ratings may differ from the published ones, such as a back-populated receipt or a replica taken long before or after its rating run. It is also recorded in the metadata file's `warnings`.
 - **Export produces an empty or corrupted file**: Ensure the export command uses `docker exec -i` without `-t`; a TTY corrupts output that is redirected to a file.

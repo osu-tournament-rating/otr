@@ -6,12 +6,14 @@ from urllib.parse import quote
 import httpx
 import pytest
 
+from otr_replay.discovery import parse_index
 from otr_replay.models import ReplayError
 from otr_replay.receipts import (
     parse_receipt_index,
     ratings_warning,
     resolve,
     select_receipt,
+    select_run_replica,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -95,8 +97,9 @@ def index(names):
 class Site:
     """The public replicas site, GitHub and Docker Hub, recording each request."""
 
-    def __init__(self, receipts=None):
+    def __init__(self, receipts=None, replicas=None):
         self.receipts = RECEIPTS if receipts is None else receipts
+        self.replicas = REPLICAS if replicas is None else replicas
         self.requested: list[str] = []
         self.releases = json.loads((FIXTURES / "releases.json").read_text())
         self.otr_releases = json.loads((FIXTURES / "otr_releases.json").read_text())
@@ -106,7 +109,7 @@ class Site:
         url = str(request.url)
         self.requested.append(url)
         if url == "https://data.otr.stagec.net/":
-            return httpx.Response(200, text=index([*REPLICAS, *self.receipts, "terms.txt"]))
+            return httpx.Response(200, text=index([*self.replicas, *self.receipts, "terms.txt"]))
         if url.startswith(BUCKET):
             name = request.url.path.rsplit("/", 1)[-1]
             if name in self.receipts:
@@ -158,6 +161,70 @@ def test_an_off_schedule_replica_never_stands_in_for_a_run():
     (warning,) = plan.warnings
     assert "The newest replica before rating run 2026-06-02T12:00:04Z" in warning
     assert "5 days before it started" in warning
+
+
+def test_a_run_without_a_replica_before_it_uses_the_one_taken_that_night():
+    # Until mid-January 2026, each weekly replica was taken late on Tuesday,
+    # after the 12:00 start back-populated receipts give. The week-old replica
+    # from before the run would miss a week of the data it read.
+    backfilled = receipt(
+        "2025-12-02T12:00:00.000000Z",
+        None,
+        None,
+        4,
+        inferred={"started_at": "the weekly schedule, Tuesdays 12:00 UTC"},
+    )
+    site = Site(
+        {"otr-rating-receipt_2025-12-02T12:00:00Z.json": backfilled},
+        [
+            "otr-public-replica_2025-11-26T00:00:01Z.gz",
+            "otr-public-replica_2025-11-26T23:21:49Z.gz",
+            "otr-public-replica_2025-12-02T23:50:01Z.gz",
+            "otr-public-replica_2025-12-09T23:50:01Z.gz",
+        ],
+    )
+
+    plan = site.plan(at("2025-12-05T00:00:00"))
+
+    assert plan.replica.name == "otr-public-replica_2025-12-02T23:50:01Z.gz"
+    # Replicas hold no ratings, so decay still stops at the run.
+    assert plan.horizon == at("2025-12-02T12:00:00")
+    warning = plan.warnings[-1]
+    assert "No replica was taken in the 30 minutes before rating run" in warning
+    assert "taken 11 hours after it started" in warning
+
+
+@pytest.mark.parametrize(
+    ("replicas", "chosen"),
+    [
+        # Taken in the maintenance window, so it holds what the run read.
+        (["2026-06-09T11:45:01Z", "2026-06-09T12:05:00Z"], "2026-06-09T11:45:01Z"),
+        # Out of the window, but nearer the start than the one after.
+        (["2026-06-09T10:00:00Z", "2026-06-09T23:00:00Z"], "2026-06-09T10:00:00Z"),
+        # A week old against one from that night.
+        (["2026-06-03T00:00:00Z", "2026-06-09T23:50:01Z"], "2026-06-09T23:50:01Z"),
+        # Only the one after exists.
+        (["2026-06-09T23:50:01Z"], "2026-06-09T23:50:01Z"),
+        # Days old, but the one after is more than a day after the run.
+        (["2026-06-04T00:00:00Z", "2026-06-10T12:00:01Z"], "2026-06-04T00:00:00Z"),
+    ],
+    ids=["in the gap", "nearer before", "nearer after", "only after", "too late"],
+)
+def test_select_run_replica_takes_the_replica_nearest_the_run(replicas, chosen):
+    refs = parse_index(index(f"otr-public-replica_{name}.gz" for name in replicas))
+
+    replica = select_run_replica(refs, at("2026-06-09T12:00:00"))
+
+    assert replica.name == f"otr-public-replica_{chosen}.gz"
+
+
+def test_select_run_replica_fails_without_a_replica_near_the_run():
+    refs = parse_index(index(["otr-public-replica_2026-06-11T00:00:00Z.gz"]))
+
+    with pytest.raises(ReplayError) as exc:
+        select_run_replica(refs, at("2026-06-09T12:00:00"))
+
+    assert exc.value.phase == "discovery"
 
 
 def test_an_instant_before_a_run_commits_replays_the_previous_run():

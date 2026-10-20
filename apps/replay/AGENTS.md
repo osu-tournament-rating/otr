@@ -34,11 +34,14 @@ warning. Treat every timestamp, including an offset-less API value, as UTC.
   site, which `apps/scripts` publishes after each weekly run
   (`src/lib/receipt.py`), and plans the replay. It replays the run with the
   latest `committed_at` (or `started_at`, when null) at or before `--as-of`:
-  the image its receipt names, the newest replica at or before its start, and
-  decay reconciled to its `decay_horizon` (or start). It warns, in the console
-  and the metadata, when a receipt was back-populated, is over a week older
-  than `--as-of`, names no image, or the replica predates the run by more than
-  the maintenance window. Only an `--as-of` no receipt covers falls back to
+  the image its receipt names, a replica, and decay reconciled to its
+  `decay_horizon` (or start). The replica is the newest one taken in the 30
+  minutes before the run started, which holds what the run read, or else
+  whichever is nearer the start: the newest one before it, or the first one
+  within a day after it, as replicas until mid-January 2026 were. It warns, in
+  the console and the metadata, when a receipt was back-populated, is over a
+  week older than `--as-of`, names no image, or the replica falls outside
+  those 30 minutes. Only an `--as-of` no receipt covers falls back to
   `discovery.py`'s choice by publication time, with a warning. A receipt of
   another `receipt_version` stops the replay; the version is a contract with
   `apps/scripts`.

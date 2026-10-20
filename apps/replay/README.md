@@ -3,8 +3,8 @@
 `otr-replay` reproduces osu! Tournament Rating (o!TR) player ratings as they were at a certain timestamp provided as input to this application.
 
 Given a UTC timestamp, the program finds the weekly rating run whose ratings the
-site showed at that time from the run's receipt, downloads the most recent public
-database replica taken before that run started, imports it into a temporary
+site showed at that time from the run's receipt, downloads the public database
+replica closest to the data that run read, imports it into a temporary
 PostgreSQL container, runs the processor image the run ran, and writes the
 resulting ratings to a CSV file. A reconciliation is also performed as described
 in [our online documentation](https://docs.otr.stagec.net/steps-to-generate-ratings#decay-reconciliation).
@@ -17,8 +17,8 @@ started, such as `otr-rating-receipt_2026-10-20T12:00:04Z.json`. It records when
 the run started and published, the time its decay ran to, the processor release
 and image it ran, and how many ratings it published. `otr-replay` replays the
 last run that published at or before the requested timestamp, so a failed deploy,
-a rollback, or an off-schedule replica cannot change which processor or data it
-uses. Runs from before receipts existed have back-populated receipts, whose
+a rollback, or an off-schedule replica cannot change which run it reproduces or
+which processor it runs. Runs from before receipts existed have back-populated receipts, whose
 `inferred` field names what was inferred and from what.
 
 A timestamp no receipt covers falls back to the most recent replica at that time
