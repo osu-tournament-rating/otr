@@ -2,6 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 import { FAKE_OSU_URL } from './e2e/fixtures/fake-osu';
 
+/**
+ * A site that is already running, such as a worktree's stack, to test instead
+ * of building this checkout and serving it on port 3001:
+ * `E2E_BASE_URL=http://127.0.0.1:20010 bun run test:e2e`.
+ */
+const runningSite = process.env.E2E_BASE_URL;
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.e2e.ts',
@@ -11,7 +18,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? 'github' : 'html',
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: runningSite ?? 'http://localhost:3001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -32,25 +39,29 @@ export default defineConfig({
       url: FAKE_OSU_URL,
       reuseExistingServer: !process.env.CI,
     },
-    {
-      command:
-        'NEXT_PUBLIC_APP_BASE_URL=http://localhost:3001 E2E_TEST_AUTH=true bun run build && E2E_TEST_AUTH=true bun run start -p 3001',
-      url: 'http://localhost:3001',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      env: {
-        E2E_TEST_AUTH: 'true',
-        // The maintenance-window spec forces the window per-request instead
-        MAINTENANCE_WINDOW_ENABLED: 'false',
-        // The whole suite calls /rpc from one IP, faster than any person
-        RPC_RATE_LIMIT: 'off',
-        // Sign-in goes through the fake osu! server, which returns to this
-        // server's OAuth callback.
-        BETTER_AUTH_URL: 'http://localhost:3001',
-        E2E_OSU_URL: FAKE_OSU_URL,
-        WEB_OSU_CLIENT_ID: '1',
-        WEB_OSU_CLIENT_SECRET: 'e2e',
-      },
-    },
+    ...(runningSite
+      ? []
+      : [
+          {
+            command:
+              'NEXT_PUBLIC_APP_BASE_URL=http://localhost:3001 E2E_TEST_AUTH=true bun run build && E2E_TEST_AUTH=true bun run start -p 3001',
+            url: 'http://localhost:3001',
+            reuseExistingServer: !process.env.CI,
+            timeout: 120000,
+            env: {
+              E2E_TEST_AUTH: 'true',
+              // The maintenance-window spec forces the window per-request instead
+              MAINTENANCE_WINDOW_ENABLED: 'false',
+              // The whole suite calls /rpc from one IP, faster than any person
+              RPC_RATE_LIMIT: 'off',
+              // Sign-in goes through the fake osu! server, which returns to this
+              // server's OAuth callback.
+              BETTER_AUTH_URL: 'http://localhost:3001',
+              E2E_OSU_URL: FAKE_OSU_URL,
+              WEB_OSU_CLIENT_ID: '1',
+              WEB_OSU_CLIENT_SECRET: 'e2e',
+            },
+          },
+        ]),
   ],
 });
