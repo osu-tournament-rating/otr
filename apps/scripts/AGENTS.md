@@ -144,4 +144,8 @@ without syncing the venv. It refuses to run in the main checkout.
   beatmap files in a local directory. The tracing endpoint is set only while
   monitoring runs. A running process whose settings changed is restarted.
   After `down`, the block still points at the disposed stack, so nothing falls
-  back to the main checkout's services.
+  back to the main checkout's services. Before the first `up`, otr's root
+  `lib/env/load-root-env.ts` and the processor refuse the copied
+  `DATABASE_URL` of a linked worktree whose `.env` has no block. Both find the
+  block by the start of `envfile.BEGIN`, and their tests read it from
+  `envfile.py`.
