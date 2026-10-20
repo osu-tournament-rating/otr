@@ -54,6 +54,7 @@ import {
   listTournamentsPage,
 } from './procedures/tournamentsProcedures';
 import { submitTournament } from './procedures/tournaments/tournamentSubmissionProcedure';
+import { getTournamentProgress } from './procedures/tournaments/progressProcedure';
 import {
   acceptTournamentPreVerificationStatuses,
   deleteTournamentAdmin,
@@ -261,6 +262,7 @@ export const router = base.router({
     list: listTournaments,
     listPage: listTournamentsPage,
     get: getTournament,
+    progress: getTournamentProgress,
     submit: submitTournament,
     adminNotes: {
       create: createTournamentAdminNote,
