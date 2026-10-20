@@ -13,6 +13,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth/auth';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
+import { MessagePriority } from '@otr/core';
 import { ApprovalStatus, FilteringFailReason, Ruleset } from '@otr/core/osu';
 
 import { publicProcedure } from '../base';
@@ -224,6 +225,19 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
     const seconds = await secondsUntilFull(requesterId);
     expect(seconds).toBeGreaterThan(2);
     expect(seconds).toBeLessThanOrEqual(3);
+  });
+
+  it('queues its lookups behind tournament fetches', async () => {
+    await filter(AT_THRESHOLD);
+
+    const fetches = await queuedFetches(db, requesterId);
+    expect(fetches).toHaveLength(3);
+    // Below Normal, where tournament fetches queue; higher runs first
+    expect(fetches.map((job) => job.priority)).toEqual([
+      MessagePriority.Low,
+      MessagePriority.Low,
+      MessagePriority.Low,
+    ]);
   });
 
   it('refuses lookups while earlier lookups have used the allowance, but runs a request that needs none', async () => {

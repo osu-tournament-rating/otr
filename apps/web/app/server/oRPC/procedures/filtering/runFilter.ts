@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
 import { enqueueJobs, JobQueue } from '@otr/core/jobs';
+import { MessagePriority } from '@otr/core';
 import {
   FilteringFailReason,
   VerificationStatus,
@@ -98,11 +99,13 @@ export async function runFilter(
         .values(missingOsuIds.map((osuId) => ({ osuId })))
         .onConflictDoNothing({ target: schema.players.osuId });
 
+      // Behind tournament fetches, which queue at Normal (#1162)
       await enqueueJobs(
         tx,
         JobQueue.OsuFetch,
         missingOsuIds.map((osuPlayerId) => ({
           payload: { type: 'player', osuPlayerId },
+          priority: MessagePriority.Low,
           correlationId,
           requestedByUserId,
           explicit: true,
