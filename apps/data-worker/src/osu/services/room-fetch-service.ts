@@ -142,7 +142,9 @@ export class RoomFetchService {
         fields: {
           ruleset,
           scoringType: ScoringType.Lazer,
-          teamType: roomType,
+          // Each game keeps the mode it was played in; a referee can switch
+          // the room between head-to-head and team mode mid-match.
+          teamType: roomTeamType(playlistItem.details?.room_type) ?? roomType,
           mods: convertModsToFlags(requiredMods),
           lazerMods: normalizeLazerMods(requiredMods),
           startTime: normalizeDate(gameStartedEvent.created_at) ?? nowIso,

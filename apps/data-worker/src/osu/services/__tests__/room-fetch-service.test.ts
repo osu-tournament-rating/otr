@@ -3,7 +3,7 @@ import { asc, eq, inArray, like } from 'drizzle-orm';
 import type { API, Mod, Multiplayer } from 'osu-api-v2-js';
 
 import * as schema from '@otr/core/db/schema';
-import { Mods, Ruleset } from '@otr/core/osu/enums';
+import { Mods, Ruleset, TeamType } from '@otr/core/osu/enums';
 
 import {
   createJobsTestDb,
@@ -96,6 +96,8 @@ interface RoomGame {
   item: number;
   requiredMods?: ModInput[];
   scoreMods?: ModInput[];
+  /** The mode the game was played in, as osu! records it per item. */
+  roomType?: 'head_to_head' | 'team_versus';
 }
 
 /**
@@ -133,7 +135,7 @@ const createRoom = (
         beatmap_id: BEATMAP_OSU_ID,
         ruleset_id: 0,
         required_mods: toApiMods(game.requiredMods ?? []),
-        details: { room_type: roomType, teams: null },
+        details: { room_type: game.roomType ?? roomType, teams: null },
         scores: [createScore(game.scoreMods ?? [])],
       }) as unknown as Multiplayer.Room.PlaylistItem.WithDetailsScores
   );
@@ -217,6 +219,7 @@ describe.skipIf(!testDatabaseUrl)('lazer room fetches', () => {
         osuId: schema.games.osuId,
         mods: schema.games.mods,
         lazerMods: schema.games.lazerMods,
+        teamType: schema.games.teamType,
       })
       .from(schema.games)
       .where(eq(schema.games.matchId, matchId))
@@ -343,5 +346,22 @@ describe.skipIf(!testDatabaseUrl)('lazer room fetches', () => {
       [0, 1, 2, 3].map((item) => FIRST_ITEM_OSU_ID + item)
     );
     expect(pageRequests).toEqual([{ before: 7, limit: 100 }]);
+  });
+
+  it('stores each game with the team mode it was played in, not the room’s latest', async () => {
+    const room = createRoom(
+      [
+        { item: 0, roomType: 'head_to_head' },
+        { item: 1, roomType: 'team_versus' },
+      ],
+      'team_versus'
+    );
+
+    expect(await fetchRoom(room)).toBe(true);
+
+    expect((await storedGames()).map((game) => game.teamType)).toEqual([
+      TeamType.HeadToHead,
+      TeamType.TeamVs,
+    ]);
   });
 });
