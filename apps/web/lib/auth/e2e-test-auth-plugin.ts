@@ -16,7 +16,7 @@ import { E2E_FAKE_OSU_ID_FLOOR } from './e2e-auth';
  * `{ osuId }` removes a fake player the suite signed up, and everything that
  * hangs off it. Gated on {@link isE2eAuthEnabled}, which each endpoint rechecks
  * per request — Playwright runs a production build, so the gate cannot key off
- * NODE_ENV, and the flag must stay unset in production.
+ * NODE_ENV. Production's docker-compose.yml pins the flag off.
  */
 export const isE2eAuthEnabled = () => process.env.E2E_TEST_AUTH === 'true';
 

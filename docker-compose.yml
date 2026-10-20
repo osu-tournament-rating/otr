@@ -115,6 +115,9 @@ services:
       # container, then exits (apps/web/lib/shutdown.ts).
       NEXT_MANUAL_SIG_HANDLE: 'true'
       SHUTDOWN_DRAIN_SECONDS: '15'
+      # Test sign-in lets anyone sign in as any player, as an admin. Pinned
+      # here so no .env value, such as a copied preview one, turns it on.
+      E2E_TEST_AUTH: 'false'
     # Longer than the drain plus the 5s cleanup before exit, so Docker never
     # kills a container that is still draining.
     stop_grace_period: 30s
