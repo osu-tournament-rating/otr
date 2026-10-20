@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import * as schema from '@otr/core/db/schema';
 import { withAuditUserId } from '@otr/core/db';
 import {
+  AdminEditResetInputSchema,
   GameScoreAdminDeleteInputSchema,
   GameScoreAdminMutationResponseSchema,
   GameScoreAdminUpdateInputSchema,
@@ -11,6 +12,7 @@ import {
 
 import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
+import { resetEditedFieldsHandler } from '../shared/resetEditedFields';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
 
@@ -98,3 +100,16 @@ export const deleteScoreAdmin = adminMutationProcedure
 
     return { success: true } as const;
   });
+
+export const resetScoreEditsAdmin = adminMutationProcedure
+  .input(AdminEditResetInputSchema)
+  .output(GameScoreAdminMutationResponseSchema)
+  .route({
+    summary: "Reset a score's edited fields to osu!'s values",
+    tags: ['admin'],
+    method: 'POST',
+    path: '/scores/{id}/edits:reset',
+  })
+  .handler(({ input, context }) =>
+    resetEditedFieldsHandler({ table: 'game_scores', input, context })
+  );

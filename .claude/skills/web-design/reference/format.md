@@ -661,6 +661,7 @@ listAuditFields(); // [{ entityType, field, label }], for a field filter
 
 - `AUDIT_FIELDS` (one entry per field, read with `getAuditFieldSpec(entityType, field)`) gives each field a glossary label and a format: mods, timestamps (with seconds, so a correction of a few seconds still shows), durations (`3:42`), rulesets, rank restrictions, lobby sizes, verification statuses, enums, bitflags, users, counts with separators, IDs without.
 - A test compares it with the schema, so a new audited column fails until it has an entry.
+- Edited fields (the osu! fields an admin corrected on a match, game or score) read as the edit dialogs label them, `Mods, Team`, through `formatEditedFields(table, columns)` in `@/lib/kit/format/edited-fields`, which also has `getEditedFieldLabel` for the reset dialog.
 - Unknown fields (such as the retired `processingStatus`) fall back to a humanized label and the raw value.
 
 Don't:

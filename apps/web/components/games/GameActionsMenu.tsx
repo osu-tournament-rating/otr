@@ -12,6 +12,7 @@ import {
   Music2,
   NotebookPen,
   PencilLine,
+  RotateCcw,
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -19,6 +20,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { DELETE_CASCADE_DESCRIPTION } from '@/components/admin-forms/adminFormFields';
+import {
+  ResetEditedFieldsDialog,
+  hasEditedFields,
+} from '@/components/admin-forms/ResetEditedFieldsDialog';
 import { AdminNotesDialog } from '@/components/admin-notes/AdminNotesDialog';
 import { ConfirmDialog } from '@/components/kit/controls/ConfirmDialog';
 import { RowActionsMenu } from '@/components/kit/controls/RowActionsMenu';
@@ -62,6 +67,7 @@ export default function GameActionsMenu({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [viewingNotes, setViewingNotes] = useState(false);
@@ -117,6 +123,13 @@ export default function GameActionsMenu({
             group: 'data',
             onSelect: () => setMerging(true),
           },
+          isAdmin &&
+            hasEditedFields('games', game.editedFields) && {
+              label: 'Reset to osu! values',
+              icon: RotateCcw,
+              group: 'data',
+              onSelect: () => setResetting(true),
+            },
           isAdmin && {
             label: 'Delete game',
             icon: Trash2,
@@ -157,6 +170,13 @@ export default function GameActionsMenu({
             game={game}
             open={merging}
             onOpenChange={setMerging}
+          />
+          <ResetEditedFieldsDialog
+            table="games"
+            id={game.id}
+            editedFields={game.editedFields}
+            open={resetting}
+            onOpenChange={setResetting}
           />
           <ConfirmDialog
             open={deleting}

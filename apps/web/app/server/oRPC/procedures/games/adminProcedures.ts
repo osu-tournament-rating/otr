@@ -7,6 +7,7 @@ import { cascadeGameRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeGameVerification } from '@otr/core/db/verification-cascade';
 import { resolveGameVerification } from '@otr/core/db/verification-resolve';
 import {
+  AdminEditResetInputSchema,
   GameAdminDeleteInputSchema,
   GameAdminLookupInputSchema,
   GameAdminMergeInputSchema,
@@ -19,6 +20,7 @@ import { GameWarningFlags, VerificationStatus } from '@otr/core/osu';
 
 import { adminMutationProcedure, protectedProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
+import { resetEditedFieldsHandler } from '../shared/resetEditedFields';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
 const FALLBACK_DATETIME = '2007-09-17 00:00:00';
@@ -368,3 +370,16 @@ export const lookupGamesAdmin = protectedProcedure
       });
     });
   });
+
+export const resetGameEditsAdmin = adminMutationProcedure
+  .input(AdminEditResetInputSchema)
+  .output(GameAdminMutationResponseSchema)
+  .route({
+    summary: "Reset a game's edited fields to osu!'s values",
+    tags: ['admin'],
+    method: 'POST',
+    path: '/games/{id}/edits:reset',
+  })
+  .handler(({ input, context }) =>
+    resetEditedFieldsHandler({ table: 'games', input, context })
+  );

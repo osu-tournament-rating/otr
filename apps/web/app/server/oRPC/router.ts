@@ -9,16 +9,19 @@ import {
   deleteGameAdmin,
   lookupGamesAdmin,
   mergeGameAdmin,
+  resetGameEditsAdmin,
   updateGameAdmin,
 } from './procedures/games/adminProcedures';
 import {
   deleteMatchAdmin,
   deleteMatchPlayerScoresAdmin,
   mergeMatchAdmin,
+  resetMatchEditsAdmin,
   updateMatchAdmin,
 } from './procedures/matches/adminProcedures';
 import {
   deleteScoreAdmin,
+  resetScoreEditsAdmin,
   updateScoreAdmin,
 } from './procedures/scores/adminProcedures';
 import {
@@ -171,6 +174,7 @@ export const router = base.router({
       delete: deleteMatchAdmin,
       deletePlayerScores: deleteMatchPlayerScoresAdmin,
       merge: mergeMatchAdmin,
+      resetEdits: resetMatchEditsAdmin,
     },
     adminNotes: {
       create: createMatchAdminNote,
@@ -184,6 +188,7 @@ export const router = base.router({
       delete: deleteGameAdmin,
       merge: mergeGameAdmin,
       lookup: lookupGamesAdmin,
+      resetEdits: resetGameEditsAdmin,
     },
     adminNotes: {
       create: createGameAdminNote,
@@ -195,6 +200,7 @@ export const router = base.router({
     admin: {
       update: updateScoreAdmin,
       delete: deleteScoreAdmin,
+      resetEdits: resetScoreEditsAdmin,
     },
     adminNotes: {
       create: createScoreAdminNote,

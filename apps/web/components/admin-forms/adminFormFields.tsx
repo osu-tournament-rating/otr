@@ -25,6 +25,12 @@ export function changedFieldClass(fieldState: ControllerFieldState) {
   );
 }
 
+/**
+ * The hint on the label of a field an admin edited by hand. A refetch keeps
+ * its value until an admin resets it to osu!'s.
+ */
+export const EDITED_FIELD_HINT = 'Edited';
+
 /** Every ruleset by its short name, `ManiaOther` included: admin pickers offer it. */
 export const ALL_RULESET_LABELS: EnumLabels = Object.fromEntries(
   Object.entries(RULESET_NAMES).map(([value, { label }]) => [value, label])

@@ -2,6 +2,10 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  editedFieldGroups,
+  type AdminEditField,
+} from '@otr/core/db/admin-edits';
+import {
   AdminNoteRouteTarget,
   Mods,
   ScoreRejectionReason,
@@ -14,6 +18,7 @@ import type { z } from 'zod';
 
 import {
   ALL_RULESET_LABELS,
+  EDITED_FIELD_HINT,
   LabelSelectContent,
   VerificationStatusSelectContent,
   changedFieldClass,
@@ -33,7 +38,6 @@ import {
   FormDescription,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -77,12 +81,12 @@ function nullableNumber(value: string): number | null {
 }
 
 const HIT_FIELDS = [
-  ['statPerfect', 'Perfect'],
-  ['statGreat', 'Great'],
-  ['statGood', 'Good'],
-  ['statOk', 'Ok'],
-  ['statMeh', 'Meh'],
-  ['statMiss', 'Miss'],
+  ['statPerfect', 'Perfect', 'stat_perfect'],
+  ['statGreat', 'Great', 'stat_great'],
+  ['statGood', 'Good', 'stat_good'],
+  ['statOk', 'Ok', 'stat_ok'],
+  ['statMeh', 'Meh', 'stat_meh'],
+  ['statMiss', 'Miss', 'stat_miss'],
 ] as const;
 
 /**
@@ -107,6 +111,11 @@ export default function ScoreEditDialog({
   const [savingWithNote, setSavingWithNote] = useState(false);
   const noteMutations = getAdminNoteMutations(AdminNoteRouteTarget.GameScore);
   const fallbackScore = score.adjustedScore ?? score.rawScore;
+  const edited = new Set(
+    editedFieldGroups('game_scores', score.editedFields ?? [])
+  );
+  const editedHint = (field: AdminEditField<'game_scores'>) =>
+    edited.has(field) ? EDITED_FIELD_HINT : undefined;
 
   const form = useForm<ScoreEditValues>({
     resolver: zodResolver(scoreEditFormSchema) as Resolver<ScoreEditValues>,
@@ -283,7 +292,9 @@ export default function ScoreEditDialog({
                 name="ruleset"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Ruleset</FormLabel>
+                    <FormFieldLabel hint={editedHint('ruleset')}>
+                      Ruleset
+                    </FormFieldLabel>
                     <Select
                       onValueChange={(next) => onChange(Number(next))}
                       value={value.toString()}
@@ -305,7 +316,9 @@ export default function ScoreEditDialog({
                 name="team"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Team</FormLabel>
+                    <FormFieldLabel hint={editedHint('team')}>
+                      Team
+                    </FormFieldLabel>
                     <Select
                       onValueChange={(next) => onChange(Number(next))}
                       value={value.toString()}
@@ -326,7 +339,7 @@ export default function ScoreEditDialog({
 
             <div className="grid items-start gap-4 sm:grid-cols-3">
               <FormItem>
-                <FormLabel>Raw score</FormLabel>
+                <FormFieldLabel>Raw score</FormFieldLabel>
                 <FormControl>
                   {/* Read-only, so it reads as a count: 630,298. */}
                   <Input
@@ -338,7 +351,7 @@ export default function ScoreEditDialog({
                 <FormDescription>The total osu! reported.</FormDescription>
               </FormItem>
               <FormItem>
-                <FormLabel>Adjusted score</FormLabel>
+                <FormFieldLabel>Adjusted score</FormFieldLabel>
                 <FormControl>
                   <Input
                     disabled
@@ -361,7 +374,7 @@ export default function ScoreEditDialog({
                 name="scoreOverride"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Score override</FormLabel>
+                    <FormFieldLabel>Score override</FormFieldLabel>
                     <FormControl>
                       <Input
                         className={changedFieldClass(fieldState)}
@@ -388,7 +401,9 @@ export default function ScoreEditDialog({
                 name="maxCombo"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Max combo</FormLabel>
+                    <FormFieldLabel hint={editedHint('max_combo')}>
+                      Max combo
+                    </FormFieldLabel>
                     <FormControl>
                       <Input
                         className={changedFieldClass(fieldState)}
@@ -406,7 +421,9 @@ export default function ScoreEditDialog({
                 name="accuracy"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Accuracy</FormLabel>
+                    <FormFieldLabel hint={editedHint('accuracy')}>
+                      Accuracy
+                    </FormFieldLabel>
                     <FormControl>
                       <Input
                         className={changedFieldClass(fieldState)}
@@ -423,7 +440,9 @@ export default function ScoreEditDialog({
                 name="grade"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Grade</FormLabel>
+                    <FormFieldLabel hint={editedHint('grade')}>
+                      Grade
+                    </FormFieldLabel>
                     <Select
                       onValueChange={(next) => onChange(Number(next))}
                       value={value.toString()}
@@ -443,14 +462,16 @@ export default function ScoreEditDialog({
             </div>
 
             <div className="grid grid-cols-3 items-start gap-4">
-              {HIT_FIELDS.map(([name, label]) => (
+              {HIT_FIELDS.map(([name, label, column]) => (
                 <FormField
                   key={name}
                   control={form.control}
                   name={name}
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <FormLabel>{label}</FormLabel>
+                      <FormFieldLabel hint={editedHint(column)}>
+                        {label}
+                      </FormFieldLabel>
                       <FormControl>
                         <Input
                           className={changedFieldClass(fieldState)}
@@ -476,7 +497,7 @@ export default function ScoreEditDialog({
                 name="rejectionReason"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem className="min-w-0">
-                    <FormLabel>Rejection reason</FormLabel>
+                    <FormFieldLabel>Rejection reason</FormFieldLabel>
                     <FormControl>
                       <MultipleSelect
                         className={changedFieldClass(fieldState)}
@@ -498,7 +519,9 @@ export default function ScoreEditDialog({
                 name="mods"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem className="min-w-0">
-                    <FormLabel>Mods</FormLabel>
+                    <FormFieldLabel hint={editedHint('mods')}>
+                      Mods
+                    </FormFieldLabel>
                     <FormControl>
                       <MultipleSelect
                         className={changedFieldClass(fieldState)}
@@ -520,7 +543,7 @@ export default function ScoreEditDialog({
               name="verificationStatus"
               render={({ field: { value, onChange }, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Verification status</FormLabel>
+                  <FormFieldLabel>Verification status</FormFieldLabel>
                   <Select
                     onValueChange={(next) => onChange(Number(next))}
                     value={value.toString()}
