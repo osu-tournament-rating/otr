@@ -55,11 +55,12 @@ export default function AdminLoading() {
         />
         <div className="flex flex-col gap-4 p-4">
           <p className="text-sm text-muted-foreground">
-            Mass enqueue beatmaps and matches for refetch. Enter IDs separated
-            by commas, spaces, or newlines. Only IDs that exist in the database
-            will be enqueued.
+            Mass enqueue beatmaps, matches, and players for refetch. Enter IDs
+            separated by commas, spaces, or newlines. Only IDs that exist in the
+            database will be enqueued.
           </p>
-          <div className="grid items-start gap-4 sm:grid-cols-2">
+          <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <FieldSkeleton inputClassName={TEXTAREA_HEIGHT} />
             <FieldSkeleton inputClassName={TEXTAREA_HEIGHT} />
             <FieldSkeleton inputClassName={TEXTAREA_HEIGHT} />
           </div>

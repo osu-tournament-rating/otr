@@ -1,4 +1,6 @@
-import { userActivityDaily } from '@otr/core/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+
+import { auth_users, userActivityDaily, users } from '@otr/core/db/schema';
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -34,5 +36,29 @@ export const recordUserActivity = async (playerId: number) => {
   } catch (error) {
     recordedPlayers.delete(playerId);
     logger.error('Failed to record user activity', { error });
+  }
+};
+
+/**
+ * Saves now as the user's last login, which admins see beside notes and
+ * submissions. Called for each new session, so once per sign-in. A failed
+ * write is logged; it never fails the sign-in.
+ */
+export const recordLastLogin = async (authUserId: string) => {
+  try {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date().toISOString() })
+      .where(
+        inArray(
+          users.playerId,
+          db
+            .select({ playerId: auth_users.playerId })
+            .from(auth_users)
+            .where(eq(auth_users.id, authUserId))
+        )
+      );
+  } catch (error) {
+    console.error('Failed to record last login', error);
   }
 };

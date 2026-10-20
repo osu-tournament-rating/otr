@@ -5,6 +5,10 @@ from lib.config import config
 
 logger = logging.getLogger(__name__)
 
+# Each run's container goes by this name in Docker and in its logs. Docker
+# refuses a second container with the same name, so runs cannot overlap.
+CONTAINER_NAME = "otr-processor"
+
 
 def _stream(cmd: list[str]) -> int:
     """Run a command, logging each line of its output as it arrives"""
@@ -32,9 +36,9 @@ def run() -> bool:
     conn_str = f"postgresql://{config.db_user}:{config.db_password}@localhost:{config.db_port}/{config.db_name}"
     rust_log = "info"
 
-    # Alloy collects logs only from containers named otr-*, and --rm frees the
-    # name for the next run.
-    run_cmd = f"docker run --rm --name otr-processor --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
+    # --rm removes the container once it exits, so runs leave none behind.
+    # Alloy collects logs only from containers named otr-*.
+    run_cmd = f"docker run --rm --name {CONTAINER_NAME} --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
 
     logger.info("Running processor")
     if (code := _stream(run_cmd)) != 0:
