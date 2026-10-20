@@ -5,11 +5,14 @@ import {
   Gamepad2,
   LayoutGrid,
   ListChecks,
+  Percent,
   Users,
 } from 'lucide-react';
 
 import type { KitIcon } from '@/lib/kit/layout/icon';
 import { CHART_CONSTANTS } from '@/lib/utils/chart';
+
+import { TREND_MIN_TOURNAMENTS } from './stats-data';
 
 /**
  * The width of a rating bucket. The server groups ratings by this same
@@ -60,6 +63,11 @@ export const STATS_PANELS = {
   recentlyVerified: {
     icon: ListChecks,
     title: 'Recently verified tournaments',
+  },
+  lazerShare: {
+    icon: Percent,
+    title: 'Lazer share',
+    infoText: `Tournaments played on osu!lazer, of each year's verified tournaments. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

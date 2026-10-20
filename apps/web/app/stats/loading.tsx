@@ -22,6 +22,7 @@ import { StatsPageHeader } from './StatsPageHeader';
 /** Each meta bar is as wide as the loaded count ("2,540 verified" is 80px). */
 const CHART_PANELS = [
   { copy: STATS_PANELS.year, metaWidth: 'w-20' },
+  { copy: STATS_PANELS.lazerShare, metaWidth: 'w-20' },
   { copy: STATS_PANELS.ruleset, metaWidth: 'w-20' },
   { copy: STATS_PANELS.lobbySize, metaWidth: 'w-20' },
 ];

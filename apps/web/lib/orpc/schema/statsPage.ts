@@ -53,6 +53,12 @@ export const RecentlyVerifiedInputSchema = z.object({
   limit: z.number().int().min(1).max(50),
 });
 
+export const LazerYearSchema = z.object({
+  year: z.number().int(),
+  total: count,
+  lazer: count,
+});
+
 /**
  * Everything the stats page shows beyond `stats.platform`. A stored
  * statistic is null until the data worker has computed it.
@@ -62,6 +68,7 @@ export const StatsPageSchema = z.object({
     totals: HeadlineTotalsSchema.nullable(),
     verification: VerificationSummarySchema,
     recentlyVerified: RecentlyVerifiedPageSchema,
+    lazerByYear: z.array(LazerYearSchema),
   }),
 });
 
@@ -74,3 +81,4 @@ export type RecentlyVerifiedPageData = z.infer<
 export type RecentlyVerifiedTournamentData = z.infer<
   typeof RecentlyVerifiedTournamentSchema
 >;
+export type LazerYearData = z.infer<typeof LazerYearSchema>;

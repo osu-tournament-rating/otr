@@ -7,12 +7,16 @@ import { PLATFORM_STATS, PlatformStatKey } from '@otr/core/platform-stats';
 import type { DatabaseClient } from '@/lib/db';
 
 import { createTestDb, testDatabaseUrl } from '../../__tests__/test-utils';
-import { getRecentlyVerified, getVerificationSummary } from '../queries';
+import {
+  getLazerByYear,
+  getRecentlyVerified,
+  getVerificationSummary,
+} from '../queries';
 import { runStatsPage } from '../statsPageProcedures';
 
 type Transaction = Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
 
-const { Verified, Rejected } = VerificationStatus;
+const { Verified, Rejected, None } = VerificationStatus;
 
 let nextOsuId = 990_200_000;
 const osuId = () => nextOsuId++;
@@ -179,6 +183,30 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         tournaments: 4,
         medianDays: 1,
       });
+    });
+  });
+
+  it('counts lazer tournaments among verified ones per year', async () => {
+    await onEmptyTables(async (tx) => {
+      await seedTournament(tx, { start: '2025-03-01T00:00:00Z' });
+      await seedTournament(tx, {
+        start: '2025-06-01T00:00:00Z',
+        isLazer: true,
+      });
+      await seedTournament(tx, {
+        start: '2025-06-01T00:00:00Z',
+        isLazer: true,
+        status: None,
+      });
+      await seedTournament(tx, {
+        start: '2026-01-01T00:00:00Z',
+        isLazer: true,
+      });
+
+      expect(await getLazerByYear(tx)).toEqual([
+        { year: 2025, total: 2, lazer: 1 },
+        { year: 2026, total: 1, lazer: 1 },
+      ]);
     });
   });
 

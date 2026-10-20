@@ -23,6 +23,9 @@ const rowsOf = async <TRow>(db: QueryDb, query: SQL): Promise<TRow[]> =>
 const isoTimestamp = (column: SQL) =>
   sql`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
+/** A tournament's year, as the stats page's other tournament charts count it. */
+const tournamentYear = sql`date_part('year', coalesce(${schema.tournaments.startTime}, ${schema.tournaments.endTime}, ${schema.tournaments.created}))::int`;
+
 /**
  * Every audit row that set a tournament to Verified, at millisecond
  * precision. The audit trail has written the change three ways over time.
@@ -214,4 +217,34 @@ export async function getRecentlyVerified(
         ? { verifiedAt: last.verifiedAt, id: last.id }
         : null,
   };
+}
+
+export interface LazerYear {
+  year: number;
+  /** Verified tournaments that year. */
+  total: number;
+  /** Of those, the ones played on osu!lazer. */
+  lazer: number;
+}
+
+/** Verified tournaments per year, every ruleset, and how many were on lazer. */
+export async function getLazerByYear(db: QueryDb): Promise<LazerYear[]> {
+  const rows = await rowsOf<{ year: number; total: string; lazer: string }>(
+    db,
+    sql`
+      select
+        ${tournamentYear} as year,
+        count(*) as total,
+        count(*) filter (where ${schema.tournaments.isLazer}) as lazer
+      from ${schema.tournaments}
+      where ${schema.tournaments.verificationStatus} = ${VERIFIED}
+      group by 1
+      order by 1`
+  );
+
+  return rows.map((row) => ({
+    year: Number(row.year),
+    total: Number(row.total),
+    lazer: Number(row.lazer),
+  }));
 }

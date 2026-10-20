@@ -15,7 +15,11 @@ import {
 } from '@/lib/orpc/schema/statsPage';
 
 import { publicProcedure } from '../base';
-import { getRecentlyVerified, getVerificationSummary } from './queries';
+import {
+  getLazerByYear,
+  getRecentlyVerified,
+  getVerificationSummary,
+} from './queries';
 
 /** Recently verified tournaments shown before "Load more". */
 export const RECENTLY_VERIFIED_FIRST_PAGE = 5;
@@ -55,11 +59,13 @@ export async function runStatsPage({
 }): Promise<StatsPage> {
   const { db } = context;
 
-  const [stored, verification, recentlyVerified] = await Promise.all([
-    readPlatformStats(db),
-    getVerificationSummary(db),
-    getRecentlyVerified(db, { limit: RECENTLY_VERIFIED_FIRST_PAGE }),
-  ]);
+  const [stored, verification, recentlyVerified, lazerByYear] =
+    await Promise.all([
+      readPlatformStats(db),
+      getVerificationSummary(db),
+      getRecentlyVerified(db, { limit: RECENTLY_VERIFIED_FIRST_PAGE }),
+      getLazerByYear(db),
+    ]);
 
   return {
     allRulesets: {
@@ -71,6 +77,7 @@ export async function runStatsPage({
       ),
       verification,
       recentlyVerified,
+      lazerByYear,
     },
   };
 }

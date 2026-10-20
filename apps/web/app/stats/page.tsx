@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageSection } from '@/components/kit/layout/PageSection';
 import { BY_RULESET_SECTION } from '@/components/stats/chart-panels';
+import LazerSharePanel from '@/components/stats/LazerSharePanel';
 import OverviewPanel from '@/components/stats/OverviewPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
 import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
@@ -25,6 +26,7 @@ export default async function StatsPage() {
   const [{ tournamentStats, ratingStats }, { allRulesets }] = await Promise.all(
     [orpc.stats.platform(), orpc.stats.page()]
   );
+  const currentYear = new Date().getUTCFullYear();
 
   return (
     <PageFrame>
@@ -38,6 +40,10 @@ export default async function StatsPage() {
         />
         <RecentlyVerifiedPanel firstPage={allRulesets.recentlyVerified} />
         <TournamentsByYearChart data={tournamentStats.verifiedByYear} />
+        <LazerSharePanel
+          rows={allRulesets.lazerByYear}
+          currentYear={currentYear}
+        />
         <TournamentsByRulesetChart data={tournamentStats.verifiedByRuleset} />
         <TournamentsByLobbySizeChart
           data={tournamentStats.verifiedByLobbySize}

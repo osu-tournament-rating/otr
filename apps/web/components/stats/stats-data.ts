@@ -5,6 +5,7 @@
 import { Ruleset, type VerificationStatus } from '@otr/core/osu';
 
 import type { CountBarDatum } from '@/lib/kit/charts/count-bars';
+import type { StackedBarDatum } from '@/lib/kit/charts/stacked-bars';
 import { getNiceTicks, type NiceTicks } from '@/lib/kit/charts/ticks';
 import { getStatusHueColor } from '@/lib/kit/color/verification';
 import { getTierColor } from '@/lib/kit/color/tiers';
@@ -14,6 +15,7 @@ import { formatCountOf, formatYear } from '@/lib/kit/format/number';
 import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { RATINGS_GROUPS } from '@/lib/kit/status/verification';
 import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
+import type { LazerYearData } from '@/lib/orpc/schema/statsPage';
 import {
   getTierFromRating,
   type TierName,
@@ -209,6 +211,50 @@ export function getRatingDistributionAxes(maxCount: number): {
       ticks: count.ticks.map((_, index) => index / steps),
     },
   };
+}
+
+/**
+ * Trend charts start at the first year with at least this many tournaments,
+ * so a year with one or two (rated data starts around 2018) does not read
+ * as 0% or 100%.
+ */
+export const TREND_MIN_TOURNAMENTS = 10;
+
+/**
+ * The years a trend chart covers: from the first year with at least
+ * `TREND_MIN_TOURNAMENTS` tournaments to the last year with any, every year
+ * in between included. Empty when no year has enough.
+ */
+export function getTrendYears(totals: ReadonlyMap<number, number>): number[] {
+  const years = [...totals.keys()].sort((a, b) => a - b);
+  const first = years.find(
+    (year) => (totals.get(year) ?? 0) >= TREND_MIN_TOURNAMENTS
+  );
+  const last = years.at(-1);
+  if (first === undefined || last === undefined) return [];
+
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+}
+
+/**
+ * The share of verified tournaments played on osu!lazer, per year, over the
+ * trend years. Null when no verified tournament was on lazer, which the
+ * panel shows as an empty state rather than a flat line at 0%.
+ */
+export function getLazerShareBars(
+  rows: readonly LazerYearData[]
+): StackedBarDatum[] | null {
+  if (!rows.some((row) => row.lazer > 0)) return null;
+
+  const byYear = new Map(rows.map((row) => [row.year, row]));
+  const totals = new Map(rows.map((row) => [row.year, row.total]));
+
+  return getTrendYears(totals).map((year) => ({
+    key: String(year),
+    label: formatYear(year),
+    values: { lazer: byYear.get(year)?.lazer ?? 0 },
+    total: byYear.get(year)?.total ?? 0,
+  }));
 }
 
 /** A median time to verify: `4 days`, `1 day`, or `Under a day`. */
