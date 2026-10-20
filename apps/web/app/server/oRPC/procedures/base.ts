@@ -1,7 +1,7 @@
 import { ORPCError, os } from '@orpc/server';
 import { APIError } from 'better-auth/api';
 import * as schema from '@otr/core/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
   createLogger,
   generateCorrelationId,
@@ -430,6 +430,7 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   let activeKey: NonNullable<
     Awaited<ReturnType<typeof auth.api.verifyApiKey>>['key']
   >;
+  let requestsInWindow: number | null;
 
   try {
     const verification = await auth.api.verifyApiKey({
@@ -470,6 +471,8 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
         data: { code: 'RATE_LIMITED', tryAgainIn: limit.retryAfterMs },
       });
     }
+
+    requestsInWindow = limit.requests;
   } catch (error) {
     const refusal = toApiKeyRefusal(error);
     const reason =
@@ -491,6 +494,28 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
 
   // Better Auth's API key plugin (v1.6+) renamed `userId` to `referenceId`.
   const { id, referenceId, name, enabled } = activeKey;
+
+  // The auth plugin no longer counts requests, so the count the admin key
+  // list shows is saved here. A request that opened the window starts it
+  // over; otherwise the highest count wins, since concurrent requests can
+  // save theirs out of order.
+  if (requestsInWindow !== null) {
+    await db
+      .update(schema.apiKeys)
+      .set({
+        requestCount:
+          requestsInWindow === 1
+            ? 1
+            : sql`greatest(${schema.apiKeys.requestCount}, ${requestsInWindow})`,
+      })
+      .where(eq(schema.apiKeys.id, id))
+      .catch((countError: unknown) => {
+        rootLogger.warn('api key request count not saved', {
+          apiKeyId: maskApiKey(id),
+          error: describeError(countError as ProcedureError),
+        });
+      });
+  }
   const userId = referenceId;
   let apiKeyActor: ApiKeyActor | null = null;
 

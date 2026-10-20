@@ -19,7 +19,12 @@ export type ApiKeyLimit = {
 };
 
 export type ApiKeyRateLimitResult =
-  { allowed: true } | { allowed: false; retryAfterMs: number };
+  | {
+      allowed: true;
+      /** Requests in the key's current window, or null when it is not counted. */
+      requests: number | null;
+    }
+  | { allowed: false; retryAfterMs: number };
 
 /**
  * Counts one request against the key, in windows of its time window: a key's
@@ -36,7 +41,7 @@ export function consumeApiKeyRequest(
   const { rateLimitEnabled, rateLimitMax, rateLimitTimeWindow } = key;
 
   if (!rateLimitEnabled || rateLimitMax === null || !rateLimitTimeWindow) {
-    return { allowed: true };
+    return { allowed: true, requests: null };
   }
 
   const tracked = windows();
@@ -57,7 +62,7 @@ export function consumeApiKeyRequest(
       }
     }
 
-    return { allowed: true };
+    return { allowed: true, requests: 1 };
   }
 
   if (current.requests >= rateLimitMax) {
@@ -68,5 +73,5 @@ export function consumeApiKeyRequest(
   }
 
   current.requests += 1;
-  return { allowed: true };
+  return { allowed: true, requests: current.requests };
 }

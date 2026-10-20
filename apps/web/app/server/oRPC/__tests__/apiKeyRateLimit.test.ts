@@ -59,6 +59,14 @@ describe.skipIf(!enabled)('an API key’s 1,000 requests a minute', () => {
   const countAllowed = (results: unknown[]) =>
     results.filter((result) => result === 'ok').length;
 
+  const storedRequestCount = async () => {
+    const [row] = await db
+      .select({ requestCount: schema.apiKeys.requestCount })
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.referenceId, userId));
+    return row?.requestCount;
+  };
+
   beforeAll(async () => {
     ({ cookies } = await osuUser.signIn());
     userId = (await getSession(cookies))!.user.id;
@@ -119,5 +127,16 @@ describe.skipIf(!enabled)('an API key’s 1,000 requests a minute', () => {
 
     expect(countAllowed(await burstAt(0, 1010))).toBe(1010);
     expect(await requestAt(30 * SECOND)).toMatchObject({ status: 429 });
+  });
+
+  // The admin dashboard lists each key's requests
+  test('store how many requests the key sent in its current minute', async () => {
+    for (let request = 0; request < 3; request++) {
+      expect(await requestAt(request * SECOND)).toBe('ok');
+    }
+    expect(await storedRequestCount()).toBe(3);
+
+    expect(await requestAt(60 * SECOND)).toBe('ok');
+    expect(await storedRequestCount()).toBe(1);
   });
 });
