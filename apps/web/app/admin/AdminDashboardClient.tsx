@@ -60,7 +60,11 @@ import {
 const PRIORITIES = ['Low', 'Normal', 'High'] as const;
 type Priority = (typeof PRIORITIES)[number];
 
-const PHASE_LABELS = { beatmaps: 'Beatmaps', matches: 'Matches' } as const;
+const PHASE_LABELS = {
+  beatmaps: 'Beatmaps',
+  matches: 'Matches',
+  players: 'Players',
+} as const;
 
 /** Unique positive IDs from text separated by commas, spaces or newlines. */
 function parseIds(input: string): number[] {
@@ -402,6 +406,7 @@ function getKeyName(key: { name: string | null }) {
 function MassEnqueue() {
   const [beatmapIdsInput, setBeatmapIdsInput] = useState('');
   const [matchIdsInput, setMatchIdsInput] = useState('');
+  const [playerIdsInput, setPlayerIdsInput] = useState('');
   const [priority, setPriority] = useState<Priority>('Normal');
   const [massEnqueueing, setMassEnqueueing] = useState(false);
   const [completion, setCompletion] = useState<AdminMassEnqueueResponse | null>(
@@ -409,7 +414,7 @@ function MassEnqueue() {
   );
 
   const [progressPhase, setProgressPhase] = useState<
-    'beatmaps' | 'matches' | null
+    keyof typeof PHASE_LABELS | null
   >(null);
   const [progressPercent, setProgressPercent] = useState(0);
   const [currentBatch, setCurrentBatch] = useState(0);
@@ -426,6 +431,10 @@ function MassEnqueue() {
     () => parseIds(matchIdsInput),
     [matchIdsInput]
   );
+  const parsedPlayerIds = useMemo(
+    () => parseIds(playerIdsInput),
+    [playerIdsInput]
+  );
 
   const handleMassEnqueue = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -435,6 +444,8 @@ function MassEnqueue() {
         (id) => id >= 1 && id <= 20_000_000
       );
       const matchIds = parsedMatchIds.filter((id) => id >= 1);
+      // parseIds keeps only positive IDs, the one rule player IDs have.
+      const playerIds = parsedPlayerIds;
 
       const filteredBeatmaps = parsedBeatmapIds.length - beatmapIds.length;
       const filteredMatches = parsedMatchIds.length - matchIds.length;
@@ -451,7 +462,11 @@ function MassEnqueue() {
         );
       }
 
-      if (beatmapIds.length === 0 && matchIds.length === 0) {
+      if (
+        beatmapIds.length === 0 &&
+        matchIds.length === 0 &&
+        playerIds.length === 0
+      ) {
         toast.error('No valid IDs to enqueue after filtering.');
         return;
       }
@@ -469,6 +484,7 @@ function MassEnqueue() {
         const iterator = await orpc.admin.massEnqueue({
           beatmapIds,
           matchIds,
+          playerIds,
           priority,
         });
 
@@ -488,11 +504,19 @@ function MassEnqueue() {
               beatmapsSkipped: update.beatmapsSkipped,
               matchesUpdated: update.matchesUpdated,
               matchesSkipped: update.matchesSkipped,
+              playersUpdated: update.playersUpdated,
+              playersSkipped: update.playersSkipped,
               warnings: update.warnings,
             });
 
-            const totalUpdated = update.beatmapsUpdated + update.matchesUpdated;
-            const totalSkipped = update.beatmapsSkipped + update.matchesSkipped;
+            const totalUpdated =
+              update.beatmapsUpdated +
+              update.matchesUpdated +
+              update.playersUpdated;
+            const totalSkipped =
+              update.beatmapsSkipped +
+              update.matchesSkipped +
+              update.playersSkipped;
 
             if (totalUpdated > 0) {
               toast.success(
@@ -539,7 +563,7 @@ function MassEnqueue() {
         setShowProgress(false);
       }
     },
-    [parsedBeatmapIds, parsedMatchIds, priority]
+    [parsedBeatmapIds, parsedMatchIds, parsedPlayerIds, priority]
   );
 
   return (
@@ -550,9 +574,9 @@ function MassEnqueue() {
       <FormSection
         icon={ListRestart}
         title="Mass enqueue"
-        description="Mass enqueue beatmaps and matches for refetch. Enter IDs separated by commas, spaces, or newlines. Only IDs that exist in the database will be enqueued."
+        description="Mass enqueue beatmaps, matches, and players for refetch. Enter IDs separated by commas, spaces, or newlines. Only IDs that exist in the database will be enqueued."
       >
-        <FormGrid>
+        <FormGrid columns={3}>
           <IdField
             id="beatmap-ids"
             label="Beatmap IDs"
@@ -575,6 +599,19 @@ function MassEnqueue() {
             parsed={
               matchIdsInput.trim()
                 ? `${formatCountOf(parsedMatchIds.length, 'unique match', 'unique matches')} parsed`
+                : undefined
+            }
+            disabled={massEnqueueing}
+          />
+          <IdField
+            id="player-ids"
+            label="Player osu! IDs"
+            placeholder="1234567, 2345678, 3456789…"
+            value={playerIdsInput}
+            onValueChange={setPlayerIdsInput}
+            parsed={
+              playerIdsInput.trim()
+                ? `${formatCountOf(parsedPlayerIds.length, 'unique player')} parsed`
                 : undefined
             }
             disabled={massEnqueueing}
@@ -635,7 +672,7 @@ function MassEnqueue() {
         {completion ? (
           <div className="flex flex-col gap-2 border-t pt-4">
             <h3 className="text-sm font-medium">Results</h3>
-            <StatTileGrid columns={2}>
+            <StatTileGrid columns={3}>
               <StatTile
                 label="Beatmaps"
                 value={`${formatCount(completion.beatmapsUpdated)} enqueued`}
@@ -651,6 +688,15 @@ function MassEnqueue() {
                 sub={
                   completion.matchesSkipped > 0
                     ? `${formatCount(completion.matchesSkipped)} skipped`
+                    : undefined
+                }
+              />
+              <StatTile
+                label="Players"
+                value={`${formatCount(completion.playersUpdated)} enqueued`}
+                sub={
+                  completion.playersSkipped > 0
+                    ? `${formatCount(completion.playersSkipped)} skipped`
                     : undefined
                 }
               />

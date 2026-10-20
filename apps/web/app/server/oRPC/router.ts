@@ -54,6 +54,7 @@ import {
   listTournamentsPage,
 } from './procedures/tournamentsProcedures';
 import { submitTournament } from './procedures/tournaments/tournamentSubmissionProcedure';
+import { getTournamentProgress } from './procedures/tournaments/progressProcedure';
 import {
   approveTournamentSubmissionAdmin,
   denyTournamentSubmissionAdmin,
@@ -107,6 +108,13 @@ import {
 } from './procedures/apiKeyProcedures';
 import { massEnqueue } from './procedures/admin/massEnqueueProcedures';
 import {
+  cancelJobsAdmin,
+  getJobDailyTotals,
+  getJobSummary,
+  listJobs,
+  retryJobsAdmin,
+} from './procedures/admin/jobProcedures';
+import {
   createReport,
   getMyUnreadReportCount,
   getReport,
@@ -139,6 +147,13 @@ const base = os.$context<InitialContext>();
 export const router = base.router({
   admin: {
     massEnqueue,
+    jobs: {
+      summary: getJobSummary,
+      list: listJobs,
+      retry: retryJobsAdmin,
+      cancel: cancelJobsAdmin,
+      daily: getJobDailyTotals,
+    },
   },
   approvals: {
     pendingCount: getPendingApprovalCount,
@@ -269,6 +284,7 @@ export const router = base.router({
     list: listTournaments,
     listPage: listTournamentsPage,
     get: getTournament,
+    progress: getTournamentProgress,
     submit: submitTournament,
     mySubmissions: listMyTournamentSubmissions,
     adminNotes: {

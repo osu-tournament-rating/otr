@@ -8,6 +8,7 @@ import RulesetIcon from '@/components/icons/RulesetIcon';
 import { IconButton } from '@/components/kit/controls/IconButton';
 import { FilterButton } from '@/components/kit/lists/FilterButton';
 import { Badge } from '@/components/kit/status/Badge';
+import { JobStateBadge } from '@/components/kit/status/JobStateBadge';
 import { NotificationDot } from '@/components/kit/status/NotificationDot';
 import { NotInRatings } from '@/components/kit/status/NotInRatings';
 import { ApprovalStatusBadge } from '@/components/kit/status/ApprovalStatusBadge';
@@ -30,6 +31,7 @@ import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { formatBadgeCount } from '@/lib/kit/status/count';
 import { APPROVAL_STATUS_ORDER } from '@/lib/kit/status/approval';
+import { JOB_BADGE_STATES } from '@/lib/kit/status/job';
 import { REPORT_STATUS_ORDER } from '@/lib/kit/status/report';
 import {
   RATINGS_GROUPS,
@@ -623,6 +625,19 @@ export default function StatusSection() {
         <Row label="States">
           {APPROVAL_STATUS_ORDER.map((status) => (
             <ApprovalStatusBadge key={status} status={status} />
+          ))}
+        </Row>
+      </Specimen>
+
+      <Specimen
+        id="status-job-state-badge"
+        name="JobStateBadge"
+        importPath={`${KIT}/JobStateBadge`}
+        description="A background job's state on the admin jobs page, and the state of a tournament's fetches and jobs in its progress panel. Retrying and stalled work is amber, a job that gave up red; the glyph carries the state without its colour."
+      >
+        <Row label="States">
+          {JOB_BADGE_STATES.map((state) => (
+            <JobStateBadge key={state} state={state} />
           ))}
         </Row>
       </Specimen>

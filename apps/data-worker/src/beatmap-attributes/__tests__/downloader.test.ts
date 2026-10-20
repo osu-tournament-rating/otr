@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { BeatmapFileDownloader } from '../downloader';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
+import { startMalformedResponseServer } from './malformed-response-server';
 
 const noopLogger: Logger = {
   info: () => {},
@@ -248,6 +249,27 @@ describe('BeatmapFileDownloader', () => {
     await expect(downloader.download(1)).rejects.toThrow(
       'Downloading https://osu.ppy.sh/osu/1 failed: The operation timed out.'
     );
+  });
+
+  it('reports a response with control characters in its file name as malformed', async () => {
+    const server = await startMalformedResponseServer(
+      new TextEncoder().encode(OSU_FILE)
+    );
+
+    try {
+      const downloader = new BeatmapFileDownloader({
+        logger: noopLogger,
+        rateLimiter: new StubRateLimiter(),
+        fetchImpl: server.fetchImpl,
+      });
+
+      expect(await downloader.download(1)).toEqual({
+        status: 'malformed',
+        reason: expect.stringContaining('Malformed_HTTP_Response'),
+      });
+    } finally {
+      await server.close();
+    }
   });
 
   it('uses a rate limiter of its own when none is given', async () => {

@@ -8,9 +8,10 @@ import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { Mods, Ruleset, VerificationStatus } from '@otr/core/osu';
 
+import { findBeatmapsMissingFiles } from '../beatmap-attributes-scheduler';
 import { BeatmapAttributesService } from '../beatmap-attributes-service';
 import { CALCULATOR } from '../calculator';
-import type { BeatmapFileDownload } from '../downloader';
+import { BeatmapFileDownloader, type BeatmapFileDownload } from '../downloader';
 import {
   beatmapFileKey,
   LocalBeatmapFileStore,
@@ -23,6 +24,7 @@ import {
   silentLogger,
   syntheticOsuFile,
 } from './db-fixtures';
+import { startMalformedResponseServer } from './malformed-response-server';
 
 const url = process.env.SEARCH_TEST_DATABASE_URL;
 
@@ -523,6 +525,107 @@ describe.skipIf(!url)('BeatmapAttributesService', () => {
     await run({ beatmapId: beatmap.id }, new FakeDownloader(ok(fileA)));
 
     expect(await keysOf(beatmap.id)).toEqual([Mods.None, Mods.DoubleTime]);
+  });
+
+  describe('malformed responses', () => {
+    const malformed: BeatmapFileDownload = {
+      status: 'malformed',
+      reason: 'Malformed_HTTP_Response fetching "https://osu.ppy.sh/osu/1"',
+    };
+
+    // One service across jobs, as in the data worker.
+    const serviceWith = (downloader: Pick<BeatmapFileDownloader, 'download'>) =>
+      new BeatmapAttributesService({
+        db,
+        logger: silentLogger,
+        store: localStore,
+        downloader,
+      });
+
+    const swept = async (beatmapId: number) =>
+      (await findBeatmapsMissingFiles(db, 100_000)).includes(beatmapId);
+
+    it('records the file as unusable on the third in a row, so the sweep stops queueing it', async () => {
+      const beatmap = await playedBeatmap();
+      const server = await startMalformedResponseServer(fileA);
+
+      try {
+        const service = serviceWith(
+          new BeatmapFileDownloader({
+            logger: silentLogger,
+            rateLimiter: { schedule: (task) => task() },
+            fetchImpl: server.fetchImpl,
+          })
+        );
+        const job = { beatmapId: beatmap.id };
+
+        await expect(service.process(job)).rejects.toThrow(
+          'Malformed_HTTP_Response'
+        );
+        await expect(service.process(job)).rejects.toThrow(
+          'Malformed_HTTP_Response'
+        );
+        expect(await fileRow(beatmap.id)).toBeNull();
+        expect(await swept(beatmap.id)).toBe(true);
+
+        await service.process(job);
+
+        expect(await fileRow(beatmap.id)).toMatchObject({
+          checksum: null,
+          fetchStatus: DataFetchStatus.Error,
+        });
+        expect(await swept(beatmap.id)).toBe(false);
+        expect(await keysOf(beatmap.id)).toEqual([]);
+      } finally {
+        await server.close();
+      }
+    });
+
+    it('starts counting again after a download osu! answers', async () => {
+      const beatmap = await playedBeatmap();
+      const service = serviceWith(
+        new FakeDownloader(
+          malformed,
+          malformed,
+          { status: 'not_found' },
+          malformed
+        )
+      );
+      const job = { beatmapId: beatmap.id };
+
+      await expect(service.process(job)).rejects.toThrow();
+      await expect(service.process(job)).rejects.toThrow();
+      await service.process(job);
+      await expect(service.process(job)).rejects.toThrow(
+        'Malformed_HTTP_Response'
+      );
+
+      expect(await fileRow(beatmap.id)).toMatchObject({
+        checksum: null,
+        fetchStatus: DataFetchStatus.NotFound,
+      });
+    });
+
+    it('downloads a file recorded as unusable again when a refetch queues the beatmap', async () => {
+      const beatmap = await playedBeatmap();
+      await db.insert(schema.beatmapFiles).values({
+        beatmapId: beatmap.id,
+        checksum: null,
+        fetchStatus: DataFetchStatus.Error,
+      });
+
+      const { downloads } = await run(
+        { beatmapId: beatmap.id, checksum: md5(fileA) },
+        new FakeDownloader(ok(fileA))
+      );
+
+      expect(downloads).toEqual([beatmap.osuId]);
+      expect(await fileRow(beatmap.id)).toMatchObject({
+        checksum: md5(fileA),
+        fetchStatus: DataFetchStatus.Fetched,
+      });
+      expect(await keysOf(beatmap.id)).toEqual(PLAYED_KEYS);
+    });
   });
 
   it('ignores a beatmap that no longer exists', async () => {

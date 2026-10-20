@@ -18,7 +18,11 @@ import {
   envDetector,
   resourceFromAttributes,
 } from '@opentelemetry/resources';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import {
+  BatchSpanProcessor,
+  type Span,
+  type SpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import {
   ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
@@ -37,6 +41,28 @@ export interface StartTracingOptions {
 }
 
 let provider: NodeTracerProvider | null = null;
+
+const HTTP_TARGET = 'http.target';
+
+/**
+ * Next.js records each request's address, query string included, as
+ * http.target on its own server span. A query string can carry a visitor's
+ * search terms or a GET call's whole input, and user input never goes on a
+ * span, so this keeps only the path.
+ */
+const dropRequestQueryStrings: SpanProcessor = {
+  onStart(span: Span) {
+    const target = span.attributes[HTTP_TARGET];
+    const query = typeof target === 'string' ? target.indexOf('?') : -1;
+
+    if (query !== -1) {
+      span.setAttribute(HTTP_TARGET, (target as string).slice(0, query));
+    }
+  },
+  onEnd() {},
+  forceFlush: () => Promise.resolve(),
+  shutdown: () => Promise.resolve(),
+};
 
 const resolveEnvironment = (): string =>
   process.env.NODE_ENV === 'production' ? 'production' : 'development';
@@ -75,7 +101,10 @@ export function startTracing({
           [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: resolveEnvironment(),
         })
       ),
-    spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
+    spanProcessors: [
+      dropRequestQueryStrings,
+      new BatchSpanProcessor(new OTLPTraceExporter()),
+    ],
   });
 
   provider.register({

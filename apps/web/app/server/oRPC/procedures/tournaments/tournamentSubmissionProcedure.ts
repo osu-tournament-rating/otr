@@ -24,6 +24,7 @@ import { protectedMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { assertOutsideMaintenanceWindow } from '../shared/maintenanceWindow';
 import { getCorrelationId } from '../logging/helpers';
+import { logger } from '@/lib/logger';
 
 const formatIdList = (ids: readonly number[], limit = 5) => {
   if (ids.length <= limit) {
@@ -576,7 +577,7 @@ export async function submitTournamentHandler({
       throw conflict;
     }
 
-    console.error('Failed to submit tournament', error);
+    logger.error('Failed to submit tournament', { error });
 
     throw errors.SUBMISSION_FAILED();
   }

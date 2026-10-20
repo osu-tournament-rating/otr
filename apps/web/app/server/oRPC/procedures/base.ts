@@ -14,6 +14,7 @@ import {
   API_KEY_MESSAGES,
   parseBearerAuthorization,
 } from '@/lib/api/api-key-header';
+import { PUBLIC_API_PREFIX } from '@/lib/api/prefix';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import {
@@ -513,13 +514,10 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
       };
     }
   } catch (apiKeyActorError) {
-    const timestamp = new Date().toISOString();
-    const description = describeError(apiKeyActorError as ProcedureError);
-    console.error(
-      `${timestamp} [oRPC]: api-key-owner-lookup-failed apiKey=${maskApiKey(
-        id
-      )} error=${description}`
-    );
+    rootLogger.error('api key owner lookup failed', {
+      apiKey: maskApiKey(id),
+      error: apiKeyActorError,
+    });
   }
 
   // Registrant filter lookups are charged to the owner's allowance (#1162)
@@ -610,19 +608,32 @@ const withOptionalSession = base.middleware(async ({ context, next }) => {
 
 const rootLogger = createLogger('otr-web');
 
-const extractRequestPath = (requestUrl?: string): string | null => {
+/**
+ * The path a request called, without its query string. A GET call to /rpc
+ * carries its whole input in the query string.
+ */
+const requestPathname = (requestUrl?: string): string | null => {
   if (!requestUrl) {
     return null;
   }
 
   try {
-    const url = new URL(requestUrl);
-    const search = url.search;
-    return search ? `${url.pathname}${search}` : url.pathname;
+    return new URL(requestUrl).pathname;
   } catch {
     return null;
   }
 };
+
+/**
+ * A public API procedure's route, such as `/api/players/{id}`. Its span
+ * records this rather than the path, which can hold user input such as a
+ * player's name. A path on /rpc names only the procedure.
+ */
+const publicApiRoute = (
+  procedure: { '~orpc': { route: { path?: string } } },
+  path: readonly string[]
+): string =>
+  `${PUBLIC_API_PREFIX}${procedure['~orpc'].route.path ?? `/${path.join('/')}`}`;
 
 // Runs ahead of the rest of the chain so session lookups and database work all
 // land inside the procedure span.
@@ -639,18 +650,21 @@ const withTracing = base.middleware(async ({ path, next }) => {
   );
 });
 
-const withLoggingContext = base.middleware(async ({ context, path, next }) => {
+const withLoggingContext = base.middleware(async (options) => {
+  const { context, path, procedure, next } = options;
   const correlationId =
     extractCorrelationId(context.headers) ?? generateCorrelationId();
   const procedurePath = formatProcedurePath(path);
   const actor = resolveActor(context);
-  const requestPath = extractRequestPath(context.requestUrl);
+  const requestPath = requestPathname(context.requestUrl);
 
   setActiveSpanAttributes({
     'otr.correlation_id': correlationId,
     'otr.access_method': actor.accessMethod,
     'otr.player_id': actor.playerId ?? undefined,
-    'otr.request_path': requestPath ?? undefined,
+    'otr.request_path': context.apiKeyRequired
+      ? publicApiRoute(procedure, path)
+      : (requestPath ?? undefined),
     'otr.rpc_caller': context.rpc?.kind,
   });
 
@@ -830,7 +844,7 @@ function verificationInheritanceMessage(error: unknown): string | null {
   return null;
 }
 
-const withErrorBoundary = base.middleware(async ({ path, next }) => {
+const withErrorBoundary = base.middleware(async ({ context, next }) => {
   try {
     return await next();
   } catch (error) {
@@ -844,8 +858,10 @@ const withErrorBoundary = base.middleware(async ({ path, next }) => {
       throw new ORPCError('BAD_REQUEST', { message: inheritanceMessage });
     }
 
-    const procedurePath = formatProcedurePath(path);
-    console.error(`[orpc] ${procedurePath} failed with unhandled error`, error);
+    const { logging } = context as typeof context & {
+      logging: RequestLoggingContext;
+    };
+    logging.logger.error('procedure failed with unhandled error', { error });
 
     throw new ORPCError('INTERNAL_SERVER_ERROR', {
       message: 'An unexpected error occurred',
@@ -871,18 +887,6 @@ export const protectedProcedure = base
   .use(withMetrics)
   .use(withRequestLogging)
   .use(withErrorBoundary);
-
-const requestPathname = (requestUrl?: string): string | null => {
-  if (!requestUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(requestUrl).pathname;
-  } catch {
-    return null;
-  }
-};
 
 /**
  * Limits searches with a term, the costliest reads, wherever they come from:

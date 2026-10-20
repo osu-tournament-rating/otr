@@ -83,6 +83,7 @@ describe('getNavEntries', () => {
       ['Admin', '/admin'],
       ['Reports', '/admin/reports'],
       ['Approvals', '/admin/approvals'],
+      ['Jobs', '/admin/jobs'],
     ]);
     expect(admin.notification).toBeUndefined();
   });

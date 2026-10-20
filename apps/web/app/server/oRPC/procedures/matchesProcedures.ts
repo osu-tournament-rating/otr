@@ -400,25 +400,32 @@ export const getMatch = publicProcedure
           )
       : Promise.resolve([]);
 
-    const playerMatchStatsPromise = context.db
-      .select({
-        id: schema.playerMatchStats.id,
-        playerId: schema.playerMatchStats.playerId,
-        matchId: schema.playerMatchStats.matchId,
-        won: schema.playerMatchStats.won,
-        gamesWon: schema.playerMatchStats.gamesWon,
-        gamesLost: schema.playerMatchStats.gamesLost,
-        gamesPlayed: schema.playerMatchStats.gamesPlayed,
-        averageScore: schema.playerMatchStats.averageScore,
-        averageAccuracy: schema.playerMatchStats.averageAccuracy,
-        averageMisses: schema.playerMatchStats.averageMisses,
-        averagePlacement: schema.playerMatchStats.averagePlacement,
-        matchCost: schema.playerMatchStats.matchCost,
-        teammateIds: schema.playerMatchStats.teammateIds,
-        opponentIds: schema.playerMatchStats.opponentIds,
-      })
-      .from(schema.playerMatchStats)
-      .where(eq(schema.playerMatchStats.matchId, matchId));
+    // Stats outlive a later rejection until the weekly rating run, and they
+    // reveal the result as much as winRecord does.
+    const matchIsVerified =
+      matchRow.verificationStatus === VerificationStatus.Verified;
+
+    const playerMatchStatsPromise = matchIsVerified
+      ? context.db
+          .select({
+            id: schema.playerMatchStats.id,
+            playerId: schema.playerMatchStats.playerId,
+            matchId: schema.playerMatchStats.matchId,
+            won: schema.playerMatchStats.won,
+            gamesWon: schema.playerMatchStats.gamesWon,
+            gamesLost: schema.playerMatchStats.gamesLost,
+            gamesPlayed: schema.playerMatchStats.gamesPlayed,
+            averageScore: schema.playerMatchStats.averageScore,
+            averageAccuracy: schema.playerMatchStats.averageAccuracy,
+            averageMisses: schema.playerMatchStats.averageMisses,
+            averagePlacement: schema.playerMatchStats.averagePlacement,
+            matchCost: schema.playerMatchStats.matchCost,
+            teammateIds: schema.playerMatchStats.teammateIds,
+            opponentIds: schema.playerMatchStats.opponentIds,
+          })
+          .from(schema.playerMatchStats)
+          .where(eq(schema.playerMatchStats.matchId, matchId))
+      : Promise.resolve([]);
 
     const ratingAdjustmentsPromise = context.db
       .select({

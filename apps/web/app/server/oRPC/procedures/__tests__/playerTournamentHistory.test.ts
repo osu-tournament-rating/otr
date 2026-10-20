@@ -342,6 +342,9 @@ describe.skipIf(!url)('player tournament history', () => {
         .values({
           osuId: MATCH_OSU_ID_BASE + index,
           tournamentId: tournament!.id,
+          // The date filters read when the player played, within the
+          // tournament's dates.
+          startTime: monthDate(seed.month, 10),
           verificationStatus: status,
         })
         .returning({ id: schema.matches.id });

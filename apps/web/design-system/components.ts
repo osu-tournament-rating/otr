@@ -130,6 +130,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     refs: ['status.md#ApprovalStatusBadge'],
   },
   {
+    name: 'JobStateBadge',
+    group: 'Status',
+    src: 'components/kit/status/JobStateBadge.tsx',
+    refs: ['status.md#JobStateBadge'],
+  },
+  {
     name: 'NotificationDot',
     group: 'Status',
     src: 'components/kit/status/NotificationDot.tsx',

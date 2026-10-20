@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ClipboardCheck,
   ClipboardList,
   FileCode,
   FileText,
@@ -143,10 +144,16 @@ export function getNavEntries({
         {
           title: 'Approvals',
           href: '/admin/approvals',
-          icon: ListChecks,
+          icon: ClipboardCheck,
           count: pendingApprovals,
           countLabel: 'waiting',
           testId: 'nav-admin-approvals',
+        },
+        {
+          title: 'Jobs',
+          href: '/admin/jobs',
+          icon: ListChecks,
+          testId: 'nav-admin-jobs',
         },
       ],
     });

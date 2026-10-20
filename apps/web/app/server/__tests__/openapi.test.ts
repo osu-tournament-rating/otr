@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { os } from '@orpc/server';
 
+import { normalizeApiKeyHeader } from '@/lib/api/api-key-header';
 import { LeaderboardRequestSchema } from '@/lib/orpc/schema/leaderboard';
 import { TournamentListRequestSchema } from '@/lib/orpc/schema/tournament';
 
@@ -110,5 +111,44 @@ describe('public API reference', () => {
         .filter((parameter) => parameter.style === 'deepObject')
         .map(({ name }) => name)
     ).toEqual([]);
+  });
+
+  it('documents each header the API accepts a key in (#1097)', async () => {
+    const spec = await generatePublicOpenAPISpec();
+    const schemes = (spec.components?.securitySchemes ?? {}) as Record<
+      string,
+      { type?: string; scheme?: string; in?: string; name?: string }
+    >;
+
+    // The headers a client following one security scheme sends
+    const requestHeaders = (schemeName: string): Record<string, string> => {
+      const scheme = schemes[schemeName];
+      if (scheme?.type === 'http' && scheme.scheme === 'bearer') {
+        return { authorization: 'Bearer key-123' };
+      }
+      if (scheme?.type === 'apiKey' && scheme.in === 'header' && scheme.name) {
+        return { [scheme.name]: 'key-123' };
+      }
+      throw new Error(`Unexpected security scheme ${schemeName}`);
+    };
+
+    // Each requirement is an alternative a client may satisfy alone
+    const alternatives = (spec.security ?? []).map((requirement) => {
+      const schemeNames = Object.keys(requirement);
+      expect(schemeNames).toHaveLength(1);
+      return requestHeaders(schemeNames[0]!);
+    });
+
+    expect(alternatives.map((headers) => Object.keys(headers))).toEqual([
+      ['authorization'],
+      ['x-api-key'],
+    ]);
+
+    for (const headers of alternatives) {
+      const result = normalizeApiKeyHeader(new Headers(headers));
+      expect('headers' in result && result.headers.get('authorization')).toBe(
+        'Bearer key-123'
+      );
+    }
   });
 });

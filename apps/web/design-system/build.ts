@@ -343,6 +343,7 @@ const NAMESPACES: Record<string, string[]> = {
     'lib/kit/status/verification',
     'lib/kit/status/report',
     'lib/kit/status/approval',
+    'lib/kit/status/job',
     'lib/kit/status/count',
   ],
   lists: [

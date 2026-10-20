@@ -396,6 +396,7 @@ const { state, setState } = useListState(RATING_VIEW_PARAMS, { shallow: true });
 ```
 
 - A view that changes what the page shows lives in the address like any list control, so a reload or a shared link opens the same view. The profile's rating history keeps three there: `metric` and `view` as above, and its "Display decay" chip as `decay: booleanParam({ default: true, role: 'scope' })`, written only when off (`decay=false`). A device preference that only changes the layout, such as the beatmap list's card or table layout, stays in `localStorage` (see [useListState](#useliststate-and-list-params)).
+- A view toggle that changes every panel on a page goes in its PageHeader's `actions`, as the admin daily totals' "Days to show" (30 days, 90 days, 1 year) does (`app/admin/jobs/daily/DailyTotalsClient.tsx`); its loading screen holds the place with a 32px `SkeletonBlock`.
 - Use HeroTabs, not a ScopeSwitch, to switch between whole views of an entity under its hero.
 
 Don't:
