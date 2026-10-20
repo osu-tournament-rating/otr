@@ -299,8 +299,13 @@ export class TournamentAutomationCheckService {
     const asRead = structuredClone(tournament);
     const beforeStatus = tournament.verificationStatus;
 
-    if (tournament.verificationStatus !== VerificationStatus.Verified) {
-      for (const match of tournament.matches) {
+    // In a verified tournament only the matches nobody decided are converted,
+    // such as one added since, so verified games keep their team type.
+    for (const match of tournament.matches) {
+      if (
+        tournament.verificationStatus !== VerificationStatus.Verified ||
+        !isLockedVerificationStatus(match.verificationStatus)
+      ) {
         this.matchChecks.performHeadToHeadConversion(match, tournament);
       }
     }

@@ -569,6 +569,82 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
     });
   });
 
+  it('converts a head-to-head match added to a verified 1v1 tournament, and only that match', async () => {
+    const headToHeadMatch = (matchId: number, status: VerificationStatus) =>
+      matchRow({
+        id: matchId,
+        verificationStatus: status,
+        games: [1, 2, 3, 4].map((game) => {
+          const gameId = matchId * 100 + game;
+          return gameRow({
+            id: gameId,
+            matchId,
+            teamType: TeamType.HeadToHead,
+            verificationStatus: status,
+            gameScores: [1, 2].map((playerId) =>
+              scoreRow({
+                id: gameId * 10 + playerId,
+                gameId,
+                playerId,
+                team: Team.NoTeam,
+                verificationStatus: status,
+              })
+            ),
+          });
+        }),
+      });
+
+    // Match 1 was verified with its games still head-to-head; match 2 was
+    // added after the tournament was verified
+    const row: TournamentRow = {
+      ...reviewedTournament(),
+      lobbySize: 1,
+      verificationStatus: Verified,
+      matches: [
+        headToHeadMatch(1, Verified),
+        headToHeadMatch(2, VerificationStatus.None),
+      ],
+    };
+
+    const db = new StubDatabase(row);
+    const service = new TournamentAutomationCheckService({
+      db: db as unknown as DatabaseClient,
+      logger: noopLogger,
+      tournamentChecks: new TournamentAutomationChecks(),
+      matchChecks: new MatchAutomationChecks(),
+      gameChecks: new GameAutomationChecks(),
+      scoreChecks: new ScoreAutomationChecks(),
+    });
+
+    await service.processAutomationChecks(row.id, false);
+
+    const updates = db.transactions[0]?.updates ?? [];
+    const written = (key: string) =>
+      updates.find((entry) => `${entry.table}:${entry.id}` === key)?.values;
+
+    expect(written('matches:2')).toMatchObject({
+      verificationStatus: PreVerified,
+    });
+    for (const gameId of [201, 202, 203, 204]) {
+      expect(written(`games:${gameId}`)).toMatchObject({
+        teamType: TeamType.TeamVs,
+        verificationStatus: PreVerified,
+      });
+    }
+    expect(written('game_scores:2011')).toMatchObject({ team: Team.Red });
+    expect(written('game_scores:2012')).toMatchObject({ team: Team.Blue });
+
+    const verifiedMatchRows = [
+      'matches:1',
+      ...[101, 102, 103, 104].flatMap((gameId) => [
+        `games:${gameId}`,
+        `game_scores:${gameId * 10 + 1}`,
+        `game_scores:${gameId * 10 + 2}`,
+      ]),
+    ];
+    expect(verifiedMatchRows.filter(written)).toEqual([]);
+  });
+
   it('checks admin decisions again when asked to override them', async () => {
     const persisted = await runChecks(reviewedTournament(), true);
 
