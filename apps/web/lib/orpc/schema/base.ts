@@ -23,12 +23,18 @@ export const beatmapAttributeSelectSchema = createSelectSchema(
   schema.beatmapAttributes
 );
 
-export const gameSelectSchema = createSelectSchema(schema.games);
-export const gameScoreSelectSchema = createSelectSchema(schema.gameScores);
+// editedFields reaches only the match page, which adds it back (see ./match).
+export const gameSelectSchema = createSelectSchema(schema.games).omit({
+  editedFields: true,
+});
+export const gameScoreSelectSchema = createSelectSchema(schema.gameScores).omit(
+  { editedFields: true }
+);
 
 const rawMatchSelectSchema = createSelectSchema(schema.matches);
 export const matchSelectSchema = rawMatchSelectSchema.omit({
   searchVector: true,
+  editedFields: true,
 });
 
 export const matchRosterSelectSchema = createSelectSchema(schema.matchRosters);

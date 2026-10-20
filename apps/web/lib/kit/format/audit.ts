@@ -5,6 +5,7 @@
  * formatting inside `AuditDiffDisplay`.
  */
 
+import type { AdminEditTable } from '@otr/core/db/admin-edits';
 import { AuditEntityType, VerificationStatus } from '@otr/core/osu';
 import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
@@ -38,6 +39,7 @@ import {
   formatRankRange,
   humanizeFieldName,
 } from './fields';
+import { formatEditedFields } from './edited-fields';
 import { formatLazerMods, formatMods } from './mods';
 import {
   formatAccuracy,
@@ -63,6 +65,7 @@ export type AuditValueFormat =
   | { kind: 'user' }
   | { kind: 'mods' }
   | { kind: 'lazerMods' }
+  | { kind: 'editedFields'; table: AdminEditTable }
   | { kind: 'ruleset' }
   | { kind: 'rankRange' }
   | { kind: 'lobbySize' }
@@ -88,6 +91,8 @@ const verificationStatus = { kind: 'verificationStatus' } as const;
 const decimal = (maxDecimals: number) =>
   ({ kind: 'decimal', maxDecimals }) as const;
 const enumOf = (labels: EnumLabels) => ({ kind: 'enum', labels }) as const;
+const editedFieldsOf = (table: AdminEditTable) =>
+  ({ kind: 'editedFields', table }) as const;
 const flagsOf = (labels: EnumLabels) => ({ kind: 'flags', labels }) as const;
 
 const field = (label: string, format: AuditValueFormat): AuditFieldSpec => ({
@@ -154,6 +159,7 @@ export const AUDIT_FIELDS: Readonly<
       fieldLabel('warningFlags'),
       flagsOf(MATCH_WARNING_FLAG_LABELS)
     ),
+    editedFields: field('Edited fields', editedFieldsOf('matches')),
     isLazer: shared.isLazer,
     tournamentId: field('Tournament ID', id),
     submittedByUserId: shared.submittedByUserId,
@@ -179,6 +185,7 @@ export const AUDIT_FIELDS: Readonly<
       fieldLabel('warningFlags'),
       flagsOf(GAME_WARNING_FLAG_LABELS)
     ),
+    editedFields: field('Edited fields', editedFieldsOf('games')),
     matchId: field('Match ID', id),
     beatmapId: field('Beatmap ID', id),
     created: shared.created,
@@ -223,6 +230,7 @@ export const AUDIT_FIELDS: Readonly<
       fieldLabel('rejectionReason'),
       flagsOf(SCORE_REJECTION_REASON_LABELS)
     ),
+    editedFields: field('Edited fields', editedFieldsOf('game_scores')),
     gameId: field('Game ID', id),
     playerId: field('Player ID', id),
     created: shared.created,
@@ -385,6 +393,11 @@ function formatWith(
     case 'lazerMods':
       return isLazerModList(value)
         ? formatLazerMods(value)
+        : formatLoose(value);
+    case 'editedFields':
+      return Array.isArray(value) &&
+        value.every((item) => typeof item === 'string')
+        ? formatEditedFields(format.table, value)
         : formatLoose(value);
   }
 

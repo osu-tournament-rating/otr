@@ -6,7 +6,7 @@ import { cascadeTournamentRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeTournamentVerification } from '@otr/core/db/verification-cascade';
 import { resolveTournamentVerification } from '@otr/core/db/verification-resolve';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import { withAuditUserId } from '@otr/core/db';
+import { withAuditUserId, withoutEditLocks } from '@otr/core/db';
 import { parseForumTopicId } from '@otr/core/osu/forum';
 import { enqueueJob, enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
@@ -349,7 +349,7 @@ export const updateTournamentAdmin = adminMutationProcedure
   );
 
 async function alignTournamentChildRulesets(
-  tx: Pick<DatabaseClient, 'select' | 'update'>,
+  tx: Pick<DatabaseClient, 'select' | 'update' | 'execute'>,
   tournamentId: number,
   nextRuleset: Ruleset
 ) {
@@ -375,22 +375,25 @@ async function alignTournamentChildRulesets(
 
   const gameIds = gameRows.map((row) => row.id);
 
-  // Propagate variants to games/scores
-  await tx
-    .update(schema.games)
-    .set({
-      ruleset: nextRuleset,
-      updated: NOW,
-    })
-    .where(inArray(schema.games.id, gameIds));
+  // Propagate variants to games/scores. The tournament's ruleset is not a
+  // correction of each row, so it locks none of them against refetches.
+  await withoutEditLocks(tx, async () => {
+    await tx
+      .update(schema.games)
+      .set({
+        ruleset: nextRuleset,
+        updated: NOW,
+      })
+      .where(inArray(schema.games.id, gameIds));
 
-  await tx
-    .update(schema.gameScores)
-    .set({
-      ruleset: nextRuleset,
-      updated: NOW,
-    })
-    .where(inArray(schema.gameScores.gameId, gameIds));
+    await tx
+      .update(schema.gameScores)
+      .set({
+        ruleset: nextRuleset,
+        updated: NOW,
+      })
+      .where(inArray(schema.gameScores.gameId, gameIds));
+  });
 }
 
 export const resetTournamentAutomatedChecks = adminMutationProcedure

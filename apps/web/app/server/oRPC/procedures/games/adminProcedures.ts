@@ -2,7 +2,7 @@ import { ORPCError } from '@orpc/server';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
-import { withAuditUserId } from '@otr/core/db';
+import { excludeMergedGames, withAuditUserId } from '@otr/core/db';
 import { cascadeGameRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeGameVerification } from '@otr/core/db/verification-cascade';
 import { resolveGameVerification } from '@otr/core/db/verification-resolve';
@@ -163,6 +163,7 @@ export const mergeGameAdmin = adminMutationProcedure
         const [parentGame] = await tx
           .select({
             id: schema.games.id,
+            osuId: schema.games.osuId,
             matchId: schema.games.matchId,
             beatmapId: schema.games.beatmapId,
           })
@@ -179,6 +180,7 @@ export const mergeGameAdmin = adminMutationProcedure
         const childGames = await tx
           .select({
             id: schema.games.id,
+            osuId: schema.games.osuId,
             matchId: schema.games.matchId,
             beatmapId: schema.games.beatmapId,
           })
@@ -273,6 +275,8 @@ export const mergeGameAdmin = adminMutationProcedure
           .where(inArray(schema.gameScores.gameId, childIds))
           .returning({ id: schema.gameScores.id });
 
+        // A refetch sends the children's scores to the parent instead.
+        await excludeMergedGames(tx, parentGame, childGames);
         await tx.delete(schema.games).where(inArray(schema.games.id, childIds));
 
         return {

@@ -135,6 +135,17 @@ describe('formatAuditValue', () => {
     expect(format(AuditEntityType.Game, 'lazerMods', [])).toBe('NM');
   });
 
+  it('names edited fields as their dialogs do, mods with lazer mods once', () => {
+    expect(
+      format(AuditEntityType.Score, 'editedFields', [
+        'lazer_mods',
+        'mods',
+        'team',
+      ])
+    ).toBe('Mods, Team');
+    expect(format(AuditEntityType.Match, 'editedFields', [])).toBe('None');
+  });
+
   it('writes timestamps in UTC, to the second', () => {
     expect(
       format(AuditEntityType.Match, 'startTime', '2024-07-20T15:42:07+00:00')

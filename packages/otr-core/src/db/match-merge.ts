@@ -20,11 +20,12 @@ export interface MergedMatch {
 }
 
 /**
- * Merges the children into the parent: moves their games, records each child
- * in match_merges against the parent, and deletes the children. Matches merged
- * into a child earlier now lead to the parent, which holds their games. A
- * game the parent already holds stays as it is, and the child's copy goes
- * with the child. Returns how many games moved.
+ * Merges the children into the parent: moves their games and fetch
+ * exclusions, records each child in match_merges against the parent, and
+ * deletes the children. Matches merged into a child earlier now lead to the
+ * parent, which holds their games. A game the parent already holds stays as
+ * it is, and the child's copy goes with the child. Returns how many games
+ * moved.
  */
 export async function mergeMatchesInto(
   db: MergeClient,
@@ -52,6 +53,29 @@ export async function mergeMatchesInto(
     .update(schema.matchMerges)
     .set({ matchId: parentMatchId })
     .where(inArray(schema.matchMerges.matchId, childIds));
+
+  // The parent's fetches now read the children's osu! matches too, so their
+  // deleted and merged-away games and scores stay excluded there.
+  const exclusions = await db
+    .select({
+      osuGameId: schema.fetchExclusions.osuGameId,
+      playerId: schema.fetchExclusions.playerId,
+      mergedIntoGameId: schema.fetchExclusions.mergedIntoGameId,
+    })
+    .from(schema.fetchExclusions)
+    .where(inArray(schema.fetchExclusions.matchId, childIds));
+
+  if (exclusions.length > 0) {
+    await db
+      .insert(schema.fetchExclusions)
+      .values(
+        exclusions.map((exclusion) => ({
+          ...exclusion,
+          matchId: parentMatchId,
+        }))
+      )
+      .onConflictDoNothing();
+  }
 
   await db.insert(schema.matchMerges).values(
     children.map((child) => ({

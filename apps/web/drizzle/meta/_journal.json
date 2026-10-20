@@ -302,6 +302,13 @@
       "when": 1792440452780,
       "tag": "0042_user_activity_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792457308988,
+      "tag": "0043_refetch_keeps_admin_edits",
+      "breakpoints": true
     }
   ]
 }
