@@ -33,6 +33,9 @@ interface RoomFetchServiceOptions {
 
 type RoomEvents = Awaited<ReturnType<API['getRoomEvents']>>;
 
+/** The most room events osu! returns at once, and what each page asks for. */
+const ROOM_EVENTS_PAGE_SIZE = 100;
+
 /** The team type of a realtime room type; undefined for any other. */
 const roomTeamType = (roomType: string | undefined): TeamType | undefined => {
   switch (roomType) {
@@ -65,9 +68,7 @@ export class RoomFetchService {
     roomId: number,
     tournamentRuleset: Ruleset | undefined
   ): Promise<FetchedMatchResult> {
-    const result = await this.requestRoomEvents(() =>
-      this.api.getRoomEvents(roomId)
-    );
+    const result = await this.fetchAllRoomEvents(roomId);
     if (result.status !== 'success') {
       return result;
     }
@@ -197,6 +198,87 @@ export class RoomFetchService {
     }
 
     return scores;
+  }
+
+  /**
+   * Every event of a room with the playlist items and users they mention.
+   * osu! returns the newest 100 events, so this pages back until it has the
+   * room's first event: in a long match with many players and referees, the
+   * joins, leaves and host changes push the earliest games past the first
+   * page.
+   */
+  private async fetchAllRoomEvents(
+    roomId: number
+  ): Promise<ApiCallResult<RoomEvents>> {
+    const firstPage = await this.requestRoomEvents(() =>
+      this.api.getRoomEvents(roomId)
+    );
+    if (firstPage.status !== 'success') {
+      return firstPage;
+    }
+
+    const events = new Map<number, Multiplayer.Room.Event>();
+    const playlistItems = new Map<
+      number,
+      Multiplayer.Room.PlaylistItem.WithDetailsScores
+    >();
+    const users = new Map<number, RoomEvents['users'][number]>();
+
+    const addPage = (page: RoomEvents) => {
+      let added = 0;
+      for (const event of page.events ?? []) {
+        if (!events.has(event.id)) {
+          events.set(event.id, event);
+          added += 1;
+        }
+      }
+      for (const playlistItem of page.playlist_items ?? []) {
+        if (!playlistItems.has(playlistItem.id)) {
+          playlistItems.set(playlistItem.id, playlistItem);
+        }
+      }
+      for (const user of page.users ?? []) {
+        users.set(user.id, user);
+      }
+      return added;
+    };
+
+    let pageSize = addPage(firstPage.data);
+    const firstEventId = firstPage.data.first_event_id;
+    const hasFirstEvent = () =>
+      firstEventId == null
+        ? pageSize < ROOM_EVENTS_PAGE_SIZE
+        : events.has(firstEventId);
+
+    while (events.size > 0 && !hasFirstEvent()) {
+      const before = Math.min(...events.keys());
+      const page = await this.requestRoomEvents(
+        () =>
+          this.api.request('get', ['rooms', roomId, 'events'], {
+            before,
+            limit: ROOM_EVENTS_PAGE_SIZE,
+          }) as Promise<RoomEvents>
+      );
+      if (page.status !== 'success') {
+        return page;
+      }
+
+      pageSize = page.data.events?.length ?? 0;
+      // A page with nothing new would repeat forever.
+      if (addPage(page.data) === 0) {
+        break;
+      }
+    }
+
+    return {
+      status: 'success',
+      data: {
+        ...firstPage.data,
+        events: [...events.values()].sort((a, b) => a.id - b.id),
+        playlist_items: [...playlistItems.values()],
+        users: [...users.values()],
+      },
+    };
   }
 
   private requestRoomEvents(

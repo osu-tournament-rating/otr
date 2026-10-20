@@ -180,12 +180,21 @@ describe.skipIf(!testDatabaseUrl)('lazer room fetches', () => {
   const { pool, db } = createJobsTestDb(testDatabaseUrl!);
   let matchId = 0;
   let queued: Array<{ executor: unknown; osuBeatmapIds: number[] }> = [];
+  let pageRequests: Array<Record<string, unknown>> = [];
 
-  const serviceFor = (room: Room) =>
+  const serviceFor = (room: Room, firstPageSize = 100) =>
     new MatchFetchService({
       db,
       api: {
-        getRoomEvents: async () => roomPage(room, 100),
+        getRoomEvents: async () => roomPage(room, firstPageSize),
+        request: async (
+          _method: string,
+          _endpoint: unknown[],
+          params: { before: number; limit: number }
+        ) => {
+          pageRequests.push(params);
+          return roomPage(room, params.limit, params.before);
+        },
       } as unknown as API,
       rateLimiter,
       logger: silentLogger,
@@ -198,8 +207,8 @@ describe.skipIf(!testDatabaseUrl)('lazer room fetches', () => {
       } as unknown as TournamentDataCompletionService,
     });
 
-  const fetchRoom = (room: Room) =>
-    serviceFor(room).fetchAndPersist(ROOM_OSU_ID, true);
+  const fetchRoom = (room: Room, firstPageSize?: number) =>
+    serviceFor(room, firstPageSize).fetchAndPersist(ROOM_OSU_ID, true);
 
   const storedGames = () =>
     db
@@ -243,6 +252,7 @@ describe.skipIf(!testDatabaseUrl)('lazer room fetches', () => {
   beforeEach(async () => {
     await removeSeed();
     queued = [];
+    pageRequests = [];
 
     const [tournament] = await db
       .insert(schema.tournaments)
@@ -319,5 +329,19 @@ describe.skipIf(!testDatabaseUrl)('lazer room fetches', () => {
 
     const score = await storedScore();
     expect(score?.lazerMods).toEqual([{ acronym: 'HD' }, { acronym: 'BR' }]);
+  });
+
+  it("pages back through the room's events to store games older than the newest page", async () => {
+    // 1 creation, 2 events per game, 1 disband: 10 events. The first page
+    // holds the newest 4: the third game's end, the fourth game and the
+    // disband.
+    const room = createRoom([0, 1, 2, 3].map((item) => ({ item })));
+
+    expect(await fetchRoom(room, 4)).toBe(true);
+
+    expect((await storedGames()).map((game) => game.osuId)).toEqual(
+      [0, 1, 2, 3].map((item) => FIRST_ITEM_OSU_ID + item)
+    );
+    expect(pageRequests).toEqual([{ before: 7, limit: 100 }]);
   });
 });
