@@ -14,7 +14,11 @@ import {
 } from '@/lib/orpc/schema/tournamentSubmission';
 import type { DatabaseClient } from '@/lib/db';
 
-import { adminMutationProcedure, protectedProcedure } from '../base';
+import {
+  adminMutationProcedure,
+  adminProcedure,
+  protectedProcedure,
+} from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { loadApprovalUsers } from '../shared/approvalUsers';
 import { getCorrelationId } from '../logging/helpers';
@@ -217,7 +221,7 @@ export async function denyTournamentSubmissionHandler({
   return { success: true as const };
 }
 
-export const listTournamentSubmissionsAdmin = protectedProcedure
+export const listTournamentSubmissionsAdmin = adminProcedure
   .output(AdminTournamentSubmissionListSchema)
   .route({
     summary: 'List tournament submissions waiting for approval (admin)',

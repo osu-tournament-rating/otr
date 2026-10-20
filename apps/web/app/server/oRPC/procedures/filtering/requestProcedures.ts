@@ -15,7 +15,11 @@ import {
   type AdminFilterRequest,
 } from '@/lib/orpc/schema/filtering';
 
-import { adminMutationProcedure, protectedProcedure } from '../base';
+import {
+  adminMutationProcedure,
+  adminProcedure,
+  protectedProcedure,
+} from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { loadApprovalUsers } from '../shared/approvalUsers';
 import { assertOutsideMaintenanceWindow } from '../shared/maintenanceWindow';
@@ -245,7 +249,7 @@ export async function listMyFilterRequestsHandler({
   };
 }
 
-export const listFilterRequestsAdmin = protectedProcedure
+export const listFilterRequestsAdmin = adminProcedure
   .output(AdminFilterRequestListSchema)
   .route({
     summary: 'List filter requests waiting for approval (admin)',

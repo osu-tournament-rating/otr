@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { ApprovalStatus } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
 
-import { protectedProcedure } from './base';
+import { adminProcedure } from './base';
 import { ensureAdminSession } from './shared/adminGuard';
 
 const PendingApprovalCountSchema = z.object({
@@ -13,7 +13,7 @@ const PendingApprovalCountSchema = z.object({
 });
 
 /** How many tournament submissions and filter requests wait for an admin. */
-export const getPendingApprovalCount = protectedProcedure
+export const getPendingApprovalCount = adminProcedure
   .output(PendingApprovalCountSchema)
   .route({
     summary:
