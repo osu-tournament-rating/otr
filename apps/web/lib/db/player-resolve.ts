@@ -2,6 +2,8 @@ import { db } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
 import { eq, ilike } from 'drizzle-orm';
 
+import { escapeLikePattern } from '@/app/server/oRPC/procedures/shared/likePattern';
+
 const isStrictNumeric = (value: string): boolean => /^[0-9]+$/.test(value);
 const normaliseKey = (value: string): string => value.trim();
 
@@ -32,7 +34,8 @@ export async function resolvePlayerIdFromKey(
   const byUsername = await db
     .select({ id: schema.players.id })
     .from(schema.players)
-    .where(ilike(schema.players.username, trimmed))
+    // Escaped, so the name matches only itself, in any case
+    .where(ilike(schema.players.username, escapeLikePattern(trimmed)))
     .limit(1);
   if (byUsername[0]?.id) return byUsername[0].id;
 

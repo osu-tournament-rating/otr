@@ -26,7 +26,8 @@ The beatmap list is the reference. Components live in their own files under `@/c
 - Two heights, so each row lines up: the first row is 40px (the search field, the sort dropdown, its direction IconButton and the Filters button, all at the `lg` size); the second row and the active-filter row are 32px (the scope switch, ruleset chips, layout toggles, active-filter chips and the ghost `sm` "Clear all"). Outside a toolbar, a SortControl in a SectionHeader or a DataTable's phone sort strip is `size="sm"` (32px).
 - Buttons are the controls family's: text buttons are `Button` (`@/components/kit/controls/Button`) and icon-only ones `IconButton` (`@/components/kit/controls/IconButton`), never `@/components/ui/button`. Chips, the scope switch's segments, layout toggles and calendar days are not buttons in that sense and keep their own look.
 - Search waits 400ms after the last keystroke (`SEARCH_DEBOUNCE_MS`), Enter searches at once, a spinner shows until results land, and fewer than 2 characters shows "Type at least 2 characters to search." instead of searching. A search box outside a list, such as the header search or the admin user lookup, takes its term from `useDebouncedSearchTerm` (`@/lib/hooks/useDebouncedSearchTerm`) to keep that timing.
-- Sort is a dropdown plus a direction button, sharing `{ key, direction }` with sortable column headers.
+- Sort is a dropdown plus a direction button, sharing `{ key, direction }` with sortable column headers. A key with one order, such as a search's relevance, has no direction button.
+- A searchable list whose results can rank by how well they match lists a search's best matches first until the visitor picks a sort, as the tournament list does ([A default that depends on the search](#a-default-that-depends-on-the-search)).
 - Filters apply as you change them. The Filters button shows how many are active. "Clear all" resets the filter panel's fields only; search, sort, ruleset, scope and tab stay.
 - Rulesets are chips labelled osu!, taiko, catch, mania 4K, mania 7K: any number to filter a list, one at a time (`RulesetSwitch`) on the profile, stats and leaderboard.
 - Nothing scrolls sideways on a phone: the toolbar wraps, chips wrap, and labels wrap instead of truncating.
@@ -55,8 +56,9 @@ import { VERIFICATION_STATUS_ORDER } from '@/lib/kit/status/verification';
 export const TOURNAMENT_LIST_PARAMS = defineListParams({
   q: searchParam(),
   page: pageParam(),
-  sort: sortParam(['endTime', 'startTime', 'submitted', 'lobbySize'], {
-    key: 'endTime',
+  // Relevance until the visitor picks a sort: "A default that depends on the search".
+  sort: sortParam(['relevance', 'endTime', 'startTime', 'submitted', 'lobbySize'], {
+    key: 'relevance',
     direction: 'desc',
   }),
   // A bare address shows the visitor's browsing ruleset; `ruleset=all` shows every one.
@@ -106,8 +108,8 @@ const { state, setState } = list;
   sort={
     <SortControl
       label="Sort tournaments by"
-      options={SORT_OPTIONS}
-      value={state.sort}
+      options={getTournamentSortOptions(state.q !== '')}
+      value={resolveTournamentSort(state)}
       onValueChange={(sort) => setState({ sort })}
     />
   }
@@ -245,10 +247,16 @@ import {
 } from '@/components/kit/lists/SortControl';
 
 // The tournament list's sort keys, with its own labels. A new key keeps the
-// current direction, as the tournament list does.
+// current direction, as the tournament list does. Relevance has one order.
 const SORT_OPTIONS: SortOption<
-  'endTime' | 'startTime' | 'submitted' | 'lobbySize'
+  'relevance' | 'endTime' | 'startTime' | 'submitted' | 'lobbySize'
 >[] = [
+  {
+    value: 'relevance',
+    label: 'Relevance',
+    defaultDirection: 'desc',
+    directionless: true,
+  },
   { value: 'endTime', label: 'End date' },
   { value: 'startTime', label: 'Start date' },
   { value: 'submitted', label: 'Submission date' },
@@ -266,11 +274,13 @@ const SORT_OPTIONS: SortOption<
 Props that matter:
 
 - `value`, `onValueChange`: `{ key, direction }`.
-- `options`: `value`, `label`, and optionally `defaultDirection` (the direction a key starts in when picked; otherwise the current one is kept), `directionLabels` (words for the button's tooltip; otherwise "Ascending order" and "Descending order", as on the beatmap list) and `group` (a divider between groups, like the beatmap list's counts and attributes).
+- `options`: `value`, `label`, and optionally `defaultDirection` (the direction a key starts in when picked; otherwise the current one is kept), `directionLabels` (words for the button's tooltip; otherwise "Ascending order" and "Descending order", as on the beatmap list), `directionless` (the key has one order, such as relevance; see below) and `group` (a divider between groups, like the beatmap list's counts and attributes).
 - `label`: names the dropdown ("Sort tournaments by").
 - `size`: `lg` (40px, default) in a list toolbar; `sm` (32px trigger and direction button) in a SectionHeader's `actions`, where a 32px control keeps the strip 48px tall, and in a DataTable's `phoneSort` strip ([tables.md](tables.md#sorting-on-phones)).
 
 The direction button is an outline `IconButton` at the control's size, named "Sort order is descending" (or ascending), the beatmap list's wording, with "Descending order" or the option's direction label in its tooltip.
+
+A `directionless` key, such as the tournament list's "Relevance" (best match first), has no direction button while it is picked. The dropdown widens into the button's place, so the toolbar doesn't move when the key changes. Give it `defaultDirection: 'desc'` too, so picking it writes no `dir` to the address.
 
 ```tsx
 <SectionHeader
@@ -292,6 +302,7 @@ Don't:
 
 - Don't bake the direction into each option ("Date, newest first" and "Date, oldest first"); give the option `directionLabels` ("Newest first", "Oldest first") instead, as the tournament matches list does.
 - Don't offer only header clicks: a list with a toolbar has a SortControl, and a table without one has `phoneSort`, because phones have no headers to click.
+- Don't give relevance a direction ("worst match first" means nothing); mark it `directionless`.
 - Don't leave a list unsorted when its rows have an order people care about (leaderboard, reports, audit).
 
 Gallery anchor: `/admin/design#lists-sort-control`
@@ -693,6 +704,15 @@ listStateHref('/tournaments', TOURNAMENT_LIST_PARAMS, {
 });
 // '/tournaments?q=world+cup&ruleset=all'
 ```
+
+### A default that depends on the search
+
+The tournament list lists a search's best matches first, ranked as the public API's relevance sort ranks them (verified first, then exact, prefix and substring matches), until the visitor picks a sort. Without a search it sorts by end date, as it always has.
+
+- The sort param's default key is `relevance`, so a bare address, and a search with no `sort`, write nothing. Every key the visitor picks is written, end date included (`sort=endTime`), so a chosen sort survives a new search.
+- `resolveTournamentSort(state)` (`app/tournaments/list-params.ts`) gives the sort the list shows and fetches: relevance with a search, end date without one. Relevance writes no direction, so `dir=asc` with no `sort` is an older end date link, from when end date was the default, and it stays oldest-first by end date, search or not (`?q=OWC&dir=asc`). The server page fetches with it and the toolbar shows it.
+- `getTournamentSortOptions(searching)` offers "Relevance" only while there is a search, first in the menu. It is `directionless`.
+- An old link's numeric relevance sort (`sort=3`) reads as relevance and drops its `descending`, which the old relevance sort ignored.
 
 ### A default that depends on the visitor
 

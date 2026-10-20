@@ -9,6 +9,8 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
+import { limitApiKeysPerUser } from './api-key-limit';
+import { API_KEY_RATE_LIMIT } from './api-key-policy';
 import { logger } from '@/lib/logger';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { betterAuthLogger } from './library-logs';
@@ -508,18 +510,23 @@ const resumeLookupsAfterSignIn = async (account: AuthAccount) => {
 
 export const auth = betterAuth({
   logger: betterAuthLogger,
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    usePlural: true,
-    schema: {
-      ...schema,
-      user: schema.auth_users,
-      account: schema.auth_accounts,
-      verification: schema.auth_verifications,
-      session: schema.auth_sessions,
-      apikeys: schema.apiKeys,
-    },
-  }),
+  database: limitApiKeysPerUser(db, (client) =>
+    drizzleAdapter(client, {
+      provider: 'pg',
+      usePlural: true,
+      schema: {
+        ...schema,
+        user: schema.auth_users,
+        account: schema.auth_accounts,
+        verification: schema.auth_verifications,
+        session: schema.auth_sessions,
+        apikeys: schema.apiKeys,
+      },
+    })
+  ),
+  // Keys are created through the site's own procedure, which names them
+  // and keeps their secret for the settings page.
+  disabledPaths: ['/api-key/create'],
   session: {
     modelName: 'auth_session',
     expiresIn: 60 * 60 * 24 * 30, // 30 days
@@ -621,10 +628,13 @@ export const auth = betterAuth({
   plugins: [
     bannedLoginRedirectPlugin(),
     apiKey({
+      // The plugin's counter starts over only after a full window with no
+      // requests, so withOptionalApiKey counts each key's requests instead,
+      // against the limit stored on the key from these values.
       rateLimit: {
-        enabled: true,
-        maxRequests: 60,
-        timeWindow: 60 * 1000,
+        enabled: false,
+        maxRequests: API_KEY_RATE_LIMIT.maxRequests,
+        timeWindow: API_KEY_RATE_LIMIT.timeWindowMs,
       },
     }),
     genericOAuth({

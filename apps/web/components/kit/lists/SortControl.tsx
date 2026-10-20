@@ -32,6 +32,13 @@ export interface SortOption<K extends SortKey> {
    * first". Defaults to "Ascending order" and "Descending order".
    */
   directionLabels?: Readonly<Record<SortDirection, string>>;
+  /**
+   * The key has one order, such as relevance (best match first), so the
+   * direction button goes while it is picked and the dropdown takes its
+   * place. Give it `defaultDirection` too, so picking it writes no
+   * direction to the address.
+   */
+  directionless?: boolean;
   /** Options with different groups get a divider between them. */
   group?: string;
 }
@@ -47,6 +54,13 @@ export type SortControlSize = 'sm' | 'lg';
 const SIZE_CLASSES: Record<SortControlSize, string> = {
   lg: 'h-10 md:w-48',
   sm: 'h-8 md:w-40',
+};
+
+// Without the direction button, the dropdown spans its column and gap too,
+// so the toolbar around it doesn't move when the key changes.
+const DIRECTIONLESS_SIZE_CLASSES: Record<SortControlSize, string> = {
+  lg: 'col-span-2 h-10 md:w-60',
+  sm: 'col-span-2 h-8 md:w-50',
 };
 
 /**
@@ -72,6 +86,7 @@ export function SortControl<K extends SortKey>({
   size?: SortControlSize;
 }) {
   const current = options.find((option) => option.value === value.key);
+  const directionless = current?.directionless ?? false;
   const labels = current?.directionLabels ?? SORT_DIRECTION_LABELS;
   const directionLabel = labels[value.direction];
 
@@ -101,7 +116,7 @@ export function SortControl<K extends SortKey>({
           data-size={size}
           className={cn(
             'w-full min-w-0 bg-background dark:bg-input/50 dark:shadow-none',
-            SIZE_CLASSES[size]
+            (directionless ? DIRECTIONLESS_SIZE_CLASSES : SIZE_CLASSES)[size]
           )}
         >
           <SelectValue />
@@ -120,20 +135,22 @@ export function SortControl<K extends SortKey>({
         </SelectContent>
       </Select>
 
-      <IconButton
-        variant="outline"
-        size={size}
-        label={`Sort order is ${value.direction === 'asc' ? 'ascending' : 'descending'}`}
-        tooltip={directionLabel}
-        icon={value.direction === 'desc' ? ArrowDown : ArrowUp}
-        onClick={() =>
-          onValueChange({
-            key: value.key,
-            direction: flipSortDirection(value.direction),
-          })
-        }
-        className="bg-background dark:bg-input/50 dark:shadow-none"
-      />
+      {directionless ? null : (
+        <IconButton
+          variant="outline"
+          size={size}
+          label={`Sort order is ${value.direction === 'asc' ? 'ascending' : 'descending'}`}
+          tooltip={directionLabel}
+          icon={value.direction === 'desc' ? ArrowDown : ArrowUp}
+          onClick={() =>
+            onValueChange({
+              key: value.key,
+              direction: flipSortDirection(value.direction),
+            })
+          }
+          className="bg-background dark:bg-input/50 dark:shadow-none"
+        />
+      )}
     </div>
   );
 }

@@ -158,6 +158,9 @@ const MOD_BADGE_SPECIMENS: readonly {
     mods: [
       Mods.Random,
       Mods.Mirror,
+      Mods.Target,
+      // Key co-op, drawn as lazer's Dual Stages.
+      Mods.KeyCoop,
       Mods.Key1,
       Mods.Key2,
       Mods.Key3,
