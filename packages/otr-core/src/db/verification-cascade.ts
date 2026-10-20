@@ -6,6 +6,7 @@ import {
   MatchWarningFlags,
   VerificationStatus,
 } from '../osu/enums';
+import { creditReviewer } from './rejection-cascade';
 import * as schema from './schema';
 
 export interface VerificationCascadeResult {
@@ -23,6 +24,11 @@ type TimestampValue = string | SQL<unknown>;
 
 type CascadeOptions = {
   updatedAt?: TimestampValue;
+};
+
+type TournamentCascadeOptions = CascadeOptions & {
+  /** The admin credited on each match the verification changes. */
+  verifiedByUserId?: number;
 };
 
 function normalizeIds(ids: readonly number[]): number[] {
@@ -101,7 +107,8 @@ async function cascadeGamesVerification(
 async function cascadeMatchesVerification(
   db: MutationClient,
   tournamentIds: number[],
-  updatedAt: TimestampValue
+  updatedAt: TimestampValue,
+  verifiedByUserId: number | undefined
 ): Promise<{ matchIds: number[]; matchCount: number }> {
   if (tournamentIds.length === 0) {
     return { matchIds: [], matchCount: 0 };
@@ -113,6 +120,10 @@ async function cascadeMatchesVerification(
       verificationStatus: VerificationStatus.Verified,
       rejectionReason: 0,
       warningFlags: MatchWarningFlags.None,
+      verifiedByUserId: creditReviewer(
+        VerificationStatus.Verified,
+        verifiedByUserId
+      ),
       updated: updatedAt,
     })
     .where(inArray(schema.matches.tournamentId, tournamentIds))
@@ -177,7 +188,7 @@ export async function cascadeMatchVerification(
 export async function cascadeTournamentVerification(
   db: MutationClient,
   tournamentIdsInput: readonly number[],
-  options?: CascadeOptions
+  options?: TournamentCascadeOptions
 ): Promise<VerificationCascadeResult> {
   const tournamentIds = normalizeIds(tournamentIdsInput);
 
@@ -190,7 +201,8 @@ export async function cascadeTournamentVerification(
   const { matchIds, matchCount } = await cascadeMatchesVerification(
     db,
     tournamentIds,
-    updatedAt
+    updatedAt,
+    options?.verifiedByUserId
   );
   const { gameIds, gameCount } = await cascadeGamesVerification(
     db,

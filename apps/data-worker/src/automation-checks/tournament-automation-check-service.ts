@@ -126,6 +126,7 @@ export type TournamentRow = {
   lobbySize: number;
   verificationStatus: number;
   rejectionReason: number;
+  verifiedByUserId?: number | null;
   matches: MatchRow[];
   joinPooledBeatmaps: Array<{ beatmap: BeatmapRow | null }>;
 };
@@ -160,6 +161,7 @@ export class TournamentAutomationCheckService {
         lobbySize: true,
         verificationStatus: true,
         rejectionReason: true,
+        verifiedByUserId: true,
       },
       with: {
         matches: {
@@ -265,6 +267,15 @@ export class TournamentAutomationCheckService {
     }
 
     if (tournament.verificationStatus === VerificationStatus.Rejected) {
+      // The admin who rejected the tournament rejects the matches it reaches.
+      // An override resets them below, so it credits no one.
+      if (!overrideVerifiedState) {
+        for (const match of tournament.matches) {
+          if (match.verificationStatus !== VerificationStatus.Rejected) {
+            match.verifiedByUserId = tournament.verifiedByUserId ?? null;
+          }
+        }
+      }
       cascadeTournamentRejection(tournament.matches);
     }
 
@@ -381,6 +392,7 @@ export class TournamentAutomationCheckService {
             verificationStatus: match.verificationStatus,
             rejectionReason: match.rejectionReason,
             warningFlags: match.warningFlags,
+            verifiedByUserId: match.verifiedByUserId,
             updated: nowIso,
           })
           .where(eq(schema.matches.id, match.id));
@@ -427,6 +439,7 @@ const mapTournament = (row: TournamentRow): AutomationTournament => ({
   lobbySize: row.lobbySize,
   verificationStatus: row.verificationStatus as VerificationStatus,
   rejectionReason: row.rejectionReason as TournamentRejectionReason,
+  verifiedByUserId: row.verifiedByUserId ?? null,
   matches: row.matches.map(mapMatch),
   pooledBeatmaps: row.joinPooledBeatmaps
     .map((entry) => entry.beatmap)

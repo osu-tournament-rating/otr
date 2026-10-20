@@ -690,7 +690,7 @@ describe('updateTournamentAdminHandler', () => {
       );
     });
 
-    it('cascade verification with children set does not set submittedByUserId or verifiedByUserId on matches', async () => {
+    it('cascade verification with children set credits a reviewer on matches but no submitter', async () => {
       const db = new UpdateTournamentTestDb(
         {
           id: 1,
@@ -719,11 +719,11 @@ describe('updateTournamentAdminHandler', () => {
       expect(db.matchUpdates.length).toBeGreaterThan(0);
       for (const update of db.matchUpdates) {
         expect('submittedByUserId' in update).toBe(false);
-        expect('verifiedByUserId' in update).toBe(false);
+        expect('verifiedByUserId' in update).toBe(true);
       }
     });
 
-    it('cascade rejection does not set submittedByUserId or verifiedByUserId on matches', async () => {
+    it('cascade rejection credits a reviewer on matches but no submitter', async () => {
       const db = new UpdateTournamentTestDb(
         {
           id: 1,
@@ -751,7 +751,7 @@ describe('updateTournamentAdminHandler', () => {
       expect(db.matchUpdates.length).toBeGreaterThan(0);
       for (const update of db.matchUpdates) {
         expect('submittedByUserId' in update).toBe(false);
-        expect('verifiedByUserId' in update).toBe(false);
+        expect('verifiedByUserId' in update).toBe(true);
       }
     });
   });

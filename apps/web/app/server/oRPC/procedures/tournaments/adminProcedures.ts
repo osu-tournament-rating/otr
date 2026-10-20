@@ -300,6 +300,7 @@ export async function updateTournamentAdminHandler({
         if (input.children === 'set') {
           await cascadeTournamentVerification(tx, [input.id], {
             updatedAt: NOW,
+            verifiedByUserId: adminUserId,
           });
         } else if (input.children === 'accept') {
           await resolveTournamentVerification(tx, input.id, {
@@ -312,6 +313,7 @@ export async function updateTournamentAdminHandler({
       if (input.verificationStatus === VerificationStatus.Rejected) {
         await cascadeTournamentRejection(tx, [input.id], {
           updatedAt: NOW,
+          verifiedByUserId: adminUserId,
         });
       }
 
@@ -466,7 +468,10 @@ export async function acceptTournamentPreVerificationStatusesHandler({
       }
 
       if (tournament.verificationStatus === VerificationStatus.Rejected) {
-        await cascadeTournamentRejection(tx, [input.id], { updatedAt: NOW });
+        await cascadeTournamentRejection(tx, [input.id], {
+          updatedAt: NOW,
+          verifiedByUserId: adminUserId,
+        });
         return;
       }
 

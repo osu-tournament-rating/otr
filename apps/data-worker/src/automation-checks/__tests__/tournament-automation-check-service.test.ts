@@ -497,4 +497,51 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
       'game_scores:2011': [PreRejected, ScoreRejectionReason.ScoreBelowMinimum],
     });
   });
+
+  /** The verification status and reviewer each match update writes. */
+  const matchReviews = async (overrideVerifiedState: boolean) => {
+    const db = new StubDatabase({
+      ...reviewedTournament(),
+      verificationStatus: Rejected,
+      verifiedByUserId: 77,
+    });
+    const service = new TournamentAutomationCheckService({
+      db: db as unknown as DatabaseClient,
+      logger: noopLogger,
+      tournamentChecks: new TournamentAutomationChecks(),
+      matchChecks: new MatchAutomationChecks(),
+      gameChecks: new GameAutomationChecks(),
+      scoreChecks: new ScoreAutomationChecks(),
+    });
+
+    await service.processAutomationChecks(1, overrideVerifiedState);
+
+    return (db.transactions[0]?.updates ?? [])
+      .filter(({ table }) => table === 'matches')
+      .map(({ id, values }) => [
+        id,
+        values.verificationStatus,
+        values.verifiedByUserId,
+      ]);
+  };
+
+  it('credits the admin who rejected the tournament on the matches its rejection now reaches', async () => {
+    expect(await matchReviews(false)).toEqual([
+      // Rejected already, so the earlier rejection stands.
+      [1, Rejected, undefined],
+      [2, Rejected, 77],
+      [3, Rejected, 77],
+    ]);
+  });
+
+  it('credits no one when an override checks the rejected tournament again', async () => {
+    const reviews = await matchReviews(true);
+
+    expect(reviews).toHaveLength(3);
+    expect(reviews.map(([, , reviewer]) => reviewer)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
 });
