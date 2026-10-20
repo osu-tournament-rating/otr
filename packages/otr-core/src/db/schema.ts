@@ -278,6 +278,74 @@ export const filterReports = pgTable(
   ]
 );
 
+/**
+ * A registrant filter request held for an admin because more than 30% of its
+ * players were unknown to o!TR. Nothing is looked up until an admin approves
+ * it; approval runs the filter and links the report it made.
+ */
+export const filterRequests = pgTable(
+  'filter_requests',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity({
+      name: 'filter_requests_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      maxValue: 2147483647,
+      cache: 1,
+    }),
+    // ApprovalStatus
+    status: integer().default(0).notNull(),
+    // Null once the requester deletes their account
+    userId: integer('user_id'),
+    ruleset: integer().notNull(),
+    minRating: integer('min_rating'),
+    maxRating: integer('max_rating'),
+    osuPlayerIds: bigint('osu_player_ids', { mode: 'number' })
+      .array()
+      .notNull(),
+    /** How many of `osu_player_ids` o!TR did not have when it was made. */
+    unknownPlayerCount: integer('unknown_player_count').notNull(),
+    /** The requester's reason, shown to admins. */
+    justification: text().notNull(),
+    filterReportId: integer('filter_report_id'),
+    reviewedByUserId: integer('reviewed_by_user_id'),
+    reviewedAt: timestamp('reviewed_at', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('ix_filter_requests_status').using(
+      'btree',
+      table.status.asc().nullsLast().op('int4_ops')
+    ),
+    index('ix_filter_requests_user_id_created').using(
+      'btree',
+      table.userId.asc().nullsLast().op('int4_ops'),
+      table.created.asc().nullsLast().op('timestamptz_ops')
+    ),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: 'fk_filter_requests_users_user_id',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.reviewedByUserId],
+      foreignColumns: [users.id],
+      name: 'fk_filter_requests_users_reviewed_by_user_id',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.filterReportId],
+      foreignColumns: [filterReports.id],
+      name: 'fk_filter_requests_filter_reports_filter_report_id',
+    }).onDelete('set null'),
+  ]
+);
+
 export const auditEvents = pgTable(
   'audit_events',
   {
@@ -1939,6 +2007,76 @@ export const tournaments = pgTable(
   ]
 );
 
+/**
+ * A tournament submitted by a non-admin, held until an admin approves it.
+ * It is kept apart from `tournaments` so nothing reads it as data: no
+ * tournament, match or beatmap row exists and nothing is fetched until
+ * approval, which creates them and links the tournament here.
+ */
+export const tournamentSubmissions = pgTable(
+  'tournament_submissions',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity({
+      name: 'tournament_submissions_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      maxValue: 2147483647,
+      cache: 1,
+    }),
+    // ApprovalStatus
+    status: integer().default(0).notNull(),
+    // Null once the submitter deletes their account
+    submittedByUserId: integer('submitted_by_user_id'),
+    name: varchar({ length: 512 }).notNull(),
+    abbreviation: varchar({ length: 32 }).notNull(),
+    forumUrl: varchar('forum_url', { length: 255 }).notNull(),
+    rankRangeLowerBound: integer('rank_range_lower_bound').notNull(),
+    ruleset: integer().notNull(),
+    lobbySize: integer('lobby_size').notNull(),
+    isLazer: boolean('is_lazer').default(false).notNull(),
+    matchIds: bigint('match_ids', { mode: 'number' }).array().notNull(),
+    beatmapIds: bigint('beatmap_ids', { mode: 'number' })
+      .array()
+      .default(sql`'{}'`)
+      .notNull(),
+    tournamentId: integer('tournament_id'),
+    reviewedByUserId: integer('reviewed_by_user_id'),
+    reviewedAt: timestamp('reviewed_at', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index('ix_tournament_submissions_status').using(
+      'btree',
+      table.status.asc().nullsLast().op('int4_ops')
+    ),
+    index('ix_tournament_submissions_submitted_by_user_id').using(
+      'btree',
+      table.submittedByUserId.asc().nullsLast().op('int4_ops')
+    ),
+    foreignKey({
+      columns: [table.submittedByUserId],
+      foreignColumns: [users.id],
+      name: 'fk_tournament_submissions_users_submitted_by_user_id',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.reviewedByUserId],
+      foreignColumns: [users.id],
+      name: 'fk_tournament_submissions_users_reviewed_by_user_id',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.tournamentId],
+      foreignColumns: [tournaments.id],
+      name: 'fk_tournament_submissions_tournaments_tournament_id',
+    }).onDelete('set null'),
+  ]
+);
+
 export const userSettings = pgTable(
   'user_settings',
   {
@@ -2066,6 +2204,14 @@ export const users = pgTable(
       .notNull(),
     updated: timestamp({ withTimezone: true, mode: 'string' }),
     lastViewedReportsAt: timestamp('last_viewed_reports_at', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    /**
+     * When the user's API allowance is full again after the registrant
+     * filter looked up players for them. Null or past means full.
+     */
+    apiAllowanceFullAt: timestamp('api_allowance_full_at', {
       withTimezone: true,
       mode: 'string',
     }),

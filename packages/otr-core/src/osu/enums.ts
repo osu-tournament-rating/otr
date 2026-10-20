@@ -206,6 +206,17 @@ export enum ReportStatus {
   Rejected = 2,
 }
 
+/**
+ * Where a held request stands: a tournament submission from a non-admin, or
+ * a registrant filter request flagged for unknown players. Stored in
+ * `tournament_submissions.status` and `filter_requests.status`.
+ */
+export enum ApprovalStatus {
+  Pending = 0,
+  Approved = 1,
+  Denied = 2,
+}
+
 export enum AuditActionType {
   Created = 0,
   Updated = 1,
