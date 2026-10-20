@@ -291,6 +291,8 @@ groups:
   # host's daylight saving shift. The intervals follow the production crontab,
   # which lives on the host: the production archive every 6 hours, the public
   # archive and the processor every Tuesday, and the public index every hour.
+  # The dev archive comes from .github/workflows/dev-archive.yml instead, every
+  # Wednesday.
   # Each overdue rule has a never-recorded twin that waits as long, for a run
   # that has recorded nothing at all, such as one whose cron entry is broken.
   - name: scripts
@@ -338,6 +340,24 @@ groups:
           bucket: public
         annotations:
           summary: No archive public run has been recorded in 7 days
+
+      - alert: ScriptRunOverdue
+        expr: time() - otr_script_last_run_timestamp_seconds{script="archive",bucket="dev"} > 7 * 86400 + 6 * 3600
+        labels:
+          severity: warning
+          script: archive
+          bucket: dev
+        annotations:
+          summary: No archive dev run has finished in 7 days
+      - alert: ScriptRunNeverRecorded
+        expr: absent(otr_script_last_run_timestamp_seconds{script="archive",bucket="dev"})
+        for: 174h
+        labels:
+          severity: warning
+          script: archive
+          bucket: dev
+        annotations:
+          summary: No archive dev run has been recorded in 7 days
 
       - alert: ScriptRunOverdue
         expr: time() - otr_script_last_run_timestamp_seconds{script="processor"} > 7 * 86400 + 6 * 3600
