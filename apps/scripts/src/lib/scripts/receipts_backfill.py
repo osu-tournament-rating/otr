@@ -6,7 +6,12 @@ otr-replay can replay them as it replays runs with receipts:
 
 - Each run started on schedule, Tuesdays at 12:00 UTC, the time the docs have
   always given. Runs begin with the first Tuesday after the first public
-  replica, since a replay needs a replica taken before its run.
+  replica, since no replica holds the data of an earlier run. Until
+  February 2026 the website gave 23:59 UTC instead, and until mid-January
+  replicas were taken near then, so those runs may have started up to twelve
+  hours later. That leaves their decay horizon between the same Wednesday
+  12:00 UTC decay steps, and otr-replay uses the replica taken that night
+  either way.
 - Each run ran the image stagecodes/otr-processor:latest named when it started.
   Until the processor moved into otr, each otr-processor release build pushed
   its version tag and latest together, so latest moved when Docker Hub
@@ -30,7 +35,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from lib import receipt
+from lib import metrics, receipt
 from lib.cli import ScriptArgs
 from lib.config import config
 from lib.constants import buckets
@@ -497,4 +502,6 @@ def run(args: ScriptArgs) -> bool:
         return False
 
     logger.info(f"Published {len(paths)} receipts")
+    # Every run now has a receipt, which clears the missing receipt alert.
+    metrics.record_receipt(True)
     return True
