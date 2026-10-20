@@ -8,8 +8,9 @@ import type { CountBarDatum } from '@/lib/kit/charts/count-bars';
 import { getNiceTicks, type NiceTicks } from '@/lib/kit/charts/ticks';
 import { getStatusHueColor } from '@/lib/kit/color/verification';
 import { getTierColor } from '@/lib/kit/color/tiers';
+import { EMPTY_VALUE } from '@/lib/kit/format/empty';
 import { formatLobbySize } from '@/lib/kit/format/fields';
-import { formatYear } from '@/lib/kit/format/number';
+import { formatCountOf, formatYear } from '@/lib/kit/format/number';
 import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { RATINGS_GROUPS } from '@/lib/kit/status/verification';
 import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
@@ -208,4 +209,11 @@ export function getRatingDistributionAxes(maxCount: number): {
       ticks: count.ticks.map((_, index) => index / steps),
     },
   };
+}
+
+/** A median time to verify: `4 days`, `1 day`, or `Under a day`. */
+export function formatDaysToVerify(days: number | null): string {
+  if (days === null || !Number.isFinite(days)) return EMPTY_VALUE;
+  if (days < 1) return 'Under a day';
+  return formatCountOf(Math.round(days), 'day');
 }

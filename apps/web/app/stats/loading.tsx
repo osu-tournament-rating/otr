@@ -1,6 +1,8 @@
 import {
   ChartPlotSkeleton,
+  LoadMoreSkeleton,
   PanelSkeleton,
+  RowListSkeleton,
   RulesetSwitchSkeleton,
   SectionHeaderSkeleton,
   SkeletonText,
@@ -12,13 +14,13 @@ import {
   BY_RULESET_SECTION,
   OVERVIEW_LABELS,
   STATS_PANELS,
+  VERIFICATION_TILE_LABELS,
 } from '@/components/stats/chart-panels';
 
 import { StatsPageHeader } from './StatsPageHeader';
 
 /** Each meta bar is as wide as the loaded count ("2,540 verified" is 80px). */
 const CHART_PANELS = [
-  { copy: STATS_PANELS.verification, metaWidth: 'w-28' },
   { copy: STATS_PANELS.year, metaWidth: 'w-20' },
   { copy: STATS_PANELS.ruleset, metaWidth: 'w-20' },
   { copy: STATS_PANELS.lobbySize, metaWidth: 'w-20' },
@@ -35,6 +37,25 @@ export default function StatsLoading() {
         </div>
       </PanelSkeleton>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PanelSkeleton>
+          <SectionHeaderSkeleton {...STATS_PANELS.verification} meta="w-28" />
+          <div className="flex flex-col gap-3 p-4">
+            <StatTileGridSkeleton
+              labels={VERIFICATION_TILE_LABELS}
+              columns={2}
+              sub
+            />
+            <ChartPlotSkeleton className="h-48" />
+          </div>
+        </PanelSkeleton>
+        <PanelSkeleton>
+          <SectionHeaderSkeleton
+            {...STATS_PANELS.recentlyVerified}
+            meta={false}
+          />
+          <RowListSkeleton rows={5} leading="none" />
+          <LoadMoreSkeleton />
+        </PanelSkeleton>
         {CHART_PANELS.map(({ copy, metaWidth }) => (
           <PanelSkeleton key={copy.title}>
             <SectionHeaderSkeleton {...copy} meta={metaWidth} />

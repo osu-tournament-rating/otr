@@ -4,6 +4,7 @@ import {
   CircleCheck,
   Gamepad2,
   LayoutGrid,
+  ListChecks,
   Users,
 } from 'lucide-react';
 
@@ -56,6 +57,10 @@ export const STATS_PANELS = {
     title: 'Overview',
     infoText: 'Counts only verified tournaments, matches, games and scores',
   },
+  recentlyVerified: {
+    icon: ListChecks,
+    title: 'Recently verified tournaments',
+  },
 } as const satisfies Record<string, StatsPanelCopy>;
 
 /** The overview's tile labels, shared with the loading screen. */
@@ -65,6 +70,9 @@ export const OVERVIEW_LABELS = [
   'Scores',
   'Rated players',
 ] as const;
+
+/** The verification panel's tile labels, shared with the loading screen. */
+export const VERIFICATION_TILE_LABELS = ['Time to verify', 'Verified'] as const;
 
 /** The heading over the panels that follow the page's ruleset. */
 export const BY_RULESET_SECTION = {

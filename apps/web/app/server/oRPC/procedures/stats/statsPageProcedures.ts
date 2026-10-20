@@ -8,11 +8,17 @@ import {
 import type { DatabaseClient } from '@/lib/db';
 import {
   HeadlineTotalsSchema,
+  RecentlyVerifiedInputSchema,
+  RecentlyVerifiedPageSchema,
   StatsPageSchema,
   type StatsPage,
 } from '@/lib/orpc/schema/statsPage';
 
 import { publicProcedure } from '../base';
+import { getRecentlyVerified, getVerificationSummary } from './queries';
+
+/** Recently verified tournaments shown before "Load more". */
+export const RECENTLY_VERIFIED_FIRST_PAGE = 5;
 
 /**
  * A stored statistic's payload, or null when it is missing or has another
@@ -47,7 +53,13 @@ export async function runStatsPage({
 }: {
   context: { db: DatabaseClient };
 }): Promise<StatsPage> {
-  const stored = await readPlatformStats(context.db);
+  const { db } = context;
+
+  const [stored, verification, recentlyVerified] = await Promise.all([
+    readPlatformStats(db),
+    getVerificationSummary(db),
+    getRecentlyVerified(db, { limit: RECENTLY_VERIFIED_FIRST_PAGE }),
+  ]);
 
   return {
     allRulesets: {
@@ -57,6 +69,8 @@ export async function runStatsPage({
         null,
         HeadlineTotalsSchema
       ),
+      verification,
+      recentlyVerified,
     },
   };
 }
@@ -74,3 +88,20 @@ export const getStatsPage = publicProcedure
     path: '/stats/page',
   })
   .handler(({ context }) => runStatsPage({ context }));
+
+/** A further page of recently verified tournaments, for "Load more". */
+export const getRecentlyVerifiedTournaments = publicProcedure
+  .input(RecentlyVerifiedInputSchema)
+  .output(RecentlyVerifiedPageSchema)
+  .route({
+    summary: 'List recently verified tournaments',
+    tags: ['stats'],
+    method: 'GET',
+    path: '/stats/recently-verified',
+  })
+  .handler(({ input, context }) =>
+    getRecentlyVerified(context.db, {
+      limit: input.limit,
+      cursor: input.cursor,
+    })
+  );

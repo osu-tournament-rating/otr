@@ -8,6 +8,9 @@ import TournamentsByYearChart from '@/components/stats/TournamentsByYearChart';
 import TournamentVerificationChart from '@/components/stats/TournamentVerificationChart';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+/** The verification panel's tiles: how fast tournaments were verified lately. */
+const SUMMARY = { windowDays: 90, tournaments: 108, medianDays: 4.5 };
+
 /** Section headers carry an info button, which needs the tooltip provider. */
 function render(element: React.ReactElement) {
   return renderToStaticMarkup(<TooltipProvider>{element}</TooltipProvider>);
@@ -18,6 +21,7 @@ describe('stats chart panels', () => {
     const html = render(
       <TournamentVerificationChart
         verificationCounts={{ '1': 12, '2': 54, '3': 387, '4': 2540 }}
+        summary={SUMMARY}
       />
     );
 
@@ -43,7 +47,10 @@ describe('stats chart panels', () => {
 
   it('keep an info button only where it adds to the chart', () => {
     const verification = render(
-      <TournamentVerificationChart verificationCounts={{ '4': 2540 }} />
+      <TournamentVerificationChart
+        verificationCounts={{ '4': 2540 }}
+        summary={SUMMARY}
+      />
     );
     const year = render(<TournamentsByYearChart data={{ '2024': 386 }} />);
     const ruleset = render(<TournamentsByRulesetChart data={{ '0': 12 }} />);
@@ -57,7 +64,7 @@ describe('stats chart panels', () => {
 
   it('show the shared empty state instead of an empty plot', () => {
     const verification = render(
-      <TournamentVerificationChart verificationCounts={{}} />
+      <TournamentVerificationChart verificationCounts={{}} summary={SUMMARY} />
     );
     const ruleset = render(<TournamentsByRulesetChart data={{}} />);
 
