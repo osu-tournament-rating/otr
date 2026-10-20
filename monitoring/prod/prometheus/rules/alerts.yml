@@ -287,10 +287,10 @@ groups:
 
   # apps/scripts records how each cron run ended in node-exporter's textfile
   # collector (src/lib/metrics.py). A run is overdue when none has finished
-  # within its cron interval plus some slack for the run's length and for the
-  # host's daylight saving shift. The intervals follow the production crontab,
-  # which lives on the host: the production archive every 6 hours, the public
-  # archive and the processor every Tuesday, and the public index every hour.
+  # within its cron interval plus some slack for the run's length. The
+  # intervals follow the production crontab, which lives on the host and runs
+  # in UTC: the production archive every 6 hours, the public archive and the
+  # processor every Tuesday, and the public index every hour.
   # Each overdue rule has a never-recorded twin that waits as long, for a run
   # that has recorded nothing at all, such as one whose cron entry is broken.
   - name: scripts
