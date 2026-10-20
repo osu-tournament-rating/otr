@@ -872,6 +872,12 @@ export const games = pgTable(
       table.matchId.asc().nullsLast().op('int4_ops'),
       table.osuId.asc().nullsLast().op('int8_ops')
     ),
+    // Match fetches look a game up by its osu! id alone, which the
+    // match-first unique index above cannot serve.
+    index('ix_games_osu_id').using(
+      'btree',
+      table.osuId.asc().nullsLast().op('int8_ops')
+    ),
     index('ix_games_start_time').using(
       'btree',
       table.startTime.asc().nullsLast().op('timestamptz_ops')
