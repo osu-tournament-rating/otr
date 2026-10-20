@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { STORAGE_STATE } from './fixtures/auth';
+import { waitForHydration } from './fixtures/hydration';
 import { createOrpcClientForRole } from './fixtures/orpc';
 import {
   TEST_MATCH_ID,
@@ -232,6 +233,7 @@ test.describe('Match Detail Page', () => {
         [...descendingCosts].sort((first, second) => second - first)
       );
 
+      await waitForHydration(costSort);
       await costSort.click();
       await expect(costHeader).toHaveAttribute('aria-sort', 'ascending');
       await expect(page).toHaveURL(/[?&]dir=asc/);

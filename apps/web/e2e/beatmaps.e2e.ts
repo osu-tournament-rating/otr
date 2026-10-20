@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { TEST_BEATMAP_OSU_ID, ROUTES } from './fixtures/test-config';
+import { waitForHydration } from './fixtures/hydration';
 
 type PreviewPlayBehavior = 'resolve' | 'defer' | 'error';
 
@@ -259,14 +260,16 @@ async function getDistinctBeatmapPreviewRows(page: Page) {
 
 /** The accuracy column of the tier breakdown, or null when it renders no toggle. */
 async function openTierAccuracyChart(page: Page) {
-  const card = page.locator('[data-testid="beatmap-tier-breakdown"]');
+  // The page's own panel: a streamed copy of the page can linger, hidden,
+  // outside the main landmark after React has rendered the page.
+  const card = page.getByRole('main').getByTestId('beatmap-tier-breakdown');
   await expect(card).toBeVisible({ timeout: 15000 });
-  // The toggle is server-rendered; keys pressed before hydration do nothing.
-  await page.waitForLoadState('networkidle');
 
   const label = 'Full range: accuracy by tier';
   const toggle = card.getByRole('button', { name: label });
   if ((await toggle.count()) === 0) return null;
+  // The toggle is server-rendered; keys pressed before hydration do nothing.
+  await waitForHydration(toggle);
 
   const chart = card.locator(`div:has(> div > button[aria-label="${label}"])`);
 
@@ -1218,6 +1221,7 @@ test.describe('Beatmaps Listing Page', () => {
         )
         .toBe(0);
 
+      await waitForHydration(mania7k);
       await mania7k.click();
       await page.waitForURL(/ruleset=5/);
     });
