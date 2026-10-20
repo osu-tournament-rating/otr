@@ -6,6 +6,7 @@ import { JobQueue } from '@otr/core/jobs';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 import {
   findDuePlatformStats,
+  PLATFORM_STATS,
   PlatformStatKey,
   readPlatformStats,
   refreshPlatformStats,
@@ -205,7 +206,6 @@ describe.skipIf(!url)('platform stats', () => {
         stored.find((stat) => stat.key === PlatformStatKey.HeadlineTotals)
           ?.payload
       ).toEqual({
-        tournaments: 1,
         matches: 1,
         games: 1,
         scores: 2,
@@ -276,7 +276,9 @@ describe.skipIf(!url)('platform stats', () => {
       expect(rows).toContainEqual({
         name: PlatformStatKey.HeadlineTotals,
         ruleset: null,
-        version: 1,
+        version: PLATFORM_STATS.find(
+          (definition) => definition.key === PlatformStatKey.HeadlineTotals
+        )!.version,
         computed_at: NOW.toISOString(),
       });
       // Every row was a day old, so every one was recomputed.

@@ -347,7 +347,6 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         insert into ${schema.platformStats} (name, ruleset, payload, version, computed_at)
         values (${PlatformStatKey.HeadlineTotals}, null, ${JSON.stringify(payload)}::jsonb, ${version}, now())`);
     const totals = {
-      tournaments: 3,
       matches: 20,
       games: 100,
       scores: 800,
@@ -363,7 +362,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
     });
 
     await onEmptyTables(async (tx) => {
-      await store(tx, { tournaments: 3 });
+      await store(tx, { matches: 20 });
       const page = await runStatsPage({
         context: { db: tx as unknown as DatabaseClient },
       });

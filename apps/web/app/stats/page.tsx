@@ -1,3 +1,4 @@
+import { VerificationStatus } from '@otr/core/osu';
 import type { Metadata } from 'next';
 
 import { PageFrame } from '@/components/kit/layout/PageFrame';
@@ -64,7 +65,14 @@ export default async function StatsPage() {
   return (
     <PageFrame>
       <StatsPageHeader />
-      <OverviewPanel totals={allRulesets.totals} />
+      <OverviewPanel
+        tournaments={
+          tournamentStats.countByVerificationStatus[
+            `${VerificationStatus.Verified}`
+          ] ?? 0
+        }
+        totals={allRulesets.totals}
+      />
       {/* grid-cols-1 lets a panel shrink below its chart's measured width. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TournamentVerificationChart

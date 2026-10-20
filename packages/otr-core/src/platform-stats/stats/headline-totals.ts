@@ -8,10 +8,12 @@ import {
   type AllRulesetsPlatformStat,
 } from '../types';
 
-/** Totals over every ruleset, for the stats page's overview. */
+/**
+ * Totals over every ruleset, for the stats page's overview. The overview
+ * reads its tournament count live, from the same count as the verification
+ * chart beside it, so the two always agree.
+ */
 export interface HeadlineTotals {
-  /** Verified tournaments. */
-  tournaments: number;
   /** Verified matches of verified tournaments. */
   matches: number;
   /** Verified games of those matches. */
@@ -31,17 +33,13 @@ const VERIFIED = VerificationStatus.Verified;
  */
 export const headlineTotals: AllRulesetsPlatformStat<HeadlineTotals> = {
   key: PlatformStatKey.HeadlineTotals,
-  version: 1,
+  version: 2,
   scope: 'all',
   compute: async (db) => {
     const rows = await queryRows<Record<keyof HeadlineTotals, string>>(
       db,
       sql`
         select
-          (
-            select count(*) from ${schema.tournaments}
-            where ${schema.tournaments.verificationStatus} = ${VERIFIED}
-          ) as tournaments,
           (
             select count(*) from ${schema.matches}
             inner join ${schema.tournaments}
@@ -80,7 +78,6 @@ export const headlineTotals: AllRulesetsPlatformStat<HeadlineTotals> = {
 
     const row = rows[0];
     return {
-      tournaments: Number(row?.tournaments ?? 0),
       matches: Number(row?.matches ?? 0),
       games: Number(row?.games ?? 0),
       scores: Number(row?.scores ?? 0),

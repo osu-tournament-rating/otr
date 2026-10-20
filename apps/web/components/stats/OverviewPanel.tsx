@@ -8,29 +8,35 @@ import type { HeadlineTotalsData } from '@/lib/orpc/schema/statsPage';
 import { OVERVIEW_LABELS, STATS_PANELS } from './chart-panels';
 import { NotCalculatedYet } from './NotCalculatedYet';
 
-/** Totals over every ruleset, from the stored headline totals. */
+/**
+ * Totals over every ruleset: the live count of verified tournaments, then
+ * the stored headline totals.
+ */
 export default function OverviewPanel({
+  tournaments,
   totals,
 }: {
+  /** Verified tournaments now, the count the verification chart shows. */
+  tournaments: number;
   totals: HeadlineTotalsData | null;
 }) {
   return (
     <Panel data-testid="stats-overview">
       <SectionHeader {...STATS_PANELS.overview} />
-      {totals === null ? (
-        <NotCalculatedYet icon={STATS_PANELS.overview.icon} />
-      ) : totals.tournaments === 0 ? (
+      {tournaments === 0 ? (
         <EmptyState
           size="compact"
           icon={STATS_PANELS.overview.icon}
           title="No verified tournaments yet"
         />
+      ) : totals === null ? (
+        <NotCalculatedYet icon={STATS_PANELS.overview.icon} />
       ) : (
         <PanelBody>
           <StatTileGrid columns={4}>
             <StatTile
               label={OVERVIEW_LABELS[0]}
-              value={formatCount(totals.tournaments)}
+              value={formatCount(tournaments)}
             />
             <StatTile
               label={OVERVIEW_LABELS[1]}

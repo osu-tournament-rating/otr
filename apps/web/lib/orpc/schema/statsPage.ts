@@ -27,7 +27,6 @@ const isoTimestamp = z.iso.datetime();
  * type must match the payload type in `@otr/core/platform-stats`.
  */
 export const HeadlineTotalsSchema = z.object({
-  tournaments: count,
   matches: count,
   games: count,
   scores: count,
