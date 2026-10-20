@@ -127,12 +127,20 @@ export default function StatsLoading() {
             level={3}
           />
         </div>
-        <ChartPanelSkeleton
-          copy={STATS_PANELS.rankRestrictions}
-          metaWidth="w-28"
-          plot="h-80"
-          level={3}
-        />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ChartPanelSkeleton
+            copy={STATS_PANELS.activePlayers}
+            metaWidth="w-28"
+            plot="h-80"
+            level={3}
+          />
+          <ChartPanelSkeleton
+            copy={STATS_PANELS.rankRestrictions}
+            metaWidth="w-28"
+            plot="h-80"
+            level={3}
+          />
+        </div>
         <RecordListSkeleton copy={STATS_PANELS.strongestFields} rows={10} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <PanelSkeleton>

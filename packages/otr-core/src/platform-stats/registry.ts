@@ -1,3 +1,4 @@
+import { activePlayers } from './stats/active-players';
 import { biggestComebacks } from './stats/biggest-comebacks';
 import { biggestUpsets } from './stats/biggest-upsets';
 import { closestGames } from './stats/closest-games';
@@ -17,4 +18,5 @@ export const PLATFORM_STATS: readonly PlatformStatDefinition[] = [
   closestGames,
   biggestComebacks,
   strongestFields,
+  activePlayers,
 ];

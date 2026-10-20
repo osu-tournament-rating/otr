@@ -8,6 +8,7 @@ import {
 import type { DatabaseClient } from '@/lib/db';
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
+  ActivePlayersSchema,
   BiggestComebacksSchema,
   BiggestUpsetsSchema,
   ClosestGamesSchema,
@@ -148,6 +149,12 @@ export async function runStatsPage({
         PlatformStatKey.StrongestFields,
         ruleset,
         StrongestFieldsSchema
+      ),
+      activePlayers: storedPayload(
+        stored,
+        PlatformStatKey.ActivePlayers,
+        ruleset,
+        ActivePlayersSchema
       ),
       matchStartTimes: tabulateMatchStartTimes(
         matchStartTimes.filter((row) => row.ruleset === ruleset)

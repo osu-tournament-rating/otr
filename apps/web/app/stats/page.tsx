@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageSection } from '@/components/kit/layout/PageSection';
+import ActivePlayersPanel from '@/components/stats/ActivePlayersPanel';
 import { BY_RULESET_SECTION } from '@/components/stats/chart-panels';
 import {
   PlayersByCountryPanel,
@@ -81,7 +82,10 @@ export default async function StatsPage() {
             <PlayersByCountryPanel />
             <TopPlayersByCountryPanel />
           </div>
-          <RankRestrictionsPanel currentYear={currentYear} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ActivePlayersPanel currentYear={currentYear} />
+            <RankRestrictionsPanel currentYear={currentYear} />
+          </div>
           <StrongestFieldsPanel />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <HigherRatedWinsPanel />

@@ -21,6 +21,7 @@ import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { RATINGS_GROUPS } from '@/lib/kit/status/verification';
 import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
 import type {
+  ActivePlayersData,
   CountryCountData,
   HigherRatedWinsData,
   LazerYearData,
@@ -347,6 +348,29 @@ export function getMatchSides(
   return match.winnerTeam === Team.Blue
     ? { winner: teams.blue, loser: teams.red }
     : { winner: teams.red, loser: teams.blue };
+}
+
+/**
+ * Each year's active players over the trend years, split into those new to
+ * the ruleset and those who played in an earlier year.
+ */
+export function getActivePlayerBars(
+  years: ActivePlayersData['years']
+): StackedBarDatum[] {
+  const byYear = new Map(years.map((entry) => [entry.year, entry]));
+  const totals = new Map(years.map((entry) => [entry.year, entry.tournaments]));
+
+  return getTrendYears(totals).map((year) => {
+    const entry = byYear.get(year);
+    return {
+      key: String(year),
+      label: formatYear(year),
+      values: {
+        returning: entry ? entry.players - entry.newPlayers : 0,
+        new: entry?.newPlayers ?? 0,
+      },
+    };
+  });
 }
 
 /** The heatmap's rows: ISO weekdays, Monday first, as UTC counts them. */

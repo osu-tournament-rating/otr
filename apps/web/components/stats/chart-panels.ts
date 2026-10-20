@@ -19,6 +19,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  UsersRound,
   Zap,
 } from 'lucide-react';
 
@@ -120,6 +121,11 @@ export const STATS_PANELS = {
     icon: Crown,
     title: 'Strongest fields',
     infoText: `Average rating of each tournament's ${FIELD_SIZE} highest-rated players going in`,
+  },
+  activePlayers: {
+    icon: UsersRound,
+    title: 'Active players by year',
+    infoText: `Players of each year's verified matches. New players played their first in this ruleset that year. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
   },
   matchTimes: {
     icon: CalendarClock,

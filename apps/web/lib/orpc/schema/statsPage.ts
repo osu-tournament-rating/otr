@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type {
+  ActivePlayers,
   BiggestComebacks,
   BiggestUpsets,
   ClosestGames,
@@ -100,6 +101,18 @@ export const StrongestFieldsSchema = z.object({
   ),
 }) satisfies z.ZodType<StrongestFields>;
 
+export const ActivePlayersSchema = z.object({
+  years: z.array(
+    z.object({
+      year: z.number().int(),
+      tournaments: count,
+      players: count,
+      newPlayers: count,
+      newPlayersReturned: count,
+    })
+  ),
+}) satisfies z.ZodType<ActivePlayers>;
+
 /** Verified matches by the UTC weekday and hour they started. */
 export const MatchStartTimesSchema = z.object({
   matches: count,
@@ -178,6 +191,7 @@ export const RulesetStatsSchema = z.object({
   closestGames: ClosestGamesSchema.nullable(),
   biggestComebacks: BiggestComebacksSchema.nullable(),
   strongestFields: StrongestFieldsSchema.nullable(),
+  activePlayers: ActivePlayersSchema.nullable(),
   matchStartTimes: MatchStartTimesSchema,
 });
 
@@ -220,6 +234,7 @@ export type BiggestComebacksData = z.infer<typeof BiggestComebacksSchema>;
 export type BiggestComebackData = BiggestComebacksData['matches'][number];
 export type StrongestFieldsData = z.infer<typeof StrongestFieldsSchema>;
 export type StrongestFieldData = StrongestFieldsData['tournaments'][number];
+export type ActivePlayersData = z.infer<typeof ActivePlayersSchema>;
 export type MatchStartTimesData = z.infer<typeof MatchStartTimesSchema>;
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<

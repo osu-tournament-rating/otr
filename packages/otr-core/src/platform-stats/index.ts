@@ -24,4 +24,5 @@ export type {
   BiggestComebacks,
 } from './stats/biggest-comebacks';
 export type { StrongestField, StrongestFields } from './stats/strongest-fields';
+export type { ActivePlayers, ActivePlayersYear } from './stats/active-players';
 export type { MatchRecord } from './stats/shared';
