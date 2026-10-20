@@ -80,6 +80,8 @@ export const LEADERBOARD_LIST_PARAMS = defineListParams({
   osuRank: rangeParam(LEADERBOARD_RANGES.osuRank),
   matches: rangeParam(LEADERBOARD_RANGES.matches),
   winRate: rangeParam(LEADERBOARD_RANGES.winRate),
+  // Off by default: the leaderboard lists players who still compete.
+  includeInactive: booleanParam({ key: 'inactive' }),
   page: pageParam(),
 });
 
@@ -156,5 +158,6 @@ export function toLeaderboardRequest(
     maxMatches: state.matches.max,
     minWinRate: toFraction(state.winRate.min),
     maxWinRate: toFraction(state.winRate.max),
+    includeInactive: state.includeInactive || undefined,
   };
 }

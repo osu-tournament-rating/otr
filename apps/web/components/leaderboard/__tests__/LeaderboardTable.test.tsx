@@ -38,6 +38,8 @@ function entry(
       subTierFillPercentage: 0.5,
       majorTierFillPercentage: 0.5,
     },
+    lastMatchTime: '2026-10-01T12:00:00.000Z',
+    inactive: false,
   };
 }
 
@@ -109,6 +111,25 @@ describe('LeaderboardTable', () => {
     for (const row of [tableRow, phoneRow]) {
       expect(row).not.toContain('country=');
       expect(row).not.toContain('data-slot="country-flag"');
+    }
+  });
+
+  // A button, so the explanation opens on keyboard focus and tap as well
+  // as hover.
+  it('marks an inactive player with a tooltip button, table and phone', () => {
+    const html = render([
+      entry(4, 'active', 'PL', 7),
+      { ...entry(5, 'idle', 'PL', 9), inactive: true },
+    ]);
+    const mark =
+      /<button[^>]*aria-label="Inactive: no verified match in the last 6 months"/;
+
+    for (const [attribute, closing] of [
+      ['data-testid="leaderboard-row-', '</tr>'],
+      ['data-testid="leaderboard-phone-row-', '</li>'],
+    ]) {
+      expect(section(html, `${attribute}5"`, closing)).toMatch(mark);
+      expect(section(html, `${attribute}4"`, closing)).not.toMatch(mark);
     }
   });
 

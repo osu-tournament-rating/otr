@@ -1,0 +1,1 @@
+CREATE INDEX "ix_rating_adjustments_player_rating_id_match_timestamp" ON "rating_adjustments" USING btree ("player_rating_id" int4_ops,"timestamp" timestamptz_ops) WHERE adjustment_type = 2;

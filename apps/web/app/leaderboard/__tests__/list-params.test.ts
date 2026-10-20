@@ -169,6 +169,21 @@ describe('toLeaderboardRequest', () => {
     expect(LeaderboardRequestSchema.safeParse(request).success).toBe(true);
   });
 
+  it('asks for inactive players only while the address includes them', () => {
+    const state = parse('inactive=true');
+    expect(toLeaderboardRequest(state, Ruleset.Osu).includeInactive).toBe(true);
+    expect(leaderboardHref(state, { page: 2 })).toBe(
+      '/leaderboard?inactive=true&page=2'
+    );
+
+    // A filter: Clear all hides inactive players again.
+    expect(countActiveFilters(LEADERBOARD_LIST_PARAMS, state)).toBe(1);
+    const cleared = clearListFilters(LEADERBOARD_LIST_PARAMS, state);
+    expect(
+      toLeaderboardRequest(cleared, Ruleset.Osu).includeInactive
+    ).toBeUndefined();
+  });
+
   it('leaves the default sort to the server, and sends any other direction', () => {
     expect(toLeaderboardRequest(parse(''), Ruleset.Osu).sort).toBeUndefined();
     expect(toLeaderboardRequest(parse('dir=asc'), Ruleset.Osu)).toMatchObject({

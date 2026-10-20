@@ -1,3 +1,4 @@
+import { Moon } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -83,10 +84,30 @@ function TierMark({ entry, size }: { entry: LeaderboardEntry; size: number }) {
   );
 }
 
+const INACTIVE_TOOLTIP = 'Inactive: no verified match in the last 6 months';
+
+/**
+ * Marks a player with no verified match in the ruleset for 184 days, whom
+ * the leaderboard lists only when asked to. The tooltip opens on hover,
+ * keyboard focus and tap.
+ */
+function InactiveMark() {
+  return (
+    <TapTooltip
+      content={INACTIVE_TOOLTIP}
+      triggerAriaLabel={INACTIVE_TOOLTIP}
+      triggerClassName="inline-flex w-auto shrink-0 text-muted-foreground"
+    >
+      <Moon aria-hidden className="size-4" />
+    </TapTooltip>
+  );
+}
+
 /**
  * The player's name, with the avatar inside the same link in the table, then
- * the flag, which narrows the leaderboard to that country as it always has.
- * Phone rows show the avatar as the row's `leading` instead.
+ * the flag, which narrows the leaderboard to that country as it always has,
+ * and a mark when the player is inactive. Phone rows show the avatar as the
+ * row's `leading` instead.
  */
 function PlayerName({
   entry,
@@ -129,6 +150,7 @@ function PlayerName({
           showCountryRank={showCountryRank}
         />
       ) : null}
+      {entry.inactive ? <InactiveMark /> : null}
       {isYou ? (
         <Badge size="sm" tone="primary">
           You

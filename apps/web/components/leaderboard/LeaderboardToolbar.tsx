@@ -14,6 +14,7 @@ import {
   ChoiceFilter,
   FilterField,
   FilterPanel,
+  SwitchFilter,
 } from '@/components/kit/lists/FilterPanel';
 import { RangeFilter } from '@/components/kit/lists/RangeFilter';
 import { ListToolbar } from '@/components/kit/lists/ListToolbar';
@@ -55,6 +56,8 @@ const OSU_RANK_LABEL = fieldLabel('osuRank');
 const WIN_RATE_LABEL = fieldLabel('winRate');
 
 const formatWinRate = (value: number) => `${formatFilterNumber(value)}%`;
+
+const INCLUDE_INACTIVE_LABEL = 'Include inactive players';
 
 /**
  * The strip at the top of the leaderboard's panel: player search, sort and
@@ -168,6 +171,12 @@ export default function LeaderboardToolbar({
               data-testid="leaderboard-filter-country-button"
             />
           </FilterField>
+          <SwitchFilter
+            label={INCLUDE_INACTIVE_LABEL}
+            description="No verified match in the last 6 months"
+            checked={state.includeInactive}
+            onCheckedChange={(includeInactive) => setState({ includeInactive })}
+          />
         </FilterPanel>
       }
       scope={
@@ -240,6 +249,11 @@ export default function LeaderboardToolbar({
               key: 'country',
               label: countryName ? `Country: ${countryName}` : '',
               onRemove: () => setState({ country: '' }),
+            },
+            {
+              key: 'includeInactive',
+              label: state.includeInactive ? INCLUDE_INACTIVE_LABEL : '',
+              onRemove: () => setState({ includeInactive: false }),
             },
           ]}
         />

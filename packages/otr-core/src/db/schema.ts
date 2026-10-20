@@ -1413,6 +1413,15 @@ export const ratingAdjustments = pgTable(
       'btree',
       table.playerRatingId.asc().nullsLast().op('int4_ops')
     ),
+    // A player's last match in a ruleset, which decides whether they are
+    // inactive (player-activity.ts). 2 is RatingAdjustmentType.Match.
+    index('ix_rating_adjustments_player_rating_id_match_timestamp')
+      .using(
+        'btree',
+        table.playerRatingId.asc().nullsLast().op('int4_ops'),
+        table.timestamp.asc().nullsLast().op('timestamptz_ops')
+      )
+      .where(sql`adjustment_type = 2`),
     foreignKey({
       columns: [table.matchId],
       foreignColumns: [matches.id],
