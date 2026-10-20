@@ -576,8 +576,11 @@ export const auth = betterAuth({
   plugins: [
     bannedLoginRedirectPlugin(),
     apiKey({
+      // The plugin's counter starts over only after a full window with no
+      // requests, so withOptionalApiKey counts each key's requests instead,
+      // against the limit stored on the key from these values.
       rateLimit: {
-        enabled: true,
+        enabled: false,
         maxRequests: 60,
         timeWindow: 60 * 1000,
       },

@@ -188,10 +188,13 @@ export const generateUserApiKey = protectedMutationProcedure
     // The auth database adapter enforces the per-user key limit
     const created = await auth.api
       .createApiKey({
-        headers: context.headers,
         body: {
+          userId: context.session.user.id,
           name: apiKeyName,
           prefix: API_KEY_PREFIX,
+          // The auth plugin's own counting is off, which would otherwise
+          // store the key as unlimited; withOptionalApiKey reads this
+          rateLimitEnabled: true,
         },
       })
       .catch((error: unknown) => {

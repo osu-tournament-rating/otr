@@ -14,6 +14,7 @@ import {
   API_KEY_MESSAGES,
   parseBearerAuthorization,
 } from '@/lib/api/api-key-header';
+import { consumeApiKeyRequest } from '@/lib/api/api-key-rate-limit';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import {
@@ -452,6 +453,20 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
         status: 403,
         message: 'API key disabled',
         data: { code: 'KEY_DISABLED' },
+      });
+    }
+
+    const limit = consumeApiKeyRequest(activeKey);
+
+    if (!limit.allowed) {
+      context.resHeaders?.set(
+        'retry-after',
+        String(Math.ceil(limit.retryAfterMs / 1000))
+      );
+      throw new ORPCError('TOO_MANY_REQUESTS', {
+        status: 429,
+        message: 'API key rate limit exceeded',
+        data: { code: 'RATE_LIMITED', tryAgainIn: limit.retryAfterMs },
       });
     }
   } catch (error) {
