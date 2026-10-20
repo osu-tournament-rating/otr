@@ -90,6 +90,9 @@ class Ui:
     def note(self, text: str) -> None:
         self.console.print(f"[dim]{text}[/dim]")
 
+    def warn(self, text: str) -> None:
+        self.console.print(f"[yellow]Warning:[/yellow] {text}", markup=True, highlight=False)
+
     def summary(self, report: Report) -> None:
         grid = Table.grid(padding=(0, 2))
         rows = [
@@ -97,9 +100,11 @@ class Ui:
             ("Metadata", str(report.metadata_path)),
             ("Rows exported", f"{report.row_count:,}"),
             ("Decay reconciled", f"{report.reconciliation.adjustments_reconciled:,}"),
+            ("Rating run", report.receipt.ref.name if report.receipt else "no receipt"),
             ("Replica", report.replica.ref.name),
             ("Replica checksum", "verified"),
-            ("Processor", f"{report.release.tag} ({report.release.digest[:19]}…)"),
+            ("Processor", f"{report.release.label} ({report.release.digest[:19]}…)"),
+            ("Warnings", str(len(report.warnings))),
             ("Elapsed", str(report.finished_at - report.started_at).split(".")[0]),
         ]
         for name, value in rows:

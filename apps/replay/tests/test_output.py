@@ -7,6 +7,8 @@ import pytest
 
 from otr_replay import __version__
 from otr_replay.models import (
+    Receipt,
+    ReceiptRef,
     Reconciliation,
     Release,
     ReplayError,
@@ -107,3 +109,57 @@ def test_write_atomic_replaces_claimed_file(tmp_path):
     write_atomic(target, "{}")
     assert target.read_text() == "{}"
     assert list(tmp_path.iterdir()) == [target]
+
+
+def test_metadata_records_the_rating_run_its_receipt_names(tmp_path):
+    name = "otr-rating-receipt_2026-07-28T12:00:03Z.json"
+    receipt = Receipt(
+        ref=ReceiptRef(
+            name=name,
+            url=f"https://storage.googleapis.com/otr-public-replica/{name}",
+            started_at=datetime(2026, 7, 28, 12, 0, 3, tzinfo=UTC),
+        ),
+        run_id="00000000-0000-4000-8000-000000000003",
+        started_at=datetime(2026, 7, 28, 12, 0, 3, 250000, tzinfo=UTC),
+        decay_horizon=datetime(2026, 7, 28, 12, 1, 30, tzinfo=UTC),
+        committed_at=datetime(2026, 7, 28, 12, 3, 10, tzinfo=UTC),
+        release="2026.05.18",
+        image="stagecodes/otr-processor@sha256:" + "cd" * 32,
+        ratings=1234,
+        inferred={},
+    )
+    report = _report(tmp_path)
+    report = Report(
+        **{
+            **{field: getattr(report, field) for field in report.__slots__},
+            # A receipt names the image, not its publication times.
+            "release": Release(
+                tag="2026.05.18",
+                published_at=None,
+                pushed_at=None,
+                digest="sha256:" + "cd" * 32,
+            ),
+            "receipt": receipt,
+            "horizon": receipt.decay_horizon,
+            "warnings": ("a warning",),
+        }
+    )
+
+    metadata = build_metadata(report)
+
+    assert metadata["rating_run"] == {
+        "receipt": name,
+        "receipt_url": f"https://storage.googleapis.com/otr-public-replica/{name}",
+        "run_id": "00000000-0000-4000-8000-000000000003",
+        "started_at": "2026-07-28T12:00:03Z",
+        "decay_horizon": "2026-07-28T12:01:30Z",
+        "published_at": "2026-07-28T12:03:10Z",
+        "ratings": 1234,
+        "inferred": {},
+    }
+    assert metadata["processor"]["release"] == "2026.05.18"
+    assert metadata["processor"]["github_published_at"] is None
+    assert metadata["processor"]["image"] == "stagecodes/otr-processor@sha256:" + "cd" * 32
+    # Decay is reconciled to the run's horizon, not to the replica's timestamp.
+    assert metadata["reconciliation"]["horizon"] == "2026-07-28T12:01:30Z"
+    assert metadata["warnings"] == ["a warning"]

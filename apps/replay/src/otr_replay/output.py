@@ -87,6 +87,7 @@ def build_metadata(report: Report) -> dict:
             "timestamp": _utc(report.replica.ref.timestamp),
             "sha256": report.replica.sha256,
         },
+        "rating_run": _rating_run(report),
         "processor": {
             "release": report.release.tag,
             "github_published_at": _utc(report.release.published_at),
@@ -97,7 +98,7 @@ def build_metadata(report: Report) -> dict:
         },
         "sandbox": {"postgres_image": report.postgres_image},
         "reconciliation": {
-            "horizon": _utc(report.replica.ref.timestamp),
+            "horizon": _utc(report.horizon or report.replica.ref.timestamp),
             "ratings_restored": report.reconciliation.ratings_restored,
             "adjustments_reconciled": report.reconciliation.adjustments_reconciled,
         },
@@ -110,8 +111,26 @@ def build_metadata(report: Report) -> dict:
             "started_at": _utc(report.started_at),
             "ended_at": _utc(report.finished_at),
         },
+        "warnings": list(report.warnings),
     }
 
 
-def _utc(value: datetime) -> str:
-    return f"{value:%Y-%m-%dT%H:%M:%SZ}"
+def _rating_run(report: Report) -> dict | None:
+    """The rating run replayed, from its receipt; None if no receipt covered it."""
+    receipt = report.receipt
+    if receipt is None:
+        return None
+    return {
+        "receipt": receipt.ref.name,
+        "receipt_url": receipt.ref.url,
+        "run_id": receipt.run_id,
+        "started_at": _utc(receipt.started_at),
+        "decay_horizon": _utc(receipt.decay_horizon),
+        "published_at": _utc(receipt.committed_at),
+        "ratings": receipt.ratings,
+        "inferred": dict(receipt.inferred),
+    }
+
+
+def _utc(value: datetime | None) -> str | None:
+    return None if value is None else f"{value:%Y-%m-%dT%H:%M:%SZ}"

@@ -58,13 +58,17 @@ def parse_replica_timestamp(name: str) -> datetime | None:
         return None
 
 
-def parse_index(html: str) -> list[ReplicaRef]:
+def index_links(html: str) -> list[tuple[str, str]]:
+    """Each file the public replicas site links to, as (name, url)."""
     parser = _Anchors()
     parser.feed(html)
+    # Colons in ISO 8601 names may arrive percent-encoded in hrefs.
+    return [(unquote(href.rsplit("/", 1)[-1]), href) for href in parser.hrefs]
+
+
+def parse_index(html: str) -> list[ReplicaRef]:
     refs = []
-    for href in parser.hrefs:
-        # Colons in ISO 8601 names may arrive percent-encoded in hrefs.
-        name = unquote(href.rsplit("/", 1)[-1])
+    for name, href in index_links(html):
         timestamp = parse_replica_timestamp(name)
         if timestamp is not None:
             refs.append(ReplicaRef(name=name, url=href, timestamp=timestamp))
@@ -88,11 +92,13 @@ def select_replica(refs: Sequence[ReplicaRef], cutoff: datetime) -> ReplicaRef:
     return eligible[0]
 
 
-def discover_replicas(client: httpx.Client) -> list[ReplicaRef]:
-    refs = parse_index(_get(client, DATA_SITE).text)
+def fetch_index(client: httpx.Client) -> tuple[list[ReplicaRef], str]:
+    """The replicas the public replicas site lists, and the site's page."""
+    html = _get(client, DATA_SITE).text
+    refs = parse_index(html)
     if not refs:
         raise ReplayError("discovery", f"no replicas found at {DATA_SITE}")
-    return refs
+    return refs, html
 
 
 def fetch_releases(client: httpx.Client) -> list[dict]:

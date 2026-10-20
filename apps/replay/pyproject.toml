@@ -1,6 +1,6 @@
 [project]
 name = "otr-replay"
-version = "1.0.0"
+version = "1.1.0"
 description = "Reproduces published o!TR player ratings for a point in time."
 readme = "README.md"
 requires-python = ">=3.14"

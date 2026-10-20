@@ -8,14 +8,14 @@ tests need Docker.
 
 Nothing deploys this directory. People run it from their own clone of otr,
 so a merge to `master` reaches them on their next pull. It reads only public
-data: GitHub releases, Docker Hub tags, and the public replicas. It never needs
-the root `.env` or a worktree stack.
+data: the public replicas and rating run receipts, GitHub releases, and Docker
+Hub tags. It never needs the root `.env` or a worktree stack.
 
-The tool reproduces published ratings at a UTC `--as-of` time from the newest
-eligible public replica and processor release. It writes a CSV and audit
-`.metadata.json`. Never overwrite output. Record every replica, checksum,
-release, image digest, and reconciliation counter. Treat every timestamp,
-including an offset-less API value, as UTC.
+The tool reproduces the ratings the site showed at a UTC `--as-of` time by
+replaying the rating run that published them, from that run's receipt. It
+writes a CSV and audit `.metadata.json`. Never overwrite output. Record every
+receipt, replica, checksum, release, image digest, reconciliation counter, and
+warning. Treat every timestamp, including an offset-less API value, as UTC.
 
 ## Commands
 
@@ -30,6 +30,18 @@ including an offset-less API value, as UTC.
 
 ## Pipeline and invariants
 
+- `receipts.py` reads the rating run receipts listed on the public replicas
+  site, which `apps/scripts` publishes after each weekly run
+  (`src/lib/receipt.py`), and plans the replay. It replays the run with the
+  latest `committed_at` (or `started_at`, when null) at or before `--as-of`:
+  the image its receipt names, the newest replica at or before its start, and
+  decay reconciled to its `decay_horizon` (or start). It warns, in the console
+  and the metadata, when a receipt was back-populated, is over a week older
+  than `--as-of`, names no image, or the replica predates the run by more than
+  the maintenance window. Only an `--as-of` no receipt covers falls back to
+  `discovery.py`'s choice by publication time, with a warning. A receipt of
+  another `receipt_version` stops the replay; the version is a contract with
+  `apps/scripts`.
 - `discovery.py` selects the newest public replica and the newest stable
   `YYYY.MM.DD[.N]` processor release usable at the cutoff, ordering tags
   numerically. Processor releases are otr releases, since the processor lives
@@ -38,8 +50,9 @@ including an offset-less API value, as UTC.
   `stagecodes/otr-processor` Docker Hub tag, which otr pushes only when the
   processor changed. Ignore the tag's status: Docker Hub calls a tag inactive
   after a month without a push or pull, and its image still pulls. Usable time
-  is the later GitHub publication or Docker push time. Preserve retry and
-  rate-limit failure.
+  is the later GitHub publication or Docker push time. Read every page of a
+  listing, and fail rather than truncate one. Preserve retry and rate-limit
+  failure.
 - `sandbox.py` owns run-labeled Docker resources, streams imports, uses processor
   image digests, and removes only resources with its label. Teardown never hides
   the original error.
