@@ -30,7 +30,8 @@ const SECOND = 1000;
 
 const probe = publicProcedure.handler(() => 'ok');
 
-describe.skipIf(!enabled)('an API key’s 60 requests a minute', () => {
+// The Terms of Use and the settings page promise each key 1,000 a minute
+describe.skipIf(!enabled)('an API key’s 1,000 requests a minute', () => {
   const osuUser = useFakeOsuUser();
 
   let cookies: CookieJar;
@@ -38,16 +39,25 @@ describe.skipIf(!enabled)('an API key’s 60 requests a minute', () => {
   let key: string;
   let start: number;
 
-  /** A REST API request with the key, `offset` after the first. */
-  const requestAt = (offset: number) => {
+  /** `count` REST API requests with the key at once, `offset` after the first. */
+  const burstAt = (offset: number, count: number) => {
     setSystemTime(new Date(start + offset));
-    return call(probe, undefined, {
-      context: {
-        headers: new Headers({ authorization: `Bearer ${key}` }),
-        apiKeyRequired: true,
-      },
-    }).catch((error: unknown) => error);
+    return Promise.all(
+      Array.from({ length: count }, () =>
+        call(probe, undefined, {
+          context: {
+            headers: new Headers({ authorization: `Bearer ${key}` }),
+            apiKeyRequired: true,
+          },
+        }).catch((error: unknown) => error)
+      )
+    );
   };
+
+  const requestAt = async (offset: number) => (await burstAt(offset, 1))[0];
+
+  const countAllowed = (results: unknown[]) =>
+    results.filter((result) => result === 'ok').length;
 
   beforeAll(async () => {
     ({ cookies } = await osuUser.signIn());
@@ -77,20 +87,21 @@ describe.skipIf(!enabled)('an API key’s 60 requests a minute', () => {
   test('are counted per minute for a client that never pauses', async () => {
     const refused: number[] = [];
 
-    // One request every 2 seconds for 3 minutes: 30 a minute
-    for (let request = 0; request < 90; request++) {
-      if ((await requestAt(request * 2 * SECOND)) !== 'ok') {
-        refused.push(request + 1);
-      }
+    // 85 requests every 10 seconds for 2 minutes: 510 a minute, 1,020 in all
+    for (let burst = 0; burst < 12; burst++) {
+      const results = await burstAt(burst * 10 * SECOND, 85);
+      results.forEach((result, index) => {
+        if (result !== 'ok') {
+          refused.push(burst * 85 + index + 1);
+        }
+      });
     }
 
     expect(refused).toEqual([]);
   });
 
-  test('refuse the 61st request in a minute until the next minute', async () => {
-    for (let request = 0; request < 60; request++) {
-      expect(await requestAt(request * 500)).toBe('ok');
-    }
+  test('refuse the 1,001st request in a minute until the next minute', async () => {
+    expect(countAllowed(await burstAt(0, 1000))).toBe(1000);
 
     expect(await requestAt(30 * SECOND)).toMatchObject({
       status: 429,
@@ -103,13 +114,10 @@ describe.skipIf(!enabled)('an API key’s 60 requests a minute', () => {
   test('follow a limit raised on the key', async () => {
     await db
       .update(schema.apiKeys)
-      .set({ rateLimitMax: 120 })
+      .set({ rateLimitMax: 1010 })
       .where(eq(schema.apiKeys.referenceId, userId));
 
-    for (let request = 0; request < 120; request++) {
-      expect(await requestAt(request * 250)).toBe('ok');
-    }
-
+    expect(countAllowed(await burstAt(0, 1010))).toBe(1010);
     expect(await requestAt(30 * SECOND)).toMatchObject({ status: 429 });
   });
 });

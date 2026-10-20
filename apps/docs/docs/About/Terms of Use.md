@@ -26,7 +26,7 @@ Multiple clients may be used so long as each client serves a distinct, separate 
 
 ##### Rate limit increases
 
-The standard rate limit for a given client is 60 requests per minute.
+The standard rate limit for a given client is 1,000 requests per minute.
 
 If you wish to receive an increase to the API rate limit of your application, please [[Contact|contact us]] with your use case.
 

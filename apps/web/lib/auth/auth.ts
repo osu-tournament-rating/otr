@@ -10,6 +10,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
 import { limitApiKeysPerUser } from './api-key-limit';
+import { API_KEY_RATE_LIMIT } from './api-key-policy';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { legacyOAuthCallbackURL } from './osu-callback';
 import { recordUserActivity } from './user-activity';
@@ -581,8 +582,8 @@ export const auth = betterAuth({
       // against the limit stored on the key from these values.
       rateLimit: {
         enabled: false,
-        maxRequests: 60,
-        timeWindow: 60 * 1000,
+        maxRequests: API_KEY_RATE_LIMIT.maxRequests,
+        timeWindow: API_KEY_RATE_LIMIT.timeWindowMs,
       },
     }),
     genericOAuth({

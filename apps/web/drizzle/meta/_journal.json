@@ -302,6 +302,13 @@
       "when": 1792440452780,
       "tag": "0042_user_activity_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792457078183,
+      "tag": "0043_raise_api_key_rate_limit",
+      "breakpoints": true
     }
   ]
 }
