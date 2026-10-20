@@ -108,8 +108,10 @@ cd <REMOTE_PATH>/apps/scripts
 or run the Run script workflow (`run-script.yml`) with environment
 `production` and the arguments after `src/main.py` above. It runs in the
 `production-ops` environment, uses the same installed copy, and streams the
-log. It splits its arguments on whitespace, so no path can contain a space.
-Reading the receipt files themselves needs a shell on the host.
+log. It splits its arguments on whitespace and expands nothing, so no path
+can contain a space and `~` stays literal. Give absolute paths, or paths
+relative to `<REMOTE_PATH>/apps/scripts`, where it runs. Reading the receipt
+files themselves needs a shell on the host.
 
 ### Processor logs
 
@@ -153,8 +155,9 @@ Otherwise it adds a second receipt for the same run.
    replaces its day's schedule guess, and a day whose logged runs all failed
    has none.
 1. Check that `processor.release` changes where you expect, and that
-   `inferred.processor` names the release build or deploy that pointed
-   `latest` at that image before the run.
+   `inferred.processor`, where present, names the release build or deploy
+   that pointed `latest` at that image before the run. A receipt derived from
+   a log that recorded the image digest has none.
 1. Resolve every warning, as described below.
 
 The directory keeps the files of earlier runs. A run's receipts are the files
@@ -207,9 +210,11 @@ such as `uploading <receipt>`, and exits 1.
    ```
 
    The first step shows the replica and processor release the receipt chose,
-   a warning says the receipt was back-populated and names the inferred
-   fields, and the summary's `Rating run` row and the metadata's `rating_run`
-   name the receipt.
+   and the summary's `Rating run` row and the metadata's `rating_run` name the
+   receipt. When the receipt lists inferred fields, as every receipt derived
+   from the schedule does, a warning also says it was back-populated and
+   names them. A receipt derived from a log that recorded the image digest
+   infers nothing, so it gets no such warning.
 
 ### Running it again
 
