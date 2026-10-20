@@ -29,6 +29,7 @@ describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep', () => {
       db,
       logger: silentLogger,
       maintenanceWindowEnabled: true,
+      players: false,
       now: now ? () => now : undefined,
     });
 
@@ -121,7 +122,11 @@ describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep', () => {
     await beatmap(OSU_ID + 10, DataFetchStatus.Fetching);
     await beatmap(OSU_ID + 11, DataFetchStatus.NotFound);
 
-    expect(await sweep().run()).toEqual({ matches: 2, beatmaps: 1 });
+    expect(await sweep().run()).toEqual({
+      matches: 2,
+      beatmaps: 1,
+      players: 0,
+    });
 
     const payloads = (await jobRows(db)).map((row) => row.payload);
     expect(payloads).toEqual(
@@ -144,7 +149,11 @@ describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep', () => {
       payload: { type: 'match', osuMatchId: OSU_ID + 1, isLazer: false },
     });
 
-    expect(await sweep().run()).toEqual({ matches: 0, beatmaps: 0 });
+    expect(await sweep().run()).toEqual({
+      matches: 0,
+      beatmaps: 0,
+      players: 0,
+    });
     expect(await jobRows(db)).toHaveLength(1);
   });
 
@@ -155,7 +164,11 @@ describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep', () => {
       dataFetchStatus: DataFetchStatus.NotFetched,
     });
 
-    expect(await sweep(MAINTENANCE).run()).toEqual({ matches: 0, beatmaps: 0 });
+    expect(await sweep(MAINTENANCE).run()).toEqual({
+      matches: 0,
+      beatmaps: 0,
+      players: 0,
+    });
     expect(
       await db
         .select()
@@ -190,6 +203,98 @@ describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep', () => {
       },
     });
 
-    expect(await sweep().run()).toEqual({ matches: 0, beatmaps: 0 });
+    expect(await sweep().run()).toEqual({
+      matches: 0,
+      beatmaps: 0,
+      players: 0,
+    });
+  });
+});
+
+describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep players', () => {
+  const { pool, db } = createJobsTestDb(testDatabaseUrl!);
+
+  const STRANDED = OSU_ID + 20;
+  const FETCHED = OSU_ID + 21;
+  const NOT_FETCHED = OSU_ID + 22;
+  const QUEUED = OSU_ID + 23;
+  const osuIds = [STRANDED, FETCHED, NOT_FETCHED, QUEUED];
+
+  const sweep = (players: boolean) =>
+    new StrandedFetchSweep({
+      db,
+      logger: silentLogger,
+      maintenanceWindowEnabled: false,
+      players,
+    });
+
+  const player = (osuId: number, dataFetchStatus: DataFetchStatus) =>
+    db.insert(schema.players).values({
+      osuId,
+      dataFetchStatus,
+      // While Fetching, the lease start: a week ago, as for the players
+      // whose jobs were lost in the move to the jobs table.
+      osuLastFetch: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+    });
+
+  /** Player fetch jobs for this suite's players, oldest first. */
+  const playerJobs = async () =>
+    (await jobRows(db))
+      .filter(
+        (row) =>
+          row.payload.type === 'player' &&
+          osuIds.includes(row.payload.osuPlayerId as number)
+      )
+      .map((row) => ({ payload: row.payload, priority: row.priority }));
+
+  const cleanUp = () =>
+    db.delete(schema.players).where(inArray(schema.players.osuId, osuIds));
+
+  beforeEach(async () => {
+    await resetJobTables(db);
+    await cleanUp();
+  });
+
+  afterAll(async () => {
+    await cleanUp();
+    await pool.end();
+  });
+
+  it('queues a fetch behind new submissions for every Fetching player with no job, and no other player', async () => {
+    await player(STRANDED, DataFetchStatus.Fetching);
+    await player(FETCHED, DataFetchStatus.Fetched);
+    await player(NOT_FETCHED, DataFetchStatus.NotFetched);
+
+    expect((await sweep(true).run()).players).toBe(1);
+
+    expect(await playerJobs()).toEqual([
+      {
+        payload: { type: 'player', osuPlayerId: STRANDED },
+        priority: MessagePriority.Low,
+      },
+    ]);
+  });
+
+  it('leaves alone a Fetching player whose fetch is already queued', async () => {
+    await player(QUEUED, DataFetchStatus.Fetching);
+    await enqueueJob(db, JobQueue.OsuFetch, {
+      payload: { type: 'player', osuPlayerId: QUEUED },
+    });
+
+    expect((await sweep(true).run()).players).toBe(0);
+
+    expect(await playerJobs()).toEqual([
+      {
+        payload: { type: 'player', osuPlayerId: QUEUED },
+        priority: MessagePriority.Normal,
+      },
+    ]);
+  });
+
+  it('queues no player while player sweeps are off', async () => {
+    await player(STRANDED, DataFetchStatus.Fetching);
+
+    expect((await sweep(false).run()).players).toBe(0);
+    expect(await playerJobs()).toEqual([]);
   });
 });
