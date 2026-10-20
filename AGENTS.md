@@ -116,6 +116,8 @@ checkout's services on ports 5432 and 3000. This is a rule.
   until that block exists its `DATABASE_URL` reaches no database: the web app,
   worker, and migrations get one that fails to connect, and the processor
   refuses to run. A `DATABASE_URL` set in the shell is used as given.
+- The stack also holds an empty test database. `apps/scripts/otr test` runs
+  `bun test` with the database tests pointed at it, as CI runs them.
 - Only the database and web app start by default. Add `worker` or `monitoring`
   (Grafana with traces) to `otr up` when a task needs them; `--no-web` skips
   the site.

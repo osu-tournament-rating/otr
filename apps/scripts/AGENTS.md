@@ -108,7 +108,7 @@ configured application database.
 
 ## Agent stacks
 
-`./otr up|down|status` (`apps/scripts/otr` from the repository root) gives
+`./otr up|down|status|test` (`apps/scripts/otr` from the repository root) gives
 each linked worktree its own stack. The code is `src/otr.py` and
 `src/lib/stack/`. It uses only the standard library, so the wrapper runs it
 without syncing the venv. It refuses to run in the main checkout.
@@ -128,6 +128,11 @@ without syncing the venv. It refuses to run in the main checkout.
   in their own process groups, and the web app starts without the dev cache
   an earlier start left. Monitoring (`grafana/otel-lgtm`) runs in the
   stack's Compose project, from `src/lib/stack/compose.yml`.
+- Each `up` also creates the empty `otr_test` database beside the copy when
+  it is missing, and migrates it from a temporary copy of the migrations with
+  the commented-out first one restored, as CI's `checks` job does. `up --fresh`
+  drops and recreates it. `otr test [args]` runs `bun test [args]` from the
+  worktree root with `SEARCH_TEST_DATABASE_URL` and `DATABASE_URL` on it.
 - State lives in `~/.local/share/otr/stacks` (or `$OTR_STACKS_DIR`): `base/`,
   one directory per stack with its data, registry entry, and process records,
   and `locks/`. Logs go to the worktree's `.tmp/otr/`.

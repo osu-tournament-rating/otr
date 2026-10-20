@@ -89,11 +89,13 @@ Under Testing in the pull request, say which tests you saw fail first.
 
 A skipped test proves nothing, and Bun passes a test that makes no
 assertions. The `skip` and `expect() calls` counts in the summary show both.
-Tests that read `SEARCH_TEST_DATABASE_URL` skip unless it is set. Point it at
-an empty database on your own stack, never at `localhost:5432`, and migrate
-that database the way the `checks` job in `.github/workflows/ci.yml` migrates
-its test database. Set `DATABASE_URL` to the same value, because the sign-up
-test needs the two to match.
+Tests that read `SEARCH_TEST_DATABASE_URL` skip unless it is set. Run them
+with `apps/scripts/otr test`, which passes its arguments to `bun test` and
+sets `SEARCH_TEST_DATABASE_URL` and `DATABASE_URL` to your stack's empty test
+database. `otr up` migrates that database the way the `checks` job in
+`.github/workflows/ci.yml` migrates its own, and `otr up --fresh` empties it.
+Never point these tests at the stack's copy of the local database, where they
+sweep real rows and run past their time limits, or at `localhost:5432`.
 
 ## What each app must test
 
