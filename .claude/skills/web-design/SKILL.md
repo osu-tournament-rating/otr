@@ -85,7 +85,9 @@ it in `apps/web` from the kit, never from the mockup's markup.
   Admin actions sit in one "Admin" menu per hero and an overflow menu per
   row; audit history is a public action, never an admin one.
 - **Help.** One info button, a circled "i", that opens on tap, hover and
-  keyboard focus. Anything that only opens on hover is a bug. Help, captions
+  keyboard focus. The one exception, by owner decision, is the tournament
+  match cost label: a dotted underline (TermTooltip) that opens the same way.
+  Anything that only opens on hover is a bug. Help, captions
   and tooltips say what is not already on screen; never restate a label,
   placeholder, hint or title, and never define the word beside them. Write a
   short fragment, not a sentence: no full stop, at most one phrase, and a

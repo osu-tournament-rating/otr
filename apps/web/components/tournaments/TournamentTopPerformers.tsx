@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/kit/feedback/EmptyState';
 import { RatingDelta } from '@/components/kit/format/RatingDelta';
 import { Panel } from '@/components/kit/layout/Panel';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
+import { TermTooltip } from '@/components/kit/layout/TermTooltip';
 import {
   DataTable,
   DataTableBody,
@@ -58,6 +59,15 @@ function PlayerLink({
 
 const formatMatchCost = (value: number) => formatNumber(value, { decimals: 2 });
 const formatAverage = (value: number) => formatNumber(value, { decimals: 1 });
+
+/** How the weighted match cost below is calculated, in words. */
+const MATCH_COST_HINT =
+  'Average of all matches plus up to 50% depending on number of matches played';
+
+/** The match cost label, which opens {@link MATCH_COST_HINT}. */
+const matchCostLabel = (
+  <TermTooltip hint={MATCH_COST_HINT}>Match cost</TermTooltip>
+);
 
 /** Matches played past which the match cost bonus stops growing. */
 const FULL_BONUS_MATCHES = 6;
@@ -131,7 +141,7 @@ export default function TournamentTopPerformers({
                   // cost; average games stays in the table.
                   description={`Avg. placement ${formatAverage(stats.averagePlacement)}`}
                   value={formatMatchCost(matchCost)}
-                  valueDescription="Match cost"
+                  valueDescription={matchCostLabel}
                 />
               ))}
             </PhoneRowList>
@@ -141,7 +151,7 @@ export default function TournamentTopPerformers({
             <DataTableRow>
               <DataTableHead className="w-16">Rank</DataTableHead>
               <DataTableHead>Player</DataTableHead>
-              <DataTableHead numeric>Match cost</DataTableHead>
+              <DataTableHead numeric>{matchCostLabel}</DataTableHead>
               <DataTableHead numeric>Avg. placement</DataTableHead>
               <DataTableHead numeric>Avg. games</DataTableHead>
               <DataTableHead numeric>Avg. rating change</DataTableHead>

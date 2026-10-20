@@ -1,0 +1,36 @@
+<!-- @dsCard group="Layout" height=90 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>TermTooltip</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      function Demo() {
+        return h(
+          'div',
+          {
+            className:
+              'flex items-baseline gap-6 text-xs text-muted-foreground',
+          },
+          h('span', null, 'Rank'),
+          h('span', null, 'Player'),
+          h(
+            O.TermTooltip,
+            {
+              hint: 'Average of all matches plus up to 50% depending on number of matches played',
+            },
+            'Match cost'
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>
