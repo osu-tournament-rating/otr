@@ -8,11 +8,12 @@ from lib.constants import buckets, scripts
 
 logger = logging.getLogger(__name__)
 
-# What production's cron runs. Recovery, template-db, and archives to other
-# buckets are run by hand, so a failed one would keep alerting until someone
-# ran it again.
+# What runs on a schedule: production's cron, and the weekly dev archive that
+# .github/workflows/dev-archive.yml makes. Recovery, template-db, and archives
+# to the test bucket are run by hand, so a failed one would keep alerting until
+# someone ran it again.
 RECORDED = {scripts.ARCHIVE, scripts.PROCESSOR, scripts.REFRESH_INDEX}
-RECORDED_BUCKETS = {buckets.PROD, buckets.PUBLIC}
+RECORDED_BUCKETS = {buckets.PROD, buckets.PUBLIC, buckets.DEV}
 
 
 def record_run(
