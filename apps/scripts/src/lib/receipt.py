@@ -18,6 +18,7 @@ import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
+from lib import metrics
 from lib.config import config
 from lib.constants import buckets
 from lib.gcs import gcs_utils
@@ -191,8 +192,11 @@ def publish_run(lines: list[str], requested: str, digest: str | None) -> None:
     `lines` holds the receipt lines the processor printed. The ratings are
     already committed, so nothing here may fail the run: every problem is
     logged as an error and the receipt is skipped. Only production publishes
-    receipts, since the public bucket describes production's ratings.
+    receipts, since the public bucket describes production's ratings, and it
+    records whether a receipt naming the image was published, so a missing
+    one raises an alert.
     """
+    complete = False
     try:
         if len(lines) != 1:
             logger.error(
@@ -238,8 +242,12 @@ def publish_run(lines: list[str], requested: str, digest: str | None) -> None:
         gcs_utils.upload(path, buckets.PUBLIC)
         generate_index()
         logger.info(f"Published {path.name}")
+        complete = digest is not None
     except Exception:
         logger.exception(
             "Publishing the run's receipt failed. Its ratings are committed. "
             "The backfill-receipts script can publish the receipt from this log."
         )
+    finally:
+        if config.environment == "production":
+            metrics.record_receipt(complete)

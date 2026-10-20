@@ -49,17 +49,43 @@ def record_run(
         f"otr_script_last_run_duration_seconds{{{labels}}} {duration_seconds:.0f}\n"
     )
 
-    path = config.metrics_dir / f"otr_script_{name}.prom"
-    # node-exporter reads only *.prom files, so it never sees a partial write.
-    partial = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-
     # The exit code already reports the run itself, and a missing result
     # raises the overdue alert, so a failed write only logs.
+    _write(f"otr_script_{name}.prom", text, f"the '{script}' run")
+
+
+def record_receipt(published: bool) -> None:
+    """Records whether the last rating run has a published receipt
+
+    A receipt counts only when it names the image the run ran. The processor
+    run that committed still succeeds without one, so a rule in
+    monitoring/prod/prometheus/rules alerts on this instead. `processor`
+    records each committed production run, and `backfill-receipts --upload`
+    records True once it has published the missing receipts. Does nothing
+    unless METRICS_DIR is set.
+    """
+    if config.metrics_dir is None:
+        return
+
+    text = (
+        "# HELP otr_rating_receipt_published Whether the last rating run has a "
+        "published receipt naming its image.\n"
+        "# TYPE otr_rating_receipt_published gauge\n"
+        f"otr_rating_receipt_published {int(published)}\n"
+    )
+    # A receipt never decides the run's result, so a failed write only logs.
+    _write("otr_rating_receipt.prom", text, "the receipt's result")
+
+
+def _write(name: str, text: str, what: str) -> None:
+    path = config.metrics_dir / name
+    # node-exporter reads only *.prom files, so it never sees a partial write.
+    partial = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
         partial.write_text(text)
         # node-exporter runs as another user.
         partial.chmod(0o644)
         os.replace(partial, path)
     except OSError:
-        logger.exception(f"Recording the '{script}' run in {path} failed")
+        logger.exception(f"Recording {what} in {path} failed")
         partial.unlink(missing_ok=True)

@@ -425,3 +425,31 @@ def test_backfill_publishes_the_receipts_with_upload(bucket):
         ("otr-rating-receipt_2026-10-06T12:00:00Z.json", "public"),
     ]
     assert bucket.indexed == [True]
+
+
+@pytest.fixture
+def metrics_dir(monkeypatch, tmp_path):
+    path = tmp_path / "textfile"
+    path.mkdir()
+    monkeypatch.setattr(backfill.config, "metrics_dir", path)
+    return path
+
+
+def test_backfill_upload_clears_the_missing_receipt_alert(bucket, metrics_dir):
+    assert backfill.run(args(upload=True)) is True
+
+    recorded = (metrics_dir / "otr_rating_receipt.prom").read_text()
+    assert "\notr_rating_receipt_published 1\n" in recorded
+
+
+def test_backfill_leaves_the_alert_until_it_has_uploaded(
+    monkeypatch, bucket, metrics_dir
+):
+    def failing_upload(path, bucket):
+        raise OSError("the bucket refused the upload")
+
+    assert backfill.run(args(upload=False)) is True
+    monkeypatch.setattr(backfill.gcs_utils, "upload", failing_upload)
+    assert backfill.run(args(upload=True)) is False
+
+    assert list(metrics_dir.iterdir()) == []

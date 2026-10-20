@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import pytest
 
@@ -65,10 +66,10 @@ def published(monkeypatch, tmp_path):
     return uploads
 
 
-def fake_runs(monkeypatch, run_output: str, run_code: int = 0):
+def fake_runs(monkeypatch, run_output: str, run_code: int = 0, pull_output=PULL):
     def popen(cmd, **kwargs):
         if cmd[1] == "pull":
-            return FakeProcess(PULL, 0)
+            return FakeProcess(pull_output, 0)
         return FakeProcess(run_output, run_code)
 
     monkeypatch.setattr(processor.subprocess, "Popen", popen)
@@ -175,3 +176,72 @@ def test_receipt_stays_local_outside_production(monkeypatch, published, tmp_path
     )
     assert written["environment"] == "dev"
     assert written["run_id"] == RUN_HALF["run_id"]
+
+
+@pytest.fixture
+def metrics_dir(monkeypatch, tmp_path):
+    path = tmp_path / "textfile"
+    path.mkdir()
+    monkeypatch.setattr(config, "metrics_dir", path)
+    return path
+
+
+def receipt_published(metrics_dir) -> str | None:
+    """What the run recorded for the missing receipt alert, if anything"""
+    path = metrics_dir / "otr_rating_receipt.prom"
+    if not path.exists():
+        return None
+    match = re.search(
+        r"^otr_rating_receipt_published (\d+)$", path.read_text(), re.MULTILINE
+    )
+    return match.group(1) if match else path.read_text()
+
+
+def test_a_published_receipt_records_it_for_the_alert(
+    monkeypatch, published, metrics_dir
+):
+    fake_runs(monkeypatch, f"{RECEIPT_LINE}\n")
+
+    assert processor.run() is True
+
+    assert receipt_published(metrics_dir) == "1"
+
+
+@pytest.mark.parametrize(
+    ("run_output", "upload", "pull_output"),
+    [
+        (f"{RECEIPT_LINE}\n", failing_upload, PULL),
+        ("OTR_RECEIPT={not json\n", None, PULL),
+        ("INFO COMMIT TRANSACTION\n", None, PULL),
+        (f"{RECEIPT_LINE}\n{RECEIPT_LINE}\n", None, PULL),
+        # The receipt is published, but a replay would have to guess its image.
+        (f"{RECEIPT_LINE}\n", None, "Status: Downloaded newer image\n"),
+    ],
+    ids=["upload fails", "malformed line", "no receipt", "two receipts", "no image"],
+)
+def test_a_committed_run_without_a_complete_receipt_raises_the_alert(
+    monkeypatch, published, metrics_dir, run_output, upload, pull_output
+):
+    if upload is not None:
+        monkeypatch.setattr(receipt.gcs_utils, "upload", upload)
+    fake_runs(monkeypatch, run_output, pull_output=pull_output)
+
+    assert processor.run() is True
+
+    assert receipt_published(metrics_dir) == "0"
+
+
+@pytest.mark.parametrize(
+    ("environment", "run_code"),
+    [("dev", 0), ("production", 1)],
+    ids=["outside production", "failed run"],
+)
+def test_a_run_that_owes_no_receipt_records_nothing(
+    monkeypatch, published, metrics_dir, environment, run_code
+):
+    monkeypatch.setattr(config, "environment", environment)
+    fake_runs(monkeypatch, f"{RECEIPT_LINE}\n", run_code=run_code)
+
+    processor.run()
+
+    assert receipt_published(metrics_dir) is None

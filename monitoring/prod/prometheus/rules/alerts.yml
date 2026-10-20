@@ -355,6 +355,17 @@ groups:
         annotations:
           summary: No processor run has been recorded in 7 days
 
+      # A run that committed succeeds without its receipt, so ScriptRunFailed
+      # stays quiet, and a replay of that week would guess its image or data.
+      - alert: RatingReceiptMissing
+        expr: otr_rating_receipt_published == 0
+        labels:
+          severity: warning
+          script: processor
+        annotations:
+          summary: The last rating run published no receipt naming its processor image
+          description: Its ratings are committed. The processor log in the scripts' log directory on the production host says why. backfill-receipts with --logs-dir and --upload publishes the receipt from that log and clears this alert.
+
       - alert: ScriptRunOverdue
         expr: time() - otr_script_last_run_timestamp_seconds{script="refresh-index"} > 3 * 3600
         labels:

@@ -79,7 +79,9 @@ configured application database.
   the public bucket, where otr-replay reads it. Only production publishes;
   other environments keep the file under `DUMP_DIR/receipts`. The ratings are
   already committed, so a receipt problem logs an error and never fails the
-  run. The processor prints that line and the receipt's run fields; keep them
+  run. With `METRICS_DIR` set, production records
+  `otr_rating_receipt_published 0` instead, which raises the
+  `RatingReceiptMissing` alert. The processor prints that line and the receipt's run fields; keep them
   in step with `apps/processor/src/receipt.rs` and `apps/replay`.
 - `backfill-receipts` derives receipts for the weekly runs from before
   receipts (`src/lib/scripts/receipts_backfill.py`). The schedule, Tuesdays
@@ -88,7 +90,8 @@ configured application database.
   from `--logs-dir` replace both with what the run printed. Each receipt lists
   what was inferred, with its evidence, in `inferred`. It writes them under
   `DUMP_DIR/receipts-backfill` for review, uploads only with `--upload`, and
-  never replaces a receipt already in the bucket.
+  never replaces a receipt already in the bucket. A successful upload records
+  `otr_rating_receipt_published 1`, which clears that alert.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task
