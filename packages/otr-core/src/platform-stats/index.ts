@@ -8,3 +8,6 @@ export {
 } from './refresh';
 export { readPlatformStats, type StoredPlatformStat } from './read';
 export type { HeadlineTotals } from './stats/headline-totals';
+export * from './constants';
+export type { BiggestUpset, BiggestUpsets } from './stats/biggest-upsets';
+export type { MatchRecord } from './stats/shared';

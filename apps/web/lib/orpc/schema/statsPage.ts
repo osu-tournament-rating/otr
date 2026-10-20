@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-import type { HeadlineTotals } from '@otr/core/platform-stats';
+import type { BiggestUpsets, HeadlineTotals } from '@otr/core/platform-stats';
 
 import { RANK_RANGE_BUCKET_KEYS } from '@/lib/beatmaps/rankRange';
 
-import { RulesetSchema } from './constants';
+import { RulesetSchema, TeamSchema } from './constants';
 
 const count = z.number().int().nonnegative();
 const isoTimestamp = z.iso.datetime();
@@ -20,6 +20,27 @@ export const HeadlineTotalsSchema = z.object({
   scores: count,
   ratedPlayers: count,
 }) satisfies z.ZodType<HeadlineTotals>;
+
+const MatchRecordShape = {
+  matchId: z.number().int(),
+  matchName: z.string(),
+  tournamentId: z.number().int(),
+  tournamentName: z.string(),
+  winnerTeam: TeamSchema,
+  winnerScore: count,
+  loserScore: count,
+};
+
+export const BiggestUpsetsSchema = z.object({
+  total: count,
+  matches: z.array(
+    z.object({
+      ...MatchRecordShape,
+      winnerRating: z.number(),
+      loserRating: z.number(),
+    })
+  ),
+}) satisfies z.ZodType<BiggestUpsets>;
 
 export const VerificationSummarySchema = z.object({
   windowDays: count,
@@ -86,6 +107,8 @@ export const RulesetStatsSchema = z.object({
   playersByCountry: CountrySummarySchema,
   topPlayersByCountry: CountrySummarySchema,
   rankRestrictionsByYear: z.array(RankRestrictionYearSchema),
+  /** Stored statistics, null until the data worker has computed them. */
+  biggestUpsets: BiggestUpsetsSchema.nullable(),
 });
 
 /**
@@ -118,3 +141,10 @@ export type CountryCountData = z.infer<typeof CountryCountSchema>;
 export type CountrySummaryData = z.infer<typeof CountrySummarySchema>;
 export type RankRestrictionYearData = z.infer<typeof RankRestrictionYearSchema>;
 export type RulesetStatsData = z.infer<typeof RulesetStatsSchema>;
+export type BiggestUpsetsData = z.infer<typeof BiggestUpsetsSchema>;
+export type BiggestUpsetData = BiggestUpsetsData['matches'][number];
+/** The parts every listed match shares. */
+export type MatchRecordData = Pick<
+  BiggestUpsetData,
+  keyof typeof MatchRecordShape
+>;

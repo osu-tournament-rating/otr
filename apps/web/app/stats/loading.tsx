@@ -42,6 +42,25 @@ function ChartPanelSkeleton({
   );
 }
 
+/** A ranked list panel: the real header, a meta bar, and its rows. */
+function RecordListSkeleton({
+  copy,
+  rows,
+  meta = false,
+}: {
+  copy: StatsPanelCopy;
+  rows: number;
+  /** Rows with a second muted line, such as a tiebreaker's beatmap. */
+  meta?: boolean;
+}) {
+  return (
+    <PanelSkeleton>
+      <SectionHeaderSkeleton {...copy} meta="w-48" level={3} />
+      <RowListSkeleton rows={rows} leading="none" meta={meta} />
+    </PanelSkeleton>
+  );
+}
+
 export default function StatsLoading() {
   return (
     <PageFrame role="status" aria-label="Loading statistics">
@@ -113,6 +132,9 @@ export default function StatsLoading() {
           plot="h-80"
           level={3}
         />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RecordListSkeleton copy={STATS_PANELS.biggestUpsets} rows={5} />
+        </div>
       </PageSection>
     </PageFrame>
   );

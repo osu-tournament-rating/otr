@@ -5,6 +5,7 @@ import * as schema from '@otr/core/db/schema';
 import { Ruleset, VerificationStatus } from '@otr/core/osu';
 import { PLATFORM_STATS, PlatformStatKey } from '@otr/core/platform-stats';
 import type { DatabaseClient } from '@/lib/db';
+import type { RulesetStatsData } from '@/lib/orpc/schema/statsPage';
 
 import { createTestDb, testDatabaseUrl } from '../../__tests__/test-utils';
 import {
@@ -315,6 +316,40 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         context: { db: tx as unknown as DatabaseClient },
       });
       expect(page.allRulesets.totals).toBeNull();
+    });
+  });
+
+  it('serves each stored per-ruleset statistic in its own field, for its own ruleset', async () => {
+    // Distinct totals, so two fields that read each other's rows differ.
+    const payloads = {
+      [PlatformStatKey.BiggestUpsets]: { total: 1, matches: [] },
+    };
+    const storedFields = (entry: RulesetStatsData) => ({
+      biggestUpsets: entry.biggestUpsets,
+    });
+
+    await onEmptyTables(async (tx) => {
+      for (const [key, payload] of Object.entries(payloads)) {
+        const version = PLATFORM_STATS.find(
+          (definition) => definition.key === key
+        )!.version;
+        await tx.execute(sql`
+          insert into ${schema.platformStats} (name, ruleset, payload, version, computed_at)
+          values (${key}, ${Ruleset.Taiko}, ${JSON.stringify(payload)}::jsonb, ${version}, now())`);
+      }
+
+      const { byRuleset } = await runStatsPage({
+        context: { db: tx as unknown as DatabaseClient },
+      });
+      const entry = (ruleset: Ruleset) =>
+        storedFields(byRuleset.find((item) => item.ruleset === ruleset)!);
+
+      expect(entry(Ruleset.Taiko)).toEqual({
+        biggestUpsets: payloads[PlatformStatKey.BiggestUpsets],
+      });
+      expect(entry(Ruleset.Osu)).toEqual({
+        biggestUpsets: null,
+      });
     });
   });
 });

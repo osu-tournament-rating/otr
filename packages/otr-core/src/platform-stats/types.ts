@@ -19,6 +19,7 @@ export const queryRows = async <TRow>(
  */
 export enum PlatformStatKey {
   HeadlineTotals = 'headline-totals',
+  BiggestUpsets = 'biggest-upsets',
 }
 
 /** The rulesets a per-ruleset statistic is computed for: every rated one. */

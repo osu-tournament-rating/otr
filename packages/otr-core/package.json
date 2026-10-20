@@ -15,6 +15,7 @@
     "./jobs": "./src/jobs/index.ts",
     "./jobs/*": "./src/jobs/*",
     "./platform-stats": "./src/platform-stats/index.ts",
+    "./platform-stats/constants": "./src/platform-stats/constants.ts",
     "./messages/*": "./src/messages/*",
     "./logging": "./src/logging/index.ts",
     "./logging/*": "./src/logging/*",

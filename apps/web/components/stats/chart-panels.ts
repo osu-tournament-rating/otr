@@ -1,3 +1,4 @@
+import { UPSET_MIN_EARLIER_MATCHES } from '@otr/core/platform-stats/constants';
 import {
   Calendar,
   ChartNoAxesColumn,
@@ -10,6 +11,7 @@ import {
   Percent,
   Target,
   Users,
+  Zap,
 } from 'lucide-react';
 
 import type { KitIcon } from '@/lib/kit/layout/icon';
@@ -84,6 +86,11 @@ export const STATS_PANELS = {
     icon: Target,
     title: 'Rank restrictions by year',
     infoText: `A tournament counts in the band its rank restriction starts at: 10k+ is for players ranked #10,000 and beyond. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
+  },
+  biggestUpsets: {
+    icon: Zap,
+    title: 'Biggest upsets',
+    infoText: `Only matches where every player had ${UPSET_MIN_EARLIER_MATCHES}+ earlier rated matches`,
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

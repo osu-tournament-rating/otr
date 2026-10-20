@@ -272,14 +272,18 @@ describe.skipIf(!url)('platform stats', () => {
       const { refreshed } = await refreshPlatformStats(tx, { now: NOW });
 
       expect(refreshed).toContain(PlatformStatKey.HeadlineTotals);
-      expect(await storedRows(tx)).toEqual([
-        {
-          name: PlatformStatKey.HeadlineTotals,
-          ruleset: null,
-          version: 1,
-          computed_at: NOW.toISOString(),
-        },
-      ]);
+      const rows = await storedRows(tx);
+      expect(rows).toContainEqual({
+        name: PlatformStatKey.HeadlineTotals,
+        ruleset: null,
+        version: 1,
+        computed_at: NOW.toISOString(),
+      });
+      // Every row was a day old, so every one was recomputed.
+      expect(new Set(rows.map((row) => row.computed_at))).toEqual(
+        new Set([NOW.toISOString()])
+      );
+      expect(rows.map((row) => row.name)).not.toContain('retired-stat');
     });
   });
 

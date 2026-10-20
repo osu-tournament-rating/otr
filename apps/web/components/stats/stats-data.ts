@@ -2,8 +2,9 @@
  * Shapes the platform stats response into chart rows. Pure, so the server
  * and client agree and the rules are unit-tested.
  */
-import { Ruleset, type VerificationStatus } from '@otr/core/osu';
+import { Ruleset, Team, type VerificationStatus } from '@otr/core/osu';
 
+import { parseTeamNames } from '@/components/tournaments/matchRow';
 import type { CountBarDatum } from '@/lib/kit/charts/count-bars';
 import type { StackedBarDatum } from '@/lib/kit/charts/stacked-bars';
 import { getNiceTicks, type NiceTicks } from '@/lib/kit/charts/ticks';
@@ -18,6 +19,7 @@ import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
 import type {
   CountryCountData,
   LazerYearData,
+  MatchRecordData,
   RankRestrictionYearData,
 } from '@/lib/orpc/schema/statsPage';
 import {
@@ -304,4 +306,20 @@ export function formatDaysToVerify(days: number | null): string {
   if (days === null || !Number.isFinite(days)) return EMPTY_VALUE;
   if (days < 1) return 'Under a day';
   return formatCountOf(Math.round(days), 'day');
+}
+
+/**
+ * A listed match's two sides, winner first, from a name such as
+ * `OWC: (Japan) vs (Korea)`, where red is the first. Null for a name in
+ * another form, which the row shows as it is.
+ */
+export function getMatchSides(
+  match: Pick<MatchRecordData, 'matchName' | 'winnerTeam'>
+): { winner: string; loser: string } | null {
+  const teams = parseTeamNames(match.matchName);
+  if (!teams) return null;
+
+  return match.winnerTeam === Team.Blue
+    ? { winner: teams.blue, loser: teams.red }
+    : { winner: teams.red, loser: teams.blue };
 }

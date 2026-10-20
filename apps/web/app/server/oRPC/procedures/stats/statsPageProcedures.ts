@@ -8,6 +8,7 @@ import {
 import type { DatabaseClient } from '@/lib/db';
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
+  BiggestUpsetsSchema,
   HeadlineTotalsSchema,
   RecentlyVerifiedInputSchema,
   RecentlyVerifiedPageSchema,
@@ -106,6 +107,12 @@ export async function runStatsPage({
       ),
       rankRestrictionsByYear: bandRankRestrictions(
         rankRestrictions.filter((row) => row.ruleset === ruleset)
+      ),
+      biggestUpsets: storedPayload(
+        stored,
+        PlatformStatKey.BiggestUpsets,
+        ruleset,
+        BiggestUpsetsSchema
       ),
     })),
   };
