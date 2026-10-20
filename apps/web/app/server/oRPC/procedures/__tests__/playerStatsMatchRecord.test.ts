@@ -13,8 +13,9 @@ const SEED_NAME = 'player-stats-match-record';
 
 describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
   const { pool, db } = createTestDb(testDatabaseUrl!);
-  const osuIds = [SEED_OSU_ID, SEED_OSU_ID + 1];
+  const osuIds = [SEED_OSU_ID, SEED_OSU_ID + 1, SEED_OSU_ID + 2];
   let playerId = 0;
+  let switcherId = 0;
 
   const removeSeed = async () => {
     await db
@@ -26,11 +27,12 @@ describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
   beforeAll(async () => {
     await removeSeed();
 
-    const [player, opponent] = await db
+    const [player, opponent, switcher] = await db
       .insert(schema.players)
       .values(osuIds.map((osuId) => ({ osuId, username: `record-${osuId}` })))
       .returning({ id: schema.players.id });
     playerId = player!.id;
+    switcherId = switcher!.id;
 
     const [tournament] = await db
       .insert(schema.tournaments)
@@ -85,6 +87,43 @@ describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
         opponentIds: [opponent!.id],
       });
     }
+
+    // A player who played for both teams, which ended Red 3, Blue 1. The
+    // worker stored a win, from the Red roster.
+    const [switchedMatch] = await db
+      .insert(schema.matches)
+      .values({
+        osuId: SEED_OSU_ID + results.length,
+        tournamentId: tournament!.id,
+        verificationStatus: VerificationStatus.Verified,
+        startTime: '2026-01-10T00:00:00Z',
+      })
+      .returning({ id: schema.matches.id });
+    const matchId = switchedMatch!.id;
+    await db.insert(schema.matchRosters).values([
+      { matchId, team: Team.Red, roster: [switcher!.id], score: 3 },
+      {
+        matchId,
+        team: Team.Blue,
+        roster: [switcher!.id, opponent!.id],
+        score: 1,
+      },
+    ]);
+    await db.insert(schema.playerMatchStats).values({
+      playerId: switcher!.id,
+      matchId,
+      matchCost: 1,
+      averageScore: 500_000,
+      averagePlacement: 1.5,
+      averageMisses: 0,
+      averageAccuracy: 0.95,
+      gamesPlayed: 4,
+      gamesWon: 3,
+      gamesLost: 1,
+      won: true,
+      teammateIds: [],
+      opponentIds: [opponent!.id],
+    });
   });
 
   afterAll(async () => {
@@ -103,6 +142,20 @@ describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
       matchesPlayed: 3,
       matchesWon: 1,
       matchesLost: 1,
+    });
+  });
+
+  it('does not count a won match as lost for a player who also played for the losing team', async () => {
+    const stats = await call(
+      getPlayerStats,
+      { id: switcherId, keyType: 'otr', ruleset: Ruleset.Osu },
+      { context: { db, headers: new Headers() } }
+    );
+
+    expect(stats.matchStats).toMatchObject({
+      matchesPlayed: 1,
+      matchesWon: 1,
+      matchesLost: 0,
     });
   });
 });

@@ -265,12 +265,19 @@ interface MatchStatsRow {
   stats: PlayerMatchStatsRow;
   matchStartTime: string | null;
   tournamentId: number;
-  /** Another team won more games. A draw is neither won nor lost. */
+  /**
+   * The player did not win, and another team won more games than a team they
+   * played for. A draw is neither won nor lost.
+   */
   lost: boolean;
 }
 
-/** {@link MatchStatsRow.lost}, from the match's rosters. */
-const matchLostSql = sql<boolean>`EXISTS (
+/**
+ * {@link MatchStatsRow.lost}, from the match's rosters. The stats worker
+ * counts a tournament's losses by the same rule, so the profile agrees with
+ * the tournament stats for a player who played for more than one team.
+ */
+const matchLostSql = sql<boolean>`NOT ${schema.playerMatchStats.won} AND EXISTS (
   SELECT 1
   FROM match_rosters own
   JOIN match_rosters other
