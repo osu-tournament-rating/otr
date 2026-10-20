@@ -5,6 +5,15 @@ name: Deploy
 # by hand redeploys an existing release, which is how a bad release is rolled
 # back.
 #
+# A rollback does not undo migrations. The older release runs against the
+# current schema, so rolling back past a migration that renamed or dropped a
+# column or table leaves it querying one that no longer exists. Such a change
+# is split across releases: one adds the new column or table and moves the code
+# to it, and a later one drops the old one. Lint refuses a new migration that
+# renames or drops without a `-- rollback:` comment saying why rolling back
+# past it is safe (lib/db/migrations.ts). Before rolling back, check the
+# migrations merged since the target release.
+#
 # Images are built while CI runs, under the commit's `sha-` tag. Once CI has
 # passed, the release job reserves the next date tag on GitHub, gives the images
 # that tag, and publishes the release. All of that happens before production
