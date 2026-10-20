@@ -19,7 +19,7 @@ import {
   parseSearchTerm,
 } from '@/lib/orpc/queries/search';
 
-import { adminMutationProcedure, protectedProcedure } from '../base';
+import { adminMutationProcedure, adminProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 import { toApiKeyMetadata } from '../apiKeyProcedures';
 
@@ -106,7 +106,7 @@ export async function searchPlayersAdminHandler({
   );
 }
 
-export const searchPlayersAdmin = protectedProcedure
+export const searchPlayersAdmin = adminProcedure
   .input(AdminPlayerSearchInputSchema)
   .output(AdminPlayerSearchResponseSchema)
   .route({
@@ -117,7 +117,7 @@ export const searchPlayersAdmin = protectedProcedure
   })
   .handler(searchPlayersAdminHandler);
 
-export const lookupAuthUserAdmin = protectedProcedure
+export const lookupAuthUserAdmin = adminProcedure
   .input(AdminBanLookupInputSchema)
   .output(AdminBanUserLookupResponseSchema)
   .route({
@@ -158,7 +158,7 @@ export const lookupAuthUserAdmin = protectedProcedure
     });
   });
 
-export const listUserApiKeysAdmin = protectedProcedure
+export const listUserApiKeysAdmin = adminProcedure
   .input(AdminUserApiKeysInputSchema)
   .output(ApiKeyMetadataSchema.array())
   .route({

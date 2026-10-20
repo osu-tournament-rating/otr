@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'bun:test';
-import { isProcedure, ORPCError, type AnyProcedure } from '@orpc/server';
+import { describe, expect, it, spyOn } from 'bun:test';
+import { call, isProcedure, ORPCError, type AnyProcedure } from '@orpc/server';
 
+import { auth } from '@/lib/auth/auth';
+
+import {
+  adminMutationProcedure,
+  adminProcedure,
+  withAdminGuard,
+} from '../procedures/base';
 import { router } from '../router';
 
 const collectProcedures = (
@@ -124,5 +131,54 @@ describe('admin procedures', () => {
     }
 
     expect(refused).toEqual([]);
+  });
+});
+
+describe('the shared admin procedures', () => {
+  it('check the caller in every admin procedure', () => {
+    const unchecked = adminProcedures
+      .filter(
+        ({ procedure }) =>
+          !procedure['~orpc'].middlewares.includes(withAdminGuard)
+      )
+      .map(({ path }) => path);
+
+    expect(unchecked).toEqual([]);
+  });
+
+  /** Calls `procedure` as the signed-in user `withAuth` finds in `session`. */
+  const callAs = async (procedure: AnyProcedure, session: unknown) => {
+    const getSession = spyOn(auth.api, 'getSession').mockResolvedValue(
+      session as never
+    );
+
+    try {
+      return await call(procedure, undefined, {
+        context: { headers: new Headers() },
+      }).catch((error: unknown) => error);
+    } finally {
+      getSession.mockRestore();
+    }
+  };
+
+  it('refuse a signed-in user without an admin scope before the handler runs', async () => {
+    for (const shared of [adminProcedure, adminMutationProcedure]) {
+      let ran = false;
+      const procedure = shared.handler(() => {
+        ran = true;
+      });
+
+      const error = await callAs(procedure, signedInSession(['user']));
+
+      expect(error).toBeInstanceOf(ORPCError);
+      expect(error).toMatchObject({ code: 'FORBIDDEN' });
+      expect(ran).toBe(false);
+    }
+  });
+
+  it('let an admin through', async () => {
+    const procedure = adminProcedure.handler(() => 'ran');
+
+    expect(await callAs(procedure, signedInSession(['admin']))).toBe('ran');
   });
 });

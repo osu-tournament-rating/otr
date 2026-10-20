@@ -34,6 +34,7 @@ import {
   formatUserDescriptor,
   formatProcedurePath,
 } from './logging/helpers';
+import { ensureAdminSession } from './shared/adminGuard';
 import { assertCurrentBuild } from './shared/currentBuild';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
@@ -938,11 +939,24 @@ export const withCurrentBuildGuard = base.middleware(
   }
 );
 
+// Checked here as well as in each handler, so a handler that forgets
+// still refuses non-admins
+export const withAdminGuard = base.middleware(async ({ context, next }) => {
+  const { session } = context as typeof context & {
+    session?: Parameters<typeof ensureAdminSession>[0];
+  };
+  ensureAdminSession(session);
+  return next();
+});
+
 /** A signed-in user's write, refused from a page of another release. */
 export const protectedMutationProcedure = protectedProcedure.use(
   withCurrentBuildGuard
 );
 
-export const adminMutationProcedure = protectedMutationProcedure.use(
-  withMaintenanceWindowGuard
-);
+/** An admin's read, or a write the maintenance window allows. */
+export const adminProcedure = protectedProcedure.use(withAdminGuard);
+
+export const adminMutationProcedure = protectedMutationProcedure
+  .use(withAdminGuard)
+  .use(withMaintenanceWindowGuard);
