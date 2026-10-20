@@ -29,14 +29,21 @@ interface StrandedFetchSweepOptions {
   db: Pick<DatabaseClient, 'execute'>;
   logger: Logger;
   maintenanceWindowEnabled: boolean;
+  /**
+   * Also queue players left Fetching with no job. Follows automatic player
+   * refetching, which is off on stacks and developer machines: their players
+   * are copied from production without the jobs, so every Fetching player
+   * there looks stranded.
+   */
+  players: boolean;
   now?: () => Date;
 }
 
 /**
  * Hourly: queues a fetch for every match and beatmap still waiting to be
- * fetched with no job to do it, such as one whose queue message was lost
- * before the move to the jobs table. Low priority, so a backlog waits behind
- * new submissions.
+ * fetched, and every player still Fetching, with no job to do it, such as one
+ * whose queue message was lost before the move to the jobs table. Low
+ * priority, so a backlog waits behind new submissions.
  */
 export class StrandedFetchSweep {
   private readonly options: StrandedFetchSweepOptions;
@@ -75,15 +82,15 @@ export class StrandedFetchSweep {
     return this.inFlight;
   }
 
-  /** Returns how many matches and beatmaps it queued. */
-  async run(): Promise<{ matches: number; beatmaps: number }> {
+  /** Returns how many matches, beatmaps, and players it queued. */
+  async run(): Promise<{ matches: number; beatmaps: number; players: number }> {
     const {
       db,
       maintenanceWindowEnabled,
       now = () => new Date(),
     } = this.options;
     if (maintenanceWindowEnabled && isWithinMaintenanceWindow(now())) {
-      return { matches: 0, beatmaps: 0 };
+      return { matches: 0, beatmaps: 0, players: 0 };
     }
 
     const unfinished = sql`(${DataFetchStatus.NotFetched}, ${DataFetchStatus.Fetching})`;
@@ -111,6 +118,18 @@ export class StrandedFetchSweep {
       ORDER BY b.id
       LIMIT ${BATCH_SIZE}`);
 
+    // Only Fetching: a player who was never fetched waits for the refetch
+    // scheduler instead. Longest stranded first.
+    const { rows: players } = this.options.players
+      ? await db.execute<{ osu_id: string }>(sql`
+          SELECT p.osu_id
+          FROM players p
+          WHERE p.data_fetch_status = ${DataFetchStatus.Fetching}
+            AND NOT ${activeOsuJob(sql`'player:' || p.osu_id`)}
+          ORDER BY p.osu_last_fetch, p.id
+          LIMIT ${BATCH_SIZE}`)
+      : { rows: [] };
+
     await enqueueJobs(
       db,
       JobQueue.OsuFetch,
@@ -135,14 +154,30 @@ export class StrandedFetchSweep {
         priority: MessagePriority.Low,
       }))
     );
+    await enqueueJobs(
+      db,
+      JobQueue.OsuFetch,
+      players.map((player) => ({
+        payload: {
+          type: 'player' as const,
+          osuPlayerId: Number(player.osu_id),
+        },
+        priority: MessagePriority.Low,
+      }))
+    );
 
-    if (matches.length > 0 || beatmaps.length > 0) {
+    if (matches.length > 0 || beatmaps.length > 0 || players.length > 0) {
       this.options.logger.warn('Queued fetches that had no job', {
         matches: matches.length,
         beatmaps: beatmaps.length,
+        players: players.length,
       });
     }
 
-    return { matches: matches.length, beatmaps: beatmaps.length };
+    return {
+      matches: matches.length,
+      beatmaps: beatmaps.length,
+      players: players.length,
+    };
   }
 }
