@@ -338,6 +338,16 @@ export const gameAudits = pgTable(
       'btree',
       table.created.asc().nullsLast().op('timestamptz_ops')
     ),
+    // Creations and deletions are a few percent of the rows. The audit log's
+    // action filter finds them here instead of reading back through the rest.
+    index('ix_game_audits_action_type_created')
+      .using(
+        'btree',
+        table.actionType.asc().nullsLast().op('int4_ops'),
+        table.created.asc().nullsLast().op('timestamptz_ops'),
+        table.actionUserId.asc().nullsLast().op('int4_ops')
+      )
+      .where(sql`action_type <> 1`),
     index('ix_game_audits_reference_id').using(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
@@ -531,6 +541,16 @@ export const gameScoreAudits = pgTable(
       'btree',
       table.created.asc().nullsLast().op('timestamptz_ops')
     ),
+    // Creations and deletions are a few percent of the rows. The audit log's
+    // action filter finds them here instead of reading back through the rest.
+    index('ix_game_score_audits_action_type_created')
+      .using(
+        'btree',
+        table.actionType.asc().nullsLast().op('int4_ops'),
+        table.created.asc().nullsLast().op('timestamptz_ops'),
+        table.actionUserId.asc().nullsLast().op('int4_ops')
+      )
+      .where(sql`action_type <> 1`),
     index('ix_game_score_audits_reference_id').using(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')

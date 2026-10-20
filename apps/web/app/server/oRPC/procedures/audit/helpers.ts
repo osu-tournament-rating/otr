@@ -86,12 +86,6 @@ export const ALL_AUDIT_TABLES = [
   { table: schema.beatmapAudits, entityType: AuditEntityType.Beatmap },
 ] as const;
 
-/** Subset for the default activity view; skips the large game/score tables. */
-export const LIGHT_AUDIT_TABLES = [
-  { table: schema.tournamentAudits, entityType: AuditEntityType.Tournament },
-  { table: schema.matchAudits, entityType: AuditEntityType.Match },
-] as const;
-
 /** FROM clause and parent tournament ID expression for an entity type's audit table. */
 export function getParentEntityJoinInfo(entityType: AuditEntityType): {
   fromClause: string;

@@ -32,7 +32,6 @@ import {
   getTableNameString,
   getUnauditedSubmission,
   ALL_AUDIT_TABLES,
-  LIGHT_AUDIT_TABLES,
   camelizeChangesKeys,
   mergeTimelineItems,
   assembleEvents,
@@ -807,8 +806,7 @@ export const getAuditEventFeed = publicProcedure
     } else if (entityTypes && entityTypes.length > 0) {
       tablesToQuery = entityTypes.map((entityType) => ({ entityType }));
     } else {
-      // Game/score tables are too large to scan unfiltered
-      tablesToQuery = [...LIGHT_AUDIT_TABLES];
+      tablesToQuery = [...ALL_AUDIT_TABLES];
     }
 
     if (tablesToQuery.length === 0) {
@@ -987,7 +985,17 @@ export const getAuditEventFeed = publicProcedure
         grouped_rows.parent_entity_id NULLS LAST
     `;
 
-    const result = await context.db.execute(query);
+    // The planner expects about a thousand game and score rows per candidate
+    // timestamp, often far more than there are. It then hashes every score,
+    // game and match to find the rows' tournaments, and its cost estimate
+    // crosses the JIT threshold, which spent a second compiling. Looking each
+    // row's tournament up by its key stays proportional to the rows found.
+    const result = await context.db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL jit = off`);
+      await tx.execute(sql`SET LOCAL enable_hashjoin = off`);
+      await tx.execute(sql`SET LOCAL enable_mergejoin = off`);
+      return tx.execute(query);
+    });
     const rows = result.rows as GroupedEventRow[];
     const pagedEventKeys = [...new Set(rows.map((row) => row.event_key))];
     const hasMore = pagedEventKeys.length > limit;

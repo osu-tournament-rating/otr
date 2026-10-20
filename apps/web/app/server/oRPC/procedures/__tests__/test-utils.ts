@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 import { dbSchema } from '@otr/core/db';
 import * as schema from '@otr/core/db/schema';
 import { JobQueue } from '@otr/core/jobs';
+import { Ruleset } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
 
 // Set by the `checks` job in .github/workflows/ci.yml. Tests seed and delete
@@ -205,3 +206,111 @@ export const transactionFaults = [
     'transaction rolled back',
   ],
 ] as const;
+
+export interface SeededTournament {
+  tournamentId: number;
+  matchIds: number[];
+  gameIds: number[];
+  scoreIds: number[];
+}
+
+/**
+ * A tournament whose matches start a day apart from Jan 1, 2026, each with
+ * one game holding one score by `playerId`. The tournament's dates span its
+ * matches. Matches and games take osu! ids from `osuIdBase` up, so give each
+ * file its own range. Deleting the tournament deletes the rest.
+ */
+export const seedTournamentTree = async (
+  db: DatabaseClient,
+  {
+    name,
+    osuIdBase,
+    matches,
+    playerId,
+  }: { name: string; osuIdBase: number; matches: number; playerId: number }
+): Promise<SeededTournament> => {
+  const startTimes = Array.from({ length: matches }, (_, index) =>
+    new Date(Date.UTC(2026, 0, 1 + index)).toISOString()
+  );
+
+  const [tournament] = await db
+    .insert(schema.tournaments)
+    .values({
+      name,
+      abbreviation: 'SEED',
+      forumUrl: `https://osu.ppy.sh/community/forums/topics/${osuIdBase}`,
+      rankRangeLowerBound: 1,
+      ruleset: Ruleset.Osu,
+      lobbySize: 4,
+      startTime: startTimes[0] ?? null,
+      endTime: startTimes[startTimes.length - 1] ?? null,
+    })
+    .returning({ id: schema.tournaments.id });
+  const tournamentId = tournament!.id;
+
+  const seeded: SeededTournament = {
+    tournamentId,
+    matchIds: [],
+    gameIds: [],
+    scoreIds: [],
+  };
+
+  for (const [index, startTime] of startTimes.entries()) {
+    const [match] = await db
+      .insert(schema.matches)
+      .values({
+        osuId: osuIdBase + index,
+        name: `${name} match ${index}`,
+        tournamentId,
+        startTime,
+      })
+      .returning({ id: schema.matches.id });
+    const [game] = await db
+      .insert(schema.games)
+      .values({
+        osuId: osuIdBase + index,
+        ruleset: Ruleset.Osu,
+        scoringType: 3,
+        teamType: 0,
+        mods: 0,
+        matchId: match!.id,
+      })
+      .returning({ id: schema.games.id });
+    const [score] = await db
+      .insert(schema.gameScores)
+      .values({
+        rawScore: 100_000,
+        placement: 1,
+        accuracy: 0.95,
+        maxCombo: 100,
+        pass: true,
+        isPerfectCombo: false,
+        legacyPerfect: false,
+        grade: 1,
+        mods: 0,
+        legacyTotalScore: 0,
+        team: 0,
+        ruleset: Ruleset.Osu,
+        verificationStatus: 0,
+        rejectionReason: 0,
+        gameId: game!.id,
+        playerId,
+      })
+      .returning({ id: schema.gameScores.id });
+
+    seeded.matchIds.push(match!.id);
+    seeded.gameIds.push(game!.id);
+    seeded.scoreIds.push(score!.id);
+  }
+
+  return seeded;
+};
+
+/** The player linked to an admin from {@link seedAdminUser}. */
+export const playerIdOfUser = async (db: DatabaseClient, userId: number) => {
+  const [user] = await db
+    .select({ playerId: schema.users.playerId })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId));
+  return user!.playerId!;
+};
