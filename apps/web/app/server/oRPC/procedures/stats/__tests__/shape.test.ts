@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 
+import { Mods } from '@otr/core/osu';
+
 import {
   COUNTRY_BAR_LIMIT,
   bandRankRestrictions,
   summarizeCountries,
+  summarizeFreemodMods,
   tabulateMatchStartTimes,
 } from '../shape';
 
@@ -63,6 +66,64 @@ describe('bandRankRestrictions', () => {
         { year: 2024, rankRangeLowerBound: 0, tournaments: 2 },
       ])
     ).toEqual([]);
+  });
+});
+
+describe('summarizeFreemodMods', () => {
+  it('charts combinations with 1% of every pick, by the beatmap pages’ labels, and the rest as Other', () => {
+    const summary = summarizeFreemodMods({
+      years: [
+        {
+          year: 2024,
+          tournaments: 12,
+          games: 20,
+          scores: 150,
+          mods: [
+            { mods: Mods.Hidden, scores: 100 },
+            // No Fail is dropped: Hidden.
+            { mods: Mods.Hidden | Mods.NoFail, scores: 40 },
+            // Nightcore reads as Double Time.
+            { mods: Mods.Nightcore | Mods.DoubleTime, scores: 10 },
+          ],
+        },
+        {
+          year: 2025,
+          tournaments: 15,
+          games: 30,
+          scores: 151,
+          mods: [
+            { mods: Mods.None, scores: 140 },
+            { mods: Mods.DoubleTime, scores: 8 },
+            // Flashlight, 2 of 301 picks, and Easy, 1: under 1% each.
+            { mods: Mods.Flashlight, scores: 2 },
+            { mods: Mods.Easy, scores: 1 },
+          ],
+        },
+      ],
+    });
+
+    expect(summary.series).toEqual([
+      { key: 'HD', label: 'HD', mods: Mods.Hidden },
+      { key: 'NM', label: 'NM', mods: Mods.None },
+      { key: 'DT', label: 'DT', mods: Mods.DoubleTime },
+      { key: 'Other', label: 'Other', mods: null },
+    ]);
+    expect(summary.years).toEqual([
+      {
+        year: 2024,
+        tournaments: 12,
+        games: 20,
+        scores: 150,
+        values: { HD: 140, DT: 10 },
+      },
+      {
+        year: 2025,
+        tournaments: 15,
+        games: 30,
+        scores: 151,
+        values: { NM: 140, DT: 8, Other: 3 },
+      },
+    ]);
   });
 });
 

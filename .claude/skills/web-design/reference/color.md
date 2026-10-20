@@ -639,8 +639,9 @@ const series = RANK_RANGE_BUCKETS.map(({ key, label, color }) => ({
 
 Don't:
 
-- Don't hand-build a stacked `BarChart`; the stats page's rank restrictions, lazer share and win rate by rating gap all use this one.
+- Don't hand-build a stacked `BarChart`; the stats page's rank restrictions, lazer share, win rate by rating gap, active players and mods on freemod maps all use this one.
 - Don't draw a share chart for data with no share yet: the lazer share shows an empty state until a lazer tournament is verified, not a flat 0%.
+- Series from a domain palette keep it: the mods on freemod maps colour each combination with `getModPaletteColor` and the rest with `CATEGORICAL_OTHER` (`components/stats/FreemodModsPanel.tsx`).
 
 Gallery anchor: `/admin/design#color-chart-stacked`
 

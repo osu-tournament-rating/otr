@@ -152,6 +152,27 @@ export const verifiedTournamentsByYear = sql`
 
 /** Mod masks as SQL literals: a bound parameter has no type for `~`. */
 export const NO_FAIL = sql.raw(String(Mods.NoFail));
+const FREEMOD_MASK = sql.raw(String(Mods.FreeModAllowed));
+
+/**
+ * Whether the game `alias` was played with free mods, by the rule the
+ * site's game cards use (`deriveGameIsFreeMod` in apps/web/lib/utils/mods):
+ * the game carries every freemod flag, or it has no mods of its own and a
+ * verified score has one besides No Fail.
+ */
+export const isFreemodGame = (alias: SQL) => sql`(
+  (${alias}.mods & ${FREEMOD_MASK}) = ${FREEMOD_MASK}
+  or (
+    ${alias}.mods = 0
+    and exists (
+      select 1
+      from game_scores fs
+      where fs.game_id = ${alias}.id
+        and fs.verification_status = ${VERIFIED}
+        and (fs.mods & ~${NO_FAIL}) <> 0
+    )
+  )
+)`;
 
 /** A UTC timestamp as an ISO 8601 string, in SQL, so no driver parses it. */
 export const isoTimestamp = (column: SQL) =>

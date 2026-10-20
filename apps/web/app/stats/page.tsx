@@ -8,6 +8,7 @@ import {
   PlayersByCountryPanel,
   TopPlayersByCountryPanel,
 } from '@/components/stats/CountryPanels';
+import FreemodModsPanel from '@/components/stats/FreemodModsPanel';
 import HigherRatedWinsPanel from '@/components/stats/HigherRatedWinsPanel';
 import LazerSharePanel from '@/components/stats/LazerSharePanel';
 import {
@@ -105,6 +106,7 @@ export default async function StatsPage() {
             <MostPlayedMappersPanel />
             <MostPlayedArtistsPanel />
             <PoolDifficultyPanel />
+            <FreemodModsPanel />
           </div>
         </PageSection>
       </RulesetStatsProvider>

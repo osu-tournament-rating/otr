@@ -398,6 +398,17 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       [PlatformStatKey.PoolDifficulty]: {
         years: [{ year: 2025, tournaments: 9, open: null, restricted: null }],
       },
+      [PlatformStatKey.FreemodMods]: {
+        years: [
+          {
+            year: 2025,
+            tournaments: 10,
+            games: 1,
+            scores: 2,
+            mods: [{ mods: 8, scores: 2 }],
+          },
+        ],
+      },
     };
     const storedFields = (entry: RulesetStatsData) => ({
       higherRatedWins: entry.higherRatedWins,
@@ -410,6 +421,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       mostPlayedMappers: entry.mostPlayedMappers,
       mostPlayedArtists: entry.mostPlayedArtists,
       poolDifficulty: entry.poolDifficulty,
+      freemodMods: entry.freemodMods,
     });
 
     await onEmptyTables(async (tx) => {
@@ -439,6 +451,19 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         mostPlayedMappers: payloads[PlatformStatKey.MostPlayedMappers],
         mostPlayedArtists: payloads[PlatformStatKey.MostPlayedArtists],
         poolDifficulty: payloads[PlatformStatKey.PoolDifficulty],
+        // Served as chart series: Hidden (8) is the one combination.
+        freemodMods: {
+          series: [{ key: 'HD', label: 'HD', mods: 8 }],
+          years: [
+            {
+              year: 2025,
+              tournaments: 10,
+              games: 1,
+              scores: 2,
+              values: { HD: 2 },
+            },
+          ],
+        },
       });
       expect(entry(Ruleset.Osu)).toEqual({
         higherRatedWins: null,
@@ -451,6 +476,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         mostPlayedMappers: null,
         mostPlayedArtists: null,
         poolDifficulty: null,
+        freemodMods: null,
       });
     });
   });

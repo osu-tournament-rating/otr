@@ -29,6 +29,7 @@ export enum PlatformStatKey {
   MostPlayedMappers = 'most-played-mappers',
   MostPlayedArtists = 'most-played-artists',
   PoolDifficulty = 'pool-difficulty',
+  FreemodMods = 'freemod-mods',
 }
 
 /** The rulesets a per-ruleset statistic is computed for: every rated one. */

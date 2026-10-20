@@ -10,9 +10,17 @@ import {
 import type {
   CountryCountData,
   CountrySummaryData,
+  FreemodModsData,
+  FreemodModsSummaryData,
   MatchStartTimesData,
   RankRestrictionYearData,
 } from '@/lib/orpc/schema/statsPage';
+import {
+  BEATMAP_MOD_OTHER_LABEL,
+  calculateBeatmapModDistribution,
+  collapseBeatmapModDistribution,
+  getBeatmapModLabel,
+} from '@/lib/utils/mods';
 
 /** How many countries a country chart shows. */
 export const COUNTRY_BAR_LIMIT = 10;
@@ -69,6 +77,43 @@ export function bandRankRestrictions(
   return [...byYear.entries()]
     .sort(([a], [b]) => a - b)
     .map(([year, bands]) => ({ year, bands }));
+}
+
+/**
+ * The mods picked on freemod maps as chart series: each combination, by the
+ * beatmap pages' display rules, with 1% or more of every year's picks
+ * together, most picked first, and the rest as one "Other" series on top.
+ * Each year counts its scores per series.
+ */
+export function summarizeFreemodMods(
+  stored: FreemodModsData
+): FreemodModsSummaryData {
+  const overall = calculateBeatmapModDistribution(
+    stored.years.flatMap((year) =>
+      year.mods.map(({ mods, scores }) => ({ mods, scoreCount: scores }))
+    )
+  );
+  const series = collapseBeatmapModDistribution(overall).map((entry) =>
+    entry.label === BEATMAP_MOD_OTHER_LABEL
+      ? { key: entry.label, label: entry.label, mods: null }
+      : { key: entry.label, label: entry.label, mods: entry.mods as number }
+  );
+  const named = new Set(
+    series.filter((item) => item.mods !== null).map((item) => item.key)
+  );
+
+  return {
+    series,
+    years: stored.years.map(({ year, tournaments, games, scores, mods }) => {
+      const values: Record<string, number> = {};
+      for (const entry of mods) {
+        const label = getBeatmapModLabel(entry.mods);
+        const key = named.has(label) ? label : BEATMAP_MOD_OTHER_LABEL;
+        values[key] = (values[key] ?? 0) + entry.scores;
+      }
+      return { year, tournaments, games, scores, values };
+    }),
+  };
 }
 
 /**

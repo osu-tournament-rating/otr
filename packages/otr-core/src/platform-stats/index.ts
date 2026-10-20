@@ -42,4 +42,5 @@ export type {
   PoolDifficultyPoint,
   PoolDifficultyYear,
 } from './stats/pool-difficulty';
+export type { FreemodMods, FreemodModsYear } from './stats/freemod-mods';
 export type { MatchRecord } from './stats/shared';

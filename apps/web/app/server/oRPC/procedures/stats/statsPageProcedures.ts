@@ -12,6 +12,7 @@ import {
   BiggestComebacksSchema,
   BiggestUpsetsSchema,
   ClosestGamesSchema,
+  FreemodModsSchema,
   HeadlineTotalsSchema,
   HigherRatedWinsSchema,
   MostPlayedArtistsSchema,
@@ -29,6 +30,7 @@ import { publicProcedure } from '../base';
 import {
   bandRankRestrictions,
   summarizeCountries,
+  summarizeFreemodMods,
   tabulateMatchStartTimes,
 } from './shape';
 import {
@@ -73,6 +75,9 @@ function storedPayload<T>(
   }
   return parsed.data;
 }
+
+const nullableMap = <T, U>(value: T | null, map: (value: T) => U): U | null =>
+  value === null ? null : map(value);
 
 export async function runStatsPage({
   context,
@@ -183,6 +188,15 @@ export async function runStatsPage({
         PlatformStatKey.PoolDifficulty,
         ruleset,
         PoolDifficultySchema
+      ),
+      freemodMods: nullableMap(
+        storedPayload(
+          stored,
+          PlatformStatKey.FreemodMods,
+          ruleset,
+          FreemodModsSchema
+        ),
+        summarizeFreemodMods
       ),
       matchStartTimes: tabulateMatchStartTimes(
         matchStartTimes.filter((row) => row.ruleset === ruleset)

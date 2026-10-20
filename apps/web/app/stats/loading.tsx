@@ -198,6 +198,12 @@ export default function StatsLoading() {
             plot="h-80"
             level={3}
           />
+          <ChartPanelSkeleton
+            copy={STATS_PANELS.freemodMods}
+            metaWidth="w-24"
+            plot="h-80"
+            level={3}
+          />
         </div>
       </PageSection>
     </PageFrame>

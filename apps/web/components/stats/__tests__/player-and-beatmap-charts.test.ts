@@ -4,6 +4,7 @@ import {
   TREND_MIN_TOURNAMENTS,
   formatHourRange,
   getActivePlayerBars,
+  getFreemodModBars,
   getPoolDifficultyRows,
 } from '@/components/stats/stats-data';
 
@@ -110,6 +111,36 @@ describe('getPoolDifficultyRows', () => {
         5
       )
     ).toEqual([]);
+  });
+});
+
+describe('getFreemodModBars', () => {
+  it('gives each trend year its picks out of its freemod scores', () => {
+    const bars = getFreemodModBars({
+      series: [{ key: 'HD', label: 'HD', mods: 8 }],
+      years: [
+        {
+          year: 2017,
+          tournaments: TOO_FEW,
+          games: 1,
+          scores: 4,
+          values: { HD: 4 },
+        },
+        {
+          year: 2018,
+          tournaments: ENOUGH,
+          games: 3,
+          scores: 10,
+          values: { HD: 6 },
+        },
+        { year: 2019, tournaments: ENOUGH, games: 0, scores: 0, values: {} },
+      ],
+    });
+
+    expect(bars).toEqual([
+      { key: '2018', label: '2018', values: { HD: 6 }, total: 10 },
+      { key: '2019', label: '2019', values: {}, total: 0 },
+    ]);
   });
 });
 

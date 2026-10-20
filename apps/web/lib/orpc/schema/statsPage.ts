@@ -5,6 +5,7 @@ import type {
   BiggestComebacks,
   BiggestUpsets,
   ClosestGames,
+  FreemodMods,
   HeadlineTotals,
   HigherRatedWins,
   MostPlayedArtists,
@@ -170,6 +171,44 @@ export const PoolDifficultySchema = z.object({
   ),
 }) satisfies z.ZodType<PoolDifficulty>;
 
+/** As stored: every mod combination players picked, per year. */
+export const FreemodModsSchema = z.object({
+  years: z.array(
+    z.object({
+      year: z.number().int(),
+      tournaments: count,
+      games: count,
+      scores: count,
+      mods: z.array(z.object({ mods: z.number().int(), scores: count })),
+    })
+  ),
+}) satisfies z.ZodType<FreemodMods>;
+
+/**
+ * The mods picked on freemod maps as the page charts them: the combinations
+ * with 1% or more of every year's picks, the rest as "Other".
+ */
+export const FreemodModsSummarySchema = z.object({
+  /** Most picked first; "Other" last, with null mods. */
+  series: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      mods: z.number().int().nullable(),
+    })
+  ),
+  years: z.array(
+    z.object({
+      year: z.number().int(),
+      tournaments: count,
+      games: count,
+      scores: count,
+      /** Scores per series key. */
+      values: z.record(z.string(), count),
+    })
+  ),
+});
+
 /** Verified matches by the UTC weekday and hour they started. */
 export const MatchStartTimesSchema = z.object({
   matches: count,
@@ -253,6 +292,7 @@ export const RulesetStatsSchema = z.object({
   mostPlayedMappers: MostPlayedMappersSchema.nullable(),
   mostPlayedArtists: MostPlayedArtistsSchema.nullable(),
   poolDifficulty: PoolDifficultySchema.nullable(),
+  freemodMods: FreemodModsSummarySchema.nullable(),
   matchStartTimes: MatchStartTimesSchema,
 });
 
@@ -300,6 +340,8 @@ export type MostPlayedBeatmapsData = z.infer<typeof MostPlayedBeatmapsSchema>;
 export type MostPlayedBeatmapData = MostPlayedBeatmapsData['beatmaps'][number];
 
 export type PoolDifficultyData = z.infer<typeof PoolDifficultySchema>;
+export type FreemodModsData = z.infer<typeof FreemodModsSchema>;
+export type FreemodModsSummaryData = z.infer<typeof FreemodModsSummarySchema>;
 export type MatchStartTimesData = z.infer<typeof MatchStartTimesSchema>;
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<

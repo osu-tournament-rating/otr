@@ -2,6 +2,7 @@ import { activePlayers } from './stats/active-players';
 import { biggestComebacks } from './stats/biggest-comebacks';
 import { biggestUpsets } from './stats/biggest-upsets';
 import { closestGames } from './stats/closest-games';
+import { freemodMods } from './stats/freemod-mods';
 import { headlineTotals } from './stats/headline-totals';
 import { higherRatedWins } from './stats/higher-rated-wins';
 import { mostPlayedArtists } from './stats/most-played-artists';
@@ -27,4 +28,5 @@ export const PLATFORM_STATS: readonly PlatformStatDefinition[] = [
   mostPlayedMappers,
   mostPlayedArtists,
   poolDifficulty,
+  freemodMods,
 ];

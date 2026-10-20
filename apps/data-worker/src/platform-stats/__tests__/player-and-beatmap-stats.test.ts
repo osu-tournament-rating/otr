@@ -5,6 +5,7 @@ import * as schema from '@otr/core/db/schema';
 import { Mods, Ruleset, Team, VerificationStatus } from '@otr/core/osu';
 import {
   type ActivePlayers,
+  type FreemodMods,
   type MostPlayedArtists,
   type MostPlayedBeatmaps,
   type MostPlayedMappers,
@@ -690,6 +691,75 @@ describe.skipIf(!url)('player and beatmap platform stats', () => {
           median: 4,
           p90: 4,
         });
+      });
+    });
+  });
+
+  describe('mods on freemod maps', () => {
+    it('counts the verified scores of games the site reads as freemod, per year', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const osu = await f.tournament({ start: '2025-03-01T00:00:00Z' });
+        const matchId = await f.match(osu);
+        const map = (await f.beatmap()).id;
+
+        // Freemod: no lobby mods and a pick besides No Fail. The rejected
+        // score is not counted.
+        await f.game(matchId, {
+          beatmapId: map,
+          scores: [
+            { mods: Mods.Hidden },
+            { mods: Mods.NoFail },
+            { mods: Mods.HardRock, status: Rejected },
+          ],
+        });
+        // Freemod: the lobby carries every freemod flag.
+        await f.game(matchId, {
+          beatmapId: map,
+          mods: Mods.FreeModAllowed,
+          scores: [{ mods: Mods.Hidden }],
+        });
+        // Not freemod: only No Fail picked, lobby mods, a rejected game, and
+        // a pick that only a rejected score made.
+        await f.game(matchId, {
+          beatmapId: map,
+          scores: [{ mods: Mods.NoFail }, { mods: Mods.NoFail }],
+        });
+        await f.game(matchId, {
+          beatmapId: map,
+          mods: Mods.NoFail,
+          scores: [{ mods: Mods.NoFail | Mods.Hidden }],
+        });
+        await f.game(matchId, {
+          beatmapId: map,
+          status: Rejected,
+          scores: [{ mods: Mods.Hidden }],
+        });
+        await f.game(matchId, {
+          beatmapId: map,
+          scores: [{}, { mods: Mods.Hidden, status: Rejected }],
+        });
+        // A 2024 tournament without freemod games.
+        await f.tournament({ start: '2024-06-01T00:00:00Z' });
+
+        const stats = await compute<FreemodMods>(
+          tx,
+          PlatformStatKey.FreemodMods
+        );
+
+        expect(stats[Ruleset.Osu].years).toEqual([
+          { year: 2024, tournaments: 1, games: 0, scores: 0, mods: [] },
+          {
+            year: 2025,
+            tournaments: 1,
+            games: 2,
+            scores: 3,
+            mods: [
+              { mods: Mods.Hidden, scores: 2 },
+              { mods: Mods.NoFail, scores: 1 },
+            ],
+          },
+        ]);
       });
     });
   });

@@ -5,6 +5,7 @@ import {
   UPSET_MIN_EARLIER_MATCHES,
 } from '@otr/core/platform-stats/constants';
 import {
+  Blend,
   Calendar,
   CalendarClock,
   ChartNoAxesColumn,
@@ -157,6 +158,12 @@ export const STATS_PANELS = {
     icon: Gauge,
     title: 'Pool difficulty',
     infoText: `Star ratings of beatmaps played without mods, as osu! rated them. A year shows once it has ${POOL_DIFFICULTY_MIN_TOURNAMENTS} tournaments of a kind.`,
+  },
+  freemodMods: {
+    icon: Blend,
+    title: 'Mods on freemod maps',
+    infoText:
+      'A game counts as freemod when a player picked a mod besides No Fail, so one where nobody did reads as nomod',
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

@@ -23,6 +23,7 @@ import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
 import type {
   ActivePlayersData,
   CountryCountData,
+  FreemodModsSummaryData,
   HigherRatedWinsData,
   LazerYearData,
   MatchRecordData,
@@ -421,6 +422,30 @@ export function getPoolDifficultyRows(
   )
     ? rows
     : [];
+}
+
+/**
+ * The mods picked on freemod maps per year, over the trend years, each
+ * year's columns out of its freemod scores. A year without freemod games
+ * draws no column.
+ */
+export function getFreemodModBars(
+  summary: FreemodModsSummaryData
+): StackedBarDatum[] {
+  const byYear = new Map(summary.years.map((entry) => [entry.year, entry]));
+  const totals = new Map(
+    summary.years.map((entry) => [entry.year, entry.tournaments])
+  );
+
+  return getTrendYears(totals).map((year) => {
+    const entry = byYear.get(year);
+    return {
+      key: String(year),
+      label: formatYear(year),
+      values: entry?.values ?? {},
+      total: entry?.scores ?? 0,
+    };
+  });
 }
 
 /** The heatmap's rows: ISO weekdays, Monday first, as UTC counts them. */
