@@ -53,6 +53,8 @@ import { BeatmapFileDownloader } from './beatmap-attributes/downloader';
 import { BeatmapAttributesService } from './beatmap-attributes/beatmap-attributes-service';
 import { BeatmapAttributesWorker } from './beatmap-attributes/beatmap-attributes-worker';
 import { BeatmapAttributesScheduler } from './beatmap-attributes/beatmap-attributes-scheduler';
+import { PlatformStatsScheduler } from './platform-stats/platform-stats-scheduler';
+import { PlatformStatsWorker } from './platform-stats/platform-stats-worker';
 import { JobRunner } from './jobs/runner';
 import { JobListener } from './jobs/listener';
 import { JobPruner } from './jobs/pruner';
@@ -271,6 +273,19 @@ const bootstrap = async () => {
 
   runner.register(statsWorker.registration());
 
+  const platformStatsWorker = new PlatformStatsWorker({
+    db,
+    logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
+  runner.register(platformStatsWorker.registration());
+
+  const platformStatsScheduler = new PlatformStatsScheduler({
+    db,
+    logger,
+    maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+  });
+
   const jobListener = new JobListener({
     connectionString: databaseUrl,
     logger,
@@ -302,6 +317,7 @@ const bootstrap = async () => {
   runner.start();
   jobPruner.start();
   strandedFetchSweep.start();
+  platformStatsScheduler.start();
 
   await playerRefetchScheduler.start();
   await forumPostBackfill.run();
@@ -318,6 +334,7 @@ const bootstrap = async () => {
       runner.stop(),
       jobPruner.stop(),
       strandedFetchSweep.stop(),
+      platformStatsScheduler.stop(),
       playerRefetchScheduler.stop(),
       beatmapAttributesScheduler?.stop(),
     ]);

@@ -15,6 +15,8 @@ export interface JobPayloads {
     /** MD5 osu! currently reports; a stored file with another checksum is downloaded again. */
     checksum?: string;
   };
+  /** Recomputes the platform stats that are due; see platform-stats/. */
+  [JobQueue.PlatformStats]: Record<string, never>;
 }
 
 export type JobPayload<Q extends JobQueue> = JobPayloads[Q];
@@ -51,4 +53,6 @@ export const jobDedupKeys: {
   // harmless.
   [JobQueue.TournamentStats]: () => null,
   [JobQueue.BeatmapAttributes]: (payload) => `beatmap:${payload.beatmapId}`,
+  // One refresh at a time: a request merges into a waiting or running one.
+  [JobQueue.PlatformStats]: () => 'platform',
 };
