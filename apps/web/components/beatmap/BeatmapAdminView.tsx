@@ -288,8 +288,8 @@ function BeatmapEditDialog({
       onOpenChange(false);
       setMode('edit');
       router.refresh();
-    } catch {
-      errorSaveToast();
+    } catch (error) {
+      errorSaveToast(error);
       setSaveError('The save did not go through. Your changes are still here.');
       setMode('edit');
     } finally {

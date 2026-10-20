@@ -44,14 +44,15 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 /**
- * Mass-enqueues beatmaps and matches for refetch, yielding progress events.
- * Each batch resets its rows and queues their fetches in one transaction, so
- * a failure leaves earlier batches queued and no row reset without a job.
+ * Mass-enqueues beatmaps, matches, and players for refetch, yielding progress
+ * events. Each beatmap and match batch resets its rows and queues their
+ * fetches in one transaction, so a failure leaves earlier batches queued and
+ * no row reset without a job.
  */
 export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
   const { adminUserId } = ensureAdminSession(context.session);
 
-  const { beatmapIds, matchIds, priority } = input;
+  const { beatmapIds, matchIds, playerIds, priority } = input;
 
   const priorityValue = (() => {
     switch (priority) {
@@ -76,6 +77,8 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
   let beatmapsSkipped = 0;
   let matchesUpdated = 0;
   let matchesSkipped = 0;
+  let playersUpdated = 0;
+  let playersSkipped = 0;
 
   if (beatmapIds.length > 0) {
     const uniqueBeatmapIds = Array.from(new Set(beatmapIds));
@@ -226,12 +229,68 @@ export async function* massEnqueueHandler({ input, context }: MassEnqueueArgs) {
     }
   }
 
+  if (playerIds.length > 0) {
+    const uniquePlayerIds = Array.from(new Set(playerIds));
+
+    const existingPlayers = await context.db
+      .select({
+        osuId: schema.players.osuId,
+        dataFetchStatus: schema.players.dataFetchStatus,
+      })
+      .from(schema.players)
+      .where(inArray(schema.players.osuId, uniquePlayerIds));
+
+    const playersToQueue = existingPlayers.filter(
+      (p) => p.dataFetchStatus !== DataFetchStatus.NotFound
+    );
+
+    playersSkipped = uniquePlayerIds.length - playersToQueue.length;
+
+    const playerChunks = chunkArray(playersToQueue, BATCH_SIZE);
+    const totalBatches = playerChunks.length;
+    const shouldYieldProgress = totalBatches >= 2;
+
+    for (let i = 0; i < playerChunks.length; i++) {
+      const chunk = playerChunks[i];
+      if (!chunk) continue;
+
+      // Player rows stay as they are: a player's status is the refetch
+      // scheduler's lease, and the worker marks the player Fetching when the
+      // job runs.
+      await enqueueJobs(
+        context.db,
+        JobQueue.OsuFetch,
+        chunk.map((p) => ({
+          ...jobOptions,
+          payload: { type: 'player', osuPlayerId: p.osuId },
+        }))
+      );
+
+      playersUpdated += chunk.length;
+
+      if (shouldYieldProgress) {
+        const itemsProcessed = (i + 1) * BATCH_SIZE;
+        yield {
+          type: 'progress' as const,
+          phase: 'players' as const,
+          currentBatch: i + 1,
+          totalBatches,
+          itemsProcessed: Math.min(itemsProcessed, playersToQueue.length),
+          totalItems: playersToQueue.length,
+          message: `Processing players (Batch ${i + 1} of ${totalBatches})`,
+        };
+      }
+    }
+  }
+
   yield {
     type: 'complete' as const,
     beatmapsUpdated,
     beatmapsSkipped,
     matchesUpdated,
     matchesSkipped,
+    playersUpdated,
+    playersSkipped,
   };
 }
 
@@ -239,7 +298,8 @@ export const massEnqueue = adminMutationProcedure
   .input(AdminMassEnqueueInputSchema)
   .output(eventIterator(AdminMassEnqueueProgressEventSchema))
   .route({
-    summary: 'Mass enqueue beatmap and match refetch with progress updates',
+    summary:
+      'Mass enqueue beatmap, match, and player refetch with progress updates',
     tags: ['admin'],
     method: 'POST',
     path: '/admin/mass-enqueue',

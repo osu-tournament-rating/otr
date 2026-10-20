@@ -151,6 +151,7 @@ const bootstrap = async () => {
     rateLimiter: osuApiRateLimiter,
     logger,
     dataCompletion,
+    osuRefetchCadence: dataWorkerEnv.playerAutoRefetch.osu,
     publishPlayerFetches: async (tx, osuPlayerIds) => {
       await enqueueJobs(
         tx,
@@ -239,6 +240,7 @@ const bootstrap = async () => {
     db,
     logger,
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+    players: dataWorkerEnv.playerAutoRefetch.osu.enabled,
   });
 
   const osuTrackClient = new OsuTrackClient({});

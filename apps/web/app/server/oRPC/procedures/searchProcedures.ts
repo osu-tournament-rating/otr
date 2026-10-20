@@ -24,6 +24,7 @@ import { Ruleset, VerificationStatus } from '@otr/core/osu';
 import { publicProcedure, withSearchRateLimit } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { buildTournamentRelevanceOrder } from './shared/tournamentListOrder';
+import { logger } from '@/lib/logger';
 
 const DEFAULT_RESULT_LIMIT = 5;
 
@@ -301,7 +302,7 @@ export const searchEntities = publicProcedure
         beatmaps,
       });
     } catch (error) {
-      console.error('[orpc] search.query failed', error);
+      logger.error('search.query failed', { error });
 
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message: 'Failed to perform search operation',

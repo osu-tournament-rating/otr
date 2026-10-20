@@ -34,6 +34,19 @@ const parsePositiveIntegerEnv = (name: keyof NodeJS.ProcessEnv) => {
   return value;
 };
 
+const parsePositiveIntegerEnvWithDefault = (
+  name: keyof NodeJS.ProcessEnv,
+  defaultValue: number
+) => {
+  const raw = process.env[name];
+
+  if (raw === undefined || raw.trim() === '') {
+    return defaultValue;
+  }
+
+  return parsePositiveIntegerEnv(name);
+};
+
 const parseBooleanEnv = (name: keyof NodeJS.ProcessEnv) => {
   const raw = requireEnv(name).trim().toLowerCase();
 
@@ -110,6 +123,11 @@ const playerOsuAutoRefetch = {
     'PLAYER_OSU_REFETCH_INTERVAL_MINUTES'
   ),
   outdatedDays: parsePositiveIntegerEnv('PLAYER_OSU_REFETCH_OUTDATED_DAYS'),
+  // Optional, so an environment that predates it gets the default.
+  unratedDays: parsePositiveIntegerEnvWithDefault(
+    'PLAYER_OSU_REFETCH_UNRATED_DAYS',
+    30
+  ),
 } as const;
 
 const playerOsuTrackAutoRefetch = {

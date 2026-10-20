@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun build src/index.ts --compile --outfile dist/data-worker",
-    "lint": "eslint src --ext .ts --cache --cache-location node_modules/.cache/eslint/",
+    "lint": "eslint src tests --ext .ts --cache --cache-location node_modules/.cache/eslint/",
     "test": "bun test",
     "platform-stats:refresh": "bun run src/platform-stats/refresh-now.ts"
   },
