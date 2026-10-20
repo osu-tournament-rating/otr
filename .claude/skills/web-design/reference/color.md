@@ -379,7 +379,7 @@ import ModIconset from '@/components/icons/ModIconset';
 <ModIconset mods={getScoreDisplayMods(score.mods, headerMods.mods)} className="h-4" />
 ```
 
-- `mods`: the stored bitflags, every one drawn, NF included; NC and PF stand for the DT and SD they imply (`getModBadgeAcronyms`). No mods draws nothing; there is no No Mod badge.
+- `mods`: the stored bitflags, every one drawn in lazer's acronym, NF, Target Practice and key co-op included; NC and PF stand for the DT and SD they imply (`getModBadgeAcronyms`). Key co-op draws as Dual Stages, osu!lazer's name for it, since its legacy acronym CO is lazer's Cover. No mods draws nothing; there is no No Mod badge.
 - `lazerMods`: a lazer game's or score's lazer mods, drawn instead of the flags in play order, lazer-only mods included (`getModBadgeEntries`). A custom speed joins the badge's name ("Double Time 1.2x", `getModEntryName`) and is written after the badge in 12px semibold; `FittingModIconset` keeps it in the name only, so every badge keeps one slot. Pass `null` or leave it out for stable data.
 - Every badge is an image named for its mod for assistive tech, with no tooltip: players read osu!'s acronyms on sight, as the owner decided for "Elite GM". Names come from `getModName` in `@/lib/utils/mod-badges`: osu!'s official names from osu-web's mod list ("Spun Out", "Hard Rock", "Seven Keys") and "Free Mods" for FM. Mod names are proper names, so they keep osu!'s Title Case; don't sentence-case them. `FittingModIconset`'s "+N" chip is the one mod tooltip: it lists the badges that did not fit.
 - Badges and the "+N" chip stay still on hover and focus: no lift or bounce, since nothing else on the page moves that way.

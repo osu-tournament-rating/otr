@@ -1,3 +1,5 @@
+import { sql, type SQL } from 'drizzle-orm';
+
 import type { OsuApiPayload } from '../messages/types';
 import { JobQueue } from './enums';
 
@@ -56,3 +58,19 @@ export const jobDedupKeys: {
   // One refresh at a time: a request merges into a waiting or running one.
   [JobQueue.PlatformStats]: () => 'platform',
 };
+
+/**
+ * The key of a match's osu! fetch, built in SQL from its `osu_id` and
+ * `is_lazer` columns, for queries that look for the job doing that work.
+ */
+export const matchFetchKeySql = (osuId: SQL, isLazer: SQL): SQL =>
+  sql`'match:' || ${osuId} || ':' || CASE WHEN ${isLazer} THEN 'lazer' ELSE 'stable' END`;
+
+/**
+ * The keys of a beatmap's osu! fetch, with and without its automated checks,
+ * built in SQL from its `osu_id` column.
+ */
+export const beatmapFetchKeysSql = (osuId: SQL): [SQL, SQL] => [
+  sql`'beatmap:' || ${osuId}`,
+  sql`'beatmap:' || ${osuId} || ':nochecks'`,
+];
