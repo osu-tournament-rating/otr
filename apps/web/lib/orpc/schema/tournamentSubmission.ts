@@ -7,9 +7,12 @@ import {
   LOBBY_SIZE_MAXIMUM_MESSAGE,
   LOBBY_SIZE_MINIMUM_MESSAGE,
   LOBBY_SIZE_REQUIRED_MESSAGE,
+  MATCH_LINKS_NEED_STABLE_MESSAGE,
+  MIXED_MATCH_LINKS_MESSAGE,
   RANK_RESTRICTION_MINIMUM_MESSAGE,
   RANK_RESTRICTION_REQUIRED_MESSAGE,
   RANK_RESTRICTION_WHOLE_NUMBER_MESSAGE,
+  ROOM_LINKS_NEED_LAZER_MESSAGE,
   RULESET_REQUIRED_MESSAGE,
   TOURNAMENT_ABBREVIATION_REQUIRED_MESSAGE,
   TOURNAMENT_NAME_REQUIRED_MESSAGE,
@@ -129,6 +132,64 @@ export type TournamentSubmissionInput = z.infer<
   typeof TournamentSubmissionInputSchema
 >;
 
+const MATCH_LINK_PATTERN =
+  /^(?:(\d+)|https:\/\/osu\.ppy\.sh\/(community\/matches|mp|multiplayer\/rooms)\/(\d+)(?:\/events)?)$/;
+
+/** What a match link says it is: a lazer room or a stable match. */
+type MatchLinkKind = 'lazer' | 'stable';
+
+/**
+ * The osu! ID in one line of the matches field, or 0 when it is not a match
+ * link, and whether the link is a lazer room or a stable match. A bare ID says
+ * neither.
+ */
+const parseMatchLink = (
+  item: unknown
+): { id: number; kind: MatchLinkKind | null } => {
+  if (!item || (typeof item === 'string' && item.trim() === '')) {
+    return { id: 0, kind: null };
+  }
+
+  const match = String(item).trim().match(MATCH_LINK_PATTERN);
+  if (!match) {
+    return { id: 0, kind: null };
+  }
+
+  if (match[1]) {
+    return { id: Number(match[1]), kind: null };
+  }
+
+  return {
+    id: Number(match[3]),
+    kind: match[2] === 'multiplayer/rooms' ? 'lazer' : 'stable',
+  };
+};
+
+/**
+ * Whether the links in the matches field contradict "Played on osu!lazer":
+ * every match is fetched as the box says, so a room link fetched as a stable
+ * match (or the reverse) finds nothing.
+ */
+const matchLinkMismatchMessage = (
+  ids: unknown,
+  isLazer: unknown
+): string | null => {
+  const kinds = new Set(
+    (Array.isArray(ids) ? ids : []).map((item) => parseMatchLink(item).kind)
+  );
+
+  if (kinds.has('lazer') && kinds.has('stable')) {
+    return MIXED_MATCH_LINKS_MESSAGE;
+  }
+  if (kinds.has('lazer') && isLazer !== true) {
+    return ROOM_LINKS_NEED_LAZER_MESSAGE;
+  }
+  if (kinds.has('stable') && isLazer === true) {
+    return MATCH_LINKS_NEED_STABLE_MESSAGE;
+  }
+  return null;
+};
+
 const parseMatchIds = z.preprocess(
   (val) => {
     if (
@@ -140,17 +201,7 @@ const parseMatchIds = z.preprocess(
     }
 
     if (Array.isArray(val)) {
-      return val.map((item) => {
-        if (!item || (typeof item === 'string' && item.trim() === '')) {
-          return 0;
-        }
-
-        const str = String(item).trim();
-        const match = str.match(
-          /^(?:(\d+)|https:\/\/osu\.ppy\.sh\/(?:community\/matches|mp|multiplayer\/rooms)\/(\d+)(?:\/events)?)$/
-        );
-        return match ? Number(match[1] || match[2]) : 0;
-      });
+      return val.map((item) => parseMatchLink(item).id);
     }
 
     return [];
@@ -201,14 +252,25 @@ const parseBeatmapIds = z.preprocess(
     )
 );
 
-export const tournamentSubmissionFormSchema = baseSubmissionSchema
+const formSubmissionSchema = baseSubmissionSchema
   .extend({
     ids: parseMatchIds,
     beatmapIds: parseBeatmapIds,
+    // Read from the raw links before they become IDs; dropped from the output.
+    matchLinkMismatch: z.string().nullable(),
   })
   .check((ctx) => {
     const ids = ctx.value.ids as number[];
     const beatmapIds = ctx.value.beatmapIds as number[];
+
+    if (ctx.value.matchLinkMismatch) {
+      ctx.issues.push({
+        path: ['ids'],
+        code: 'custom',
+        message: ctx.value.matchLinkMismatch,
+        input: ids,
+      });
+    }
 
     if (!hasUniqueValues(ids)) {
       ctx.issues.push({
@@ -227,7 +289,22 @@ export const tournamentSubmissionFormSchema = baseSubmissionSchema
         input: beatmapIds,
       });
     }
-  });
+  })
+  .transform(({ matchLinkMismatch: _mismatch, ...values }) => values);
+
+export const tournamentSubmissionFormSchema = z.preprocess(
+  (raw) =>
+    raw && typeof raw === 'object'
+      ? {
+          ...raw,
+          matchLinkMismatch: matchLinkMismatchMessage(
+            (raw as { ids?: unknown }).ids,
+            (raw as { isLazer?: unknown }).isLazer
+          ),
+        }
+      : raw,
+  formSubmissionSchema
+);
 
 export type TournamentSubmissionFormValues = z.infer<
   typeof tournamentSubmissionFormSchema

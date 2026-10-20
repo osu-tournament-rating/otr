@@ -30,6 +30,16 @@ export const LOBBY_SIZE_REQUIRED_MESSAGE = 'Lobby size is required';
 export const LOBBY_SIZE_MINIMUM_MESSAGE = 'Lobby size must be at least 1';
 export const LOBBY_SIZE_MAXIMUM_MESSAGE = 'Lobby size cannot exceed 8';
 
+/** A lazer room link with "Played on osu!lazer" unticked. */
+export const ROOM_LINKS_NEED_LAZER_MESSAGE =
+  'Room links need Played on osu!lazer ticked';
+/** A stable match link with "Played on osu!lazer" ticked. */
+export const MATCH_LINKS_NEED_STABLE_MESSAGE =
+  'Match links need Played on osu!lazer unticked';
+/** Stable match links and lazer room links in one submission. */
+export const MIXED_MATCH_LINKS_MESSAGE =
+  'Matches cannot mix match links and room links';
+
 /** `Matches cannot exceed 1,000`. */
 export const maxMatchIdsMessage = (max: number) =>
   `Matches cannot exceed ${formatCount(max)}`;
