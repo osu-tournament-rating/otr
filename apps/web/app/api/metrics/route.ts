@@ -1,11 +1,13 @@
+import { optionalEnv } from '@otr/core/utils/env';
 import { NextResponse } from 'next/server';
 import { metricsRegistry } from '@/lib/metrics';
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
-  const expectedToken = process.env.METRICS_AUTH_TOKEN;
+  // Without a token, the metrics stay closed to everyone rather than open
+  const expectedToken = optionalEnv(process.env.METRICS_AUTH_TOKEN);
 
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+  if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 

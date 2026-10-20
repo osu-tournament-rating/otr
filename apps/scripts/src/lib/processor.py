@@ -36,7 +36,8 @@ def run() -> bool:
     conn_str = f"postgresql://{config.db_user}:{config.db_password}@localhost:{config.db_port}/{config.db_name}"
     rust_log = "info"
 
-    # --rm removes the container once it exits, so runs leave none behind
+    # --rm removes the container once it exits, so runs leave none behind.
+    # Alloy collects logs only from containers named otr-*.
     run_cmd = f"docker run --rm --name {CONTAINER_NAME} --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
 
     logger.info("Running processor")

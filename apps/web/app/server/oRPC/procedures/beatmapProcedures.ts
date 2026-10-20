@@ -36,6 +36,7 @@ import {
 } from './beatmapStatsHelpers';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolveBeatmapId } from './shared/keyType';
+import { logger } from '@/lib/logger';
 
 /** Verified scores surfaced by the beatmap page's score table. */
 const TOP_PERFORMER_LIMIT = 25;
@@ -1248,11 +1249,7 @@ export const getBeatmapStats = publicProcedure
         throw error;
       }
 
-      console.error(
-        '[orpc] beatmaps.stats failed',
-        { beatmapId: input.id },
-        error
-      );
+      logger.error('beatmaps.stats failed', { error });
 
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message: 'Failed to load beatmap statistics',
