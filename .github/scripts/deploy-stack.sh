@@ -3,12 +3,18 @@
 # Updates the production stack. deploy.yml feeds this file to
 # `ssh <host> bash -s -- <remote path>`, so it runs on the host, in the
 # directory holding the compose file the deploy just uploaded.
+#
+# Any failed command stops it and fails the deploy, so a release whose images
+# did not pull or whose stack did not restart never moves the processor's
+# `latest` or installs its operations scripts.
+
+set -euo pipefail
 
 cd "$1"
 docker compose pull
 # compose run attaches stdin, which is this script, so without
 # </dev/null it consumes the lines below and they never run.
-docker compose --profile migrate run --rm -T migrate </dev/null || exit
+docker compose --profile migrate run --rm -T migrate </dev/null
 # One-time move of the docs into the stack: otr-docs' own deploy
 # ran an `otr-docs` container outside compose, which holds the
 # name and port compose's docs service needs. Remove this once a
@@ -24,10 +30,10 @@ fi
 # traffic only while `web` is down. A rollback to a release whose
 # compose file has no `web-standby` restarts `web` alone, and
 # --remove-orphans below then removes the standby.
-services="$(docker compose config --services)" || exit
+services="$(docker compose config --services)"
 for service in web-standby web; do
   grep -qx "$service" <<<"$services" || continue
-  docker compose up -d --wait --wait-timeout 300 "$service" || exit
+  docker compose up -d --wait --wait-timeout 300 "$service"
 done
 # Both web containers are current by now, so this leaves them be.
 docker compose --profile node-exporter up -d --remove-orphans
