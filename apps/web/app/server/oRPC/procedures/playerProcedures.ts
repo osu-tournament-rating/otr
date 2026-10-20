@@ -463,32 +463,43 @@ export type PlayerTournamentFilters = {
 
 const buildPlayerTournamentFilters = ({
   ruleset,
+}: PlayerTournamentFilters): SQL[] =>
+  ruleset != null ? [eq(schema.tournaments.ruleset, ruleset)] : [];
+
+/**
+ * Matches that started within the date range, the same matches player stats
+ * count. A tournament is in the range when the player played in it during
+ * the range, whatever its own start and end dates.
+ */
+const buildPlayedInRangeFilters = ({
   dateMin,
   dateMax,
 }: PlayerTournamentFilters): SQL[] => {
+  const bounds = resolveDateBounds(dateMin, dateMax);
   const filters: SQL[] = [];
 
-  if (ruleset != null) {
-    filters.push(eq(schema.tournaments.ruleset, ruleset));
+  if (bounds.start) {
+    filters.push(gte(schema.matches.startTime, bounds.start));
   }
 
-  if (dateMin) {
-    filters.push(gte(schema.tournaments.startTime, dateMin));
-  }
-
-  if (dateMax) {
-    filters.push(lte(schema.tournaments.endTime, dateMax));
+  if (bounds.end) {
+    filters.push(lte(schema.matches.startTime, bounds.end));
   }
 
   return filters;
 };
 
-/** The tournaments a player has stats for, with their match record. */
+/**
+ * The tournaments a player has stats for, with their match record. With a
+ * date range, only those they have a match in that started within it.
+ */
 export async function listPlayerStatsTournaments(
   db: DatabaseClient,
   playerId: number,
   filters: PlayerTournamentFilters
 ): Promise<PlayerTournamentListItem[]> {
+  const playedInRange = buildPlayedInRangeFilters(filters);
+
   const rows = await db
     .select({
       ...tournamentListItemColumns,
@@ -503,7 +514,25 @@ export async function listPlayerStatsTournaments(
     .where(
       and(
         eq(schema.playerTournamentStats.playerId, playerId),
-        ...buildPlayerTournamentFilters(filters)
+        ...buildPlayerTournamentFilters(filters),
+        playedInRange.length > 0
+          ? exists(
+              db
+                .select({ one: sql`1` })
+                .from(schema.playerMatchStats)
+                .innerJoin(
+                  schema.matches,
+                  eq(schema.matches.id, schema.playerMatchStats.matchId)
+                )
+                .where(
+                  and(
+                    eq(schema.playerMatchStats.playerId, playerId),
+                    eq(schema.matches.tournamentId, schema.tournaments.id),
+                    ...playedInRange
+                  )
+                )
+            )
+          : undefined
       )
     )
     .orderBy(desc(schema.tournaments.endTime));
@@ -525,7 +554,8 @@ export async function listPlayerStatsTournaments(
  * Verified one before the weekly rating run computes its stats. Playing
  * means at least UNVERIFIED_HISTORY_MIN_SCORE on a beatmap the tournament
  * pooled, whatever the status of the score, game and match: a tournament's
- * rejection reaches all three.
+ * rejection reaches all three. With a date range, the score must come from a
+ * match that started within it.
  */
 export async function listPlayerTournamentsWithoutStats(
   db: DatabaseClient,
@@ -583,7 +613,8 @@ export async function listPlayerTournamentsWithoutStats(
               and(
                 eq(schema.matches.tournamentId, schema.tournaments.id),
                 eq(schema.gameScores.playerId, playerId),
-                gte(schema.gameScores.score, UNVERIFIED_HISTORY_MIN_SCORE)
+                gte(schema.gameScores.score, UNVERIFIED_HISTORY_MIN_SCORE),
+                ...buildPlayedInRangeFilters(filters)
               )
             )
         ),
@@ -663,7 +694,7 @@ export const getPlayerTournaments = publicProcedure
   .route({
     summary: 'List player tournaments',
     description:
-      'List tournaments a player has participated in.\n\n' +
+      'List tournaments a player has participated in. With `dateMin` or `dateMax`, list those the player played a match in during that range, the matches player stats count for it.\n\n' +
       '**Examples:**\n' +
       '- By o!TR ID: `GET /players/123/tournaments`\n' +
       '- By osu! ID: `GET /players/4504101/tournaments?keyType=osu`\n' +
