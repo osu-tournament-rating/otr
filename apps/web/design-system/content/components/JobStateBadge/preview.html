@@ -1,0 +1,47 @@
+<!-- @dsCard group="Status" height=96 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>JobStateBadge</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        h = React.createElement;
+      var STATES = O.status.JOB_BADGE_STATES;
+      function Row(label, children) {
+        return h(
+          'div',
+          { className: 'flex items-center gap-3' },
+          h(
+            'span',
+            { className: 'w-24 shrink-0 text-xs text-muted-foreground' },
+            label
+          ),
+          h(
+            'div',
+            { className: 'flex min-w-0 flex-1 flex-wrap items-center gap-2' },
+            children
+          )
+        );
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          Row(
+            'States',
+            STATES.map(function (s) {
+              return h(O.JobStateBadge, { key: s, state: s });
+            })
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>
