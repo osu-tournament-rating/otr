@@ -289,3 +289,42 @@ export async function getPlayersByCountry(
     players: Number(row.players),
   }));
 }
+
+export interface RankRestrictionCount {
+  ruleset: Ruleset;
+  year: number;
+  /** `tournaments.rank_range_lower_bound`; the page groups it into bands. */
+  rankRangeLowerBound: number;
+  tournaments: number;
+}
+
+/** Verified tournaments per ruleset, year and rank restriction. */
+export async function getRankRestrictionsByYear(
+  db: QueryDb
+): Promise<RankRestrictionCount[]> {
+  const rows = await rowsOf<{
+    ruleset: number;
+    year: number;
+    bound: number;
+    tournaments: string;
+  }>(
+    db,
+    sql`
+      select
+        ${schema.tournaments.ruleset} as ruleset,
+        ${tournamentYear} as year,
+        ${schema.tournaments.rankRangeLowerBound} as bound,
+        count(*) as tournaments
+      from ${schema.tournaments}
+      where ${schema.tournaments.verificationStatus} = ${VERIFIED}
+      group by 1, 2, 3
+      order by 1, 2, 3`
+  );
+
+  return rows.map((row) => ({
+    ruleset: row.ruleset as Ruleset,
+    year: Number(row.year),
+    rankRangeLowerBound: Number(row.bound),
+    tournaments: Number(row.tournaments),
+  }));
+}

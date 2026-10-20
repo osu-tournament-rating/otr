@@ -8,6 +8,7 @@ import {
   ListChecks,
   Medal,
   Percent,
+  Target,
   Users,
 } from 'lucide-react';
 
@@ -78,6 +79,11 @@ export const STATS_PANELS = {
   topPlayersByCountry: {
     icon: Medal,
     title: 'Top 100 by country',
+  },
+  rankRestrictions: {
+    icon: Target,
+    title: 'Rank restrictions by year',
+    infoText: `A tournament counts in the band its rank restriction starts at: 10k+ is for players ranked #10,000 and beyond. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

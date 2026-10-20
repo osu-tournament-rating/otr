@@ -9,6 +9,7 @@ import {
 } from '@/components/stats/CountryPanels';
 import LazerSharePanel from '@/components/stats/LazerSharePanel';
 import OverviewPanel from '@/components/stats/OverviewPanel';
+import RankRestrictionsPanel from '@/components/stats/RankRestrictionsPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
 import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
 import { RulesetStatsProvider } from '@/components/stats/ruleset-stats';
@@ -72,6 +73,7 @@ export default async function StatsPage() {
             <PlayersByCountryPanel />
             <TopPlayersByCountryPanel />
           </div>
+          <RankRestrictionsPanel currentYear={currentYear} />
         </PageSection>
       </RulesetStatsProvider>
     </PageFrame>

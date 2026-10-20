@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import type { HeadlineTotals } from '@otr/core/platform-stats';
 
+import { RANK_RANGE_BUCKET_KEYS } from '@/lib/beatmaps/rankRange';
+
 import { RulesetSchema } from './constants';
 
 const count = z.number().int().nonnegative();
@@ -73,10 +75,17 @@ export const CountrySummarySchema = z.object({
   players: count,
 });
 
+/** One year's verified tournaments in each rank restriction band. */
+export const RankRestrictionYearSchema = z.object({
+  year: z.number().int(),
+  bands: z.record(z.enum(RANK_RANGE_BUCKET_KEYS), count),
+});
+
 export const RulesetStatsSchema = z.object({
   ruleset: RulesetSchema,
   playersByCountry: CountrySummarySchema,
   topPlayersByCountry: CountrySummarySchema,
+  rankRestrictionsByYear: z.array(RankRestrictionYearSchema),
 });
 
 /**
@@ -107,4 +116,5 @@ export type RecentlyVerifiedTournamentData = z.infer<
 export type LazerYearData = z.infer<typeof LazerYearSchema>;
 export type CountryCountData = z.infer<typeof CountryCountSchema>;
 export type CountrySummaryData = z.infer<typeof CountrySummarySchema>;
+export type RankRestrictionYearData = z.infer<typeof RankRestrictionYearSchema>;
 export type RulesetStatsData = z.infer<typeof RulesetStatsSchema>;

@@ -107,6 +107,12 @@ export default function StatsLoading() {
             level={3}
           />
         </div>
+        <ChartPanelSkeleton
+          copy={STATS_PANELS.rankRestrictions}
+          metaWidth="w-28"
+          plot="h-80"
+          level={3}
+        />
       </PageSection>
     </PageFrame>
   );

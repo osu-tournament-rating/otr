@@ -4,6 +4,7 @@ import {
   TREND_MIN_TOURNAMENTS,
   formatDaysToVerify,
   getLazerShareBars,
+  getRankRestrictionBars,
   getTrendYears,
 } from '@/components/stats/stats-data';
 
@@ -41,6 +42,29 @@ describe('getLazerShareBars', () => {
 
   it('is null until a lazer tournament is verified', () => {
     expect(getLazerShareBars([{ year: 2025, total: 40, lazer: 0 }])).toBeNull();
+  });
+});
+
+describe('getRankRestrictionBars', () => {
+  it('stacks each trend year by band, counting every band toward the year', () => {
+    const bands = (open: number, lt1k = 0) => ({
+      open,
+      lt1k,
+      '1kPlus': 0,
+      '10kPlus': 0,
+      '100kPlus': 0,
+    });
+
+    const bars = getRankRestrictionBars([
+      { year: 2018, bands: bands(TOO_FEW) },
+      { year: 2019, bands: bands(TOO_FEW, 1) },
+      { year: 2020, bands: bands(3) },
+    ]);
+
+    expect(bars.map((bar) => [bar.label, bar.values.open])).toEqual([
+      ['2019', TOO_FEW],
+      ['2020', 3],
+    ]);
   });
 });
 

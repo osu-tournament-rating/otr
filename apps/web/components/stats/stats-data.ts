@@ -18,6 +18,7 @@ import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
 import type {
   CountryCountData,
   LazerYearData,
+  RankRestrictionYearData,
 } from '@/lib/orpc/schema/statsPage';
 import {
   getTierFromRating,
@@ -257,6 +258,28 @@ export function getLazerShareBars(
     label: formatYear(year),
     values: { lazer: byYear.get(year)?.lazer ?? 0 },
     total: byYear.get(year)?.total ?? 0,
+  }));
+}
+
+/**
+ * Each year's verified tournaments per rank restriction band as stacked
+ * columns, over the trend years.
+ */
+export function getRankRestrictionBars(
+  years: readonly RankRestrictionYearData[]
+): StackedBarDatum[] {
+  const byYear = new Map(years.map((entry) => [entry.year, entry.bands]));
+  const totals = new Map(
+    years.map((entry) => [
+      entry.year,
+      Object.values(entry.bands).reduce((sum, value) => sum + value, 0),
+    ])
+  );
+
+  return getTrendYears(totals).map((year) => ({
+    key: String(year),
+    label: formatYear(year),
+    values: byYear.get(year) ?? {},
   }));
 }
 

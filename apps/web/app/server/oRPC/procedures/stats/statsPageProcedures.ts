@@ -16,13 +16,14 @@ import {
 } from '@/lib/orpc/schema/statsPage';
 
 import { publicProcedure } from '../base';
+import { bandRankRestrictions, summarizeCountries } from './shape';
 import {
   getLazerByYear,
   getPlayersByCountry,
+  getRankRestrictionsByYear,
   getRecentlyVerified,
   getVerificationSummary,
 } from './queries';
-import { summarizeCountries } from './shape';
 
 /** Recently verified tournaments shown before "Load more". */
 export const RECENTLY_VERIFIED_FIRST_PAGE = 5;
@@ -72,6 +73,7 @@ export async function runStatsPage({
     lazerByYear,
     countries,
     topCountries,
+    rankRestrictions,
   ] = await Promise.all([
     readPlatformStats(db),
     getVerificationSummary(db),
@@ -79,6 +81,7 @@ export async function runStatsPage({
     getLazerByYear(db),
     getPlayersByCountry(db),
     getPlayersByCountry(db, { topRank: TOP_RANK }),
+    getRankRestrictionsByYear(db),
   ]);
 
   return {
@@ -100,6 +103,9 @@ export async function runStatsPage({
       ),
       topPlayersByCountry: summarizeCountries(
         topCountries.filter((row) => row.ruleset === ruleset)
+      ),
+      rankRestrictionsByYear: bandRankRestrictions(
+        rankRestrictions.filter((row) => row.ruleset === ruleset)
       ),
     })),
   };

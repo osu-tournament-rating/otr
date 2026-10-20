@@ -10,6 +10,7 @@ import { createTestDb, testDatabaseUrl } from '../../__tests__/test-utils';
 import {
   getLazerByYear,
   getPlayersByCountry,
+  getRankRestrictionsByYear,
   getRecentlyVerified,
   getVerificationSummary,
 } from '../queries';
@@ -248,6 +249,38 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         { ruleset: Ruleset.Osu, country: 'US', players: 1 },
         { ruleset: Ruleset.Osu, country: 'XX', players: 1 },
         { ruleset: Ruleset.Taiko, country: 'JP', players: 1 },
+      ]);
+    });
+  });
+
+  it('counts verified tournaments per ruleset, year and rank restriction', async () => {
+    await onEmptyTables(async (tx) => {
+      const in2024 = { start: '2024-05-01T00:00:00Z' };
+      await seedTournament(tx, in2024);
+      await seedTournament(tx, in2024);
+      await seedTournament(tx, { ...in2024, rankRangeLowerBound: 10_000 });
+      await seedTournament(tx, { ...in2024, status: None });
+      await seedTournament(tx, { ...in2024, ruleset: Ruleset.Taiko });
+
+      expect(await getRankRestrictionsByYear(tx)).toEqual([
+        {
+          ruleset: Ruleset.Osu,
+          year: 2024,
+          rankRangeLowerBound: 1,
+          tournaments: 2,
+        },
+        {
+          ruleset: Ruleset.Osu,
+          year: 2024,
+          rankRangeLowerBound: 10_000,
+          tournaments: 1,
+        },
+        {
+          ruleset: Ruleset.Taiko,
+          year: 2024,
+          rankRangeLowerBound: 1,
+          tournaments: 1,
+        },
       ]);
     });
   });
