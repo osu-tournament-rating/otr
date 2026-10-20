@@ -7,7 +7,6 @@ import {
   exists,
   getTableColumns,
   gte,
-  ilike,
   inArray,
   lte,
   ne,
@@ -90,7 +89,6 @@ export const getPlayer = publicProcedure
 
     return PlayerSchema.parse(player[0]);
   });
-type PlayerRow = typeof schema.players.$inferSelect;
 type PlayerRatingRow = typeof schema.playerRatings.$inferSelect;
 type PlayerMatchStatsRow = typeof schema.playerMatchStats.$inferSelect;
 
@@ -187,73 +185,6 @@ const resolveDateBounds = (dateMin?: string, dateMax?: string): DateBounds => {
     start: minDate ? minDate.toISOString() : null,
     end: maxDate ? maxDate.toISOString() : null,
   };
-};
-
-const isStrictNumeric = (value: string): boolean => /^[0-9]+$/.test(value);
-
-const normaliseKey = (value: string): string => value.trim();
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const findPlayerByKey = async (
-  db: DatabaseClient,
-  key: string
-): Promise<PlayerRow> => {
-  const trimmed = normaliseKey(key);
-
-  if (!trimmed) {
-    throw new ORPCError('NOT_FOUND', {
-      message: 'Player not found',
-    });
-  }
-
-  if (isStrictNumeric(trimmed)) {
-    // Some usernames are entirely numeric, so try an exact username match first
-    const byExactUsername = await db
-      .select()
-      .from(schema.players)
-      .where(ilike(schema.players.username, trimmed))
-      .limit(1);
-
-    if (byExactUsername[0]) {
-      return byExactUsername[0];
-    }
-
-    const numericKey = Number(trimmed);
-
-    const byId = await db
-      .select()
-      .from(schema.players)
-      .where(eq(schema.players.id, numericKey))
-      .limit(1);
-
-    if (byId[0]) {
-      return byId[0];
-    }
-
-    const byOsuId = await db
-      .select()
-      .from(schema.players)
-      .where(eq(schema.players.osuId, numericKey))
-      .limit(1);
-
-    if (byOsuId[0]) {
-      return byOsuId[0];
-    }
-  }
-
-  const byUsername = await db
-    .select()
-    .from(schema.players)
-    .where(ilike(schema.players.username, trimmed))
-    .limit(1);
-
-  if (byUsername[0]) {
-    return byUsername[0];
-  }
-
-  throw new ORPCError('NOT_FOUND', {
-    message: 'Player not found',
-  });
 };
 
 const toNumber = (value: unknown, fallback = 0): number => {

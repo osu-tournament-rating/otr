@@ -514,20 +514,20 @@ describe('updateTournamentAdminHandler', () => {
     it.each([
       [
         'another topic',
-        `https://osu.ppy.sh/community/forums/topics/${NEW_TOPIC_ID}`,
         true,
         [NEW_TOPIC_ID],
+        `https://osu.ppy.sh/community/forums/topics/${NEW_TOPIC_ID}`,
       ],
       [
         'a wiki page',
-        'https://osu.ppy.sh/wiki/en/Tournaments/TT/2026',
         true,
         [],
+        'https://osu.ppy.sh/wiki/en/Tournaments/TT/2026',
       ],
-      ['the same URL', storedUrl, false, []],
+      ['the same URL', false, [], storedUrl],
     ])(
       'moving to %s unlinks the post: %p, queues topics: %p',
-      async (_label, forumUrl, unlinks, expectedTopics) => {
+      async (_label, unlinks, expectedTopics, forumUrl) => {
         await update(forumUrl);
 
         expect(await storedForumPostId()).toBe(unlinks ? null : forumPostId);
