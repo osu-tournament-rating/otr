@@ -18,6 +18,10 @@ import {
 } from '../player-store';
 import { TournamentDataCompletionService } from './tournament-data-completion-service';
 import type { DatabaseClient } from '../../db';
+import {
+  selectPlayersDueForOsuRefetch,
+  type OsuRefetchCadence,
+} from '../../players/osu-refetch-cadence';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
 import * as schema from '@otr/core/db/schema';
@@ -30,6 +34,8 @@ interface BeatmapFetchServiceOptions {
   rateLimiter: RateLimiter;
   logger: Logger;
   dataCompletion: TournamentDataCompletionService;
+  /** A mapper is refetched only once this cadence has passed for them. */
+  osuRefetchCadence: OsuRefetchCadence;
   /** Queues player fetches inside the transaction that claims their leases. */
   publishPlayerFetches: (
     db: JobExecutor,
@@ -74,6 +80,7 @@ export class BeatmapFetchService {
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
   private readonly dataCompletion: TournamentDataCompletionService;
+  private readonly osuRefetchCadence: OsuRefetchCadence;
   private readonly publishPlayerFetches: (
     db: JobExecutor,
     osuPlayerIds: number[]
@@ -87,6 +94,7 @@ export class BeatmapFetchService {
     this.rateLimiter = options.rateLimiter;
     this.logger = options.logger;
     this.dataCompletion = options.dataCompletion;
+    this.osuRefetchCadence = options.osuRefetchCadence;
     this.publishPlayerFetches = options.publishPlayerFetches;
     this.publishBeatmapAttributes = options.publishBeatmapAttributes;
   }
@@ -228,20 +236,32 @@ export class BeatmapFetchService {
         }
       }
 
+      // A mapper is queued when they are new, or due on the refetch
+      // scheduler's cadence. One fetched recently, or being fetched now, is
+      // left to the scheduler.
       // The leases and the jobs commit with the beatmap, or not at all.
       // Players lock in id order and their jobs go in one batch, so this
       // transaction locks rows in the same order as anyone else's.
+      const ownerIds = [...userIds].sort((a, b) => a - b);
+      const due = new Map(
+        (
+          await selectPlayersDueForOsuRefetch(
+            tx,
+            this.osuRefetchCadence,
+            ownerIds
+          )
+        ).map((player) => [player.osuPlayerId, player])
+      );
       const playersToQueue: number[] = [];
-      for (const userId of [...userIds].sort((a, b) => a - b)) {
-        const previous = await getPlayerOsuFetchState(tx, userId);
-        if (previous?.status === DataFetchStatus.Fetching) {
-          this.logger.debug('Skipping player enqueue - already fetching', {
+      for (const userId of ownerIds) {
+        const previous = due.get(userId);
+        if (previous) {
+          await claimPlayerFetchLease(tx, 'osu', userId, previous, nowIso);
+        } else if (await getPlayerOsuFetchState(tx, userId)) {
+          this.logger.debug('Skipping player enqueue - not due a refetch', {
             userId,
           });
           continue;
-        }
-        if (previous) {
-          await claimPlayerFetchLease(tx, 'osu', userId, previous, nowIso);
         }
         playersToQueue.push(userId);
       }
