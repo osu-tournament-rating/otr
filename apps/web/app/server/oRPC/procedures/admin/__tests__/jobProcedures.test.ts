@@ -9,6 +9,7 @@ import { Ruleset } from '@otr/core/osu';
 import {
   cancelJobsHandler,
   getJobDailyTotalsHandler,
+  getJobSummaryHandler,
   listJobsHandler,
   retryJobsHandler,
 } from '../jobProcedures';
@@ -48,6 +49,7 @@ describe('admin job procedures refuse non-admins', () => {
   ) as never;
 
   it.each([
+    ['queue summary', () => getJobSummaryHandler({ context: { db, session } })],
     ['list', () => listJobsHandler({ input: {}, context: { db, session } })],
     [
       'retry',
