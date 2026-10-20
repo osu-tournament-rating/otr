@@ -81,8 +81,9 @@ configured application database.
   already committed, so a receipt problem logs an error and never fails the
   run. With `METRICS_DIR` set, production records
   `otr_rating_receipt_published 0` instead, which raises the
-  `RatingReceiptMissing` alert. The processor prints that line and the receipt's run fields; keep them
-  in step with `apps/processor/src/receipt.rs` and `apps/replay`.
+  `RatingReceiptMissing` alert. The processor prints that line and the
+  receipt's run fields; keep them in step with `apps/processor/src/receipt.rs`
+  and `apps/replay`.
 - `backfill-receipts` derives receipts for the weekly runs from before
   receipts (`src/lib/scripts/receipts_backfill.py`). The schedule, Tuesdays
   12:00 UTC, gives each start; otr-processor's Docker Hub push times and
