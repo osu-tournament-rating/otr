@@ -4,6 +4,7 @@ import {
   type Ruleset,
 } from '@otr/core/osu';
 
+import type { SortOption } from '@/components/kit/lists/SortControl';
 import { RANK_RANGE_MAX, RANK_RANGE_MIN } from '@/lib/filters/tournament-rank';
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
@@ -34,29 +35,44 @@ export const TOURNAMENT_LIST_PATH = '/tournaments';
 export const TOURNAMENT_PAGE_SIZE = 30;
 
 export type TournamentSortKey =
-  'endTime' | 'startTime' | 'submitted' | 'lobbySize';
+  'relevance' | 'endTime' | 'startTime' | 'submitted' | 'lobbySize';
 
-/** The list's sort keys with their labels, in menu order. */
-export const TOURNAMENT_SORT_OPTIONS: readonly {
-  value: TournamentSortKey;
-  label: string;
-}[] = [
-  { value: 'endTime', label: 'End date' },
-  { value: 'startTime', label: 'Start date' },
-  { value: 'submitted', label: 'Submission date' },
-  { value: 'lobbySize', label: 'Lobby size' },
-];
+/**
+ * The list's sort keys with their labels, in menu order. Relevance ranks a
+ * search as the public API's relevance sort does, best match first, so it
+ * has no direction and is offered only while searching
+ * (`getTournamentSortOptions`).
+ */
+export const TOURNAMENT_SORT_OPTIONS: readonly SortOption<TournamentSortKey>[] =
+  [
+    {
+      value: 'relevance',
+      label: 'Relevance',
+      defaultDirection: 'desc',
+      directionless: true,
+    },
+    { value: 'endTime', label: 'End date' },
+    { value: 'startTime', label: 'Start date' },
+    { value: 'submitted', label: 'Submission date' },
+    { value: 'lobbySize', label: 'Lobby size' },
+  ];
 
 const SORT_TYPES: Readonly<Record<TournamentSortKey, TournamentQuerySortType>> =
   {
+    relevance: TournamentQuerySortType.SearchQueryRelevance,
     endTime: TournamentQuerySortType.EndTime,
     startTime: TournamentQuerySortType.StartTime,
     submitted: TournamentQuerySortType.SubmissionDate,
     lobbySize: TournamentQuerySortType.LobbySize,
   };
 
+/**
+ * No sort chosen: a search lists its best matches first, and the list
+ * without one falls back to end date (`resolveTournamentSort`). Any key the
+ * visitor picks, end date included, is written to the address and kept.
+ */
 export const DEFAULT_TOURNAMENT_SORT: SortState<TournamentSortKey> = {
-  key: 'endTime',
+  key: 'relevance',
   direction: 'desc',
 };
 
@@ -117,6 +133,29 @@ export function tournamentListHref(state: TournamentListState): string {
 }
 
 /**
+ * The sort a list state shows and fetches. Relevance means nothing without
+ * a search, so there the list falls back to end date, keeping the direction
+ * an older end date link carries (`?dir=asc`).
+ */
+export function resolveTournamentSort(
+  state: Pick<TournamentListState, 'q' | 'sort'>
+): SortState<TournamentSortKey> {
+  if (state.sort.key === 'relevance' && !state.q) {
+    return { key: 'endTime', direction: state.sort.direction };
+  }
+  return state.sort;
+}
+
+/** The sort keys the toolbar offers: relevance only while searching. */
+export function getTournamentSortOptions(
+  searching: boolean
+): readonly SortOption<TournamentSortKey>[] {
+  return searching
+    ? TOURNAMENT_SORT_OPTIONS
+    : TOURNAMENT_SORT_OPTIONS.filter((option) => option.value !== 'relevance');
+}
+
+/**
  * The rulesets a list state shows: its own, else `defaultRulesets`, the
  * visitor's browsing ruleset (empty for every ruleset).
  */
@@ -152,6 +191,7 @@ export function toTournamentListRequest(
 ): TournamentListRequest {
   const reasonMask = flagsToMask(state.reason);
   const rulesets = resolveTournamentRulesets(state, defaultRulesets);
+  const sort = resolveTournamentSort(state);
 
   return {
     page: state.page,
@@ -170,12 +210,13 @@ export function toTournamentListRequest(
     verified: state.verified || undefined,
     submittedBy: state.submittedBy,
     verifiedBy: state.verifiedBy,
-    sort: SORT_TYPES[state.sort.key],
-    descending: state.sort.direction === 'desc',
+    sort: SORT_TYPES[sort.key],
+    descending: sort.direction === 'desc',
   };
 }
 
 const LEGACY_SORT_KEYS: Partial<Record<string, TournamentSortKey>> = {
+  [String(TournamentQuerySortType.SearchQueryRelevance)]: 'relevance',
   [String(TournamentQuerySortType.StartTime)]: 'startTime',
   [String(TournamentQuerySortType.EndTime)]: 'endTime',
   [String(TournamentQuerySortType.SubmissionDate)]: 'submitted',
