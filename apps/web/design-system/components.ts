@@ -422,6 +422,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     refs: ['color.md#CountBarChart', 'color.md#Chart card'],
   },
   {
+    name: 'StackedBarChart',
+    group: 'Charts',
+    src: 'components/kit/charts/StackedBarChart.tsx',
+    refs: ['color.md#StackedBarChart', 'color.md#Chart card'],
+  },
+  {
     name: 'ChartTooltipContent',
     group: 'Charts',
     src: 'components/kit/charts/ChartTooltip.tsx',

@@ -22,6 +22,7 @@ Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its lig
 - [Axis formatters](#axis-formatters): `formatCountTick`, `formatYearTick` and friends
 - [Recharts axis props](#recharts-axis-props): `chartAxisProps`, `chartValueAxisProps`, `niceAxisProps`, and the row bar parts
 - [CountBarChart](#countbarchart): a count per category, in columns or rows
+- [StackedBarChart](#stackedbarchart): several series stacked per category, as counts or shares
 - [ChartTooltipContent](#charttooltipcontent): the one chart tooltip
 - [ChartLegend and SeriesMarker](#chartlegend-and-seriesmarker): the key for two or more series
 - [Chart card](#chart-card): Panel, SectionHeader and a chart
@@ -594,6 +595,53 @@ Don't:
 - Don't keep a copy for one page; the stats page's year, ruleset, lobby size and verification charts all use this one.
 
 Gallery anchor: `/admin/design#color-chart-count-bars`
+
+## StackedBarChart
+
+Several series per category stacked in one column, on the shared chart parts: tournaments per year split by rank restriction band, or one series as a share of every column, such as lazer tournaments of each year's. A legend sits above the plot from two series on; the tooltip lists the stack top to bottom, with an optional footer.
+
+```tsx
+import {
+  StackedBarChart,
+  type StackedBarDatum,
+} from '@/components/kit/charts/StackedBarChart';
+import { RANK_RANGE_BUCKETS } from '@/lib/beatmaps/rankRange';
+
+const series = RANK_RANGE_BUCKETS.map(({ key, label, color }) => ({
+  key,
+  label,
+  color,
+}));
+
+// components/stats/RankRestrictionsPanel.tsx
+<StackedBarChart
+  data={bars} // { key: '2024', label: '2024', values: { open: 144, lt1k: 21, … } }
+  series={series}
+  mode="share"
+  categoryTicks={getCategoryTicks(years, maxTicks).map(formatYearTick)}
+  footer={(bar) => formatCountOf(getStackedTotal(bar, series), 'tournament')}
+/>;
+
+// One series as a share of a larger total (components/stats/LazerSharePanel.tsx)
+<StackedBarChart
+  data={[{ key: '2026', label: '2026', values: { lazer: 11 }, total: 178 }]}
+  series={[{ key: 'lazer', label: 'Lazer', color: seriesColor(0) }]}
+  mode="share"
+/>;
+```
+
+- `data`: `StackedBarDatum[]`, each `{ key, label, values, total? }`. `values` holds a count per series key; a missing one counts zero. `total` is what a share is out of when it is more than the series add up to; it defaults to their sum.
+- `series`: `{ key, label, color }`, bottom of the stack first. Colours are the categorical slots of each series' fixed index, or a domain palette's own (the rank restriction bands keep slots 1 to 5 from `lib/beatmaps/rankRange.ts`).
+- `mode`: `count` (default) stacks the counts on a count axis; `share` stacks each count as a percentage of its column's total, on a percentage axis that tops out at 100%. A column with a total of zero draws nothing.
+- `categoryTicks`, `footer(datum)` and `className` (`h-60` by default; the legend is extra) work as on CountBarChart.
+- The pure rules, `getStackedBarRows`, `getStackedValueTicks` and `getStackedTotal`, are in `@/lib/kit/charts/stacked-bars`.
+
+Don't:
+
+- Don't hand-build a stacked `BarChart`; the stats page's rank restrictions and lazer share both use this one.
+- Don't draw a share chart for data with no share yet: the lazer share shows an empty state until a lazer tournament is verified, not a flat 0%.
+
+Gallery anchor: `/admin/design#color-chart-stacked`
 
 ## ChartTooltipContent
 
