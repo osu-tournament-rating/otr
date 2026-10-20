@@ -174,7 +174,7 @@ class UpdateTournamentTestTransaction {
 }
 
 describe('updateTournamentAdminHandler', () => {
-  const baseInput: UpdateTournamentAdminArgs['input'] = {
+  const baseInput = {
     id: 1,
     name: 'Test Tournament',
     abbreviation: 'TT',
@@ -186,7 +186,7 @@ describe('updateTournamentAdminHandler', () => {
     rejectionReason: 0,
     startTime: null,
     endTime: null,
-  };
+  } satisfies UpdateTournamentAdminArgs['input'];
 
   const adminSession: NonNullable<
     UpdateTournamentAdminArgs['context']['session']

@@ -248,22 +248,33 @@ export async function updateTournamentAdminHandler({
     });
   }
 
+  // A field the admin did not edit is not sent, and stays as stored.
   const verificationStatusChanged =
+    input.verificationStatus !== undefined &&
     input.verificationStatus !== existing.verificationStatus;
 
   const newStatusRequiresReviewer =
     input.verificationStatus === VerificationStatus.Verified ||
     input.verificationStatus === VerificationStatus.Rejected;
 
-  const forumUrlChanged = input.forumUrl !== existing.forumUrl;
+  const newForumUrl =
+    input.forumUrl !== undefined && input.forumUrl !== existing.forumUrl
+      ? input.forumUrl
+      : null;
 
-  const shouldPropagateManiaVariant =
+  const maniaVariant =
     existing.ruleset === Ruleset.ManiaOther &&
-    (input.ruleset === Ruleset.Mania4k || input.ruleset === Ruleset.Mania7k);
+    (input.ruleset === Ruleset.Mania4k || input.ruleset === Ruleset.Mania7k)
+      ? input.ruleset
+      : null;
 
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
       const verifiedByUserId = (() => {
+        if (input.verificationStatus === undefined) {
+          return undefined;
+        }
+
         if (!verificationStatusChanged) {
           return existing.verifiedByUserId;
         }
@@ -282,21 +293,21 @@ export async function updateTournamentAdminHandler({
           abbreviation: input.abbreviation,
           forumUrl: input.forumUrl,
           // The worker links the new URL's post once it is fetched.
-          ...(forumUrlChanged ? { forumPostId: null } : {}),
+          ...(newForumUrl !== null ? { forumPostId: null } : {}),
           rankRangeLowerBound: input.rankRangeLowerBound,
           ruleset: input.ruleset,
           lobbySize: input.lobbySize,
           verificationStatus: input.verificationStatus,
           rejectionReason: input.rejectionReason,
-          startTime: input.startTime ?? null,
-          endTime: input.endTime ?? null,
+          startTime: input.startTime,
+          endTime: input.endTime,
           verifiedByUserId,
           updated: NOW,
         })
         .where(eq(schema.tournaments.id, input.id));
 
-      if (shouldPropagateManiaVariant) {
-        await alignTournamentChildRulesets(tx, input.id, input.ruleset);
+      if (maniaVariant !== null) {
+        await alignTournamentChildRulesets(tx, input.id, maniaVariant);
       }
 
       if (input.verificationStatus === VerificationStatus.Verified) {
@@ -320,9 +331,8 @@ export async function updateTournamentAdminHandler({
         });
       }
 
-      const topicId = forumUrlChanged
-        ? parseForumTopicId(input.forumUrl)
-        : null;
+      const topicId =
+        newForumUrl !== null ? parseForumTopicId(newForumUrl) : null;
       if (topicId !== null) {
         await enqueueJobs(tx, JobQueue.OsuFetch, [
           {

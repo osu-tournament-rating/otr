@@ -7,7 +7,7 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -18,6 +18,7 @@ import {
   VerifyChildrenChoices,
   changedFieldClass,
   combineFlags,
+  editedValues,
   flagOptions,
 } from '@/components/admin-forms/adminFormFields';
 import { Button } from '@/components/kit/controls/Button';
@@ -86,16 +87,21 @@ export default function MatchEditDialog({
   const [savingChoice, setSavingChoice] =
     useState<VerificationChildrenChoice | null>(null);
 
-  const form = useForm<MatchEditValues>({
-    resolver: zodResolver(matchEditFormSchema) as Resolver<MatchEditValues>,
-    defaultValues: {
+  const defaults = useMemo<MatchEditValues>(
+    () => ({
       name: match.name,
       verificationStatus: match.verificationStatus ?? 0,
       rejectionReason: match.rejectionReason ?? 0,
       warningFlags: match.warningFlags ?? 0,
       startTime: match.startTime ? new Date(match.startTime) : undefined,
       endTime: match.endTime ? new Date(match.endTime) : undefined,
-    },
+    }),
+    [match]
+  );
+
+  const form = useForm<MatchEditValues>({
+    resolver: zodResolver(matchEditFormSchema) as Resolver<MatchEditValues>,
+    defaultValues: defaults,
     mode: 'all',
   });
 
@@ -103,24 +109,16 @@ export default function MatchEditDialog({
     values: MatchEditValues,
     children?: VerificationChildrenChoice
   ) {
-    const toNullableIso = (value: Date | null | undefined) =>
-      value instanceof Date ? value.toISOString() : null;
+    const edited = editedValues(values, defaults);
 
     try {
       await orpc.matches.admin.update({
         id: match.id,
-        name: values.name,
-        verificationStatus:
-          values.verificationStatus as VerificationStatusValue,
-        rejectionReason: values.rejectionReason,
-        warningFlags: values.warningFlags,
-        startTime: toNullableIso(
-          values.startTime ??
-            (match.startTime ? new Date(match.startTime) : null)
-        ),
-        endTime: toNullableIso(
-          values.endTime ?? (match.endTime ? new Date(match.endTime) : null)
-        ),
+        name: edited.name,
+        verificationStatus: edited.verificationStatus as
+          VerificationStatusValue | undefined,
+        rejectionReason: edited.rejectionReason,
+        warningFlags: edited.warningFlags,
         children,
       });
 

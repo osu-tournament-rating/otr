@@ -55,7 +55,9 @@ export async function updateMatchAdminHandler({
     });
   }
 
+  // A field the admin did not edit is not sent, and stays as stored.
   const verificationStatusChanged =
+    input.verificationStatus !== undefined &&
     input.verificationStatus !== existing.verificationStatus;
 
   const newStatusRequiresReviewer =
@@ -65,6 +67,10 @@ export async function updateMatchAdminHandler({
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
       const verifiedByUserId = (() => {
+        if (input.verificationStatus === undefined) {
+          return undefined;
+        }
+
         if (!verificationStatusChanged) {
           return existing.verifiedByUserId;
         }
@@ -91,8 +97,8 @@ export async function updateMatchAdminHandler({
           verificationStatus: input.verificationStatus,
           rejectionReason: input.rejectionReason,
           warningFlags: nextWarningFlags,
-          startTime: input.startTime ?? null,
-          endTime: input.endTime ?? null,
+          startTime: input.startTime,
+          endTime: input.endTime,
           verifiedByUserId,
           updated: NOW,
         })

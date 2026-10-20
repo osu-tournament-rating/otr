@@ -159,33 +159,37 @@ const tournamentDetailBaseSchema = tournamentSelectSchema
 
 export const TournamentDetailSchema = tournamentDetailBaseSchema;
 
-export const TournamentAdminUpdateInputSchema = z.object({
-  id: z.number().int().positive(),
-  name: z.string().min(1),
-  abbreviation: z.string().min(1),
-  forumUrl: z
-    .string()
-    .url()
-    .refine(
-      (value) =>
-        value.startsWith('https://osu.ppy.sh/community/forums/topics/') ||
-        value.startsWith('https://osu.ppy.sh/wiki/en/Tournaments/'),
-      {
-        message: FORUM_POST_URL_PREFIX_MESSAGE,
-      }
-    ),
-  rankRangeLowerBound: z
-    .number()
-    .int(RANK_RESTRICTION_WHOLE_NUMBER_MESSAGE)
-    .min(1, RANK_RESTRICTION_MINIMUM_MESSAGE),
-  ruleset: RulesetSchema,
-  lobbySize: z.number().int().min(1).max(8),
-  verificationStatus: VerificationStatusSchema,
-  rejectionReason: z.number().int().min(0),
-  startTime: z.string().datetime().nullable(),
-  endTime: z.string().datetime().nullable(),
-  children: VerificationChildrenChoiceSchema,
-});
+/** A save names only the fields the admin edited; the rest stay as stored. */
+export const TournamentAdminUpdateInputSchema = z
+  .object({
+    id: z.number().int().positive(),
+    name: z.string().min(1),
+    abbreviation: z.string().min(1),
+    forumUrl: z
+      .string()
+      .url()
+      .refine(
+        (value) =>
+          value.startsWith('https://osu.ppy.sh/community/forums/topics/') ||
+          value.startsWith('https://osu.ppy.sh/wiki/en/Tournaments/'),
+        {
+          message: FORUM_POST_URL_PREFIX_MESSAGE,
+        }
+      ),
+    rankRangeLowerBound: z
+      .number()
+      .int(RANK_RESTRICTION_WHOLE_NUMBER_MESSAGE)
+      .min(1, RANK_RESTRICTION_MINIMUM_MESSAGE),
+    ruleset: RulesetSchema,
+    lobbySize: z.number().int().min(1).max(8),
+    verificationStatus: VerificationStatusSchema,
+    rejectionReason: z.number().int().min(0),
+    startTime: z.string().datetime().nullable(),
+    endTime: z.string().datetime().nullable(),
+    children: VerificationChildrenChoiceSchema,
+  })
+  .partial()
+  .required({ id: true });
 
 export const TournamentIdInputSchema = z.object({
   id: z.number().int().positive(),

@@ -7,7 +7,7 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -20,6 +20,7 @@ import {
   VerifyChildrenChoices,
   changedFieldClass,
   combineFlags,
+  editedValues,
   flagOptions,
 } from '@/components/admin-forms/adminFormFields';
 import { Button } from '@/components/kit/controls/Button';
@@ -79,9 +80,8 @@ export default function GameEditDialog({
   const [savingChoice, setSavingChoice] =
     useState<VerificationChildrenChoice | null>(null);
 
-  const form = useForm<GameEditValues>({
-    resolver: zodResolver(gameEditFormSchema) as Resolver<GameEditValues>,
-    defaultValues: {
+  const defaults = useMemo<GameEditValues>(
+    () => ({
       ruleset: game.ruleset,
       mods: game.mods,
       verificationStatus: game.verificationStatus,
@@ -92,7 +92,13 @@ export default function GameEditDialog({
       isFreeMod: game.isFreeMod,
       startTime: game.startTime ? new Date(game.startTime) : undefined,
       endTime: game.endTime ? new Date(game.endTime) : undefined,
-    },
+    }),
+    [game]
+  );
+
+  const form = useForm<GameEditValues>({
+    resolver: zodResolver(gameEditFormSchema) as Resolver<GameEditValues>,
+    defaultValues: defaults,
     mode: 'all',
   });
 
@@ -100,37 +106,23 @@ export default function GameEditDialog({
     values: GameEditValues,
     children?: VerificationChildrenChoice
   ) {
-    try {
-      const startTimeIso = values.startTime
-        ? values.startTime.toISOString()
-        : (game.startTime ?? null);
-      const endTimeIso = values.endTime
-        ? values.endTime.toISOString()
-        : (game.endTime ?? null);
+    const edited = editedValues(values, defaults);
 
+    try {
       await orpc.games.admin.update({
         id: game.id,
-        ruleset: values.ruleset,
-        scoringType: values.scoringType,
-        teamType: values.teamType,
-        mods: values.mods,
-        verificationStatus:
-          values.verificationStatus as VerificationStatusValue,
-        rejectionReason: values.rejectionReason,
-        warningFlags: values.warningFlags,
-        startTime: startTimeIso,
-        endTime: endTimeIso,
+        ruleset: edited.ruleset,
+        scoringType: edited.scoringType,
+        teamType: edited.teamType,
+        mods: edited.mods,
+        verificationStatus: edited.verificationStatus as
+          VerificationStatusValue | undefined,
+        rejectionReason: edited.rejectionReason,
+        warningFlags: edited.warningFlags,
         children,
       });
 
-      form.reset({
-        ...values,
-        startTime:
-          values.startTime ??
-          (startTimeIso ? new Date(startTimeIso) : undefined),
-        endTime:
-          values.endTime ?? (endTimeIso ? new Date(endTimeIso) : undefined),
-      });
+      form.reset(values);
       saveToast();
       setPendingValues(null);
       onOpenChange(false);

@@ -179,16 +179,20 @@ const PositiveIntSchema = z.number().int().positive();
 const BitmaskEnumValueSchema = z.number().int().min(0);
 const NonNegativeIntSchema = z.number().int().min(0);
 
-export const MatchAdminUpdateInputSchema = z.object({
-  id: PositiveIntSchema,
-  name: z.string().min(1),
-  verificationStatus: VerificationStatusSchema,
-  rejectionReason: BitmaskEnumValueSchema,
-  warningFlags: BitmaskEnumValueSchema,
-  startTime: z.string().datetime().nullable(),
-  endTime: z.string().datetime().nullable(),
-  children: VerificationChildrenChoiceSchema,
-});
+/** A save names only the fields the admin edited; the rest stay as stored. */
+export const MatchAdminUpdateInputSchema = z
+  .object({
+    id: PositiveIntSchema,
+    name: z.string().min(1),
+    verificationStatus: VerificationStatusSchema,
+    rejectionReason: BitmaskEnumValueSchema,
+    warningFlags: BitmaskEnumValueSchema,
+    startTime: z.string().datetime().nullable(),
+    endTime: z.string().datetime().nullable(),
+    children: VerificationChildrenChoiceSchema,
+  })
+  .partial()
+  .required({ id: true });
 
 export const MatchAdminMutationResponseSchema = z.object({
   success: z.boolean(),
@@ -205,19 +209,23 @@ export const MatchAdminMergeResponseSchema = z.object({
   rehomedGameCount: NonNegativeIntSchema,
 });
 
-export const GameAdminUpdateInputSchema = z.object({
-  id: PositiveIntSchema,
-  ruleset: RulesetSchema,
-  scoringType: ScoringTypeSchema,
-  teamType: TeamTypeSchema,
-  mods: BitmaskEnumValueSchema,
-  verificationStatus: VerificationStatusSchema,
-  rejectionReason: BitmaskEnumValueSchema,
-  warningFlags: BitmaskEnumValueSchema,
-  startTime: z.string().datetime().nullable(),
-  endTime: z.string().datetime().nullable(),
-  children: VerificationChildrenChoiceSchema,
-});
+/** A save names only the fields the admin edited; the rest stay as stored. */
+export const GameAdminUpdateInputSchema = z
+  .object({
+    id: PositiveIntSchema,
+    ruleset: RulesetSchema,
+    scoringType: ScoringTypeSchema,
+    teamType: TeamTypeSchema,
+    mods: BitmaskEnumValueSchema,
+    verificationStatus: VerificationStatusSchema,
+    rejectionReason: BitmaskEnumValueSchema,
+    warningFlags: BitmaskEnumValueSchema,
+    startTime: z.string().datetime().nullable(),
+    endTime: z.string().datetime().nullable(),
+    children: VerificationChildrenChoiceSchema,
+  })
+  .partial()
+  .required({ id: true });
 
 export const GameAdminMutationResponseSchema = z.object({
   success: z.boolean(),
@@ -248,25 +256,29 @@ export const GameAdminPreviewSchema = z.object({
   startTime: z.string().datetime().nullable(),
 });
 
-export const GameScoreAdminUpdateInputSchema = z.object({
-  id: PositiveIntSchema,
-  scoreOverride: NonNegativeIntSchema.nullable(),
-  placement: NonNegativeIntSchema,
-  maxCombo: NonNegativeIntSchema,
-  statGreat: NonNegativeIntSchema.nullable(),
-  statOk: NonNegativeIntSchema.nullable(),
-  statMeh: NonNegativeIntSchema.nullable(),
-  statMiss: NonNegativeIntSchema.nullable(),
-  statGood: NonNegativeIntSchema.nullable(),
-  statPerfect: NonNegativeIntSchema.nullable(),
-  accuracy: z.number().nonnegative().max(1.0),
-  grade: ScoreGradeSchema,
-  mods: BitmaskEnumValueSchema,
-  ruleset: RulesetSchema,
-  verificationStatus: VerificationStatusSchema,
-  rejectionReason: BitmaskEnumValueSchema,
-  team: TeamSchema,
-});
+/** A save names only the fields the admin edited; the rest stay as stored. */
+export const GameScoreAdminUpdateInputSchema = z
+  .object({
+    id: PositiveIntSchema,
+    scoreOverride: NonNegativeIntSchema.nullable(),
+    placement: NonNegativeIntSchema,
+    maxCombo: NonNegativeIntSchema,
+    statGreat: NonNegativeIntSchema.nullable(),
+    statOk: NonNegativeIntSchema.nullable(),
+    statMeh: NonNegativeIntSchema.nullable(),
+    statMiss: NonNegativeIntSchema.nullable(),
+    statGood: NonNegativeIntSchema.nullable(),
+    statPerfect: NonNegativeIntSchema.nullable(),
+    accuracy: z.number().nonnegative().max(1.0),
+    grade: ScoreGradeSchema,
+    mods: BitmaskEnumValueSchema,
+    ruleset: RulesetSchema,
+    verificationStatus: VerificationStatusSchema,
+    rejectionReason: BitmaskEnumValueSchema,
+    team: TeamSchema,
+  })
+  .partial()
+  .required({ id: true });
 
 export const GameScoreAdminMutationResponseSchema = z.object({
   success: z.boolean(),

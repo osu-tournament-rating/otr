@@ -14,14 +14,97 @@ import {
   GameAdminMutationResponseSchema,
   GameAdminPreviewSchema,
   GameAdminUpdateInputSchema,
+  type GameAdminUpdateInput,
 } from '@/lib/orpc/schema/match';
+import type { DatabaseClient } from '@/lib/db';
 import { GameWarningFlags, VerificationStatus } from '@otr/core/osu';
 
 import { adminMutationProcedure, protectedProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
-const FALLBACK_DATETIME = '2007-09-17 00:00:00';
+
+export interface UpdateGameAdminArgs {
+  input: GameAdminUpdateInput;
+  context: {
+    db: DatabaseClient;
+    session: {
+      dbUser?: {
+        id: number;
+        scopes?: string[] | null;
+      } | null;
+    } | null;
+  };
+}
+
+export async function updateGameAdminHandler({
+  input,
+  context,
+}: UpdateGameAdminArgs) {
+  const { adminUserId } = ensureAdminSession(context.session);
+
+  const existing = await context.db.query.games.findFirst({
+    columns: {
+      id: true,
+      mods: true,
+    },
+    where: eq(schema.games.id, input.id),
+  });
+
+  if (!existing) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'Game not found',
+    });
+  }
+
+  await context.db.transaction((tx) =>
+    withAuditUserId(tx, adminUserId, async () => {
+      const shouldClearWarnings =
+        input.verificationStatus === VerificationStatus.Verified ||
+        input.verificationStatus === VerificationStatus.Rejected;
+
+      const nextWarningFlags = shouldClearWarnings
+        ? GameWarningFlags.None
+        : input.warningFlags;
+
+      await tx
+        .update(schema.games)
+        .set({
+          ruleset: input.ruleset,
+          scoringType: input.scoringType,
+          teamType: input.teamType,
+          mods: input.mods,
+          // The site shows lazer mods over the flags, so edited flags replace
+          // them. A field the admin did not edit is not sent, and stays as stored.
+          ...(input.mods !== undefined &&
+            input.mods !== existing.mods && { lazerMods: null }),
+          verificationStatus: input.verificationStatus,
+          rejectionReason: input.rejectionReason,
+          warningFlags: nextWarningFlags,
+          startTime: input.startTime ?? undefined,
+          endTime: input.endTime ?? undefined,
+          updated: NOW,
+        })
+        .where(eq(schema.games.id, input.id));
+
+      if (input.verificationStatus === VerificationStatus.Verified) {
+        if (input.children === 'set') {
+          await cascadeGameVerification(tx, [input.id], { updatedAt: NOW });
+        } else if (input.children === 'accept') {
+          await resolveGameVerification(tx, input.id, { updatedAt: NOW });
+        }
+      }
+
+      if (input.verificationStatus === VerificationStatus.Rejected) {
+        await cascadeGameRejection(tx, [input.id], {
+          updatedAt: NOW,
+        });
+      }
+    })
+  );
+
+  return { success: true } as const;
+}
 
 export const updateGameAdmin = adminMutationProcedure
   .input(GameAdminUpdateInputSchema)
@@ -32,75 +115,7 @@ export const updateGameAdmin = adminMutationProcedure
     method: 'PATCH',
     path: '/games/{id}',
   })
-  .handler(async ({ input, context }) => {
-    const { adminUserId } = ensureAdminSession(context.session);
-
-    const existing = await context.db.query.games.findFirst({
-      columns: {
-        id: true,
-        mods: true,
-        startTime: true,
-        endTime: true,
-      },
-      where: eq(schema.games.id, input.id),
-    });
-
-    if (!existing) {
-      throw new ORPCError('NOT_FOUND', {
-        message: 'Game not found',
-      });
-    }
-
-    const startTime =
-      input.startTime ?? existing.startTime ?? FALLBACK_DATETIME;
-    const endTime = input.endTime ?? existing.endTime ?? FALLBACK_DATETIME;
-
-    await context.db.transaction((tx) =>
-      withAuditUserId(tx, adminUserId, async () => {
-        const shouldClearWarnings =
-          input.verificationStatus === VerificationStatus.Verified ||
-          input.verificationStatus === VerificationStatus.Rejected;
-
-        const nextWarningFlags = shouldClearWarnings
-          ? GameWarningFlags.None
-          : input.warningFlags;
-
-        await tx
-          .update(schema.games)
-          .set({
-            ruleset: input.ruleset,
-            scoringType: input.scoringType,
-            teamType: input.teamType,
-            mods: input.mods,
-            // The site shows lazer mods over the flags, so edited flags replace them.
-            ...(input.mods !== existing.mods && { lazerMods: null }),
-            verificationStatus: input.verificationStatus,
-            rejectionReason: input.rejectionReason,
-            warningFlags: nextWarningFlags,
-            startTime,
-            endTime,
-            updated: NOW,
-          })
-          .where(eq(schema.games.id, input.id));
-
-        if (input.verificationStatus === VerificationStatus.Verified) {
-          if (input.children === 'set') {
-            await cascadeGameVerification(tx, [input.id], { updatedAt: NOW });
-          } else if (input.children === 'accept') {
-            await resolveGameVerification(tx, input.id, { updatedAt: NOW });
-          }
-        }
-
-        if (input.verificationStatus === VerificationStatus.Rejected) {
-          await cascadeGameRejection(tx, [input.id], {
-            updatedAt: NOW,
-          });
-        }
-      })
-    );
-
-    return { success: true } as const;
-  });
+  .handler(({ input, context }) => updateGameAdminHandler({ input, context }));
 
 export const deleteGameAdmin = adminMutationProcedure
   .input(GameAdminDeleteInputSchema)

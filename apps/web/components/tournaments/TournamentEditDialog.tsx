@@ -18,6 +18,7 @@ import {
   VerificationStatusSelectContent,
   VerifyChildrenChoices,
   changedFieldClass,
+  editedValues,
 } from '@/components/admin-forms/adminFormFields';
 import {
   LobbySizeSelectContent,
@@ -120,20 +121,20 @@ export default function TournamentEditDialog({
     values: TournamentEditValues,
     children?: VerificationChildrenChoice
   ) {
+    const edited = editedValues(values, defaults);
+
     try {
       await orpc.tournaments.admin.update({
         id: tournament.id,
-        name: values.name,
-        abbreviation: values.abbreviation,
-        forumUrl: values.forumUrl,
-        rankRangeLowerBound: values.rankRangeLowerBound,
-        ruleset: values.ruleset,
-        lobbySize: values.lobbySize,
-        verificationStatus:
-          values.verificationStatus as VerificationStatusValue,
-        rejectionReason: values.rejectionReason,
-        startTime: values.startTime ? values.startTime.toISOString() : null,
-        endTime: values.endTime ? values.endTime.toISOString() : null,
+        name: edited.name,
+        abbreviation: edited.abbreviation,
+        forumUrl: edited.forumUrl,
+        rankRangeLowerBound: edited.rankRangeLowerBound,
+        ruleset: edited.ruleset,
+        lobbySize: edited.lobbySize,
+        verificationStatus: edited.verificationStatus as
+          VerificationStatusValue | undefined,
+        rejectionReason: edited.rejectionReason,
         children,
       });
       form.reset(values);

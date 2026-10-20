@@ -14,6 +14,7 @@ import {
   VerificationStatusSelectContent,
   changedFieldClass,
   combineFlags,
+  editedValues,
   flagOptions,
 } from '@/components/admin-forms/adminFormFields';
 import AdminNotesList from '@/components/admin-notes/AdminNoteList';
@@ -111,26 +112,28 @@ export default function ScoreEditDialog({
   });
 
   async function save(values: ScoreEditValues) {
+    const edited = editedValues(values, score);
+
     try {
       await orpc.scores.admin.update({
         id: score.id,
-        scoreOverride: values.scoreOverride,
-        placement: values.placement,
-        maxCombo: values.maxCombo,
-        accuracy: values.accuracy,
-        statGreat: values.statGreat,
-        statOk: values.statOk,
-        statMeh: values.statMeh,
-        statMiss: values.statMiss,
-        statGood: values.statGood,
-        statPerfect: values.statPerfect,
-        grade: values.grade,
-        mods: values.mods,
-        ruleset: values.ruleset,
-        verificationStatus:
-          values.verificationStatus as VerificationStatusValue,
-        rejectionReason: values.rejectionReason,
-        team: values.team,
+        scoreOverride: edited.scoreOverride,
+        placement: edited.placement,
+        maxCombo: edited.maxCombo,
+        accuracy: edited.accuracy,
+        statGreat: edited.statGreat,
+        statOk: edited.statOk,
+        statMeh: edited.statMeh,
+        statMiss: edited.statMiss,
+        statGood: edited.statGood,
+        statPerfect: edited.statPerfect,
+        grade: edited.grade,
+        mods: edited.mods,
+        ruleset: edited.ruleset,
+        verificationStatus: edited.verificationStatus as
+          VerificationStatusValue | undefined,
+        rejectionReason: edited.rejectionReason,
+        team: edited.team,
       });
 
       const noteContent = adminNote.trim();
