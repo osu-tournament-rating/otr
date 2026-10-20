@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
-import { eq, like } from 'drizzle-orm';
+import { eq, inArray, like } from 'drizzle-orm';
 
 import {
   updateTournamentAdminHandler,
@@ -242,17 +242,6 @@ describe('updateTournamentAdminHandler', () => {
     expect(db.gameScoreUpdates[0]).toEqual(
       expect.objectContaining({ ruleset: Ruleset.Mania7k })
     );
-  });
-
-  it('does not propagate when the original ruleset is not mania other', async () => {
-    const args = createContext(Ruleset.Mania4k, Ruleset.Mania7k);
-    const db = args.context.db as unknown as UpdateTournamentTestDb;
-
-    const result = await updateTournamentAdminHandler(args);
-
-    expect(result.success).toBe(true);
-    expect(db.gameUpdates).toHaveLength(0);
-    expect(db.gameScoreUpdates).toHaveLength(0);
   });
 
   it('clears warnings when the tournament is verified and children are set', async () => {
@@ -565,6 +554,158 @@ describe('updateTournamentAdminHandler', () => {
         expect(await queuedFetches(db, userId)).toEqual([]);
       }
     );
+  });
+
+  describe.skipIf(!testDatabaseUrl)('ruleset corrections', () => {
+    const { pool, db } = createTestDb(testDatabaseUrl!);
+    const NAME = 'tournament-admin-update-ruleset';
+    const USER_OSU_ID = 991_152_001;
+    const PLAYER_OSU_ID = 991_152_002;
+    const MATCH_OSU_ID = 991_152_101;
+    const GAME_OSU_IDS = [991_152_201, 991_152_202];
+    const FORUM_URL = 'https://osu.ppy.sh/community/forums/topics/991152';
+    let userId = 0;
+    let tournamentId = 0;
+
+    const removeSeed = async () => {
+      await db
+        .delete(schema.tournaments)
+        .where(like(schema.tournaments.name, `${NAME}%`));
+    };
+
+    /** An osu!mania game and an osu! game, with a score each, as a fetch stores them. */
+    const seed = async (tournamentRuleset: Ruleset, storedMania: Ruleset) => {
+      const [player] = await db
+        .insert(schema.players)
+        .values({ osuId: PLAYER_OSU_ID })
+        .returning({ id: schema.players.id });
+      const [tournament] = await db
+        .insert(schema.tournaments)
+        .values({
+          name: NAME,
+          abbreviation: baseInput.abbreviation,
+          forumUrl: FORUM_URL,
+          rankRangeLowerBound: baseInput.rankRangeLowerBound,
+          ruleset: tournamentRuleset,
+          lobbySize: baseInput.lobbySize,
+        })
+        .returning({ id: schema.tournaments.id });
+      tournamentId = tournament!.id;
+      const [match] = await db
+        .insert(schema.matches)
+        .values({ osuId: MATCH_OSU_ID, tournamentId })
+        .returning({ id: schema.matches.id });
+
+      for (const [index, ruleset] of [storedMania, Ruleset.Osu].entries()) {
+        const [game] = await db
+          .insert(schema.games)
+          .values({
+            osuId: GAME_OSU_IDS[index]!,
+            ruleset,
+            scoringType: 3,
+            teamType: 2,
+            mods: 0,
+            matchId: match!.id,
+          })
+          .returning({ id: schema.games.id });
+        await db.insert(schema.gameScores).values({
+          rawScore: 100_000,
+          placement: 1,
+          accuracy: 0.95,
+          maxCombo: 100,
+          pass: true,
+          isPerfectCombo: false,
+          legacyPerfect: false,
+          grade: 1,
+          mods: 0,
+          legacyTotalScore: 0,
+          team: 1,
+          ruleset,
+          verificationStatus: VerificationStatus.None,
+          rejectionReason: 0,
+          gameId: game!.id,
+          playerId: player!.id,
+        });
+      }
+    };
+
+    const correctRuleset = (ruleset: Ruleset) =>
+      updateTournamentAdminHandler({
+        input: {
+          ...baseInput,
+          id: tournamentId,
+          name: NAME,
+          forumUrl: FORUM_URL,
+          ruleset,
+        },
+        context: { db, session: createAdminSession(userId) },
+      });
+
+    /** Each game's ruleset and its score's, the osu!mania game first. */
+    const rulesets = async () => {
+      const rows = await db
+        .select({
+          game: schema.games.ruleset,
+          score: schema.gameScores.ruleset,
+        })
+        .from(schema.games)
+        .innerJoin(
+          schema.gameScores,
+          eq(schema.gameScores.gameId, schema.games.id)
+        )
+        .where(inArray(schema.games.osuId, GAME_OSU_IDS))
+        .orderBy(schema.games.osuId);
+      return rows.map((row) => [row.game, row.score]);
+    };
+
+    beforeEach(async () => {
+      await removeSeed();
+      await removePlayers(db, [PLAYER_OSU_ID]);
+      userId ||= await seedAdminUser(db, USER_OSU_ID);
+    });
+
+    afterAll(async () => {
+      await removeSeed();
+      await deleteJobs(db, userId);
+      await removePlayers(db, [USER_OSU_ID, PLAYER_OSU_ID]);
+      await pool.end();
+    });
+
+    it.each([
+      [
+        'osu!mania (other)',
+        Ruleset.ManiaOther,
+        Ruleset.ManiaOther,
+        Ruleset.Mania4k,
+      ],
+      ['osu!', Ruleset.Osu, Ruleset.ManiaOther, Ruleset.Mania4k],
+      ['catch', Ruleset.Catch, Ruleset.ManiaOther, Ruleset.Mania7k],
+      ['4K', Ruleset.Mania4k, Ruleset.Mania4k, Ruleset.Mania7k],
+      ['7K', Ruleset.Mania7k, Ruleset.Mania7k, Ruleset.Mania4k],
+    ])(
+      'moves osu!mania games from %s to the corrected variant',
+      async (_label, from, storedMania, to) => {
+        await seed(from, storedMania);
+
+        await correctRuleset(to);
+
+        expect(await rulesets()).toEqual([
+          [to, to],
+          [Ruleset.Osu, Ruleset.Osu],
+        ]);
+      }
+    );
+
+    it('moves osu!mania games to osu!mania (other) when leaving 4K', async () => {
+      await seed(Ruleset.Mania4k, Ruleset.Mania4k);
+
+      await correctRuleset(Ruleset.Taiko);
+
+      expect(await rulesets()).toEqual([
+        [Ruleset.ManiaOther, Ruleset.ManiaOther],
+        [Ruleset.Osu, Ruleset.Osu],
+      ]);
+    });
   });
 
   describe.skipIf(!testDatabaseUrl)(

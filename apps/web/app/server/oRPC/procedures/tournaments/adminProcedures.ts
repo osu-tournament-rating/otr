@@ -1,5 +1,5 @@
 import { ORPCError } from '@orpc/server';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
 import { cascadeTournamentRejection } from '@otr/core/db/rejection-cascade';
@@ -254,9 +254,7 @@ export async function updateTournamentAdminHandler({
 
   const forumUrlChanged = input.forumUrl !== existing.forumUrl;
 
-  const shouldPropagateManiaVariant =
-    existing.ruleset === Ruleset.ManiaOther &&
-    (input.ruleset === Ruleset.Mania4k || input.ruleset === Ruleset.Mania7k);
+  const rulesetChanged = input.ruleset !== existing.ruleset;
 
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
@@ -292,8 +290,8 @@ export async function updateTournamentAdminHandler({
         })
         .where(eq(schema.tournaments.id, input.id));
 
-      if (shouldPropagateManiaVariant) {
-        await alignTournamentChildRulesets(tx, input.id, input.ruleset);
+      if (rulesetChanged) {
+        await alignManiaRulesets(tx, input.id, input.ruleset);
       }
 
       if (input.verificationStatus === VerificationStatus.Verified) {
@@ -348,11 +346,24 @@ export const updateTournamentAdmin = adminMutationProcedure
     updateTournamentAdminHandler({ input, context })
   );
 
-async function alignTournamentChildRulesets(
+const MANIA_RULESETS = [Ruleset.ManiaOther, Ruleset.Mania4k, Ruleset.Mania7k];
+
+/**
+ * Moves the tournament's osu!mania games and their scores to the ruleset a
+ * refetch would give them: the tournament's 4K or 7K variant, or osu!mania
+ * (other) under any other ruleset. Games played in another ruleset keep it.
+ */
+async function alignManiaRulesets(
   tx: Pick<DatabaseClient, 'select' | 'update'>,
   tournamentId: number,
-  nextRuleset: Ruleset
+  tournamentRuleset: Ruleset
 ) {
+  const maniaRuleset =
+    tournamentRuleset === Ruleset.Mania4k ||
+    tournamentRuleset === Ruleset.Mania7k
+      ? tournamentRuleset
+      : Ruleset.ManiaOther;
+
   const matchRows = await tx
     .select({ id: schema.matches.id })
     .from(schema.matches)
@@ -362,12 +373,18 @@ async function alignTournamentChildRulesets(
     return;
   }
 
-  const matchIds = matchRows.map((row) => row.id);
-
   const gameRows = await tx
     .select({ id: schema.games.id })
     .from(schema.games)
-    .where(inArray(schema.games.matchId, matchIds));
+    .where(
+      and(
+        inArray(
+          schema.games.matchId,
+          matchRows.map((row) => row.id)
+        ),
+        inArray(schema.games.ruleset, MANIA_RULESETS)
+      )
+    );
 
   if (gameRows.length === 0) {
     return;
@@ -375,22 +392,26 @@ async function alignTournamentChildRulesets(
 
   const gameIds = gameRows.map((row) => row.id);
 
-  // Propagate variants to games/scores
   await tx
     .update(schema.games)
-    .set({
-      ruleset: nextRuleset,
-      updated: NOW,
-    })
-    .where(inArray(schema.games.id, gameIds));
+    .set({ ruleset: maniaRuleset, updated: NOW })
+    .where(
+      and(
+        inArray(schema.games.id, gameIds),
+        ne(schema.games.ruleset, maniaRuleset)
+      )
+    );
 
   await tx
     .update(schema.gameScores)
-    .set({
-      ruleset: nextRuleset,
-      updated: NOW,
-    })
-    .where(inArray(schema.gameScores.gameId, gameIds));
+    .set({ ruleset: maniaRuleset, updated: NOW })
+    .where(
+      and(
+        inArray(schema.gameScores.gameId, gameIds),
+        inArray(schema.gameScores.ruleset, MANIA_RULESETS),
+        ne(schema.gameScores.ruleset, maniaRuleset)
+      )
+    );
 }
 
 export const resetTournamentAutomatedChecks = adminMutationProcedure
