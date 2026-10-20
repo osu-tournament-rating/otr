@@ -2,6 +2,11 @@ import { createSelectSchema } from 'drizzle-zod';
 
 import * as schema from '@otr/core/db/schema';
 
+// These schemas follow their tables, so a column added to a table appears in
+// them. Response schemas pick the columns they publish rather than omitting the
+// ones they hide, so a new column stays out of the public API until someone
+// lists it.
+
 const rawPlayerSelectSchema = createSelectSchema(schema.players);
 export const playerSelectSchema = rawPlayerSelectSchema.omit({
   searchVector: true,

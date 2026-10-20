@@ -5,11 +5,50 @@ import {
   beatmapSelectSchema,
   beatmapsetSelectSchema,
 } from './base';
-import { CreatedUpdatedOmit, RulesetSchema } from './constants';
+import { RulesetSchema } from './constants';
 import { PlayerSchema } from './player';
 
+/** The beatmapset columns public responses publish. */
+export const beatmapsetPublicColumns = {
+  id: true,
+  osuId: true,
+  creatorId: true,
+  artist: true,
+  title: true,
+  rankedStatus: true,
+  rankedDate: true,
+  submittedDate: true,
+} as const;
+
+/** The beatmap columns public responses publish. */
+export const beatmapPublicColumns = {
+  id: true,
+  osuId: true,
+  ruleset: true,
+  rankedStatus: true,
+  diffName: true,
+  totalLength: true,
+  drainLength: true,
+  bpm: true,
+  countCircle: true,
+  countSlider: true,
+  countSpinner: true,
+  cs: true,
+  hp: true,
+  od: true,
+  ar: true,
+  sr: true,
+  maxCombo: true,
+  beatmapsetId: true,
+  dataFetchStatus: true,
+  manualOverride: true,
+  titleOverride: true,
+  artistOverride: true,
+  setOwnerIdOverride: true,
+} as const;
+
 const beatmapsetBaseSchema = beatmapsetSelectSchema
-  .omit(CreatedUpdatedOmit)
+  .pick(beatmapsetPublicColumns)
   .extend({
     creator: PlayerSchema.nullable(),
   });
@@ -28,7 +67,7 @@ export const BeatmapAttributeSchema = beatmapAttributeSelectSchema.pick({
 });
 
 export const BeatmapSchema = beatmapSelectSchema
-  .omit(CreatedUpdatedOmit)
+  .pick(beatmapPublicColumns)
   .extend({
     ruleset: RulesetSchema,
     beatmapset: BeatmapsetCompactSchema.nullable().optional(),

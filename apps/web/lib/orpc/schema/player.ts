@@ -1,12 +1,23 @@
 import { z } from 'zod';
 
 import { playerSelectSchema } from './base';
-import { CreatedUpdatedOmit, DefaultRulesetSchema } from './constants';
+import { DefaultRulesetSchema } from './constants';
 
-export const PlayerSchema = playerSelectSchema.omit(CreatedUpdatedOmit).extend({
-  defaultRuleset: DefaultRulesetSchema,
-  userId: z.number().int().nullable().optional(),
-});
+export const PlayerSchema = playerSelectSchema
+  .pick({
+    id: true,
+    osuId: true,
+    username: true,
+    country: true,
+    osuLastFetch: true,
+    osuTrackLastFetch: true,
+    osuTrackDataFetchStatus: true,
+    dataFetchStatus: true,
+  })
+  .extend({
+    defaultRuleset: DefaultRulesetSchema,
+    userId: z.number().int().nullable().optional(),
+  });
 
 export type Player = z.infer<typeof PlayerSchema>;
 

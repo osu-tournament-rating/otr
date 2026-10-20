@@ -3,9 +3,15 @@ import { Ruleset } from '@otr/core/osu';
 import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-import { CreatedUpdatedOmit, RulesetSchema } from './constants';
+import { RulesetSchema } from './constants';
 
-export const UserSchema = createSelectSchema(users).omit(CreatedUpdatedOmit);
+export const UserSchema = createSelectSchema(users).pick({
+  id: true,
+  lastLogin: true,
+  scopes: true,
+  playerId: true,
+  lastViewedReportsAt: true,
+});
 
 export const PublicUserSchema = z.object({
   id: z.number().int(),

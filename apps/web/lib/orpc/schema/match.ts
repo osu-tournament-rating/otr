@@ -11,7 +11,6 @@ import {
 } from './base';
 import { BeatmapSchema } from './beatmap';
 import {
-  CreatedUpdatedOmit,
   RatingAdjustmentTypeSchema,
   RulesetSchema,
   ScoreGradeSchema,
@@ -73,7 +72,47 @@ export const MatchRosterSchema = matchRosterSelectSchema
   });
 
 export const GameScoreSchema = gameScoreSelectSchema
-  .omit(CreatedUpdatedOmit)
+  .pick({
+    id: true,
+    rawScore: true,
+    adjustedScore: true,
+    scoreOverride: true,
+    score: true,
+    placement: true,
+    accuracy: true,
+    pp: true,
+    maxCombo: true,
+    pass: true,
+    isPerfectCombo: true,
+    legacyPerfect: true,
+    grade: true,
+    mods: true,
+    lazerMods: true,
+    statComboBreak: true,
+    statGreat: true,
+    statOk: true,
+    statMeh: true,
+    statMiss: true,
+    statGood: true,
+    statPerfect: true,
+    statSliderTailHit: true,
+    statLargeTickHit: true,
+    statLargeTickMiss: true,
+    statSmallTickHit: true,
+    statSmallTickMiss: true,
+    statLargeBonus: true,
+    statSmallBonus: true,
+    statIgnoreHit: true,
+    statIgnoreMiss: true,
+    statLegacyComboIncrease: true,
+    legacyTotalScore: true,
+    team: true,
+    ruleset: true,
+    verificationStatus: true,
+    rejectionReason: true,
+    gameId: true,
+    playerId: true,
+  })
   .extend({
     grade: ScoreGradeSchema,
     team: TeamSchema,
@@ -83,18 +122,35 @@ export const GameScoreSchema = gameScoreSelectSchema
     adminNotes: z.array(AdminNoteSchema).default([]),
   });
 
-const gameBaseSchema = gameSelectSchema.omit(CreatedUpdatedOmit).extend({
-  ruleset: RulesetSchema,
-  scoringType: ScoringTypeSchema,
-  teamType: TeamTypeSchema,
-  verificationStatus: VerificationStatusSchema,
-  lazerMods: LazerModsSchema,
-  isFreeMod: z.boolean(),
-  beatmap: MatchBeatmapSchema.nullable(),
-  adminNotes: z.array(AdminNoteSchema).default([]),
-  hasAdminNotes: z.boolean().optional(),
-  scores: z.array(GameScoreSchema).default([]),
-});
+const gameBaseSchema = gameSelectSchema
+  .pick({
+    id: true,
+    osuId: true,
+    ruleset: true,
+    scoringType: true,
+    teamType: true,
+    mods: true,
+    lazerMods: true,
+    startTime: true,
+    endTime: true,
+    verificationStatus: true,
+    rejectionReason: true,
+    warningFlags: true,
+    matchId: true,
+    beatmapId: true,
+  })
+  .extend({
+    ruleset: RulesetSchema,
+    scoringType: ScoringTypeSchema,
+    teamType: TeamTypeSchema,
+    verificationStatus: VerificationStatusSchema,
+    lazerMods: LazerModsSchema,
+    isFreeMod: z.boolean(),
+    beatmap: MatchBeatmapSchema.nullable(),
+    adminNotes: z.array(AdminNoteSchema).default([]),
+    hasAdminNotes: z.boolean().optional(),
+    scores: z.array(GameScoreSchema).default([]),
+  });
 export const GameSchema = gameBaseSchema;
 
 export const PlayerMatchStatsSchema = playerMatchStatsSelectSchema.pick({
@@ -115,8 +171,18 @@ export const PlayerMatchStatsSchema = playerMatchStatsSelectSchema.pick({
 });
 
 export const RatingAdjustmentSchema = ratingAdjustmentSelectSchema
-  .omit({
-    created: true,
+  .pick({
+    id: true,
+    adjustmentType: true,
+    ruleset: true,
+    timestamp: true,
+    ratingBefore: true,
+    ratingAfter: true,
+    volatilityBefore: true,
+    volatilityAfter: true,
+    playerRatingId: true,
+    playerId: true,
+    matchId: true,
   })
   .extend({
     adjustmentType: RatingAdjustmentTypeSchema,
@@ -138,18 +204,34 @@ export const MatchWinRecordSchema = z
   })
   .nullable();
 
-const matchBaseSchema = matchSelectSchema.omit(CreatedUpdatedOmit).extend({
-  games: z.array(GameSchema).default([]),
-  players: z.array(MatchPlayerSchema).default([]),
-  playerMatchStats: z.array(PlayerMatchStatsSchema).default([]),
-  ratingAdjustments: z.array(RatingAdjustmentSchema).default([]),
-  adminNotes: z.array(AdminNoteSchema).default([]),
-  hasAdminNotes: z.boolean().optional(),
-  tournament: MatchTournamentSchema.nullable().default(null),
-  winRecord: MatchWinRecordSchema.nullable().default(null),
-  rosters: z.array(MatchRosterSchema).default([]),
-  verifiedByUsername: z.string().nullable(),
-});
+const matchBaseSchema = matchSelectSchema
+  .pick({
+    id: true,
+    osuId: true,
+    name: true,
+    startTime: true,
+    endTime: true,
+    verificationStatus: true,
+    rejectionReason: true,
+    warningFlags: true,
+    isLazer: true,
+    tournamentId: true,
+    submittedByUserId: true,
+    verifiedByUserId: true,
+    dataFetchStatus: true,
+  })
+  .extend({
+    games: z.array(GameSchema).default([]),
+    players: z.array(MatchPlayerSchema).default([]),
+    playerMatchStats: z.array(PlayerMatchStatsSchema).default([]),
+    ratingAdjustments: z.array(RatingAdjustmentSchema).default([]),
+    adminNotes: z.array(AdminNoteSchema).default([]),
+    hasAdminNotes: z.boolean().optional(),
+    tournament: MatchTournamentSchema.nullable().default(null),
+    winRecord: MatchWinRecordSchema.nullable().default(null),
+    rosters: z.array(MatchRosterSchema).default([]),
+    verifiedByUsername: z.string().nullable(),
+  });
 
 export const MatchSchema = matchBaseSchema;
 
