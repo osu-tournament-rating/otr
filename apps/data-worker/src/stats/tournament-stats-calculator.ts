@@ -135,21 +135,23 @@ const generateMatchRosters = (
 };
 
 /**
- * Whether another team won more games than the player's team. A drawn match
- * is neither a win nor a loss.
+ * Whether the player lost the match: they did not win it, and another team won
+ * more games than a team they played for. A drawn match is neither a win nor a
+ * loss. Player profiles count losses from the stored rosters by the same rule,
+ * so the two agree for a player who played for more than one team.
  */
 const lostMatch = (
   matchRosters: MatchProcessingResult['matchRosters'],
-  playerId: number
-) => {
-  const own = matchRosters.find((roster) => roster.roster.includes(playerId));
-  return (
-    own !== undefined &&
-    matchRosters.some(
-      (roster) => roster.team !== own.team && roster.score > own.score
-    )
+  stat: PlayerMatchStatRecord
+) =>
+  !stat.won &&
+  matchRosters.some(
+    (own) =>
+      own.roster.includes(stat.playerId) &&
+      matchRosters.some(
+        (other) => other.team !== own.team && other.score > own.score
+      )
   );
-};
 
 export class TournamentStatsCalculator {
   calculateAllStatistics(tournament: StatsTournament): StatsCalculationResult {
@@ -415,7 +417,7 @@ export class TournamentStatsCalculator {
         };
 
         entry.matchStats.push(stat);
-        if (lostMatch(matchResult.matchRosters, stat.playerId)) {
+        if (lostMatch(matchResult.matchRosters, stat)) {
           entry.matchesLost += 1;
         }
         adjustments.forEach((adjustment) => {

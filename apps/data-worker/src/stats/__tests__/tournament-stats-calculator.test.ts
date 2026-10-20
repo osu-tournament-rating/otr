@@ -493,4 +493,53 @@ describe('TournamentStatsCalculator', () => {
       });
     }
   });
+
+  it('counts a loss for a player who did not win and played for a team that was beaten', () => {
+    // Red and Blue draw 1-1, and No team wins no game. Player 3 plays for Red,
+    // then for No team, as player profiles read it from the stored rosters.
+    const tournament = tournamentOf(
+      match(
+        10,
+        [
+          game(100, 10, [
+            score(100, 1, Team.Red, 600_000),
+            score(100, 2, Team.Blue, 500_000),
+          ]),
+          game(101, 10, [
+            score(101, 2, Team.Blue, 600_000),
+            score(101, 3, Team.Red, 500_000),
+            score(101, 4, Team.NoTeam, 400_000),
+          ]),
+          game(102, 10, [
+            score(102, 1, Team.Red, 500_000),
+            score(102, 3, Team.NoTeam, 400_000),
+            score(102, 2, Team.Blue, 500_000),
+          ]),
+        ],
+        [1, 2, 3, 4]
+      )
+    );
+
+    const result = calculate(tournament);
+
+    const rosterScores = Object.fromEntries(
+      result.matches[0]!.matchRosters.map((roster) => [
+        roster.team,
+        roster.score,
+      ])
+    );
+    expect(rosterScores).toEqual({
+      [Team.Red]: 1,
+      [Team.Blue]: 1,
+      [Team.NoTeam]: 0,
+    });
+    expect(playerTournamentStat(result, 3)).toMatchObject({
+      matchesWon: 0,
+      matchesLost: 1,
+    });
+    expect(playerTournamentStat(result, 1)).toMatchObject({
+      matchesWon: 0,
+      matchesLost: 0,
+    });
+  });
 });
