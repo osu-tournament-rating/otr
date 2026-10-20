@@ -394,6 +394,102 @@ describe.skipIf(!testDatabaseUrl)('refetching a match', () => {
     ]);
   });
 
+  describe('after a game merge that followed a deleted duplicate score', () => {
+    // The merge procedure refuses while a player has a score in both games,
+    // so an admin first deletes one of the two.
+    const serveDuplicate = () =>
+      serve(MATCH_OSU_ID, `${NAME_PREFIX}match`, [
+        { osuId: GAME_OSU_ID, scores: [{ player: 0, maxCombo: 300 }] },
+        {
+          osuId: SECOND_GAME_OSU_ID,
+          scores: [{ player: 0, maxCombo: 999 }, { player: 1 }],
+        },
+      ]);
+
+    const deleteScore = (gameId: number, player: number) =>
+      asAdmin(async (tx) => {
+        const id = await playerId(player);
+        await tx
+          .delete(schema.gameScores)
+          .where(
+            and(
+              eq(schema.gameScores.gameId, gameId),
+              eq(schema.gameScores.playerId, id)
+            )
+          );
+      });
+
+    // The steps of the game merge procedure.
+    const mergeGame = (
+      parent: typeof schema.games.$inferSelect,
+      child: typeof schema.games.$inferSelect
+    ) =>
+      asAdmin(async (tx) => {
+        await tx
+          .update(schema.gameScores)
+          .set({ gameId: parent.id })
+          .where(eq(schema.gameScores.gameId, child.id));
+        await excludeMergedGames(tx, parent, [child]);
+        await tx.delete(schema.games).where(eq(schema.games.id, child.id));
+      });
+
+    const combos = async (gameId: number) =>
+      (await scoresOf(gameId)).map((row) => ({
+        playerId: row.playerId,
+        maxCombo: row.maxCombo,
+      }));
+
+    it("keeps the parent's score when the child's copy was deleted", async () => {
+      serveDuplicate();
+      await fetchMatch();
+      const parent = await gameRow(GAME_OSU_ID);
+      const child = await gameRow(SECOND_GAME_OSU_ID);
+
+      await deleteScore(child.id, 0);
+      await mergeGame(parent, child);
+      await fetchMatch();
+
+      expect(await combos(parent.id)).toEqual([
+        { playerId: await playerId(0), maxCombo: 300 },
+        { playerId: await playerId(1), maxCombo: 300 },
+      ]);
+    });
+
+    it("keeps the child's score when the parent's copy was deleted", async () => {
+      serveDuplicate();
+      await fetchMatch();
+      const parent = await gameRow(GAME_OSU_ID);
+      const child = await gameRow(SECOND_GAME_OSU_ID);
+
+      await deleteScore(parent.id, 0);
+      await mergeGame(parent, child);
+      await fetchMatch();
+
+      expect(await combos(parent.id)).toEqual([
+        { playerId: await playerId(0), maxCombo: 999 },
+        { playerId: await playerId(1), maxCombo: 300 },
+      ]);
+    });
+
+    it('does not add back a score deleted from the parent after the merge', async () => {
+      serve(MATCH_OSU_ID, `${NAME_PREFIX}match`, [
+        { osuId: GAME_OSU_ID, scores: [{ player: 0 }] },
+        { osuId: SECOND_GAME_OSU_ID, scores: [{ player: 1 }] },
+      ]);
+      await fetchMatch();
+      const parent = await gameRow(GAME_OSU_ID);
+      const child = await gameRow(SECOND_GAME_OSU_ID);
+
+      await mergeGame(parent, child);
+      await deleteScore(parent.id, 1);
+      await fetchMatch();
+
+      expect((await scoresOf(parent.id)).map((row) => row.playerId)).toEqual([
+        await playerId(0),
+      ]);
+    });
+  });
+
   it('refreshes the games of a match merged into it, and keeps that match’s deleted games out', async () => {
     serve(MATCH_OSU_ID, `${NAME_PREFIX}match`, [
       { osuId: GAME_OSU_ID, scores: [{ player: 0 }] },

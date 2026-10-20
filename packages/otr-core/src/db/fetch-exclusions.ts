@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import * as relations from './relations';
@@ -17,10 +17,11 @@ interface MergedGame {
 /**
  * Records a game merge in fetch_exclusions, so a refetch neither adds the
  * children back nor splits their scores off again: each child's osu! game
- * sends its scores to the parent. Games merged into a child earlier now lead
- * to the parent, and scores deleted from a child stay deleted from the
- * parent. Call it after moving the children's scores to the parent and before
- * deleting the children, all in one transaction.
+ * sends its scores to the parent, and games merged into a child earlier now
+ * lead to the parent. A score deleted from a child stays excluded under the
+ * child's osu! game, so a refetch never writes it over the score the parent
+ * kept for that player. Call it after moving the children's scores to the
+ * parent and before deleting the children, all in one transaction.
  */
 export async function excludeMergedGames(
   db: ExclusionClient,
@@ -33,38 +34,30 @@ export async function excludeMergedGames(
 
   const childIds = children.map((child) => child.id);
   const childOsuIds = children.map((child) => child.osuId);
-  const inChildGames = and(
-    eq(schema.fetchExclusions.matchId, parent.matchId),
-    inArray(schema.fetchExclusions.osuGameId, childOsuIds)
-  );
 
   await db
     .update(schema.fetchExclusions)
     .set({ mergedIntoGameId: parent.id })
     .where(inArray(schema.fetchExclusions.mergedIntoGameId, childIds));
 
-  const deletedScores = await db
-    .delete(schema.fetchExclusions)
-    .where(and(inChildGames, isNotNull(schema.fetchExclusions.playerId)))
-    .returning({ playerId: schema.fetchExclusions.playerId });
-
   await db
     .delete(schema.fetchExclusions)
-    .where(and(inChildGames, isNull(schema.fetchExclusions.playerId)));
+    .where(
+      and(
+        eq(schema.fetchExclusions.matchId, parent.matchId),
+        inArray(schema.fetchExclusions.osuGameId, childOsuIds),
+        isNull(schema.fetchExclusions.playerId)
+      )
+    );
 
   await db
     .insert(schema.fetchExclusions)
-    .values([
-      ...deletedScores.map(({ playerId }) => ({
-        matchId: parent.matchId,
-        osuGameId: parent.osuId,
-        playerId,
-      })),
-      ...children.map((child) => ({
+    .values(
+      children.map((child) => ({
         matchId: parent.matchId,
         osuGameId: child.osuId,
         mergedIntoGameId: parent.id,
-      })),
-    ])
+      }))
+    )
     .onConflictDoNothing();
 }

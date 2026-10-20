@@ -210,11 +210,13 @@ WHERE latest.action_user_id IS NOT NULL;--> statement-breakpoint
 -- match's games were deleted with it, and a merged match's games now sit in
 -- the match it was merged into. A game merge moved the child's scores and
 -- deleted the child in one transaction, so they share a created timestamp.
+-- deleted_at is when a game was deleted or merged away.
 CREATE TEMP TABLE fetch_exclusion_backfill (
   match_id integer NOT NULL,
   osu_game_id bigint NOT NULL,
   player_id integer,
-  merged_into_game_id integer
+  merged_into_game_id integer,
+  deleted_at timestamp with time zone
 );--> statement-breakpoint
 WITH deleted_games AS (
   SELECT
@@ -229,11 +231,12 @@ WITH deleted_games AS (
     AND audit.action_user_id IS NOT NULL
     AND audit.changes -> 'osu_id' ->> 'originalValue' IS NOT NULL
 )
-INSERT INTO fetch_exclusion_backfill (match_id, osu_game_id, merged_into_game_id)
+INSERT INTO fetch_exclusion_backfill (match_id, osu_game_id, merged_into_game_id, deleted_at)
 SELECT DISTINCT ON (deleted_games.match_id, deleted_games.osu_game_id)
   deleted_games.match_id,
   deleted_games.osu_game_id,
-  parent.id
+  parent.id,
+  deleted_games.created
 FROM deleted_games
 JOIN matches ON matches.id = deleted_games.match_id
 LEFT JOIN LATERAL (
@@ -246,13 +249,61 @@ LEFT JOIN LATERAL (
 ) moved ON true
 LEFT JOIN games parent ON parent.id = moved.game_id
 ORDER BY deleted_games.match_id, deleted_games.osu_game_id, deleted_games.created DESC;--> statement-breakpoint
+-- A deleted score is excluded under its game's osu! game. When a later merge
+-- or delete removed that game, the game's delete audit gives its osu! game. A
+-- score deleted from a game that other games had been merged into may have
+-- come from any of them, so it is excluded under each of theirs too, as the
+-- delete trigger below does.
+WITH deleted_scores AS (
+  SELECT
+    (audit.changes -> 'game_id' ->> 'originalValue')::integer AS game_id,
+    (audit.changes -> 'player_id' ->> 'originalValue')::integer AS player_id,
+    audit.created
+  FROM game_score_audits audit
+  WHERE audit.action_type = 2
+    AND audit.action_user_id IS NOT NULL
+),
+score_games AS (
+  SELECT
+    deleted_scores.game_id,
+    deleted_scores.player_id,
+    deleted_scores.created,
+    COALESCE(games.match_id, deleted_game.match_id) AS match_id,
+    COALESCE(games.osu_id, deleted_game.osu_game_id) AS osu_game_id
+  FROM deleted_scores
+  LEFT JOIN games ON games.id = deleted_scores.game_id
+  LEFT JOIN LATERAL (
+    SELECT
+      COALESCE(merge.match_id, (game_audit.changes -> 'match_id' ->> 'originalValue')::integer) AS match_id,
+      (game_audit.changes -> 'osu_id' ->> 'originalValue')::bigint AS osu_game_id
+    FROM game_audits game_audit
+    LEFT JOIN match_merges merge
+      ON merge.merged_match_id = (game_audit.changes -> 'match_id' ->> 'originalValue')::integer
+    WHERE games.id IS NULL
+      AND game_audit.reference_id_lock = deleted_scores.game_id
+      AND game_audit.action_type = 2
+      AND game_audit.changes -> 'osu_id' ->> 'originalValue' IS NOT NULL
+    ORDER BY game_audit.created DESC, game_audit.id DESC
+    LIMIT 1
+  ) deleted_game ON true
+),
+excluded AS (
+  SELECT match_id, osu_game_id, player_id
+  FROM score_games
+  UNION
+  SELECT score_games.match_id, merged.osu_game_id, score_games.player_id
+  FROM score_games
+  JOIN fetch_exclusion_backfill merged
+    ON merged.merged_into_game_id = score_games.game_id
+    AND merged.player_id IS NULL
+    AND merged.deleted_at < score_games.created
+)
 INSERT INTO fetch_exclusion_backfill (match_id, osu_game_id, player_id)
-SELECT DISTINCT games.match_id, games.osu_id, players.id
-FROM game_score_audits audit
-JOIN games ON games.id = (audit.changes -> 'game_id' ->> 'originalValue')::integer
-JOIN players ON players.id = (audit.changes -> 'player_id' ->> 'originalValue')::integer
-WHERE audit.action_type = 2
-  AND audit.action_user_id IS NOT NULL;--> statement-breakpoint
+SELECT excluded.match_id, excluded.osu_game_id, excluded.player_id
+FROM excluded
+JOIN matches ON matches.id = excluded.match_id
+JOIN players ON players.id = excluded.player_id
+WHERE excluded.osu_game_id IS NOT NULL;--> statement-breakpoint
 
 CREATE TABLE "fetch_exclusions" (
 	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "fetch_exclusions_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
@@ -426,6 +477,8 @@ EXECUTE FUNCTION public.keep_admin_edits(
 -- An admin's delete of a game, or of one player's score, adds it to
 -- fetch_exclusions. A delete that cascades from its match (or game) adds
 -- nothing: the parent is already gone, and a refetch never brings it back.
+-- A score in a game that other games were merged into may have come from any
+-- of their osu! games, so its player is excluded from each of them.
 CREATE OR REPLACE FUNCTION public.exclude_deleted_game_from_fetches()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -461,6 +514,15 @@ BEGIN
   SELECT games.match_id, games.osu_id, players.id
   FROM games
   JOIN players ON players.id = OLD.player_id
+  WHERE games.id = OLD.game_id
+  UNION
+  SELECT games.match_id, merged.osu_game_id, players.id
+  FROM games
+  JOIN players ON players.id = OLD.player_id
+  JOIN fetch_exclusions merged
+    ON merged.merged_into_game_id = games.id
+    AND merged.match_id = games.match_id
+    AND merged.player_id IS NULL
   WHERE games.id = OLD.game_id
   ON CONFLICT DO NOTHING;
 

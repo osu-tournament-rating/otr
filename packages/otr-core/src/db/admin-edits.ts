@@ -19,8 +19,10 @@ export type AdminEditTable = 'matches' | 'games' | 'game_scores';
  * table, one argument per group with its columns separated by spaces. To
  * protect another field, add its group here and recreate that table's trigger
  * with the new arguments in a migration; a test compares the two. A migration
- * that rewrites a protected column must clear it from `edited_fields` first,
- * or set `otr.audit_user_id`, or the trigger keeps the old value.
+ * that rewrites a protected column must disable that table's
+ * `keep_admin_edits` trigger around the write. Otherwise the trigger keeps the
+ * old value of every column in `edited_fields`, and ignores the migration's
+ * own changes to `edited_fields`.
  */
 export const ADMIN_EDIT_FIELD_GROUPS = {
   matches: [['name'], ['start_time'], ['end_time']],

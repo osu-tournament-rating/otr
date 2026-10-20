@@ -44,7 +44,9 @@ export interface StoreFetchedGamesOptions {
  * edited, which the database keeps. Its status and rejection reason stay
  * as they are; a rejected match or game passes its rejection down again
  * afterwards. A game or score an admin deleted is not stored again, and the
- * scores of a game an admin merged into another go to that game.
+ * scores of a game an admin merged into another go to that game. A deleted
+ * score is skipped by the osu! game it came from, even when the game its
+ * scores go to holds a score for that player from another osu! game.
  */
 export async function storeFetchedGames(
   tx: Transaction,
@@ -138,6 +140,7 @@ export async function storeFetchedGames(
 
     await storeScores(tx, {
       game: target,
+      osuGameId: game.osuId,
       scores: game.scores,
       isParentRejected:
         isMatchRejected ||
@@ -175,6 +178,8 @@ async function storeScores(
   tx: Transaction,
   options: {
     game: StoredGame;
+    /** The osu! game the scores come from: `game`'s, or one merged into it. */
+    osuGameId: number;
     scores: readonly FetchedScore[];
     isParentRejected: boolean;
     excludedScores: ReadonlySet<string>;
@@ -205,6 +210,10 @@ async function storeScores(
         options.users.get(score.osuUserId)
       ));
 
+    if (options.excludedScores.has(scoreKey(options.osuGameId, playerId))) {
+      continue;
+    }
+
     const values = { ...score.fields, placement: 0, updated: nowIso };
     const storedId = scoreIdsByPlayer.get(playerId);
 
@@ -213,10 +222,6 @@ async function storeScores(
         .update(schema.gameScores)
         .set(values)
         .where(eq(schema.gameScores.id, storedId));
-      continue;
-    }
-
-    if (options.excludedScores.has(scoreKey(game.osuId, playerId))) {
       continue;
     }
 

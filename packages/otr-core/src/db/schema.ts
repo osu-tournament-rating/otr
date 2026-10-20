@@ -1244,9 +1244,12 @@ export const matchMerges = pgTable(
 /**
  * osu! data a match fetch must not store again: a game an admin deleted or
  * merged into another game, or one player's score an admin deleted. A row
- * without a player is the whole game; with one, only that player's score in
- * it. A merged game's scores are refreshed in the game it was merged into.
- * The database adds a row whenever an admin deletes a game or score.
+ * without a player is the whole game; with one, only that player's score
+ * from that osu! game, wherever the game's scores are now stored. A merged
+ * game's scores are refreshed in the game it was merged into. The database
+ * adds a row whenever an admin deletes a game or score. A deleted score is
+ * excluded from its game's osu! game and from every osu! game merged into
+ * that game, since it may have come from any of them.
  */
 export const fetchExclusions = pgTable(
   'fetch_exclusions',
