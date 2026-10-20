@@ -4,7 +4,7 @@ use otr_processor::{
         db_structs::{Match, Player, PlayerRating}
     },
     model::{otr_model::OtrModel, rating_utils::create_initial_ratings},
-    utils::test_utils::generate_country_mapping_players
+    utils::country_mapping::build_country_mapping
 };
 use serial_test::serial;
 use tokio_postgres::Client;
@@ -17,7 +17,7 @@ const SAVED_TABLES: [&str; 3] = ["player_ratings", "rating_adjustments", "player
 
 fn process(players: &[Player], matches: &[Match]) -> Vec<PlayerRating> {
     let initial_ratings = create_initial_ratings(players, matches);
-    OtrModel::new(&initial_ratings, &generate_country_mapping_players(players)).process(matches)
+    OtrModel::new(&initial_ratings, &build_country_mapping(players)).process(matches)
 }
 
 async fn saved_tables(client: &Client) -> Vec<String> {

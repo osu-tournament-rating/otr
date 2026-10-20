@@ -72,7 +72,9 @@ configured application database.
   the restored seed itself.
 - `processor` runs the configured image against configured PostgreSQL. Do not
   treat it as a test command. It passes `DATABASE_URL` and no RabbitMQ URL, so
-  it requires an image that queues stats jobs in the database.
+  it requires an image that queues stats jobs in the database. The container
+  runs as `otr-processor` and is removed when it exits, so a second run cannot
+  start while one is running.
 - After a run commits, `processor` publishes its receipt (`src/lib/receipt.py`):
   the processor's `OTR_RECEIPT=` stdout line plus the image digest the pull
   printed and that image's release, as `otr-rating-receipt_<start>.json` in

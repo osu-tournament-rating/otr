@@ -7,6 +7,10 @@ from lib.config import config
 
 logger = logging.getLogger(__name__)
 
+# Each run's container goes by this name in Docker and in its logs. Docker
+# refuses a second container with the same name, so runs cannot overlap.
+CONTAINER_NAME = "otr-processor"
+
 
 def _stream(cmd: list[str], on_line: Callable[[str], None] | None = None) -> int:
     """Run a command, logging each line of its output as it arrives"""
@@ -45,7 +49,8 @@ def run() -> bool:
     conn_str = f"postgresql://{config.db_user}:{config.db_password}@localhost:{config.db_port}/{config.db_name}"
     rust_log = "info"
 
-    run_cmd = f"docker run --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
+    # --rm removes the container once it exits, so runs leave none behind
+    run_cmd = f"docker run --rm --name {CONTAINER_NAME} --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
 
     # The processor prints its receipt line once its transaction commits.
     receipt_lines: list[str] = []

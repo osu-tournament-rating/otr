@@ -27,8 +27,6 @@ indexmap = "2.14.2"
 strum = "0.28.0"
 strum_macros = "0.28.0"
 tokio-postgres = { version = "0.7.18", features = ["with-chrono-0_4"] }
-rand_chacha = "0.10.0"
-rand = "0.10.3"
 thiserror = "2.0.21"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -40,6 +38,8 @@ serde_json = "1.0.154"
 
 [dev-dependencies]
 approx = "0.5.1"
+rand = "0.10.3"
+rand_chacha = "0.10.0"
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serial_test = "4.0"
