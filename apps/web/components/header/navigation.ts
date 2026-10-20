@@ -5,6 +5,7 @@ import {
   FileText,
   Filter,
   Flag,
+  ListChecks,
   ShieldCheck,
   Trophy,
   Upload,
@@ -130,6 +131,12 @@ export function getNavEntries({
           count: unseenReports,
           countLabel: 'unseen',
           testId: 'nav-admin-reports',
+        },
+        {
+          title: 'Jobs',
+          href: '/admin/jobs',
+          icon: ListChecks,
+          testId: 'nav-admin-jobs',
         },
       ],
     });

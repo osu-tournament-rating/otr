@@ -6,7 +6,7 @@ use otr_processor::{
         rating_utils::create_initial_ratings,
         structures::{rating_adjustment_type::RatingAdjustmentType, ruleset::Ruleset}
     },
-    utils::test_utils::generate_country_mapping_players
+    utils::country_mapping::build_country_mapping
 };
 use serial_test::serial;
 
@@ -325,7 +325,7 @@ async fn test_deleting_a_match_makes_its_tournament_stats_stale() {
     let matches = db_client.get_matches().await.expect("Failed to fetch matches");
     let players = db_client.get_players().await.expect("Failed to fetch players");
     let initial_ratings = create_initial_ratings(&players, &matches);
-    let ratings = OtrModel::new(&initial_ratings, &generate_country_mapping_players(&players)).process(&matches);
+    let ratings = OtrModel::new(&initial_ratings, &build_country_mapping(&players)).process(&matches);
     db_client.save_results(&ratings).await.expect("Failed to save results");
 
     // The stats the data worker builds from them: a match stat for each rating

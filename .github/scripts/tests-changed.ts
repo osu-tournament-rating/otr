@@ -34,7 +34,6 @@ const TEST_PATHS = [
   /(^|[/.])test[-_]utils?\.[^/]+$/,
   /^apps\/web\/e2e\//,
   /^apps\/[^/]+\/tests\//,
-  /^apps\/processor\/test_data\//,
   /^apps\/processor\/src\/(?:.+\/)?tests\.rs$/,
 ];
 

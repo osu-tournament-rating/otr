@@ -1,11 +1,10 @@
 import { sql } from 'drizzle-orm';
-import { JobStatus } from '@otr/core/jobs';
+import { JobStatus, recountEnqueuedSql } from '@otr/core/jobs';
 import { isWithinMaintenanceWindow } from '@otr/core/maintenance';
 import { withoutTracing } from '@otr/core/tracing';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
-import { recountEnqueuedSql } from './daily-stats';
 
 /** Finished jobs stay this long; the daily totals keep their counts after. */
 export const JOB_RETENTION_DAYS = 14;

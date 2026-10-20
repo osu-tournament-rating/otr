@@ -224,6 +224,30 @@ export function formatDuration(
 }
 
 /**
+ * How long a piece of work took, from milliseconds: `850 ms` under a
+ * second, `12.5 s` under a minute, then a length as `formatDuration` writes
+ * it (`2:04`). Missing, negative or unreadable input prints `empty`.
+ */
+export function formatRunTime(
+  milliseconds: number | null | undefined,
+  { empty = EMPTY_VALUE }: { empty?: string } = {}
+): string {
+  if (milliseconds === null || milliseconds === undefined) return empty;
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return empty;
+
+  const wholeMs = Math.round(milliseconds);
+  if (wholeMs < 1000) return `${wholeMs} ms`;
+
+  const tenths = Math.round(milliseconds / 100);
+  if (tenths < 600) {
+    const seconds = tenths / 10;
+    return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)} s`;
+  }
+
+  return formatDuration(Math.round(milliseconds / 1000), { empty });
+}
+
+/**
  * Reads a length typed as `formatDuration` writes it, back into seconds:
  * `3:45`, `1:23:45`, or bare seconds (`225`). Returns null for anything
  * else, such as `3:75` or `abc`.

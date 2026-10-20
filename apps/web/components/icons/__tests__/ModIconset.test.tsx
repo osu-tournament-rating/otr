@@ -8,7 +8,6 @@ import { Mods } from '@otr/core/osu';
 import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset from '@/components/icons/ModIconset';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { ModsEnumHelper } from '@/lib/enum-helpers';
 import {
   MOD_BADGES,
   getModBadgeAcronyms,
@@ -40,16 +39,15 @@ describe('ModIconset', () => {
     expect(existsSync(join(iconDir, 'blanks/mod-icon.svg'))).toBe(true);
   });
 
-  it('draws a glyph for every single-bit mod with an acronym', () => {
+  it('draws a glyph for every single-bit mod', () => {
     const withoutGlyphs = singleBitMods
-      .filter((mod) => ModsEnumHelper.metadata[mod].text !== '')
       .filter(
         (mod) =>
           !renderToStaticMarkup(<ModIconset mods={mod} />).includes(
             '/icons/mods/mod-'
           )
       )
-      .map((mod) => ModsEnumHelper.metadata[mod].text);
+      .map((mod) => Mods[mod]);
 
     expect(withoutGlyphs).toEqual([]);
   });
@@ -121,12 +119,20 @@ describe('ModIconset', () => {
     expect(html).toContain('mod-hidden.svg');
   });
 
-  it('skips mods that have no acronym', () => {
+  // osu!lazer plays key co-op as Dual Stages; its legacy acronym, CO, is
+  // lazer's Cover.
+  it('draws Target Practice, and key co-op as Dual Stages', () => {
     const html = renderToStaticMarkup(
-      <ModIconset mods={Mods.Hidden | Mods.Target} />
+      <ModIconset mods={Mods.Hidden | Mods.Target | Mods.KeyCoop} />
     );
 
-    expect(html.match(BADGE)).toHaveLength(1);
+    expect(html.match(BADGE)).toEqual([
+      'role="img" aria-label="Hidden"',
+      'role="img" aria-label="Target Practice"',
+      'role="img" aria-label="Dual Stages"',
+    ]);
+    expect(html).toContain('mod-target-practice.svg');
+    expect(html).toContain('mod-dual-stages.svg');
   });
 });
 

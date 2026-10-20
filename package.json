@@ -6,8 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "lint": "bun run lint:deps && bun run --filter '*' --parallel lint",
+    "lint": "bun run lint:deps && bun run lint:migrations && bun run --filter '*' --parallel lint",
     "lint:deps": "bun lib/deps/check-install.ts && bun lib/deps/check-peer-imports.ts && knip --no-progress",
+    "lint:migrations": "bun lib/db/check-migrations.ts",
     "build": "bun run --filter '*' --parallel build",
     "start": "bun run --filter '*' --parallel start",
     "dev": "bun run --filter web dev",

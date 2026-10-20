@@ -35,6 +35,7 @@ import {
 import { orpc } from '@/lib/orpc/orpc';
 import type { TournamentListPageResponse } from '@/lib/orpc/schema/tournament';
 import type { PageSearchParams } from '@/lib/types';
+import { logger } from '@/lib/logger';
 
 export const metadata: Metadata = {
   title: 'Tournaments',
@@ -52,7 +53,7 @@ async function fetchTournaments(
   } catch (error) {
     // Next's own control-flow errors (dynamic rendering, redirects) pass.
     unstable_rethrow(error);
-    console.error('[tournaments] list could not load', error);
+    logger.error('Tournament list could not load', { error });
     return null;
   }
 }

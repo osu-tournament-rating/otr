@@ -3,6 +3,9 @@
 .vscode
 .husky
 .agents
+# Agent configuration, and the agent worktrees under .claude/worktrees: full
+# checkouts, each with its own .env, that the root-level rules below miss.
+.claude
 # `**/` is required: a bare `node_modules` strips only the root folder, and the
 # workspace copies under apps/* and packages/* hold bun symlinks that collide
 # with the real directories `bun install` creates in the image.

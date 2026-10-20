@@ -20,7 +20,9 @@ pub struct Args {
 }
 
 /// Database URL variables, preferred first. `DATABASE_URL` is the name otr
-/// shares; the production cron still passes `CONNECTION_STRING`.
+/// shares, and the production cron passes it. otr-replay and the manual rating
+/// reproduction steps pass `CONNECTION_STRING`, the one name every release
+/// reads, so the fallback stays.
 pub const DATABASE_URL_VARS: [&str; 2] = ["DATABASE_URL", "CONNECTION_STRING"];
 
 /// The value of the first variable in `names` that is set and not blank.

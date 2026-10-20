@@ -285,6 +285,27 @@ describe('SortControl', () => {
       /data-slot="icon-button"[^>]*class="[^"]*\bsize-8\b[^"]*"[^>]*aria-label="Sort order/
     );
   });
+
+  it('offers no direction for a key with one order', () => {
+    const options = [
+      { value: 'relevance', label: 'Relevance', directionless: true },
+      { value: 'endTime', label: 'End date' },
+    ];
+    const sortedBy = (key: string) =>
+      render(
+        <SortControl
+          label="Sort tournaments by"
+          value={{ key, direction: 'desc' }}
+          onValueChange={noop}
+          options={options}
+        />
+      );
+
+    expect(sortedBy('relevance')).not.toContain('aria-label="Sort order');
+    expect(sortedBy('endTime')).toContain(
+      'aria-label="Sort order is descending"'
+    );
+  });
 });
 
 describe('ruleset controls', () => {
