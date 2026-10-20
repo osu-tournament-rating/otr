@@ -25,6 +25,7 @@ import {
 
 import {
   adminMutationProcedure,
+  adminProcedure,
   protectedMutationProcedure,
   protectedProcedure,
 } from '../base';
@@ -253,7 +254,7 @@ export const createReport = protectedMutationProcedure
   })
   .handler(createReportHandler);
 
-export const listReports = protectedProcedure
+export const listReports = adminProcedure
   .input(ReportListInputSchema)
   .output(ReportListResponseSchema)
   .route({
@@ -365,7 +366,7 @@ export const listReports = protectedProcedure
     };
   });
 
-export const getReport = protectedProcedure
+export const getReport = adminProcedure
   .input(ReportGetInputSchema)
   .output(ReportSchema)
   .route({
@@ -532,7 +533,7 @@ export const reopenReport = adminMutationProcedure
     return { success: true, reportId: input.reportId };
   });
 
-export const getUnseenReportCount = protectedProcedure
+export const getUnseenReportCount = adminProcedure
   .output(UnseenReportCountResponseSchema)
   .route({
     summary: 'Get count of unseen pending reports (admin)',
@@ -561,7 +562,7 @@ export const getUnseenReportCount = protectedProcedure
     return { count: result?.count ?? 0 };
   });
 
-export const markReportsViewed = protectedProcedure
+export const markReportsViewed = adminProcedure
   .output(ReportMutationResponseSchema)
   .route({
     summary: 'Mark reports as viewed (admin)',

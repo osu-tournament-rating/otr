@@ -28,7 +28,7 @@ import {
 } from '@/lib/orpc/schema/jobs';
 import type { z } from 'zod';
 
-import { adminMutationProcedure, protectedProcedure } from '../base';
+import { adminMutationProcedure, adminProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 
 interface AdminContext {
@@ -355,7 +355,7 @@ export async function getJobDailyTotalsHandler({
   };
 }
 
-export const getJobSummary = protectedProcedure
+export const getJobSummary = adminProcedure
   .output(JobQueueSummarySchema.array())
   .route({
     summary: 'Job counts per queue',
@@ -365,7 +365,7 @@ export const getJobSummary = protectedProcedure
   })
   .handler(getJobSummaryHandler);
 
-export const listJobs = protectedProcedure
+export const listJobs = adminProcedure
   .input(JobListInputSchema)
   .output(JobListResponseSchema)
   .route({
@@ -398,7 +398,7 @@ export const cancelJobsAdmin = adminMutationProcedure
   })
   .handler(cancelJobsHandler);
 
-export const getJobDailyTotals = protectedProcedure
+export const getJobDailyTotals = adminProcedure
   .input(JobDailyTotalsInputSchema)
   .output(JobDailyTotalsSchema)
   .route({

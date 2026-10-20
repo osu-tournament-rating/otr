@@ -13,6 +13,7 @@ import {
   ShortcutsPanelSkeleton,
 } from '@/app/settings/SettingsFrame';
 import { auth } from '@/lib/auth/auth';
+import { API_KEY_RATE_LIMIT } from '@/lib/auth/api-key-policy';
 import { orpc } from '@/lib/orpc/orpc';
 import { getFriendCount } from '@/lib/db/player-friends';
 import type { Metadata } from 'next';
@@ -43,10 +44,7 @@ export default async function SettingsPage() {
       <Suspense fallback={<FriendsPanelSkeleton />}>
         <FriendsSyncClient friendCount={friendCount} />
       </Suspense>
-      <ApiKeySettingsClient
-        initialKeys={keys}
-        rateLimit={{ maxRequests: 60, timeWindowMs: 60_000 }}
-      />
+      <ApiKeySettingsClient initialKeys={keys} rateLimit={API_KEY_RATE_LIMIT} />
       <Suspense fallback={<ShortcutsPanelSkeleton />}>
         <ThemeHotkeyClient />
       </Suspense>
