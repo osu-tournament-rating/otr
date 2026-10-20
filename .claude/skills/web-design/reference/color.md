@@ -633,12 +633,12 @@ const series = RANK_RANGE_BUCKETS.map(({ key, label, color }) => ({
 - `data`: `StackedBarDatum[]`, each `{ key, label, values, total? }`. `values` holds a count per series key; a missing one counts zero. `total` is what a share is out of when it is more than the series add up to; it defaults to their sum.
 - `series`: `{ key, label, color }`, bottom of the stack first. Colours are the categorical slots of each series' fixed index, or a domain palette's own (the rank restriction bands keep slots 1 to 5 from `lib/beatmaps/rankRange.ts`).
 - `mode`: `count` (default) stacks the counts on a count axis; `share` stacks each count as a percentage of its column's total, on a percentage axis that tops out at 100%. A column with a total of zero draws nothing.
-- `categoryTicks`, `footer(datum)` and `className` (`h-60` by default; the legend is extra) work as on CountBarChart.
+- `categoryTicks`, `footer(datum)` and `className` (`h-60` by default; the legend is extra) work as on CountBarChart. Categories that are not years, such as the rating gap buckets `0–100` to `500+`, tick through the same rule: pass each bucket's start to `getCategoryTicks` and keep the labels of the starts it returns, so a phone labels every other bar (`components/stats/HigherRatedWinsPanel.tsx`).
 - The pure rules, `getStackedBarRows`, `getStackedValueTicks` and `getStackedTotal`, are in `@/lib/kit/charts/stacked-bars`.
 
 Don't:
 
-- Don't hand-build a stacked `BarChart`; the stats page's rank restrictions and lazer share both use this one.
+- Don't hand-build a stacked `BarChart`; the stats page's rank restrictions, lazer share and win rate by rating gap all use this one.
 - Don't draw a share chart for data with no share yet: the lazer share shows an empty state until a lazer tournament is verified, not a flat 0%.
 
 Gallery anchor: `/admin/design#color-chart-stacked`
