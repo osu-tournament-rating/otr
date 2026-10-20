@@ -1,9 +1,18 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { TournamentStatsCalculator } from '../tournament-stats-calculator';
 import { TournamentStatsService } from '../tournament-stats-service';
 import type { StatsCalculationFailure, StatsTournament } from '../types';
-import { Ruleset, Team, VerificationStatus } from '@otr/core/osu';
+import {
+  RatingAdjustmentType,
+  Ruleset,
+  Team,
+  VerificationStatus,
+} from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
+import { dbSchema } from '@otr/core/db';
+import { eq, inArray } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
@@ -300,5 +309,201 @@ describe('TournamentStatsService', () => {
       reason: 'Calculating statistics failed: boom',
     });
     expect(db.transactions).toHaveLength(0);
+  });
+});
+
+// Set by the `checks` job in .github/workflows/ci.yml.
+const testDatabaseUrl = process.env.SEARCH_TEST_DATABASE_URL;
+
+const SEED_OSU_ID = 990_000_300;
+const SEED_NAME = 'tournament-stats-service-test';
+
+describe.skipIf(!testDatabaseUrl)('TournamentStatsService database', () => {
+  const pool = new Pool({ connectionString: testDatabaseUrl });
+  const db = drizzle(pool, { schema: dbSchema }) as unknown as DatabaseClient;
+  const seedOsuIds = [SEED_OSU_ID, SEED_OSU_ID + 1];
+
+  const removeSeed = async () => {
+    await db
+      .delete(schema.tournaments)
+      .where(eq(schema.tournaments.name, SEED_NAME));
+    await db
+      .delete(schema.players)
+      .where(inArray(schema.players.osuId, seedOsuIds));
+  };
+
+  beforeAll(removeSeed);
+  afterAll(async () => {
+    await removeSeed();
+    await pool.end();
+  });
+
+  const verifiedScore = (gameId: number, playerId: number, team: Team) => ({
+    rawScore: team === Team.Red ? 600_000 : 400_000,
+    placement: team === Team.Red ? 1 : 2,
+    accuracy: 0.95,
+    maxCombo: 100,
+    pass: true,
+    isPerfectCombo: false,
+    legacyPerfect: false,
+    grade: 2,
+    mods: 0,
+    team,
+    ruleset: Ruleset.Osu,
+    verificationStatus: VerificationStatus.Verified,
+    rejectionReason: 0,
+    legacyTotalScore: 0,
+    gameId,
+    playerId,
+  });
+
+  it('clears the rosters and stats left on a match it skips', async () => {
+    const [red, blue] = await db
+      .insert(schema.players)
+      .values(
+        seedOsuIds.map((osuId) => ({ osuId, username: `stats-${osuId}` }))
+      )
+      .returning({ id: schema.players.id });
+    const [tournament] = await db
+      .insert(schema.tournaments)
+      .values({
+        name: SEED_NAME,
+        abbreviation: 'TSS',
+        forumUrl: `https://osu.ppy.sh/community/forums/topics/${SEED_OSU_ID}`,
+        rankRangeLowerBound: 1,
+        ruleset: Ruleset.Osu,
+        lobbySize: 1,
+        verificationStatus: VerificationStatus.Verified,
+      })
+      .returning({ id: schema.tournaments.id });
+    const [rated, emptied] = await db
+      .insert(schema.matches)
+      .values(
+        seedOsuIds.map((osuId) => ({
+          osuId,
+          tournamentId: tournament!.id,
+          verificationStatus: VerificationStatus.Verified,
+        }))
+      )
+      .returning({ id: schema.matches.id });
+    const [ratedGame, emptiedGame] = await db
+      .insert(schema.games)
+      .values(
+        [rated!, emptied!].map((match, index) => ({
+          osuId: SEED_OSU_ID + index,
+          ruleset: Ruleset.Osu,
+          scoringType: 3,
+          teamType: 2,
+          mods: 0,
+          matchId: match.id,
+          verificationStatus: VerificationStatus.Verified,
+        }))
+      )
+      .returning({ id: schema.games.id });
+
+    await db
+      .insert(schema.gameScores)
+      .values([
+        verifiedScore(ratedGame!.id, red!.id, Team.Red),
+        verifiedScore(ratedGame!.id, blue!.id, Team.Blue),
+      ]);
+    const ratings = await db
+      .insert(schema.playerRatings)
+      .values(
+        [red!, blue!].map((player) => ({
+          playerId: player.id,
+          ruleset: Ruleset.Osu,
+          rating: 1000,
+          volatility: 100,
+          percentile: 50,
+          globalRank: 1,
+          countryRank: 1,
+        }))
+      )
+      .returning({
+        id: schema.playerRatings.id,
+        playerId: schema.playerRatings.playerId,
+      });
+    await db.insert(schema.ratingAdjustments).values(
+      ratings.map((rating) => ({
+        adjustmentType: RatingAdjustmentType.Match,
+        ruleset: Ruleset.Osu,
+        timestamp: '2026-01-01T00:00:00Z',
+        ratingBefore: 1000,
+        ratingAfter: 1010,
+        volatilityBefore: 100,
+        volatilityAfter: 99,
+        playerRatingId: rating.id,
+        playerId: rating.playerId,
+        matchId: rated!.id,
+      }))
+    );
+
+    // Rows built while the emptied match's game still had scores
+    await db.insert(schema.gameRosters).values({
+      gameId: emptiedGame!.id,
+      team: Team.Red,
+      roster: [red!.id],
+      score: 600_000,
+    });
+    await db.insert(schema.matchRosters).values({
+      matchId: emptied!.id,
+      team: Team.Red,
+      roster: [red!.id],
+      score: 1,
+    });
+    await db.insert(schema.playerMatchStats).values({
+      playerId: red!.id,
+      matchId: emptied!.id,
+      matchCost: 1,
+      averageScore: 600_000,
+      averagePlacement: 1,
+      averageMisses: 0,
+      averageAccuracy: 0.95,
+      gamesPlayed: 1,
+      gamesWon: 1,
+      gamesLost: 0,
+      won: true,
+      teammateIds: [],
+      opponentIds: [],
+    });
+
+    const service = new TournamentStatsService({
+      db,
+      logger: noopLogger,
+      calculator: new TournamentStatsCalculator(),
+    });
+    expect(await service.processTournamentStats(tournament!.id)).toEqual({
+      status: 'processed',
+    });
+
+    const matchIds = [rated!.id, emptied!.id];
+    const matchRosterMatches = await db
+      .select({ matchId: schema.matchRosters.matchId })
+      .from(schema.matchRosters)
+      .where(inArray(schema.matchRosters.matchId, matchIds));
+    const matchStatMatches = await db
+      .select({ matchId: schema.playerMatchStats.matchId })
+      .from(schema.playerMatchStats)
+      .where(inArray(schema.playerMatchStats.matchId, matchIds));
+    const gameRosterGames = await db
+      .select({ gameId: schema.gameRosters.gameId })
+      .from(schema.gameRosters)
+      .where(
+        inArray(schema.gameRosters.gameId, [ratedGame!.id, emptiedGame!.id])
+      );
+
+    expect(matchRosterMatches.map((row) => row.matchId)).toEqual([
+      rated!.id,
+      rated!.id,
+    ]);
+    expect(matchStatMatches.map((row) => row.matchId)).toEqual([
+      rated!.id,
+      rated!.id,
+    ]);
+    expect(gameRosterGames.map((row) => row.gameId)).toEqual([
+      ratedGame!.id,
+      ratedGame!.id,
+    ]);
   });
 });

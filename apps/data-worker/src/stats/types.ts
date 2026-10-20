@@ -124,6 +124,11 @@ export interface StatsCalculationFailure {
 export interface StatsCalculationSuccess {
   success: true;
   verifiedMatchesCount: number;
+  /**
+   * Verified matches left out because the rating run leaves them out too:
+   * no verified game with verified scores, or no rating changes.
+   */
+  skippedMatchIds: number[];
   playerMatchStatsCount: number;
   playerTournamentStatsCount: number;
   matches: MatchProcessingResult[];

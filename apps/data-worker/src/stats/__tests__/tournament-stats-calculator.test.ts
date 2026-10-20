@@ -334,32 +334,88 @@ describe('TournamentStatsCalculator', () => {
     expect(result.errorMessage).toContain('is not verified');
   });
 
-  it('fails when matches do not have verified games', () => {
-    const calculator = new TournamentStatsCalculator();
+  it('skips a match without verified games and counts the rest', () => {
     const tournament = createVerifiedTournament();
-    tournament.matches[0]?.games.forEach((game) => {
-      game.verificationStatus = VerificationStatus.PreVerified;
-    });
+    // Players 5 and 6 play only this match, whose one game is not verified.
+    tournament.matches.push(
+      match(
+        11,
+        [
+          game(
+            110,
+            11,
+            [score(110, 5, Team.Red, 500_000), score(110, 6, Team.Blue, 1)],
+            VerificationStatus.PreVerified
+          ),
+        ],
+        [5, 6]
+      )
+    );
 
-    const result = calculator.calculateAllStatistics(tournament);
-    expect(result.success).toBe(false);
-    if (result.success) {
-      return;
-    }
-    expect(result.errorMessage).toContain('Failed to process match statistics');
+    const result = calculate(tournament);
+
+    expect(result.matches.map((entry) => entry.matchId)).toEqual([10]);
+    expect(result.skippedMatchIds).toEqual([11]);
+    expect(
+      result.playerTournamentStats.map((stat) => stat.playerId).sort()
+    ).toEqual([1, 2, 3, 4]);
   });
 
-  it('fails when rating adjustments are missing', () => {
-    const calculator = new TournamentStatsCalculator();
+  it('skips a match without rating changes and counts the rest', () => {
+    const tournament = createVerifiedTournament();
+    // The rating run skips a match whose games all have one verified score.
+    const unrated = match(
+      11,
+      [game(110, 11, [score(110, 5, Team.Red, 500_000)])],
+      []
+    );
+    tournament.matches.push(unrated);
+
+    const result = calculate(tournament);
+
+    expect(result.matches.map((entry) => entry.matchId)).toEqual([10]);
+    expect(result.skippedMatchIds).toEqual([11]);
+    expect(playerTournamentStat(result, 1).matchesPlayed).toBe(1);
+  });
+
+  it('fails when no verified match can be counted', () => {
     const tournament = createVerifiedTournament();
     tournament.matches[0]!.playerRatingAdjustments = [];
 
-    const result = calculator.calculateAllStatistics(tournament);
+    const result = new TournamentStatsCalculator().calculateAllStatistics(
+      tournament
+    );
+
     expect(result.success).toBe(false);
-    if (result.success) {
-      return;
-    }
-    expect(result.errorMessage).toContain('Missing processor data');
+  });
+
+  it('skips a verified game without verified scores and counts the match', () => {
+    // An aborted lobby: verified with the rest of the match, but empty.
+    const tournament = tournamentOf(
+      match(
+        10,
+        [
+          game(100, 10, [
+            score(100, 1, Team.Red, 600_000),
+            score(100, 2, Team.Blue, 400_000),
+          ]),
+          game(101, 10, []),
+        ],
+        [1, 2]
+      )
+    );
+
+    const result = calculate(tournament);
+
+    const [matchResult] = result.matches;
+    expect(matchResult!.gameRosters.map((entry) => entry.gameId)).toEqual([
+      100,
+    ]);
+    expect(playerMatchStat(result, 10, 1)).toMatchObject({
+      gamesPlayed: 1,
+      gamesWon: 1,
+      won: true,
+    });
   });
 
   it('gives a tied game to neither team', () => {

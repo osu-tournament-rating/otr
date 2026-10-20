@@ -170,25 +170,24 @@ export class TournamentStatsCalculator {
     }
 
     const matchResults: MatchProcessingResult[] = [];
+    const skippedMatchIds: number[] = [];
     let totalPlayerMatchStats = 0;
 
     for (const match of verifiedMatches) {
       const matchResult = this.processMatch(match);
       if (!matchResult) {
-        return {
-          success: false,
-          errorMessage: `Failed to process match statistics for match ${match.id} in tournament ${tournament.id}`,
-        };
+        skippedMatchIds.push(match.id);
+        continue;
       }
 
       matchResults.push(matchResult);
       totalPlayerMatchStats += matchResult.playerMatchStats.length;
     }
 
-    if (!this.validateProcessorData(verifiedMatches)) {
+    if (matchResults.length === 0) {
       return {
         success: false,
-        errorMessage: `Missing processor data for tournament ${tournament.id}`,
+        errorMessage: `No verified match in tournament ${tournament.id} has verified scores and rating changes`,
       };
     }
 
@@ -201,6 +200,7 @@ export class TournamentStatsCalculator {
     return {
       success: true,
       verifiedMatchesCount: verifiedMatches.length,
+      skippedMatchIds,
       playerMatchStatsCount: totalPlayerMatchStats,
       playerTournamentStatsCount: playerTournamentStats.length,
       matches: matchResults,
@@ -208,31 +208,42 @@ export class TournamentStatsCalculator {
     };
   }
 
+  /**
+   * The match's rosters and player stats, or null when the rating run skips
+   * it too: no verified game with verified scores, or no rating changes.
+   * Verified games without verified scores are left out, as the rating run
+   * leaves them out.
+   */
   private processMatch(match: StatsMatch): MatchProcessingResult | null {
     if (match.verificationStatus !== VerificationStatus.Verified) {
       return null;
     }
 
-    const verifiedGames = ensureVerified(match.games);
-    if (verifiedGames.length === 0) {
+    if (match.playerRatingAdjustments.length === 0) {
       return null;
     }
 
+    const countedGames: StatsGame[] = [];
     const gameResults: GameProcessingResult[] = [];
 
-    for (const game of verifiedGames) {
+    for (const game of ensureVerified(match.games)) {
       const result = this.processGame(game);
-      if (!result || result.rosters.length === 0) {
-        return null;
+      if (!result) {
+        continue;
       }
+      countedGames.push(game);
       gameResults.push(result);
+    }
+
+    if (gameResults.length === 0) {
+      return null;
     }
 
     const matchRosters = generateMatchRosters(match.id, gameResults);
 
     const playerMatchStats = this.generatePlayerMatchStatistics(
       match,
-      verifiedGames,
+      countedGames,
       gameResults,
       matchRosters
     );
@@ -361,10 +372,6 @@ export class TournamentStatsCalculator {
     }
 
     return stats;
-  }
-
-  private validateProcessorData(matches: StatsMatch[]) {
-    return matches.every((match) => match.playerRatingAdjustments.length > 0);
   }
 
   private aggregateTournamentStats(
