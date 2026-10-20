@@ -1,6 +1,7 @@
 name: Label pull request
 
-# Adds an app label for each app a pull request changes, as mapped in
+# Adds an app label for each app a pull request changes, and the public API
+# label when it changes the public API reference, as mapped in
 # .github/labeler.yml. Labels are only added, never removed, so one added by
 # hand stays. `pull_request_target` lets fork pull requests be labelled too;
 # it is safe here because the labeler reads changed paths from the API and

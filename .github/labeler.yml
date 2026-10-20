@@ -28,3 +28,9 @@ app:docs:
 app:replay:
   - changed-files:
       - any-glob-to-any-file: apps/replay/**
+
+# `bun run lint` fails until the committed copy of the public API reference
+# matches the generated one, so the copy changes whenever the public API does.
+meta:public-api:
+  - changed-files:
+      - any-glob-to-any-file: apps/web/openapi.json
