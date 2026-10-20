@@ -1,12 +1,15 @@
+use chrono::Utc;
 use clap::Parser;
 use otr_processor::{
     args::{first_env, unset_blank_env, Args, ARGS_ENV_VARS, DATABASE_URL_VARS},
     database::db::DbClient,
     model::{otr_model::OtrModel, rating_utils::create_initial_ratings},
+    receipt::{RunCounts, RunReceipt},
     utils::test_utils::generate_country_mapping_players
 };
 use std::{
     collections::{BTreeSet, HashMap},
+    io::Write,
     time::Instant
 };
 use tracing::{debug, error, info, warn};
@@ -18,6 +21,7 @@ use uuid::Uuid;
 async fn main() {
     // Used for time tracking
     let start = Instant::now();
+    let started_at = Utc::now();
 
     // Initialize env vars
     let _ = dotenvy::dotenv();
@@ -130,12 +134,19 @@ async fn main() {
         let tournament_ids: Vec<i32> = tournaments_needing_refresh.into_iter().collect();
         client.enqueue_tournament_stats_jobs(&tournament_ids, &run_id).await?;
 
-        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+        let counts = RunCounts {
+            matches: matches.len(),
+            players: players.len(),
+            tournaments: tournament_info.len(),
+            ratings: results.len(),
+            stats_jobs: tournament_ids.len()
+        };
+        Ok::<_, Box<dyn std::error::Error + Send + Sync>>((counts, model.decay_horizon()))
     }
     .await;
 
     match process_result {
-        Ok(()) => {
+        Ok((counts, decay_horizon)) => {
             // COMMIT TRANSACTION
             // A failed COMMIT has already rolled the transaction back.
             if let Err(e) = transaction_guard.commit().await {
@@ -143,6 +154,17 @@ async fn main() {
                 std::process::exit(1);
             }
             info!("COMMIT TRANSACTION");
+
+            // Only a committed run has a receipt, and the ratings are already
+            // published, so a receipt that cannot be written is only logged.
+            print_receipt(&RunReceipt {
+                run_id,
+                started_at,
+                decay_horizon: decay_horizon.map(|horizon| horizon.with_timezone(&Utc)),
+                committed_at: Utc::now(),
+                counts
+            });
+
             let end = Instant::now();
             info!("Processing complete in {:.2?}", (end - start));
         }
@@ -157,6 +179,23 @@ async fn main() {
             }
             std::process::exit(1);
         }
+    }
+}
+
+/// Prints the run's receipt as the one line on stdout. A failure logs an error
+/// and leaves the exit code alone, since the run itself succeeded.
+fn print_receipt(receipt: &RunReceipt) {
+    let line = match receipt.line() {
+        Ok(line) => line,
+        Err(e) => {
+            error!("Failed to write the run receipt: {}", e);
+            return;
+        }
+    };
+
+    let mut stdout = std::io::stdout().lock();
+    if let Err(e) = writeln!(stdout, "{line}").and_then(|()| stdout.flush()) {
+        error!("Failed to print the run receipt: {}", e);
     }
 }
 

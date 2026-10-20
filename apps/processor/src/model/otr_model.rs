@@ -14,7 +14,7 @@ use crate::{
     },
     utils::progress_utils::progress_span
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, FixedOffset, Utc};
 use itertools::Itertools;
 use openskill::{
     model::{model::Model, plackett_luce::PlackettLuce},
@@ -51,7 +51,9 @@ pub struct OtrModel {
     /// Tracks and maintains all player ratings
     pub rating_tracker: RatingTracker,
     /// Unified system for rating and volatility decay at Wednesday 12:00 UTC
-    decay_system: UnifiedDecaySystem
+    decay_system: UnifiedDecaySystem,
+    /// The time the final decay pass ran to, once [`OtrModel::process`] has run
+    decay_horizon: Option<DateTime<FixedOffset>>
 }
 
 impl OtrModel {
@@ -69,8 +71,15 @@ impl OtrModel {
         OtrModel {
             rating_tracker: tracker,
             model: PlackettLuce::new(BETA, KAPPA, Self::gamma_override),
-            decay_system: UnifiedDecaySystem::new()
+            decay_system: UnifiedDecaySystem::new(),
+            decay_horizon: None
         }
+    }
+
+    /// The time the final decay pass of [`OtrModel::process`] ran to, which a
+    /// replay of this run reconciles decay to. `None` until `process` runs.
+    pub fn decay_horizon(&self) -> Option<DateTime<FixedOffset>> {
+        self.decay_horizon
     }
 
     /// Custom volatility control function for the PlackettLuce model.
@@ -373,6 +382,7 @@ impl OtrModel {
     fn final_decay_pass(&mut self) {
         let current_time = Utc::now().fixed_offset();
         self.apply_unified_decay(current_time);
+        self.decay_horizon = Some(current_time);
     }
 
     /// Applies unified decay (rating + volatility) to all players across all rulesets
