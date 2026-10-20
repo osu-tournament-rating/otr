@@ -107,7 +107,11 @@ export default function ScoreEditDialog({
 
   const form = useForm<ScoreEditValues>({
     resolver: zodResolver(scoreEditFormSchema) as Resolver<ScoreEditValues>,
-    defaultValues: score,
+    // The dialog stays mounted, so the form takes the newer values a
+    // refresh brings and keeps only the fields the admin has changed. A
+    // save then compares against what the page shows now.
+    values: score,
+    resetOptions: { keepDirtyValues: true },
     mode: 'all',
   });
 

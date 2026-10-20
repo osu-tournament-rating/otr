@@ -98,7 +98,11 @@ export default function GameEditDialog({
 
   const form = useForm<GameEditValues>({
     resolver: zodResolver(gameEditFormSchema) as Resolver<GameEditValues>,
-    defaultValues: defaults,
+    // The dialog stays mounted, so the form takes the newer values a
+    // refresh brings and keeps only the fields the admin has changed. A
+    // save then compares against what the page shows now.
+    values: defaults,
+    resetOptions: { keepDirtyValues: true },
     mode: 'all',
   });
 

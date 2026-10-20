@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { VerificationStatus } from '@otr/core/osu';
 import { STORAGE_STATE } from './fixtures/auth';
 import { createOrpcClientForRole } from './fixtures/orpc';
 import {
@@ -421,6 +422,106 @@ test.describe('Match Detail Page', () => {
       ).toBeVisible();
       await dialog.getByRole('button', { name: 'Back' }).click();
       await expect(dialog).toHaveAccessibleName('Edit score');
+    });
+
+    test('a score edit after the page refreshes saves only the field changed', async ({
+      page,
+    }) => {
+      const admin = createOrpcClientForRole('admin');
+      const getScore = async (id: number) => {
+        const match = await admin.matches.get({
+          id: TEST_MATCH_ID,
+          keyType: 'otr',
+        });
+        const score = match.games
+          .flatMap((game) => game.scores)
+          .find((candidate) => candidate.id === id);
+        if (!score) {
+          throw new Error(`Score ${id} is not in match ${TEST_MATCH_ID}`);
+        }
+        return score;
+      };
+
+      /** Opens a score's edit dialog; its description names the score. */
+      const openEditor = async (menu: Locator) => {
+        await chooseMenuItem(page, menu, 'Edit score');
+        const dialog = page.getByRole('dialog', { name: 'Edit score' });
+        const description = await dialog
+          .getByText(/^Editing score \d+$/)
+          .innerText();
+        return { dialog, id: Number(description.split(' ').at(-1)) };
+      };
+
+      /** Moves the open score to another team and saves it. */
+      const saveOtherTeam = async (dialog: Locator) => {
+        await dialog.getByRole('combobox', { name: 'Team' }).click();
+        await page.getByRole('option', { selected: false }).first().click();
+        await dialog.getByRole('button', { name: 'Save changes' }).click();
+        await expect(dialog).toBeHidden();
+      };
+
+      await page.goto(ROUTES.match(TEST_MATCH_ID));
+      await page.waitForLoadState('networkidle');
+
+      // Find each score by its menu's name, since a team change can move it.
+      const menus = page.locator('[data-testid="score-actions"]:visible');
+      await expect(menus.nth(1)).toBeVisible({ timeout: 10000 });
+      const [laterMenu, otherMenu] = await Promise.all(
+        [0, 1].map(async (index) =>
+          page.getByRole('button', {
+            name: (await menus.nth(index).getAttribute('aria-label'))!,
+            exact: true,
+          })
+        )
+      );
+      // "Actions for X's score in game 1", which also names its status.
+      const laterName = (await laterMenu.getAttribute('aria-label'))!
+        .replace(/^Actions for /, '')
+        .replace(/, Has admin notes$/, '');
+
+      const laterEditor = await openEditor(laterMenu);
+      await page.keyboard.press('Escape');
+      await expect(laterEditor.dialog).toBeHidden();
+      const otherEditor = await openEditor(otherMenu);
+
+      const later = await getScore(laterEditor.id);
+      const other = await getScore(otherEditor.id);
+      const [status, statusName] =
+        later.verificationStatus === VerificationStatus.PreVerified
+          ? [VerificationStatus.PreRejected, 'Pre-rejected']
+          : [VerificationStatus.PreVerified, 'Pre-verified'];
+
+      try {
+        // Another admin changes the score after this page loaded it.
+        await admin.scores.admin.update({
+          id: later.id,
+          verificationStatus: status,
+        });
+
+        // Saving a different score refreshes the page, which then shows it.
+        await saveOtherTeam(otherEditor.dialog);
+        await expect(
+          page.getByRole('button', {
+            name: `${laterName}: ${statusName}`,
+            exact: true,
+          })
+        ).toBeVisible();
+
+        const reopened = await openEditor(laterMenu);
+        await saveOtherTeam(reopened.dialog);
+
+        const saved = await getScore(later.id);
+        expect(saved.team).not.toBe(later.team);
+        expect(saved.verificationStatus).toBe(status);
+      } finally {
+        await admin.scores.admin.update({
+          id: later.id,
+          verificationStatus: later.verificationStatus,
+          rejectionReason: later.rejectionReason,
+          team: later.team,
+        });
+        await admin.scores.admin.update({ id: other.id, team: other.team });
+      }
     });
 
     test('a cancelled note edit opens again with the saved text', async ({
