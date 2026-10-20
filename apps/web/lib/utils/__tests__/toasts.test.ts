@@ -10,6 +10,7 @@ import {
 import { ORPCError } from '@orpc/client';
 import { toast } from 'sonner';
 
+import { ensureAdminSession } from '@/app/server/oRPC/procedures/shared/adminGuard';
 import { assertCurrentBuild } from '@/app/server/oRPC/procedures/shared/currentBuild';
 import { assertOutsideMaintenanceWindow } from '@/app/server/oRPC/procedures/shared/maintenanceWindow';
 import { isolateMaintenanceWindowEnv } from '@/lib/maintenance-window.test-utils';
@@ -52,6 +53,10 @@ describe('errorSaveToast', () => {
 
   // The refusals the server explains, with what to do next (#1111)
   it.each([
+    [
+      'an admin who lost the admin role',
+      () => ensureAdminSession({ dbUser: { id: 2, scopes: [] } }),
+    ],
     [
       'a page from an older release',
       () => assertCurrentBuild('older-build', 'current-build'),
