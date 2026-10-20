@@ -10,6 +10,10 @@ on:
         description: 'Also build the apps; the deploy builds them into images instead'
         type: boolean
         default: true
+      base:
+        description: 'The release tag the changes job compares with; deploy.yml passes the previous release'
+        type: string
+        default: ''
     # A called workflow sees only the secrets its caller passes, so deploy.yml
     # passes these for the Docker Hub sign-ins below. Without them, CI pulls
     # anonymously.
@@ -28,10 +32,12 @@ jobs:
   # their database from the migrations and check those values. On a pull
   # request, CI checks out GitHub's trial merge of the pull request into
   # master, so comparing it with master lists exactly what the pull request
-  # changes. When deploy.yml runs CI on a push to master, the job
-  # compares master before the push with master after it. This uses plain git
-  # rather than the dorny/paths-filter action, which would need a token and add
-  # a third-party dependency.
+  # changes. When deploy.yml runs CI on a push to master, the job compares the
+  # push with the previous release, which is what the release ships. A deploy
+  # run that a newer merge cancelled, or that failed, released nothing, so the
+  # next run checks its changes too. This uses plain git rather than the
+  # dorny/paths-filter action, which would need a token and add a third-party
+  # dependency.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -50,16 +56,16 @@ jobs:
         id: diff
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
+          BASE: ${{ inputs.base }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base=HEAD^1
-          elif [[ -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] &&
-            git fetch --quiet --depth=1 origin "$BEFORE"; then
-            base="$BEFORE"
+          elif [[ "$BASE" =~ ^[A-Za-z0-9._-]+$ ]] &&
+            git fetch --quiet --depth=1 --no-tags origin "refs/tags/$BASE:refs/tags/$BASE"; then
+            base="refs/tags/$BASE"
           else
-            # No commit to compare the push with, so run the processor, docs,
+            # No release to compare the push with, so run the processor, docs,
             # scripts, and replay jobs.
             printf '%s\n' processor=true docs=true scripts=true replay=true | tee -a "$GITHUB_OUTPUT"
             exit 0

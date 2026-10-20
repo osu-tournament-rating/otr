@@ -205,10 +205,15 @@ jobs:
 
   checks:
     name: CI
+    needs: resolve
     if: github.event_name == 'push'
     uses: ./.github/workflows/ci.yml
     with:
       build: false
+      # The processor, docs, scripts, and replay checks cover every change
+      # since the previous release, the baseline the processor image and the
+      # release notes use, rather than only this push.
+      base: ${{ needs.resolve.outputs.previous }}
     # A called workflow sees only the secrets passed to it. CI signs in to
     # Docker Hub with these before pulling images.
     secrets:
