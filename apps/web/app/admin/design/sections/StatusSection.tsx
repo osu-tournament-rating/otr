@@ -585,6 +585,9 @@ export default function StatusSection() {
           <Row label="Tags">
             <Badge variant="outline">lazer</Badge>
           </Row>
+          <Row label="Player activity">
+            <Badge size="sm">Inactive</Badge>
+          </Row>
           <Row label="Tiers">
             <Badge swatch={getTierColor('Platinum')}>Platinum II</Badge>
             <Badge swatch={getTierColor('Gold')}>Gold III</Badge>

@@ -1,11 +1,12 @@
 import { Ruleset } from '@otr/core/osu';
-import { ChartNoAxesColumnIncreasing } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, TriangleAlert } from 'lucide-react';
 import { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
 import SectionErrorBoundary from '@/components/error/SectionErrorBoundary';
+import { Callout } from '@/components/kit/feedback/Callout';
 import { EmptyState } from '@/components/kit/feedback/EmptyState';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { Panel } from '@/components/kit/layout/Panel';
@@ -204,7 +205,22 @@ export default async function PlayerPage(props: PageProps) {
 
   return (
     <PageFrame>
-      <PlayerHero player={playerData.playerInfo} ruleset={currentRuleset} />
+      <PlayerHero
+        player={playerData.playerInfo}
+        ruleset={currentRuleset}
+        inactive={playerData.rating?.inactive}
+      />
+      {playerData.playerInfo.restricted ? (
+        // Says why the player is missing from the leaderboard; the rest of
+        // the profile stays as it is.
+        <Callout
+          tone="danger"
+          icon={TriangleAlert}
+          data-testid="player-restricted-notice"
+        >
+          Restricted on osu!
+        </Callout>
+      ) : null}
 
       {playerData.rating ? (
         <>

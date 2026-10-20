@@ -19,6 +19,7 @@ import {
 import { z } from 'zod';
 
 import type { DatabaseClient } from '@/lib/db';
+import { isActiveSql, lastMatchTimeSql } from '@otr/core/db/player-activity';
 import * as schema from '@otr/core/db/schema';
 import {
   PlayerBeatmapsRequestSchema,
@@ -37,7 +38,7 @@ import {
   type PlayerTournamentHistoryItem,
   type PlayerTournamentListItem,
 } from '@/lib/orpc/schema/tournament';
-import { PlayerSchema } from '@/lib/orpc/schema/player';
+import { PlayerDetailSchema } from '@/lib/orpc/schema/player';
 import {
   RatingAdjustmentType,
   Ruleset,
@@ -57,7 +58,7 @@ export const getPlayer = publicProcedure
       keyType: KeyTypeSchema,
     })
   )
-  .output(PlayerSchema)
+  .output(PlayerDetailSchema)
   .route({
     summary: 'Get player details',
     description:
@@ -88,7 +89,7 @@ export const getPlayer = publicProcedure
       });
     }
 
-    return PlayerSchema.parse(player[0]);
+    return PlayerDetailSchema.parse(player[0]);
   });
 type PlayerRow = typeof schema.players.$inferSelect;
 type PlayerRatingRow = typeof schema.playerRatings.$inferSelect;
@@ -926,6 +927,7 @@ export const getPlayerStats = publicProcedure
         osuId: schema.players.osuId,
         username: schema.players.username,
         country: schema.players.country,
+        restricted: schema.players.restricted,
         defaultRuleset: defaultRulesetSql(schema.players.id),
       })
       .from(schema.players)
@@ -960,6 +962,18 @@ export const getPlayerStats = publicProcedure
           eq(playerRatings.ruleset, resolvedRuleset)
         ),
     });
+
+    // Today's activity, whatever dates the stats cover.
+    const [activity] = ratingRow
+      ? await context.db
+          .execute<{
+            lastMatchTime: string | null;
+            active: boolean;
+          }>(
+            sql`select ${lastMatchTimeSql(ratingRow.id)} as "lastMatchTime", ${isActiveSql(ratingRow.id)} as "active"`
+          )
+          .then((result) => result.rows)
+      : [];
 
     const adjustmentFilters = [
       eq(schema.ratingAdjustments.playerId, player.id),
@@ -1117,6 +1131,8 @@ export const getPlayerStats = publicProcedure
             tierProgress: tierProgressData,
             adjustments,
             isProvisional: adjustments.length < 10,
+            lastMatchTime: activity?.lastMatchTime ?? null,
+            inactive: !activity?.active,
           };
         })()
       : null;
@@ -1128,6 +1144,7 @@ export const getPlayerStats = publicProcedure
         username: player.username,
         country: player.country,
         defaultRuleset: playerDefaultRuleset,
+        restricted: player.restricted,
       },
       ruleset: resolvedRuleset,
       rating: ratingStats,

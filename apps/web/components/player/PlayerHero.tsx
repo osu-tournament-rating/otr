@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { IconButton } from '@/components/kit/controls/IconButton';
 import { CountryName } from '@/components/kit/country/CountryFlag';
 import { DetailHero } from '@/components/kit/layout/DetailHero';
+import { Badge } from '@/components/kit/status/Badge';
+import TapTooltip from '@/components/tap-tooltip';
 import { OsuAvatar } from '@/components/ui/osu-avatar';
 import { getCountryName } from '@/lib/kit/format/country';
 import { parseListState } from '@/lib/kit/lists/params';
@@ -16,17 +18,40 @@ import {
   leaderboardHref,
 } from '@/app/leaderboard/list-params';
 
+const INACTIVE_TOOLTIP =
+  'No verified match in the last 6 months. Rating decays weekly.';
+
 /**
- * The top of a player's profile: avatar, name, country (a link to that
- * country's leaderboard), the osu! profile link, and the ruleset the page
- * shows.
+ * Says the player is inactive in the ruleset the profile shows. The tooltip
+ * opens on hover, keyboard focus and tap.
+ */
+function InactiveBadge() {
+  return (
+    <TapTooltip
+      content={INACTIVE_TOOLTIP}
+      triggerAriaLabel={`Inactive: ${INACTIVE_TOOLTIP}`}
+      triggerClassName="inline-flex w-auto rounded-full align-middle"
+    >
+      <Badge size="sm">Inactive</Badge>
+    </TapTooltip>
+  );
+}
+
+/**
+ * The top of a player's profile: avatar, name, an Inactive badge when the
+ * player has no verified match in the ruleset for 184 days, country (a link
+ * to that country's leaderboard), the osu! profile link, and the ruleset the
+ * page shows.
  */
 export default function PlayerHero({
   player,
   ruleset,
+  inactive = false,
 }: {
   player: PlayerCompact;
   ruleset: Ruleset;
+  /** Only a player with a rating in the ruleset can be inactive in it. */
+  inactive?: boolean;
 }) {
   return (
     <DetailHero
@@ -41,6 +66,7 @@ export default function PlayerHero({
         />
       }
       title={<span data-testid="player-username">{player.username}</span>}
+      titleSuffix={inactive ? <InactiveBadge /> : undefined}
       meta={
         player.country ? (
           <Link
