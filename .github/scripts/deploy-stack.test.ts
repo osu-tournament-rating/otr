@@ -70,7 +70,7 @@ describe('deploy-stack.sh', () => {
       'compose up -d --wait --wait-timeout 300 web-standby',
       'compose up -d --wait --wait-timeout 300 web',
       'compose --profile node-exporter up -d --remove-orphans',
-      'compose kill -s SIGHUP prometheus alertmanager',
+      'compose kill -s SIGHUP prometheus alertmanager alloy',
     ]);
   });
 

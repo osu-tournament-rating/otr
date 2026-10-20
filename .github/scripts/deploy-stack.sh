@@ -47,6 +47,6 @@ done
 # Both web containers are current by now, so this leaves them be.
 docker compose --profile node-exporter up -d --remove-orphans
 # up -d leaves a container alone when only a file it mounts
-# changed, so Prometheus and Alertmanager reread their config and
-# rules here. An invalid file keeps the previous one loaded.
-docker compose kill -s SIGHUP prometheus alertmanager
+# changed, so Prometheus, Alertmanager and Alloy reread their config
+# and rules here. An invalid file keeps the previous one loaded.
+docker compose kill -s SIGHUP prometheus alertmanager alloy

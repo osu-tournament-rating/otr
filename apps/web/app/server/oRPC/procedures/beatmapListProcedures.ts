@@ -32,6 +32,7 @@ import {
   buildBeatmapRulesetCondition,
   collectRulesets,
 } from './shared/rulesetFilter';
+import { logger } from '@/lib/logger';
 
 const DEFAULT_MAX_SR = 200;
 
@@ -366,7 +367,7 @@ export const listBeatmaps = publicProcedure
         throw error;
       }
 
-      console.error('[orpc] beatmaps.list failed', error);
+      logger.error('beatmaps.list failed', { error });
 
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message: 'Failed to load beatmaps',

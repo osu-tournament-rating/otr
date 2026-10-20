@@ -12,7 +12,6 @@ COPY packages/otr-core/package.json packages/otr-core/
 RUN bun install --frozen-lockfile
 
 COPY . .
-RUN bun run --filter data-worker build
 
 ENV NODE_ENV=production
 
