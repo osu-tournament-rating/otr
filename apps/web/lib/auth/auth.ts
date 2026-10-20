@@ -9,7 +9,9 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
+import { logger } from '@/lib/logger';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
+import { betterAuthLogger } from './library-logs';
 import { legacyOAuthCallbackURL } from './osu-callback';
 import { recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
@@ -92,7 +94,7 @@ const fetchOsuProfile = async (
 
     return await api.getResourceOwner();
   } catch (error) {
-    console.error('Failed to fetch osu! profile', error);
+    logger.error('Failed to fetch osu! profile', { error });
     return null;
   }
 };
@@ -325,7 +327,7 @@ const syncPlayerFriends = async ({
     const fetched = await api.getFriends();
     relations = Array.isArray(fetched) ? fetched : [];
   } catch (error) {
-    console.error('Failed to fetch osu! friends', error);
+    logger.error('Failed to fetch osu! friends', { error });
     return;
   }
 
@@ -418,7 +420,7 @@ const syncPlayerFriends = async ({
       }
     });
   } catch (error) {
-    console.error('Failed to sync osu! friends to database', error);
+    logger.error('Failed to sync osu! friends to database', { error });
   }
 };
 
@@ -432,7 +434,9 @@ const ensureOsuAccountLink = async (
   try {
     const osuId = parseOsuId(account.accountId);
     if (osuId === null) {
-      console.error('Invalid osu! account id', account.accountId);
+      logger.error('Invalid osu! account id', {
+        accountId: account.accountId,
+      });
       return null;
     }
 
@@ -466,12 +470,13 @@ const ensureOsuAccountLink = async (
 
     return player.id;
   } catch (error) {
-    console.error('Failed to link osu! account', error);
+    logger.error('Failed to link osu! account', { error });
     return null;
   }
 };
 
 export const auth = betterAuth({
+  logger: betterAuthLogger,
   database: drizzleAdapter(db, {
     provider: 'pg',
     usePlural: true,
@@ -742,24 +747,7 @@ export const auth = betterAuth({
         message: string,
         extra?: Record<string, string | number | undefined>
       ) => {
-        const parts = [`[auth] ${message}`];
-
-        Object.entries(extra ?? {}).forEach(([key, value]) => {
-          if (value === undefined) {
-            return;
-          }
-
-          parts.push(`${key}=${value}`);
-        });
-
-        const line = parts.join(' ');
-
-        if (level === 'error') {
-          console.error(line);
-          return;
-        }
-
-        console.info(line);
+        logger[level](`[auth] ${message}`, extra);
       };
 
       if (newSession) {

@@ -14,16 +14,21 @@ const PINO_LEVEL_TO_LABEL: Record<number, string> = {
   60: 'fatal',
 };
 
+/**
+ * Quotes a value logfmt would otherwise split, so Grafana reads a sentence, or
+ * an error with its stack, back as one field.
+ */
+function quoteIfNeeded(text: string): string {
+  return /[\s"]/.test(text) || text.length === 0 ? JSON.stringify(text) : text;
+}
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {
     return 'null';
   }
 
   if (typeof value === 'string') {
-    if (value.includes(' ') || value.includes('"') || value.length === 0) {
-      return JSON.stringify(value);
-    }
-    return value;
+    return quoteIfNeeded(value);
   }
 
   if (typeof value === 'number' || typeof value === 'boolean') {
@@ -31,14 +36,16 @@ function formatValue(value: unknown): string {
   }
 
   if (value instanceof Error) {
-    return JSON.stringify({
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-    });
+    return quoteIfNeeded(
+      JSON.stringify({
+        name: value.name,
+        message: value.message,
+        stack: value.stack,
+      })
+    );
   }
 
-  return JSON.stringify(value);
+  return quoteIfNeeded(JSON.stringify(value) ?? String(value));
 }
 
 function formatLogLine(obj: Record<string, unknown>): string {

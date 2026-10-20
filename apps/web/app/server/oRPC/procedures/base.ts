@@ -510,13 +510,10 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
       };
     }
   } catch (apiKeyActorError) {
-    const timestamp = new Date().toISOString();
-    const description = describeError(apiKeyActorError as ProcedureError);
-    console.error(
-      `${timestamp} [oRPC]: api-key-owner-lookup-failed apiKey=${maskApiKey(
-        id
-      )} error=${description}`
-    );
+    rootLogger.error('api key owner lookup failed', {
+      apiKey: maskApiKey(id),
+      error: apiKeyActorError,
+    });
   }
 
   return next({
@@ -829,7 +826,7 @@ function verificationInheritanceMessage(error: unknown): string | null {
   return null;
 }
 
-const withErrorBoundary = base.middleware(async ({ path, next }) => {
+const withErrorBoundary = base.middleware(async ({ context, next }) => {
   try {
     return await next();
   } catch (error) {
@@ -843,8 +840,10 @@ const withErrorBoundary = base.middleware(async ({ path, next }) => {
       throw new ORPCError('BAD_REQUEST', { message: inheritanceMessage });
     }
 
-    const procedurePath = formatProcedurePath(path);
-    console.error(`[orpc] ${procedurePath} failed with unhandled error`, error);
+    const { logging } = context as typeof context & {
+      logging: RequestLoggingContext;
+    };
+    logging.logger.error('procedure failed with unhandled error', { error });
 
     throw new ORPCError('INTERNAL_SERVER_ERROR', {
       message: 'An unexpected error occurred',
