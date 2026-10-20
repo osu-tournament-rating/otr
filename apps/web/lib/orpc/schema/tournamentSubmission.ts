@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { Ruleset, TournamentRejectionReason } from '@otr/core/osu';
+import { ApprovalStatusSchema, ApprovalUserSchema } from './approval';
 import {
   FORUM_POST_URL_REQUIRED_MESSAGE,
   FORUM_POST_URL_SOURCE_MESSAGE,
@@ -233,11 +234,72 @@ export type TournamentSubmissionFormValues = z.infer<
   typeof tournamentSubmissionFormSchema
 >;
 
-export const TournamentSubmissionResponseSchema = z.object({
-  id: z.number().int().positive(),
-  warnings: z.array(z.string().min(1)).optional(),
-});
+/**
+ * `created`: an admin's submission, made into a tournament at once.
+ * `pending`: anyone else's, held until an admin approves it.
+ */
+export const TournamentSubmissionResponseSchema = z.discriminatedUnion(
+  'status',
+  [
+    z.object({
+      status: z.literal('created'),
+      id: z.number().int().positive(),
+    }),
+    z.object({
+      status: z.literal('pending'),
+      submissionId: z.number().int().positive(),
+    }),
+  ]
+);
 
 export type TournamentSubmissionResponse = z.infer<
   typeof TournamentSubmissionResponseSchema
 >;
+
+/** A held submission as its submitter sees it. */
+export const TournamentSubmissionSummarySchema = z.object({
+  id: z.number().int().positive(),
+  status: ApprovalStatusSchema,
+  created: z.string(),
+  name: z.string(),
+  abbreviation: z.string(),
+  forumUrl: z.string(),
+  ruleset: z.enum(Ruleset),
+  rankRangeLowerBound: z.number().int(),
+  lobbySize: z.number().int(),
+  isLazer: z.boolean(),
+  matchCount: z.number().int().nonnegative(),
+  beatmapCount: z.number().int().nonnegative(),
+  /** The tournament approval created; null while pending, when denied, or once deleted. */
+  tournamentId: z.number().int().positive().nullable(),
+  reviewedAt: z.string().nullable(),
+});
+
+export type TournamentSubmissionSummary = z.infer<
+  typeof TournamentSubmissionSummarySchema
+>;
+
+/** A held submission in the admin queue: who sent it, and every ID. */
+export const AdminTournamentSubmissionSchema =
+  TournamentSubmissionSummarySchema.extend({
+    submitter: ApprovalUserSchema.nullable(),
+    reviewer: ApprovalUserSchema.nullable(),
+    matchIds: z.array(z.number().int().positive()),
+    beatmapIds: z.array(z.number().int().positive()),
+  });
+
+export type AdminTournamentSubmission = z.infer<
+  typeof AdminTournamentSubmissionSchema
+>;
+
+export const AdminTournamentSubmissionListSchema = z.object({
+  submissions: z.array(AdminTournamentSubmissionSchema),
+});
+
+export const MyTournamentSubmissionListSchema = z.object({
+  submissions: z.array(TournamentSubmissionSummarySchema),
+});
+
+export const TournamentSubmissionApprovalResponseSchema = z.object({
+  tournamentId: z.number().int().positive(),
+});

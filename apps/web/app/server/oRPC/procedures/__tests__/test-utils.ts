@@ -59,6 +59,26 @@ export const seedAdminUser = async (db: DatabaseClient, osuId: number) => {
   return user!.id;
 };
 
+/** A signed-in account without admin scopes. */
+export const seedUser = async (db: DatabaseClient, osuId: number) => {
+  await removePlayers(db, [osuId]);
+
+  const [player] = await db
+    .insert(schema.players)
+    .values({ osuId })
+    .returning({ id: schema.players.id });
+  const [user] = await db
+    .insert(schema.users)
+    .values({ playerId: player!.id, scopes: [] })
+    .returning({ id: schema.users.id });
+
+  return user!.id;
+};
+
+export const userSession = (userId: number) => ({
+  dbUser: { id: userId, scopes: [] as string[] },
+});
+
 export const adminSession = (userId: number) => ({
   dbUser: { id: userId, scopes: ['admin'] },
 });

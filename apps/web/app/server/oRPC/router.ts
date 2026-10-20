@@ -55,6 +55,12 @@ import {
 } from './procedures/tournamentsProcedures';
 import { submitTournament } from './procedures/tournaments/tournamentSubmissionProcedure';
 import {
+  approveTournamentSubmissionAdmin,
+  denyTournamentSubmissionAdmin,
+  listMyTournamentSubmissions,
+  listTournamentSubmissionsAdmin,
+} from './procedures/tournaments/submissionApprovalProcedures';
+import {
   acceptTournamentPreVerificationStatuses,
   deleteTournamentAdmin,
   deleteTournamentBeatmapsAdmin,
@@ -248,6 +254,7 @@ export const router = base.router({
     listPage: listTournamentsPage,
     get: getTournament,
     submit: submitTournament,
+    mySubmissions: listMyTournamentSubmissions,
     adminNotes: {
       create: createTournamentAdminNote,
       update: updateTournamentAdminNote,
@@ -263,6 +270,9 @@ export const router = base.router({
       deleteBeatmaps: deleteTournamentBeatmapsAdmin,
       refetchMatchData: refetchTournamentMatchData,
       refetchBeatmaps: refetchTournamentBeatmaps,
+      submissions: listTournamentSubmissionsAdmin,
+      approveSubmission: approveTournamentSubmissionAdmin,
+      denySubmission: denyTournamentSubmissionAdmin,
     },
   },
 });
