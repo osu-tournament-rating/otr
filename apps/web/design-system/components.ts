@@ -440,6 +440,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     refs: ['color.md#StackedBarChart', 'color.md#Chart card'],
   },
   {
+    name: 'Heatmap',
+    group: 'Charts',
+    src: 'components/kit/charts/Heatmap.tsx',
+    refs: ['color.md#Heatmap', 'color.md#Chart card'],
+  },
+  {
     name: 'ChartTooltipContent',
     group: 'Charts',
     src: 'components/kit/charts/ChartTooltip.tsx',

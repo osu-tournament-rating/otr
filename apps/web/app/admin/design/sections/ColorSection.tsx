@@ -2,6 +2,7 @@
 
 import { Mods, Team, VerificationStatus } from '@otr/core/osu';
 import {
+  CalendarClock,
   ChartBarBig,
   ChartColumn,
   ChartColumnStacked,
@@ -36,6 +37,7 @@ import {
   ChartTooltipCard,
   ChartTooltipContent,
 } from '@/components/kit/charts/ChartTooltip';
+import { Heatmap } from '@/components/kit/charts/Heatmap';
 import { SeriesMarker } from '@/components/kit/charts/SeriesMarker';
 import { StackedBarChart } from '@/components/kit/charts/StackedBarChart';
 import { Button } from '@/components/kit/controls/Button';
@@ -65,6 +67,7 @@ import {
 import {
   DEFAULT_MAX_TICKS,
   NARROW_MAX_TICKS,
+  getCategoryTicks,
   getNiceTicks,
   getTimeTicks,
 } from '@/lib/kit/charts/ticks';
@@ -821,6 +824,56 @@ function StackedBarDemo() {
   );
 }
 
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+
+/** Matches by weekday and UTC hour: weekends and afternoons, as on the stats page. */
+const MATCHES_BY_HOUR = WEEKDAYS.map((_, day) =>
+  HOURS.map((hour) => {
+    const afternoon = Math.max(0, 6 - Math.abs(hour - 15));
+    return Math.round((day >= 5 ? 700 : 60) * (afternoon + 1) * 0.25);
+  })
+);
+const MATCHES_BY_HOUR_TOTAL = MATCHES_BY_HOUR.flat().reduce(
+  (sum, value) => sum + value,
+  0
+);
+
+function HeatmapDemo() {
+  const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
+  const hour = (value: number) => `${String(value % 24).padStart(2, '0')}:00`;
+
+  return (
+    <Panel>
+      <SectionHeader
+        icon={CalendarClock}
+        title="When matches are played"
+        level={4}
+        meta={`${formatCount(MATCHES_BY_HOUR_TOTAL)} matches`}
+      />
+      <PanelBody>
+        <Heatmap
+          aria-label="When matches are played"
+          rows={WEEKDAYS.map((day) => ({ key: day, label: day }))}
+          columns={HOURS.map((value) => ({
+            key: String(value),
+            label: hour(value),
+          }))}
+          values={MATCHES_BY_HOUR}
+          columnTicks={getCategoryTicks(HOURS, maxTicks).map(String)}
+          valueName="Matches"
+          cellTitle={(row, column) =>
+            `${row.label}, ${column.label}–${hour(Number(column.key) + 1)} UTC`
+          }
+          footer={(value) =>
+            `${formatPercent(value / MATCHES_BY_HOUR_TOTAL)} of matches`
+          }
+        />
+      </PanelBody>
+    </Panel>
+  );
+}
+
 function DistributionDemo() {
   const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
   const max = Math.max(...PLAYERS_BY_RATING.map((entry) => entry.players));
@@ -1321,6 +1374,15 @@ export default function ColorSection() {
         description="Several series per category in one column. Series take the categorical slots of their fixed index, with a legend above the plot from two series on; the tooltip lists the stack top to bottom with a footer. Share mode stacks each count as a percentage of its column, as the stats page's rank restrictions and lazer share do."
       >
         <StackedBarDemo />
+      </Specimen>
+
+      <Specimen
+        id="color-chart-heatmap"
+        name="Heatmap"
+        importPath={`${CHARTS}/Heatmap`}
+        description="Counts by two categories, each cell shaded by its share of the largest in five steps of one series colour, with a scale above. Hover, tap or keyboard focus (arrows, Home, End) shows the cell in the chart tooltip card. The stats page's match start times use it."
+      >
+        <HeatmapDemo />
       </Specimen>
 
       <Specimen

@@ -23,6 +23,7 @@ Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its lig
 - [Recharts axis props](#recharts-axis-props): `chartAxisProps`, `chartValueAxisProps`, `niceAxisProps`, and the row bar parts
 - [CountBarChart](#countbarchart): a count per category, in columns or rows
 - [StackedBarChart](#stackedbarchart): several series stacked per category, as counts or shares
+- [Heatmap](#heatmap): counts by two categories, each cell shaded by its share of the largest
 - [ChartTooltipContent](#charttooltipcontent): the one chart tooltip
 - [ChartLegend and SeriesMarker](#chartlegend-and-seriesmarker): the key for two or more series
 - [Chart card](#chart-card): Panel, SectionHeader and a chart
@@ -643,6 +644,50 @@ Don't:
 
 Gallery anchor: `/admin/design#color-chart-stacked`
 
+## Heatmap
+
+A count for each pair of two categories, such as matches by weekday and UTC hour, as a grid of cells. Each cell is shaded by its share of the largest in five steps of one series colour (slot 1 unless you pass another), with an empty cell in `bg-muted` and a "Fewer … More" scale above the grid. Hover, tap or keyboard focus shows the cell in the chart tooltip card.
+
+```tsx
+import { Heatmap } from '@/components/kit/charts/Heatmap';
+import { getCategoryTicks } from '@/lib/kit/charts/ticks';
+
+// components/stats/MatchTimesPanel.tsx
+<Heatmap
+  aria-label="When matches are played"
+  rows={WEEKDAYS.map((day) => ({ key: day.short, label: day.short }))}
+  columns={HOURS.map((hour) => ({
+    key: String(hour),
+    label: `${pad(hour)}:00`,
+  }))}
+  values={data.weekdays} // one array per row, one value per column
+  columnTicks={getCategoryTicks(HOURS, maxTicks).map(String)}
+  valueName="Matches"
+  // `Saturday, 14:00–15:00 UTC`
+  cellTitle={(row, column) =>
+    `${dayName(row)}, ${formatHourRange(Number(column.key))}`
+  }
+  footer={(value) => `${formatPercent(value / total)} of matches`}
+/>;
+```
+
+- `rows`, `columns`: `{ key, label }`. Row labels sit in a column on the left that fits the longest, so keep them short (`Mon`); column labels run along the bottom.
+- `values`: one array per row, one number per column. A missing value counts zero.
+- `columnTicks`: the column keys to label when not all fit, from `getCategoryTicks` over the columns' numbers with `NARROW_MAX_TICKS` below `sm`, as other category axes do. Every label shows without it.
+- `valueName`: the readout row's name. `valueFormatter` formats the value, `formatCountTick` by default. `cellTitle(row, column)`: the readout's title and, with the value, the cell's accessible name. `footer(value)`: a readout footer, such as the cell's share.
+- `scaleLabels`: the words either side of the scale, `Fewer` and `More` by default. `color`: a palette colour.
+- The grid is one tab stop (an ARIA grid): focus starts on the busiest cell, the arrows move one cell, Home and End go to the row's ends and with Ctrl to the grid's, and Escape closes the readout. A tap or click pins the readout until the next; hover shows it while the pointer is over the grid.
+- Cells are 20px tall on phones and 28px from `sm`, and share the width, so 24 columns fit a phone without scrolling sideways.
+- The pure rules, `getHeatmapLevel`, `getHeatmapStrength`, `getHeatmapPeak` and `moveHeatmapCell`, are in `@/lib/kit/charts/heatmap`.
+- Only the fullest shade clears 3:1 against the card; the faint ones are a tint. The readout and each cell's accessible name carry the value, so the shade never has to.
+
+Don't:
+
+- Don't build a heatmap from a Recharts scatter or a grid of TapTooltips; 168 tooltips are 168 tab stops.
+- Don't shade cells with a second hue or a status colour; a heatmap has one series colour.
+
+Gallery anchor: `/admin/design#color-chart-heatmap`
+
 ## ChartTooltipContent
 
 The one chart tooltip: an optional title, one row per series (marker, muted name, value right-aligned) and an optional footer, on the same card the beatmap charts use. It is the content of the `ChartTooltip` from `@/components/ui/chart` (Recharts' `Tooltip`), the same pairing the beatmap charts use, and it replaces the shadcn `ChartTooltipContent` from that file.
@@ -744,4 +789,4 @@ Don't:
 - Don't give a chart a card of its own, a 24px blue icon or a description line under its title.
 - Don't turn a caption that restates the title ("Verified tournaments by ruleset", "Most frequently played with teammates") into an info button; drop it.
 
-Gallery anchors: `/admin/design#color-chart-line`, `/admin/design#color-chart-bar`, `/admin/design#color-chart-stacked`, `/admin/design#color-chart-distribution`, `/admin/design#color-chart-count-bars`
+Gallery anchors: `/admin/design#color-chart-line`, `/admin/design#color-chart-bar`, `/admin/design#color-chart-stacked`, `/admin/design#color-chart-heatmap`, `/admin/design#color-chart-distribution`, `/admin/design#color-chart-count-bars`
