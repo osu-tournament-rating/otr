@@ -159,11 +159,32 @@ class BeatmapFetchTestDb {
     };
   }
 
+  // Every stored player counts as due a refetch here. The real cadence query
+  // runs against the database in beatmap-fetch-mappers.test.ts.
   select() {
+    let rows: () => unknown[] = () => [];
     const builder = {
-      from: () => builder,
+      from: (table: unknown) => {
+        if (table === schema.players) {
+          rows = () =>
+            Array.from(this.players.values()).map((row) => ({
+              osuPlayerId: row.osuId,
+              status: row.dataFetchStatus ?? DataFetchStatus.NotFetched,
+              lastFetch: row.osuLastFetch ?? null,
+            }));
+        }
+        return builder;
+      },
       innerJoin: () => builder,
-      where: async () => [] as Array<{ tournamentId: number | null }>,
+      leftJoin: () => builder,
+      where: () => builder,
+      groupBy: () => builder,
+      having: () => builder,
+      orderBy: () => builder,
+      then: (
+        resolve: (value: unknown[]) => unknown,
+        reject?: (reason: unknown) => unknown
+      ) => Promise.resolve().then(rows).then(resolve, reject),
     };
 
     return builder;
@@ -338,6 +359,7 @@ const createService = (
       db: client,
       logger,
     }),
+    osuRefetchCadence: { outdatedDays: 14, unratedDays: 30 },
     publishPlayerFetches: async (_tx, osuPlayerIds) => {
       published.push(...osuPlayerIds);
     },

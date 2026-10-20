@@ -11,7 +11,7 @@ import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { legacyOAuthCallbackURL } from './osu-callback';
-import { recordUserActivity } from './user-activity';
+import { recordLastLogin, recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -102,12 +102,15 @@ type EnsurePlayerParams = {
   profile?: OsuProfileLike | null;
 };
 
+// Sign-in saves only the name and country, not ranks or pp, so it is not an
+// osu! fetch and never writes the last-fetch time. A new player keeps the
+// never-fetched default, which the data worker's refetch scheduler picks up.
+// While a fetch is pending, the time records when it started, and moving it
+// would stop the worker from ever retrying a lost fetch.
 const ensurePlayer = async ({
   osuId,
   profile,
 }: EnsurePlayerParams): Promise<typeof schema.players.$inferSelect | null> => {
-  const nowIso = new Date().toISOString();
-
   let player = await db.query.players.findFirst({
     where: eq(schema.players.osuId, osuId),
   });
@@ -126,7 +129,6 @@ const ensurePlayer = async ({
         osuId,
         username: sanitizedUsername,
         country: sanitizedCountry,
-        osuLastFetch: nowIso,
         osuTrackLastFetch: null,
       })
       .onConflictDoNothing({ target: schema.players.osuId })
@@ -141,7 +143,6 @@ const ensurePlayer = async ({
     const updatePayload = {
       username: sanitizedUsername || player.username,
       country: sanitizedCountry || player.country,
-      osuLastFetch: nowIso,
     };
 
     await db
@@ -563,6 +564,14 @@ export const auth = betterAuth({
       create: {
         after: async (account) => {
           await ensureOsuAccountLink(account);
+        },
+      },
+    },
+    session: {
+      create: {
+        // Each sign-in creates a session; extending one does not.
+        after: async (session) => {
+          await recordLastLogin(session.userId);
         },
       },
     },
