@@ -27,7 +27,7 @@ export const TournamentListRequestSchema = z.object({
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(30),
   verified: z.boolean().optional(),
-  searchQuery: z.string().trim().min(1).optional(),
+  searchQuery: z.string().trim().min(1).max(200).optional(),
   ruleset: RulesetSchema.optional(),
   rulesets: z
     .array(RulesetSchema)
