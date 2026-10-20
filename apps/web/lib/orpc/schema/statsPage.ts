@@ -100,6 +100,13 @@ export const StrongestFieldsSchema = z.object({
   ),
 }) satisfies z.ZodType<StrongestFields>;
 
+/** Verified matches by the UTC weekday and hour they started. */
+export const MatchStartTimesSchema = z.object({
+  matches: count,
+  /** Monday first, each day's 24 hours from 00:00. */
+  weekdays: z.array(z.array(count).length(24)).length(7),
+});
+
 export const VerificationSummarySchema = z.object({
   windowDays: count,
   tournaments: count,
@@ -171,6 +178,7 @@ export const RulesetStatsSchema = z.object({
   closestGames: ClosestGamesSchema.nullable(),
   biggestComebacks: BiggestComebacksSchema.nullable(),
   strongestFields: StrongestFieldsSchema.nullable(),
+  matchStartTimes: MatchStartTimesSchema,
 });
 
 /**
@@ -212,6 +220,7 @@ export type BiggestComebacksData = z.infer<typeof BiggestComebacksSchema>;
 export type BiggestComebackData = BiggestComebacksData['matches'][number];
 export type StrongestFieldsData = z.infer<typeof StrongestFieldsSchema>;
 export type StrongestFieldData = StrongestFieldsData['tournaments'][number];
+export type MatchStartTimesData = z.infer<typeof MatchStartTimesSchema>;
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<
   BiggestUpsetData,

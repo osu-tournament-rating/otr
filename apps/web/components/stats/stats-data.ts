@@ -348,3 +348,23 @@ export function getMatchSides(
     ? { winner: teams.blue, loser: teams.red }
     : { winner: teams.red, loser: teams.blue };
 }
+
+/** The heatmap's rows: ISO weekdays, Monday first, as UTC counts them. */
+export const WEEKDAYS = [
+  { short: 'Mon', long: 'Monday' },
+  { short: 'Tue', long: 'Tuesday' },
+  { short: 'Wed', long: 'Wednesday' },
+  { short: 'Thu', long: 'Thursday' },
+  { short: 'Fri', long: 'Friday' },
+  { short: 'Sat', long: 'Saturday' },
+  { short: 'Sun', long: 'Sunday' },
+] as const;
+
+/** The heatmap's columns: the hours of a UTC day. */
+export const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+
+/** An hour of the UTC day: `14:00–15:00 UTC`, and `23:00–00:00 UTC` at midnight. */
+export function formatHourRange(hour: number): string {
+  const pad = (value: number) => `${String(value % 24).padStart(2, '0')}:00`;
+  return `${pad(hour)}–${pad(hour + 1)} UTC`;
+}

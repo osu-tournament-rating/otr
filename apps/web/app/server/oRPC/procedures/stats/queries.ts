@@ -328,3 +328,51 @@ export async function getRankRestrictionsByYear(
     tournaments: Number(row.tournaments),
   }));
 }
+
+export interface MatchStartCount {
+  ruleset: Ruleset;
+  /** ISO weekday in UTC: 1 is Monday, 7 Sunday. */
+  weekday: number;
+  /** Hour in UTC, 0–23. */
+  hour: number;
+  matches: number;
+}
+
+/**
+ * Verified matches of verified tournaments per ruleset, by the UTC weekday
+ * and hour they started. Matches without a start time are left out.
+ */
+export async function getMatchStartTimes(
+  db: QueryDb
+): Promise<MatchStartCount[]> {
+  const startTime = sql`${schema.matches.startTime} at time zone 'UTC'`;
+  const rows = await rowsOf<{
+    ruleset: number;
+    weekday: number;
+    hour: number;
+    matches: string;
+  }>(
+    db,
+    sql`
+      select
+        ${schema.tournaments.ruleset} as ruleset,
+        extract(isodow from ${startTime})::int as weekday,
+        extract(hour from ${startTime})::int as hour,
+        count(*) as matches
+      from ${schema.matches}
+      inner join ${schema.tournaments}
+        on ${schema.tournaments.id} = ${schema.matches.tournamentId}
+      where ${schema.matches.verificationStatus} = ${VERIFIED}
+        and ${schema.tournaments.verificationStatus} = ${VERIFIED}
+        and ${schema.matches.startTime} is not null
+      group by 1, 2, 3
+      order by 1, 2, 3`
+  );
+
+  return rows.map((row) => ({
+    ruleset: row.ruleset as Ruleset,
+    weekday: Number(row.weekday),
+    hour: Number(row.hour),
+    matches: Number(row.matches),
+  }));
+}

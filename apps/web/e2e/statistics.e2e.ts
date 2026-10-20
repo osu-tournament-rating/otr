@@ -222,4 +222,49 @@ test.describe('Statistics Page', () => {
       ).toBeVisible({ timeout: 15000 });
     });
   });
+
+  test.describe('Match start heatmap', () => {
+    test('moves through the cells from the keyboard and reads each one out', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.stats);
+      await page.waitForLoadState('networkidle');
+
+      const panel = page.getByTestId('match-times');
+      const grid = panel.getByRole('grid', { name: 'When matches are played' });
+      await expect(grid).toBeVisible({ timeout: 15000 });
+      const active = () =>
+        grid.locator('[role="gridcell"][aria-selected="true"]');
+
+      await grid.focus();
+      // Focus starts on the busiest cell, whichever it is.
+      await expect(grid).toHaveAttribute('aria-activedescendant', /.+/);
+      await expect(active()).toHaveAttribute(
+        'aria-label',
+        /^\w+day, \d\d:00–\d\d:00 UTC: Matches [\d,]+$/
+      );
+
+      await page.keyboard.press('Control+Home');
+      await expect(active()).toHaveAttribute(
+        'aria-label',
+        /^Monday, 00:00–01:00 UTC: /
+      );
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowDown');
+      await expect(active()).toHaveAttribute(
+        'aria-label',
+        /^Tuesday, 01:00–02:00 UTC: /
+      );
+      await page.keyboard.press('End');
+      await expect(active()).toHaveAttribute(
+        'aria-label',
+        /^Tuesday, 23:00–00:00 UTC: /
+      );
+      await expect(panel.getByText('Tuesday, 23:00–00:00 UTC')).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(grid).not.toHaveAttribute('aria-activedescendant', /.+/);
+      await expect(panel.getByText('Tuesday, 23:00–00:00 UTC')).toHaveCount(0);
+    });
+  });
 });

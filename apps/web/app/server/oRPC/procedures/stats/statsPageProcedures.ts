@@ -21,9 +21,14 @@ import {
 } from '@/lib/orpc/schema/statsPage';
 
 import { publicProcedure } from '../base';
-import { bandRankRestrictions, summarizeCountries } from './shape';
+import {
+  bandRankRestrictions,
+  summarizeCountries,
+  tabulateMatchStartTimes,
+} from './shape';
 import {
   getLazerByYear,
+  getMatchStartTimes,
   getPlayersByCountry,
   getRankRestrictionsByYear,
   getRecentlyVerified,
@@ -79,6 +84,7 @@ export async function runStatsPage({
     countries,
     topCountries,
     rankRestrictions,
+    matchStartTimes,
   ] = await Promise.all([
     readPlatformStats(db),
     getVerificationSummary(db),
@@ -87,6 +93,7 @@ export async function runStatsPage({
     getPlayersByCountry(db),
     getPlayersByCountry(db, { topRank: TOP_RANK }),
     getRankRestrictionsByYear(db),
+    getMatchStartTimes(db),
   ]);
 
   return {
@@ -141,6 +148,9 @@ export async function runStatsPage({
         PlatformStatKey.StrongestFields,
         ruleset,
         StrongestFieldsSchema
+      ),
+      matchStartTimes: tabulateMatchStartTimes(
+        matchStartTimes.filter((row) => row.ruleset === ruleset)
       ),
     })),
   };

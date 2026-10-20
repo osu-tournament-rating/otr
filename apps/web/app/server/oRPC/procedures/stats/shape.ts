@@ -10,6 +10,7 @@ import {
 import type {
   CountryCountData,
   CountrySummaryData,
+  MatchStartTimesData,
   RankRestrictionYearData,
 } from '@/lib/orpc/schema/statsPage';
 
@@ -68,4 +69,26 @@ export function bandRankRestrictions(
   return [...byYear.entries()]
     .sort(([a], [b]) => a - b)
     .map(([year, bands]) => ({ year, bands }));
+}
+
+/**
+ * One ruleset's matches by weekday and hour, every cell present: Monday
+ * first, each day from 00:00 UTC.
+ */
+export function tabulateMatchStartTimes(
+  rows: readonly { weekday: number; hour: number; matches: number }[]
+): MatchStartTimesData {
+  const weekdays = Array.from({ length: 7 }, () =>
+    Array.from({ length: 24 }, () => 0)
+  );
+  let matches = 0;
+
+  for (const row of rows) {
+    const day = weekdays[row.weekday - 1];
+    if (!day || row.hour < 0 || row.hour > 23) continue;
+    day[row.hour] = (day[row.hour] ?? 0) + row.matches;
+    matches += row.matches;
+  }
+
+  return { matches, weekdays };
 }

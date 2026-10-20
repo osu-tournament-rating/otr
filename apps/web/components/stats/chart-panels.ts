@@ -4,6 +4,7 @@ import {
 } from '@otr/core/platform-stats/constants';
 import {
   Calendar,
+  CalendarClock,
   ChartNoAxesColumn,
   CircleCheck,
   Crosshair,
@@ -119,6 +120,11 @@ export const STATS_PANELS = {
     icon: Crown,
     title: 'Strongest fields',
     infoText: `Average rating of each tournament's ${FIELD_SIZE} highest-rated players going in`,
+  },
+  matchTimes: {
+    icon: CalendarClock,
+    title: 'When matches are played',
+    infoText: 'Start times of every verified match, in UTC',
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

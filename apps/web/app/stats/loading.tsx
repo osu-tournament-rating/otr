@@ -153,6 +153,13 @@ export default function StatsLoading() {
           <RecordListSkeleton copy={STATS_PANELS.closestGames} rows={5} meta />
           <RecordListSkeleton copy={STATS_PANELS.biggestComebacks} rows={5} />
         </div>
+        {/* The shade scale, then seven rows of cells over the hours. */}
+        <ChartPanelSkeleton
+          copy={STATS_PANELS.matchTimes}
+          metaWidth="w-28"
+          plot="h-48 sm:h-64"
+          level={3}
+        />
       </PageSection>
     </PageFrame>
   );

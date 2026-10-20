@@ -4,6 +4,7 @@ import {
   COUNTRY_BAR_LIMIT,
   bandRankRestrictions,
   summarizeCountries,
+  tabulateMatchStartTimes,
 } from '../shape';
 
 describe('summarizeCountries', () => {
@@ -62,5 +63,21 @@ describe('bandRankRestrictions', () => {
         { year: 2024, rankRangeLowerBound: 0, tournaments: 2 },
       ])
     ).toEqual([]);
+  });
+});
+
+describe('tabulateMatchStartTimes', () => {
+  it('places each count at its weekday and hour, Monday first, and totals them', () => {
+    const { matches, weekdays } = tabulateMatchStartTimes([
+      { weekday: 1, hour: 0, matches: 3 },
+      { weekday: 7, hour: 23, matches: 5 },
+    ]);
+
+    expect(matches).toBe(8);
+    expect(weekdays).toHaveLength(7);
+    expect(weekdays.every((day) => day.length === 24)).toBe(true);
+    expect(weekdays[0]?.[0]).toBe(3);
+    expect(weekdays[6]?.[23]).toBe(5);
+    expect(weekdays.flat().filter((value) => value > 0)).toHaveLength(2);
   });
 });

@@ -10,6 +10,7 @@ import type { RulesetStatsData } from '@/lib/orpc/schema/statsPage';
 import { createTestDb, testDatabaseUrl } from '../../__tests__/test-utils';
 import {
   getLazerByYear,
+  getMatchStartTimes,
   getPlayersByCountry,
   getRankRestrictionsByYear,
   getRecentlyVerified,
@@ -283,6 +284,56 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
           tournaments: 1,
         },
       ]);
+    });
+  });
+
+  it('counts verified matches by the UTC weekday and hour they started', async () => {
+    await onEmptyTables(async (tx) => {
+      const match = async (
+        tournamentId: number,
+        startTime: string | null,
+        verificationStatus: VerificationStatus = Verified
+      ) =>
+        tx.insert(schema.matches).values({
+          osuId: osuId(),
+          name: 'SP: (red) vs (blue)',
+          tournamentId,
+          verificationStatus,
+          startTime,
+        });
+      const osu = await seedTournament(tx);
+      const taiko = await seedTournament(tx, { ruleset: Ruleset.Taiko });
+      // Saturday, Jul 4, 2026, twice in the 14:00 hour.
+      await match(osu, '2026-07-04T14:30:00Z');
+      await match(osu, '2026-07-04T14:59:00Z');
+      // Monday 00:10 in UTC, still Sunday on a clock five hours behind.
+      await match(osu, '2026-07-06T00:10:00Z');
+      await match(taiko, '2026-07-04T14:30:00Z');
+      // Not counted: a rejected match, a match of an unverified tournament,
+      // and a match with no start.
+      await match(osu, '2026-07-04T14:30:00Z', Rejected);
+      await match(
+        await seedTournament(tx, { status: None }),
+        '2026-07-04T14:30:00Z'
+      );
+      await match(osu, null);
+
+      await tx.execute(sql`set local time zone 'America/Lima'`);
+      expect(await getMatchStartTimes(tx)).toEqual([
+        { ruleset: Ruleset.Osu, weekday: 1, hour: 0, matches: 1 },
+        { ruleset: Ruleset.Osu, weekday: 6, hour: 14, matches: 2 },
+        { ruleset: Ruleset.Taiko, weekday: 6, hour: 14, matches: 1 },
+      ]);
+
+      // The page gives each ruleset its own.
+      const { byRuleset } = await runStatsPage({
+        context: { db: tx as unknown as DatabaseClient },
+      });
+      const times = (ruleset: Ruleset) =>
+        byRuleset.find((item) => item.ruleset === ruleset)!.matchStartTimes;
+      expect(times(Ruleset.Osu).matches).toBe(3);
+      expect(times(Ruleset.Taiko).matches).toBe(1);
+      expect(times(Ruleset.Catch).matches).toBe(0);
     });
   });
 
