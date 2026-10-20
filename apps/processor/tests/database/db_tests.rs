@@ -1,7 +1,12 @@
 use chrono::{DateTime, Duration, FixedOffset, Utc};
 use otr_processor::{
     database::{db::DbClient, db_structs::*, error::DbError},
-    model::structures::{rating_adjustment_type::RatingAdjustmentType, ruleset::Ruleset}
+    model::{
+        otr_model::OtrModel,
+        rating_utils::create_initial_ratings,
+        structures::{rating_adjustment_type::RatingAdjustmentType, ruleset::Ruleset}
+    },
+    utils::test_utils::generate_country_mapping_players
 };
 use serial_test::serial;
 
@@ -293,6 +298,81 @@ async fn test_get_tournaments_needing_stats_refresh() {
         )
         .await
         .expect("Failed to update a score");
+    assert_eq!(
+        db_client
+            .get_tournaments_needing_stats_refresh(&[tournament_id])
+            .await
+            .expect("Failed to check stats"),
+        vec![tournament_id]
+    );
+}
+
+/// Deleting a match deletes its rating changes and match stats with it. When
+/// its players play no later match in the tournament, nothing else changes,
+/// yet the tournament's stats still count the match, so they need a refresh.
+#[tokio::test]
+#[serial]
+async fn test_deleting_a_match_makes_its_tournament_stats_stale() {
+    init_test_env();
+    let test_db = TestDatabase::new().await.expect("Failed to create test database");
+    test_db.seed_test_data().await.expect("Failed to seed test data");
+    let admin_client = test_db.get_client().await.expect("Failed to get client");
+    let db_client = DbClient::connect(&test_db.connection_string)
+        .await
+        .expect("Failed to connect");
+
+    // A run's rating changes
+    let matches = db_client.get_matches().await.expect("Failed to fetch matches");
+    let players = db_client.get_players().await.expect("Failed to fetch players");
+    let initial_ratings = create_initial_ratings(&players, &matches);
+    let ratings = OtrModel::new(&initial_ratings, &generate_country_mapping_players(&players)).process(&matches);
+    db_client.save_results(&ratings).await.expect("Failed to save results");
+
+    // The stats the data worker builds from them: a match stat for each rating
+    // change, and each player's tournament stats counting those matches.
+    admin_client
+        .batch_execute(
+            "
+            INSERT INTO player_match_stats
+                (match_cost, average_score, average_placement, average_misses, average_accuracy,
+                 games_played, games_won, games_lost, won, teammate_ids, opponent_ids, player_id, match_id)
+            SELECT 1, 0, 1, 0, 1, 1, 0, 0, false, '{}', '{}', player_id, match_id
+            FROM rating_adjustments
+            WHERE match_id IS NOT NULL;
+
+            INSERT INTO player_tournament_stats
+                (average_rating_delta, average_match_cost, average_score, average_placement,
+                 average_accuracy, matches_played, matches_won, matches_lost, games_played,
+                 games_won, games_lost, teammate_ids, player_id, tournament_id)
+            SELECT 0, 1, 0, 1, 1, COUNT(*), 0, 0, COUNT(*), 0, 0, '{}', pms.player_id, m.tournament_id
+            FROM player_match_stats pms
+            JOIN matches m ON m.id = pms.match_id
+            GROUP BY pms.player_id, m.tournament_id;
+            "
+        )
+        .await
+        .expect("Failed to seed stats");
+    let tournament_id: i32 = admin_client
+        .query_one("SELECT id FROM tournaments", &[])
+        .await
+        .expect("Failed to fetch tournament")
+        .get(0);
+
+    assert!(
+        db_client
+            .get_tournaments_needing_stats_refresh(&[tournament_id])
+            .await
+            .expect("Failed to check stats")
+            .is_empty(),
+        "Stats built from the current matches are current"
+    );
+
+    // The later match. Both of its players played the first match too.
+    admin_client
+        .execute("DELETE FROM matches WHERE osu_id = 12346", &[])
+        .await
+        .expect("Failed to delete a match");
+
     assert_eq!(
         db_client
             .get_tournaments_needing_stats_refresh(&[tournament_id])
