@@ -72,6 +72,14 @@ configured application database.
 - `processor` runs the configured image against configured PostgreSQL. Do not
   treat it as a test command. It passes `DATABASE_URL` and no RabbitMQ URL, so
   it requires an image that queues stats jobs in the database.
+- After a run commits, `processor` publishes its receipt (`src/lib/receipt.py`):
+  the processor's `OTR_RECEIPT=` stdout line plus the image digest the pull
+  printed and that image's release, as `otr-rating-receipt_<start>.json` in
+  the public bucket, where otr-replay reads it. Only production publishes;
+  other environments keep the file under `DUMP_DIR/receipts`. The ratings are
+  already committed, so a receipt problem logs an error and never fails the
+  run. The processor prints that line and the receipt's run fields; keep them
+  in step with `apps/processor/src/receipt.rs` and `apps/replay`.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task

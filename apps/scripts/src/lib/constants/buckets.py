@@ -7,3 +7,7 @@ TEST = "test"
 DEV = "dev"
 PUBLIC = "public"
 PROD = "production"
+
+# Rating run receipts sit in the public bucket beside the replicas, named
+# RECEIPT_PREFIX + the run's UTC start time + ".json" (see lib.receipt).
+RECEIPT_PREFIX = "otr-rating-receipt_"

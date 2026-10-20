@@ -18,15 +18,18 @@ def generate_index() -> bool:
     terms = terms_path.read_text()
 
     blobs = gcs_utils.list_all(bucket)
-    archives, misc = [], []
+    archives, receipts, misc = [], [], []
 
     for b in blobs:
-        if ".gz" in b.name:
+        if b.name.startswith(buckets.RECEIPT_PREFIX):
+            receipts.append(b)
+        elif ".gz" in b.name:
             archives.append(b)
         else:
             misc.append(b)
 
-    # Display misc above archives, each sorted by name descending.
+    # Display misc above archives, each sorted by name descending. Receipts,
+    # one a week, get their own list so they never push the replicas down.
     sorted_archives = sorted(archives, key=lambda b: b.name, reverse=True)
     sorted_misc = sorted(misc, key=lambda b: b.name, reverse=True)
     combined = sorted_misc + sorted_archives
@@ -34,12 +37,14 @@ def generate_index() -> bool:
     link_template = f"https://storage.googleapis.com/{config.gcs_public_bucket}/{{}}"
     list_item_template = "<li><a href={}>{}</a></li>"
 
-    blob_html = "\n".join(
-        [
+    def list_items(listed) -> str:
+        return "\n".join(
             list_item_template.format(link_template.format(b.name), b.name)
-            for b in combined
-        ]
-    )
+            for b in listed
+        )
+
+    blob_html = list_items(combined)
+    receipt_html = list_items(sorted(receipts, key=lambda b: b.name, reverse=True))
 
     html = f"""
     <!DOCTYPE html>
@@ -56,6 +61,11 @@ def generate_index() -> bool:
             <h1>Files in {config.gcs_public_bucket}</h1>
             <ul>
                 {blob_html}
+            </ul>
+
+            <h1>Rating run receipts</h1>
+            <ul>
+                {receipt_html}
             </ul>
         </body>
     </html>
