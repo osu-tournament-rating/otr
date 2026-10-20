@@ -2,13 +2,9 @@ use clap::Parser;
 use otr_processor::{
     args::{first_env, unset_blank_env, Args, ARGS_ENV_VARS, DATABASE_URL_VARS},
     database::db::DbClient,
-    model::{otr_model::OtrModel, rating_utils::create_initial_ratings},
-    utils::test_utils::generate_country_mapping_players
+    model::{otr_model::OtrModel, rating_utils::create_initial_ratings}
 };
-use std::{
-    collections::{BTreeSet, HashMap},
-    time::Instant
-};
+use std::{collections::BTreeSet, time::Instant};
 use tracing::{debug, error, info, warn};
 use tracing_indicatif::IndicatifLayer;
 use tracing_subscriber::{prelude::*, EnvFilter};
@@ -69,8 +65,9 @@ async fn main() {
         let initial_ratings = create_initial_ratings(&players, &matches);
         info!("Initial ratings generated.");
 
-        // 4. Generate country mapping and set
-        let country_mapping: HashMap<i32, String> = generate_country_mapping_players(&players);
+        // 4. Map every player to their country, including players without
+        // ruleset data, whom the model still rates from a fallback rating
+        let country_mapping = client.get_player_countries().await?;
         info!("Country mapping generated.");
 
         // 5. Create the model
