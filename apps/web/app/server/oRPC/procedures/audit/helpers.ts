@@ -446,6 +446,64 @@ export function buildOutcomeBreakdown(
   return breakdown;
 }
 
+function toCamelField(field: string): string {
+  return field.replace(/_([a-z])/g, (_, character: string) =>
+    character.toUpperCase()
+  );
+}
+
+/** A tournament's dates follow its matches, so a change to them alone came from a match. */
+const TOURNAMENT_DATE_FIELDS = new Set(['startTime', 'endTime']);
+
+function onlyMovesTournamentDates(row: GroupedAuditRow): boolean {
+  return (
+    row.entityType === AuditEntityType.Tournament &&
+    row.actionTypes.length === 1 &&
+    row.actionTypes[0] === AuditActionType.Updated &&
+    row.changedFields
+      .map(toCamelField)
+      .every(
+        (field) =>
+          TOURNAMENT_DATE_FIELDS.has(field) ||
+          GENERATED_CHANGE_FIELDS.has(field)
+      )
+  );
+}
+
+/**
+ * The rows an event's headline describes. Deleting, merging or removing a
+ * match can move its tournament's dates in the same event; the match change
+ * leads, not the dates it moved.
+ */
+function headlineRows(groupRows: GroupedAuditRow[]): GroupedAuditRow[] {
+  const below = groupRows.filter(
+    (row) => row.entityType !== AuditEntityType.Tournament
+  );
+  if (below.length === 0 || below.length === groupRows.length) {
+    return groupRows;
+  }
+  return groupRows.every(
+    (row) =>
+      row.entityType !== AuditEntityType.Tournament ||
+      onlyMovesTournamentDates(row)
+  )
+    ? below
+    : groupRows;
+}
+
+/**
+ * The one tournament the event's rows belong to, or null. A deleted row's
+ * tournament is gone with it, so rows without one don't count.
+ */
+function eventTournament(groupRows: GroupedAuditRow[]): number | null {
+  const tournaments = new Set(
+    groupRows
+      .map((row) => row.parentEntityId)
+      .filter((id): id is number => id !== null)
+  );
+  return tournaments.size === 1 ? tournaments.values().next().value! : null;
+}
+
 /** Groups rows from multiple audit tables into events keyed by the database's event key. */
 export function assembleEvents(rows: GroupedAuditRow[]): AssembledEvent[] {
   const eventMap = new Map<string, GroupedAuditRow[]>();
@@ -467,8 +525,9 @@ export function assembleEvents(rows: GroupedAuditRow[]): AssembledEvent[] {
         a.entityType - b.entityType || b.sampleEntityId - a.sampleEntityId
     );
 
-    const topRow = groupRows[0]!;
-    const topRows = groupRows.filter(
+    const described = headlineRows(groupRows);
+    const topRow = described[0]!;
+    const topRows = described.filter(
       (row) => row.entityType === topRow.entityType
     );
     const isSystem = topRow.actionUserId === null;
@@ -481,7 +540,7 @@ export function assembleEvents(rows: GroupedAuditRow[]): AssembledEvent[] {
         ? classifiedActions.values().next().value!
         : ('update' as const);
 
-    const entityTypes = new Set(groupRows.map((r) => r.entityType));
+    const entityTypes = new Set(described.map((r) => r.entityType));
     const isCascade = entityTypes.size > 1;
 
     const topEntityCount = topRows.reduce(
@@ -495,26 +554,20 @@ export function assembleEvents(rows: GroupedAuditRow[]): AssembledEvent[] {
     const changedFields = new Set<string>();
     for (const row of topRows) {
       for (const field of row.changedFields) {
-        const camelField = field.replace(/_([a-z])/g, (_, character: string) =>
-          character.toUpperCase()
-        );
+        const camelField = toCamelField(field);
         if (!GENERATED_CHANGE_FIELDS.has(camelField)) {
           changedFields.add(camelField);
         }
       }
     }
 
-    const parentEntityId = groupRows.every(
-      (row) => row.parentEntityId === topRow.parentEntityId
-    )
-      ? topRow.parentEntityId
-      : null;
+    const parentEntityId = eventTournament(groupRows);
 
     const childType = getImmediateChildType(topRow.entityType);
     const childRows =
       childType === null
         ? []
-        : groupRows.filter((row) => row.entityType === childType);
+        : described.filter((row) => row.entityType === childType);
     const childAffectedCount = childRows.reduce(
       (total, row) => total + row.entryCount,
       0

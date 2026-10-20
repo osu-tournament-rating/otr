@@ -430,6 +430,67 @@ describe('assembleEvents', () => {
     expect(event.childActionBreakdown).toBeNull();
   });
 
+  it('headlines the match deletion when the tournament only moved its dates', () => {
+    // A deleted row's tournament is gone with it, so its parent reads null.
+    const [event] = assembleEvents([
+      groupedRow({
+        changedFields: ['end_time', 'start_time'],
+        sampleChanges: {
+          start_time: {
+            originalValue: '2026-01-01T00:00:00+00:00',
+            newValue: '2026-01-02T00:00:00+00:00',
+          },
+        },
+      }),
+      groupedRow({
+        actionTypes: [AuditActionType.Deleted],
+        entityType: AuditEntityType.Match,
+        parentEntityId: null,
+        sampleEntityId: 20,
+        changedFields: ['name', 'start_time', 'tournament_id'],
+        verificationStatusCounts: ['null:1'],
+      }),
+      groupedRow({
+        actionTypes: [AuditActionType.Deleted],
+        entityType: AuditEntityType.Game,
+        parentEntityId: null,
+        entryCount: 3,
+        auditEntryCount: 3,
+        sampleEntityId: 30,
+        verificationStatusCounts: ['null:3'],
+      }),
+    ]);
+
+    expect(event).toMatchObject({
+      action: 'deletion',
+      topEntityType: AuditEntityType.Match,
+      topEntityId: 20,
+      parentEntityId: 10,
+      isCascade: true,
+      childEntityType: AuditEntityType.Game,
+      childAffectedCount: 3,
+    });
+  });
+
+  it('keeps the tournament as the headline when it changed more than its dates', () => {
+    const [event] = assembleEvents([
+      groupedRow({ changedFields: ['name', 'start_time'] }),
+      groupedRow({
+        actionTypes: [AuditActionType.Deleted],
+        entityType: AuditEntityType.Match,
+        parentEntityId: null,
+        sampleEntityId: 20,
+        verificationStatusCounts: ['null:1'],
+      }),
+    ]);
+
+    expect(event).toMatchObject({
+      action: 'update',
+      topEntityType: AuditEntityType.Tournament,
+      topEntityId: 10,
+    });
+  });
+
   it('has no child breakdown without a cascade', () => {
     const [event] = assembleEvents([
       groupedRow({ entryCount: 1, verificationStatusCounts: ['4:1'] }),

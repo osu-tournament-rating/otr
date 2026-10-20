@@ -10,7 +10,9 @@ import { AuditEntityType, Ruleset, VerificationStatus } from '@otr/core/osu';
 import type { DatabaseClient } from '@/lib/db';
 
 import { getAuditEventFeed } from '../../auditProcedures';
+import { manageTournamentMatchesAdminHandler } from '../../tournaments/matchAdminProcedures';
 import {
+  adminSession,
   createTestDb,
   playerIdOfUser,
   removePlayers,
@@ -128,5 +130,36 @@ describe.skipIf(!testDatabaseUrl)('audit event feed', () => {
       ['update', AuditEntityType.Game, seeded.gameIds[0]],
       ['rejection', AuditEntityType.Score, seeded.scoreIds[0]],
     ]);
+  });
+
+  it('headlines a match removal that moves the tournament dates as a deletion', async () => {
+    const [firstMatchId] = seeded.matchIds;
+
+    await manageTournamentMatchesAdminHandler({
+      input: {
+        tournamentId: seeded.tournamentId,
+        addMatchOsuIds: [],
+        removeMatchIds: [firstMatchId!],
+      },
+      context: { db, session: adminSession(adminUserId) },
+    });
+
+    const [tournament] = await db
+      .select({ startTime: schema.tournaments.startTime })
+      .from(schema.tournaments)
+      .where(eq(schema.tournaments.id, seeded.tournamentId));
+    // The removal moved the start to the second match's day.
+    expect(new Date(tournament!.startTime!).toISOString()).toBe(
+      '2026-01-02T00:00:00.000Z'
+    );
+
+    const { events } = await feed();
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      action: 'deletion',
+      topEntity: { entityType: AuditEntityType.Match, entityId: firstMatchId },
+      parentTournament: { id: seeded.tournamentId },
+    });
   });
 });
