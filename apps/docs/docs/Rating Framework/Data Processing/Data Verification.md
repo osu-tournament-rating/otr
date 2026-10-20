@@ -45,6 +45,8 @@ The o!TR admins have the ability to manually modify match data in the database, 
 - Removing "phantom mods" that mistakenly appear in scores (for example, players may mistakenly appear to play a map with the DT mod if the previous map was played with DT)
 - Merging two matches into one if a match was split across two MP links due to technical difficulties
 
+Refetching match data from osu! keeps these modifications. A match, game, or score keeps the osu! values an admin changed by hand, such as a match name, a team, or a score's mods, and a game or score an admin deleted or merged into another is not added back. The public match data lists each row's edited fields. An admin can reset an edited field to osu!'s value, which refetches the match.
+
 Any modifications of this kind, as well as any changes to verification status detailed above, will be recorded in audit logs. These logs include the time the change was made, the user who performed it, and the state of properties before and after the change; thus, any manual edits will be trackable and reversible if needed. While these audit logs will not be available in the [public replicas](https://data.otr.stagec.net) (since they are attached to specific users), more transparent record-keeping is in development.
 
 ### Effect on ratings
