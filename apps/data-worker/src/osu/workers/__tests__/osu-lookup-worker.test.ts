@@ -10,6 +10,7 @@ import {
 import { eq, inArray, sql } from 'drizzle-orm';
 import { APIError } from 'osu-api-v2-js';
 import type { Counter } from 'prom-client';
+import { MessagePriority } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { enqueueJobs, JobQueue, JobStatus } from '@otr/core/jobs';
@@ -572,7 +573,7 @@ describe.skipIf(!testDatabaseUrl)("osu! lookups with a user's account", () => {
     expect(osu.state.lookups).toEqual([]);
   });
 
-  it('drops the lookups of a requester who deleted their account, and frees the player for o!TR', async () => {
+  it("hands the lookups of a requester who deleted their account to o!TR's own osu! client", async () => {
     await queueLookups(requesterId, [LOOKED_UP[0]!]);
     await db.delete(schema.users).where(eq(schema.users.id, requesterId));
 
@@ -583,8 +584,25 @@ describe.skipIf(!testDatabaseUrl)("osu! lookups with a user's account", () => {
     );
 
     expect(osu.state.lookups).toEqual([]);
+    const fetches = (await jobRows(db)).filter(
+      (row) => row.queue === JobQueue.OsuFetch
+    );
+    expect(
+      fetches.map(({ payload, priority, status }) => ({
+        payload,
+        priority,
+        status,
+      }))
+    ).toEqual([
+      {
+        payload: { type: 'player', osuPlayerId: LOOKED_UP[0] },
+        priority: MessagePriority.Low,
+        status: JobStatus.Pending,
+      },
+    ]);
+    // Under that fetch now, so the refetch and the stranded sweep leave it be
     expect((await players([LOOKED_UP[0]!]))[0]?.status).toBe(
-      DataFetchStatus.Error
+      DataFetchStatus.Fetching
     );
   });
 

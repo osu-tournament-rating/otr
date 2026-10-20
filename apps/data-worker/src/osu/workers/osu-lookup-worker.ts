@@ -1,8 +1,10 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { API } from 'osu-api-v2-js';
+import { MessagePriority } from '@otr/core';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import {
+  enqueueJob,
   JobQueue,
   JobStatus,
   OSU_LOOKUP_REQUESTS_PER_MINUTE,
@@ -128,8 +130,10 @@ export class OsuLookupWorker {
     }
 
     if (userId === null || !(await this.userExists(userId))) {
-      await this.releasePlayer(osuPlayerId, this.options.db);
-      throw new DiscardJobError('The requester no longer has an account');
+      await this.handToOtr(job);
+      throw new DiscardJobError(
+        "The requester no longer has an account; o!TR's own osu! client fetches the player instead"
+      );
     }
 
     const speed = this.speedOf(userId);
@@ -296,6 +300,21 @@ export class OsuLookupWorker {
         updated = now()
       FROM moving, behind
       WHERE jobs.id = moving.id`);
+  }
+
+  /**
+   * Queues the player's fetch with o!TR's own osu! client, behind
+   * tournament fetches, as for a held request approved after its requester
+   * left: the report outlives the account. The player stays Fetching, now
+   * under that fetch.
+   */
+  private async handToOtr(job: ClaimedJob<JobQueue.OsuLookup>) {
+    await enqueueJob(this.options.db, JobQueue.OsuFetch, {
+      payload: { type: 'player', osuPlayerId: job.payload.osuPlayerId },
+      priority: MessagePriority.Low,
+      correlationId: job.correlationId,
+      explicit: true,
+    });
   }
 
   /**

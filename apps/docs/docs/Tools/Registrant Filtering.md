@@ -39,7 +39,7 @@ o!TR looks up each player it does not have yet on osu! on the user's behalf, wit
 
 If osu! stops accepting the user's account, for example after they revoke o!TR's access on osu!, the lookups wait and the filter page asks the user to log in with osu! again, which resumes them. Players still waiting after 7 days are looked up in o!TR's regular refresh of player data instead.
 
-Players in an admin's own reports are looked up with o!TR's own osu! client.
+Players in an admin's own reports are looked up with o!TR's own osu! client. So are the players still waiting when a user deletes their o!TR account.
 
 ### Admin approval
 
