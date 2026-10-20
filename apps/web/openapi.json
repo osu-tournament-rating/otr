@@ -82,12 +82,6 @@
           "osuId": { "type": "integer" },
           "username": { "type": "string", "maxLength": 32 },
           "country": { "type": "string", "maxLength": 4 },
-          "osuLastFetch": { "type": "string" },
-          "osuTrackLastFetch": {
-            "anyOf": [{ "type": "string" }, { "type": "null" }]
-          },
-          "osuTrackDataFetchStatus": { "type": "integer" },
-          "dataFetchStatus": { "type": "integer" },
           "defaultRuleset": {
             "enum": [0, 1, 2, 3, 4, 5],
             "type": "integer",
@@ -95,17 +89,7 @@
           },
           "userId": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }
         },
-        "required": [
-          "id",
-          "osuId",
-          "username",
-          "country",
-          "osuLastFetch",
-          "osuTrackLastFetch",
-          "osuTrackDataFetchStatus",
-          "dataFetchStatus",
-          "defaultRuleset"
-        ]
+        "required": ["id", "osuId", "username", "country", "defaultRuleset"]
       },
       "Match": {
         "type": "object",

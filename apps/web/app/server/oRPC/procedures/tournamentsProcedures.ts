@@ -446,12 +446,6 @@ export const getTournament = publicProcedure
           beatmapsetCreatorDefaultRuleset: defaultRulesetSql(
             beatmapsetCreator.id
           ),
-          beatmapsetCreatorOsuLastFetch: beatmapsetCreator.osuLastFetch,
-          beatmapsetCreatorOsuTrackLastFetch:
-            beatmapsetCreator.osuTrackLastFetch,
-          beatmapsetCreatorOsuTrackDataFetchStatus:
-            beatmapsetCreator.osuTrackDataFetchStatus,
-          beatmapsetCreatorDataFetchStatus: beatmapsetCreator.dataFetchStatus,
         })
         .from(schema.joinPooledBeatmaps)
         .innerJoin(
@@ -552,10 +546,6 @@ export const getTournament = publicProcedure
               username: schema.players.username,
               country: schema.players.country,
               defaultRuleset: defaultRulesetSql(schema.players.id),
-              osuLastFetch: schema.players.osuLastFetch,
-              osuTrackLastFetch: schema.players.osuTrackLastFetch,
-              osuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
-              dataFetchStatus: schema.players.dataFetchStatus,
             })
             .from(schema.joinBeatmapCreators)
             .innerJoin(
@@ -575,10 +565,6 @@ export const getTournament = publicProcedure
           username: string;
           country: string;
           defaultRuleset: Ruleset;
-          osuLastFetch: string;
-          osuTrackLastFetch: string;
-          osuTrackDataFetchStatus: number;
-          dataFetchStatus: number;
         }[]
       >();
 
@@ -591,10 +577,6 @@ export const getTournament = publicProcedure
           username: creator.username,
           country: creator.country,
           defaultRuleset: creator.defaultRuleset as Ruleset,
-          osuLastFetch: creator.osuLastFetch,
-          osuTrackLastFetch: creator.osuTrackLastFetch ?? '2007-09-17 00:00:00',
-          osuTrackDataFetchStatus: creator.osuTrackDataFetchStatus ?? 0,
-          dataFetchStatus: creator.dataFetchStatus ?? 0,
         });
         creatorsByBeatmapId.set(beatmapId, current);
       }
@@ -868,11 +850,6 @@ export const getTournament = publicProcedure
           statsPlayerUsername: schema.players.username,
           statsPlayerCountry: schema.players.country,
           statsPlayerDefaultRuleset: defaultRulesetSql(schema.players.id),
-          statsPlayerOsuLastFetch: schema.players.osuLastFetch,
-          statsPlayerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
-          statsPlayerDataFetchStatus: schema.players.dataFetchStatus,
-          statsPlayerOsuTrackDataFetchStatus:
-            schema.players.osuTrackDataFetchStatus,
 
           // correlated subqueries as raw SQL
           ratingBefore: sql<number>`
@@ -934,12 +911,6 @@ export const getTournament = publicProcedure
                 country: stat.statsPlayerCountry,
                 defaultRuleset: (stat.statsPlayerDefaultRuleset ??
                   Ruleset.Osu) as Ruleset,
-                osuLastFetch: stat.statsPlayerOsuLastFetch,
-                osuTrackLastFetch:
-                  stat.statsPlayerOsuTrackLastFetch ?? '2007-09-17 00:00:00',
-                osuTrackDataFetchStatus:
-                  stat.statsPlayerOsuTrackDataFetchStatus ?? 0,
-                dataFetchStatus: stat.statsPlayerDataFetchStatus ?? 0,
               }
             : {
                 id: -1,
@@ -947,10 +918,6 @@ export const getTournament = publicProcedure
                 username: 'Unknown',
                 country: '',
                 defaultRuleset: Ruleset.Osu,
-                osuLastFetch: '2007-09-17 00:00:00',
-                osuTrackLastFetch: '2007-09-17 00:00:00',
-                osuTrackDataFetchStatus: 0,
-                dataFetchStatus: 0,
               },
       }));
 
@@ -965,15 +932,6 @@ export const getTournament = publicProcedure
                 country: beatmap.beatmapsetCreatorCountry,
                 defaultRuleset: (beatmap.beatmapsetCreatorDefaultRuleset ??
                   Ruleset.Osu) as Ruleset,
-                osuLastFetch:
-                  beatmap.beatmapsetCreatorOsuLastFetch ??
-                  '2007-09-17 00:00:00',
-                osuTrackLastFetch:
-                  beatmap.beatmapsetCreatorOsuTrackLastFetch ??
-                  '2007-09-17 00:00:00',
-                osuTrackDataFetchStatus:
-                  beatmap.beatmapsetCreatorOsuTrackDataFetchStatus ?? 0,
-                dataFetchStatus: beatmap.beatmapsetCreatorDataFetchStatus ?? 0,
               };
 
         const beatmapset =
@@ -998,11 +956,6 @@ export const getTournament = publicProcedure
             username: creator.username,
             country: creator.country,
             defaultRuleset: (creator.defaultRuleset ?? Ruleset.Osu) as Ruleset,
-            osuLastFetch: creator.osuLastFetch,
-            osuTrackLastFetch:
-              creator.osuTrackLastFetch ?? '2007-09-17 00:00:00',
-            osuTrackDataFetchStatus: creator.osuTrackDataFetchStatus ?? 0,
-            dataFetchStatus: creator.dataFetchStatus ?? 0,
           })
         );
 

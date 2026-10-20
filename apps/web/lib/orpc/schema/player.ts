@@ -9,10 +9,6 @@ export const PlayerSchema = playerSelectSchema
     osuId: true,
     username: true,
     country: true,
-    osuLastFetch: true,
-    osuTrackLastFetch: true,
-    osuTrackDataFetchStatus: true,
-    dataFetchStatus: true,
   })
   .extend({
     defaultRuleset: DefaultRulesetSchema,
