@@ -1,9 +1,10 @@
 /**
- * Each user's API allowance: the public API's rate limit of 1,000 requests a
- * minute. The registrant filter charges its lookups of players o!TR has never
- * seen to an allowance of this size.
+ * A regular user's API allowance: their API key's default rate limit of 60
+ * requests a minute. The registrant filter charges its lookups of players o!TR
+ * has never seen to an allowance of this size. Admins' lookups cost nothing,
+ * so only regular users are ever charged.
  */
-export const API_REQUESTS_PER_MINUTE = 1000;
+export const API_REQUESTS_PER_MINUTE = 60;
 
 const MINUTE_MS = 60_000;
 

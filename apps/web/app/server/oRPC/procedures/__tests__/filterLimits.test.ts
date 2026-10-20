@@ -146,7 +146,7 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
     return Number(rows[0]?.seconds);
   };
 
-  /** Uses up a minute and a half of the user's allowance: 1,500 requests owed. */
+  /** Uses up a minute and a half of the user's allowance: 90 requests owed. */
   const useAllowance = (userId: number) =>
     db
       .update(schema.users)
@@ -267,11 +267,11 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
         osuPlayerId,
       }))
     );
-    // 3 lookups at 1,000 a minute, 60 ms each: full again 0.18 s after the report
+    // 3 lookups at 60 a minute, a second each: full again 3 s after the report
     if (result.status !== 'completed') return;
     expect(
       await secondsChargedBy(requesterId, result.filterReportId)
-    ).toBeCloseTo(0.18, 6);
+    ).toBeCloseTo(3, 6);
   });
 
   it('queues its lookups behind tournament fetches', async () => {
@@ -452,9 +452,9 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       expect(report).toEqual({ userId: requesterId });
       expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual(UNKNOWN_OSU_IDS);
       expect(await queuedFetches(db, requesterId)).toHaveLength(4);
-      // 4 lookups at 60 ms each
+      // 4 lookups at a second each
       expect(await secondsChargedBy(requesterId, filterReportId)).toBeCloseTo(
-        0.24,
+        4,
         6
       );
       expect((await heldRequests(requesterId))[0]).toMatchObject({
