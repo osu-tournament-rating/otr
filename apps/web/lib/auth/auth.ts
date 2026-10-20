@@ -9,6 +9,7 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
+import { limitApiKeysPerUser } from './api-key-limit';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { legacyOAuthCallbackURL } from './osu-callback';
 import { recordUserActivity } from './user-activity';
@@ -472,18 +473,23 @@ const ensureOsuAccountLink = async (
 };
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    usePlural: true,
-    schema: {
-      ...schema,
-      user: schema.auth_users,
-      account: schema.auth_accounts,
-      verification: schema.auth_verifications,
-      session: schema.auth_sessions,
-      apikeys: schema.apiKeys,
-    },
-  }),
+  database: limitApiKeysPerUser(db, (client) =>
+    drizzleAdapter(client, {
+      provider: 'pg',
+      usePlural: true,
+      schema: {
+        ...schema,
+        user: schema.auth_users,
+        account: schema.auth_accounts,
+        verification: schema.auth_verifications,
+        session: schema.auth_sessions,
+        apikeys: schema.apiKeys,
+      },
+    })
+  ),
+  // Keys are created through the site's own procedure, which names them
+  // and keeps their secret for the settings page.
+  disabledPaths: ['/api-key/create'],
   session: {
     modelName: 'auth_session',
     expiresIn: 60 * 60 * 24 * 30, // 30 days

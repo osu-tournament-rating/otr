@@ -2,8 +2,13 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { ORPCError } from '@orpc/server';
+import { APIError } from 'better-auth/api';
 
 import { auth } from '@/lib/auth/auth';
+import {
+  API_KEY_LIMIT_ERROR_CODE,
+  API_KEY_LIMIT_MESSAGE,
+} from '@/lib/auth/api-key-policy';
 import {
   ApiKeyMetadataSchema,
   ApiKeyWithSecretSchema,
@@ -33,7 +38,6 @@ type ApiKeyResponse = Omit<
   key: string;
 };
 
-const MAX_API_KEYS_PER_USER = 3;
 const FALLBACK_API_KEY_NAME = 'API key';
 const API_KEY_PREFIX = 'otr-';
 const API_KEY_METADATA_SECRET_FIELD = 'secret';
@@ -178,26 +182,28 @@ export const generateUserApiKey = protectedMutationProcedure
     path: '/api-clients/keys',
   })
   .handler(async ({ context, input }) => {
-    const existing = await context.db.query.apiKeys.findMany({
-      where: eq(schema.apiKeys.referenceId, context.session.user.id),
-    });
-
-    if (existing.length >= MAX_API_KEYS_PER_USER) {
-      throw new ORPCError('CONFLICT', {
-        message: `You can create up to ${MAX_API_KEYS_PER_USER} API keys`,
-      });
-    }
-
     const apiKeyName =
       input.name.trim().length > 0 ? input.name.trim() : FALLBACK_API_KEY_NAME;
 
-    const created = await auth.api.createApiKey({
-      headers: context.headers,
-      body: {
-        name: apiKeyName,
-        prefix: API_KEY_PREFIX,
-      },
-    });
+    // The auth database adapter enforces the per-user key limit
+    const created = await auth.api
+      .createApiKey({
+        headers: context.headers,
+        body: {
+          name: apiKeyName,
+          prefix: API_KEY_PREFIX,
+        },
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof APIError &&
+          error.body?.code === API_KEY_LIMIT_ERROR_CODE
+        ) {
+          throw new ORPCError('CONFLICT', { message: API_KEY_LIMIT_MESSAGE });
+        }
+
+        throw error;
+      });
 
     if (created?.id) {
       const rawMetadata =
