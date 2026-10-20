@@ -95,6 +95,7 @@ configured application database.
   `DUMP_DIR/receipts-backfill` for review, uploads only with `--upload`, and
   never replaces a receipt already in the bucket. A successful upload records
   `otr_rating_receipt_published 1`, which clears that alert.
+  `README.md` holds the operator's steps; keep them in step with the code.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task
