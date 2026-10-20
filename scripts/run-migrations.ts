@@ -7,6 +7,7 @@ import {
   migrationTimeouts,
   MIGRATIONS_FOLDER,
   readJournal,
+  timeoutHint,
   unrecordedMigrations,
 } from '../lib/db/migrations';
 import { loadRootEnv } from '../lib/env/load-root-env';
@@ -30,15 +31,6 @@ try {
 
 const pool = new Pool({ connectionString: databaseUrl, ...timeouts });
 const db = drizzle(pool);
-
-/** The Postgres error code behind `error`, which drizzle wraps. */
-function postgresCode(error: unknown): string | undefined {
-  for (let cause = error; cause instanceof Error; cause = cause.cause) {
-    const code = (cause as { code?: unknown }).code;
-    if (typeof code === 'string') return code;
-  }
-  return undefined;
-}
 
 (async () => {
   try {
@@ -72,21 +64,8 @@ function postgresCode(error: unknown): string | undefined {
     }
   } catch (error) {
     console.error('Failed to run database migrations.');
-    // The migrations run in one transaction, so a timeout applies none.
-    switch (postgresCode(error)) {
-      case '55P03':
-        console.error(
-          `A migration waited more than ${timeouts.lock_timeout} ms for a table lock, so no migration was applied. ` +
-            'A long transaction, such as the weekly rating run or an archive, holds the table. Run the deploy again once it ends.'
-        );
-        break;
-      case '57014':
-        console.error(
-          `A migration statement ran longer than ${timeouts.statement_timeout} ms and was cancelled, so no migration was applied. ` +
-            'Make the migration faster, or raise MIGRATION_STATEMENT_TIMEOUT_MS in .github/scripts/deploy-stack.sh.'
-        );
-        break;
-    }
+    const hint = timeoutHint(error, timeouts);
+    if (hint) console.error(hint);
     console.error(error);
     process.exitCode = 1;
   } finally {

@@ -21,6 +21,7 @@ import {
   MIGRATIONS_FOLDER,
   readJournal,
   rollbackProblems,
+  timeoutHint,
   unrecordedMigrations,
 } from '../migrations';
 
@@ -232,6 +233,38 @@ describe('migrationTimeouts', () => {
     expect(() =>
       migrationTimeouts({ MIGRATION_LOCK_TIMEOUT_MS: '10s' })
     ).toThrow('MIGRATION_LOCK_TIMEOUT_MS');
+  });
+});
+
+describe('timeoutHint', () => {
+  // Drizzle wraps the driver's error, with the Postgres code on its cause.
+  const failed = (code: string) =>
+    new Error('Failed query', { cause: Object.assign(new Error(), { code }) });
+
+  it.each([
+    [
+      'lock timeout',
+      '55P03',
+      { lock_timeout: 10000 },
+      '10000 ms for a table lock',
+    ],
+    [
+      'statement timeout',
+      '57014',
+      { statement_timeout: 900000 },
+      '900000 ms and was cancelled',
+    ],
+  ])('explains a %s the deploy set', (_name, code, timeouts, text) => {
+    expect(timeoutHint(failed(code), timeouts)).toContain(text);
+  });
+
+  // Previews, recoveries, and the dev tier set no limits, and Postgres raises
+  // the same codes for NOWAIT and for a statement someone cancelled.
+  it.each([
+    ['55P03', 'a lock that was not available'],
+    ['57014', 'a cancelled statement'],
+  ])('explains nothing for %s, %s, when no limit is set', (code) => {
+    expect(timeoutHint(failed(code), {})).toBeUndefined();
   });
 });
 

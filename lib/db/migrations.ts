@@ -197,3 +197,39 @@ export function migrationTimeouts(env: Record<string, string | undefined>): {
     statement_timeout: read('MIGRATION_STATEMENT_TIMEOUT_MS'),
   };
 }
+
+/** The Postgres error code behind `error`, which drizzle wraps in its own error. */
+function postgresCode(error: unknown): string | undefined {
+  for (let cause = error; cause instanceof Error; cause = cause.cause) {
+    const code = (cause as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+  return undefined;
+}
+
+/**
+ * What to tell the operator when a migration failed on one of the limits
+ * `migrationTimeouts` set, or undefined when it did not. Postgres raises the
+ * same codes for a migration that uses NOWAIT and for a statement someone
+ * cancelled, so a run without the matching limit gets no hint. The migrations
+ * run in one transaction, so a run stopped by a limit applied none of them.
+ */
+export function timeoutHint(
+  error: unknown,
+  timeouts: ReturnType<typeof migrationTimeouts>
+): string | undefined {
+  const code = postgresCode(error);
+  if (code === '55P03' && timeouts.lock_timeout !== undefined) {
+    return (
+      `A migration waited more than ${timeouts.lock_timeout} ms for a table lock, so no migration was applied. ` +
+      'A long transaction, such as the weekly rating run or an archive, holds the table. Run the deploy again once it ends.'
+    );
+  }
+  if (code === '57014' && timeouts.statement_timeout !== undefined) {
+    return (
+      `A migration statement ran longer than ${timeouts.statement_timeout} ms and was cancelled, so no migration was applied. ` +
+      'Make the migration faster, or raise MIGRATION_STATEMENT_TIMEOUT_MS in .github/scripts/deploy-stack.sh.'
+    );
+  }
+  return undefined;
+}
