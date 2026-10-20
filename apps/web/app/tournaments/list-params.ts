@@ -134,14 +134,20 @@ export function tournamentListHref(state: TournamentListState): string {
 
 /**
  * The sort a list state shows and fetches. Relevance means nothing without
- * a search, so there the list falls back to end date, keeping the direction
- * an older end date link carries (`?dir=asc`).
+ * a search, so there the list falls back to end date. Relevance has no
+ * direction, so an address with no sort key and `dir=asc` is an older link
+ * from when end date was the default. Such a link keeps its oldest-first end
+ * date order, with or without a search.
  */
 export function resolveTournamentSort(
   state: Pick<TournamentListState, 'q' | 'sort'>
 ): SortState<TournamentSortKey> {
-  if (state.sort.key === 'relevance' && !state.q) {
-    return { key: 'endTime', direction: state.sort.direction };
+  const { key, direction } = state.sort;
+  if (
+    key === 'relevance' &&
+    (!state.q || direction !== DEFAULT_TOURNAMENT_SORT.direction)
+  ) {
+    return { key: 'endTime', direction };
   }
   return state.sort;
 }
@@ -256,6 +262,9 @@ export function legacyTournamentListHref(
     const key = LEGACY_SORT_KEYS[sort.trim()];
     if (key) current.set('sort', key);
     else current.delete('sort');
+    // The old relevance sort ignored `descending`. Keeping it would read as
+    // an older end date link (`resolveTournamentSort`).
+    if (key === 'relevance') current.delete('descending');
   }
 
   const state = parseListState(TOURNAMENT_LIST_PARAMS, current);

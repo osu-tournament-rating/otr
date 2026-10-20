@@ -175,6 +175,16 @@ describe('tournament list params', () => {
     });
   });
 
+  // Before relevance was the default, the toolbar saved a search sorted
+  // oldest first as `q=OWC&dir=asc`.
+  it('keeps an older search link’s oldest-first end date order', () => {
+    expect(toTournamentListRequest(parse('q=OWC&dir=asc'), [])).toMatchObject({
+      searchQuery: 'OWC',
+      sort: TournamentQuerySortType.EndTime,
+      descending: false,
+    });
+  });
+
   it('writes end date into the address once it is chosen', () => {
     expect(
       tournamentListHref({
@@ -222,6 +232,28 @@ describe('legacyTournamentListHref', () => {
     expect(
       toTournamentListRequest(parse(new URL(href!, 'http://x').search), []).sort
     ).toBe(TournamentQuerySortType.SearchQueryRelevance);
+  });
+
+  // The old relevance sort ignored `descending`, as relevance does now.
+  it('reads an old ascending relevance sort as the best matches first', () => {
+    const href = legacyTournamentListHref(
+      `searchQuery=OWC&sort=${TournamentQuerySortType.SearchQueryRelevance}&descending=false`
+    );
+    expect(href).toBe('/tournaments?q=OWC');
+    expect(
+      toTournamentListRequest(parse(new URL(href!, 'http://x').search), []).sort
+    ).toBe(TournamentQuerySortType.SearchQueryRelevance);
+  });
+
+  it('keeps an old search’s oldest-first end date order', () => {
+    const href = legacyTournamentListHref('searchQuery=OWC&descending=false');
+    expect(href).toBe('/tournaments?q=OWC&dir=asc');
+    expect(
+      toTournamentListRequest(parse(new URL(href!, 'http://x').search), [])
+    ).toMatchObject({
+      sort: TournamentQuerySortType.EndTime,
+      descending: false,
+    });
   });
 
   it('reads `rulesets` as ruleset chips', () => {

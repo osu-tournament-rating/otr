@@ -709,9 +709,9 @@ listStateHref('/tournaments', TOURNAMENT_LIST_PARAMS, {
 The tournament list lists a search's best matches first, ranked as the public API's relevance sort ranks them (verified first, then exact, prefix and substring matches), until the visitor picks a sort. Without a search it sorts by end date, as it always has.
 
 - The sort param's default key is `relevance`, so a bare address, and a search with no `sort`, write nothing. Every key the visitor picks is written, end date included (`sort=endTime`), so a chosen sort survives a new search.
-- `resolveTournamentSort(state)` (`app/tournaments/list-params.ts`) gives the sort the list shows and fetches: relevance with a search, end date without one, keeping the direction an older end date link carries (`?dir=asc`). The server page fetches with it and the toolbar shows it.
+- `resolveTournamentSort(state)` (`app/tournaments/list-params.ts`) gives the sort the list shows and fetches: relevance with a search, end date without one. Relevance writes no direction, so `dir=asc` with no `sort` is an older end date link, from when end date was the default, and it stays oldest-first by end date, search or not (`?q=OWC&dir=asc`). The server page fetches with it and the toolbar shows it.
 - `getTournamentSortOptions(searching)` offers "Relevance" only while there is a search, first in the menu. It is `directionless`.
-- An old link's numeric relevance sort (`sort=3`) reads as relevance.
+- An old link's numeric relevance sort (`sort=3`) reads as relevance and drops its `descending`, which the old relevance sort ignored.
 
 ### A default that depends on the visitor
 
