@@ -377,7 +377,11 @@ jobs:
             export MIGRATIONS_ARCHIVE="$6/migrations.tar.gz"
             EXPECTED_JOURNAL="$(printf %s "$2" | base64 -d)" ./scripts/preview/dev-db.sh sync
             if [[ "$4" == "true" ]]; then
-              EXPECTED_JOURNAL="$(printf %s "$3" | base64 -d)" ./scripts/preview/dev-db.sh clone "$5"
+              # A clone that finds the seed broken restores it from the
+              # default branch's migrations, and checks it against those.
+              EXPECTED_JOURNAL="$(printf %s "$3" | base64 -d)" \
+                SEED_JOURNAL="$(printf %s "$2" | base64 -d)" \
+                ./scripts/preview/dev-db.sh clone "$5"
             else
               ./scripts/preview/dev-db.sh info "$5"
             fi
