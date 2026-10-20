@@ -11,6 +11,7 @@ import {
 import { LeaderboardRequestSchema } from '@/lib/orpc/schema/leaderboard';
 
 import {
+  countLeaderboardFilters,
   LEADERBOARD_LIST_PARAMS,
   LEADERBOARD_RANGES,
   leaderboardHref,
@@ -182,6 +183,16 @@ describe('toLeaderboardRequest', () => {
     expect(
       toLeaderboardRequest(cleared, Ruleset.Osu).includeInactive
     ).toBeUndefined();
+  });
+
+  // The friends tab lists inactive friends whatever the switch says, so a
+  // switch left on from All must not offer "Clear filters" there.
+  it('counts the inactive switch as a filter on All only', () => {
+    expect(countLeaderboardFilters(parse('inactive=true'))).toBe(1);
+    expect(countLeaderboardFilters(parse('friend=true&inactive=true'))).toBe(0);
+    expect(
+      countLeaderboardFilters(parse('friend=true&inactive=true&country=KR'))
+    ).toBe(1);
   });
 
   it('leaves the default sort to the server, and sends any other direction', () => {

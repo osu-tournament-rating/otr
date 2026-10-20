@@ -3,6 +3,7 @@
 import type { Ruleset } from '@otr/core/osu';
 
 import {
+  countLeaderboardFilters,
   LEADERBOARD_LIST_PARAMS,
   LEADERBOARD_MATCHES_SCALE,
   LEADERBOARD_RANGES,
@@ -95,6 +96,9 @@ export default function LeaderboardToolbar({
     ? (countries.find((country) => country.code === state.country)?.name ??
       getCountryName(state.country))
     : '';
+  // The friends tab always lists inactive friends, so the switch would do
+  // nothing there.
+  const showInactiveSwitch = !state.friend;
 
   return (
     <ListToolbar
@@ -119,7 +123,7 @@ export default function LeaderboardToolbar({
       filters={
         <FilterPanel
           title="Filter players"
-          activeCount={list.activeFilterCount}
+          activeCount={countLeaderboardFilters(state)}
           onClearAll={list.clearFilters}
         >
           <RangeFilter
@@ -171,12 +175,16 @@ export default function LeaderboardToolbar({
               data-testid="leaderboard-filter-country-button"
             />
           </FilterField>
-          <SwitchFilter
-            label={INCLUDE_INACTIVE_LABEL}
-            description="No verified match in the last year"
-            checked={state.includeInactive}
-            onCheckedChange={(includeInactive) => setState({ includeInactive })}
-          />
+          {showInactiveSwitch && (
+            <SwitchFilter
+              label={INCLUDE_INACTIVE_LABEL}
+              description="No verified match in the last year"
+              checked={state.includeInactive}
+              onCheckedChange={(includeInactive) =>
+                setState({ includeInactive })
+              }
+            />
+          )}
         </FilterPanel>
       }
       scope={
@@ -252,7 +260,10 @@ export default function LeaderboardToolbar({
             },
             {
               key: 'includeInactive',
-              label: state.includeInactive ? INCLUDE_INACTIVE_LABEL : '',
+              label:
+                showInactiveSwitch && state.includeInactive
+                  ? INCLUDE_INACTIVE_LABEL
+                  : '',
               onRemove: () => setState({ includeInactive: false }),
             },
           ]}

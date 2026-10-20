@@ -6,6 +6,7 @@ import {
   applyListPatch,
   arrayParam,
   booleanParam,
+  countActiveFilters,
   defineListParams,
   enumParam,
   listStateHref,
@@ -103,6 +104,17 @@ export function leaderboardHref(
     LEADERBOARD_LIST_PARAMS,
     applyListPatch(LEADERBOARD_LIST_PARAMS, state, patch)
   );
+}
+
+/**
+ * How many filters are on, for the Filters button and the empty state's
+ * "Clear filters". The friends tab always lists inactive friends, so it hides
+ * the inactive switch and leaves it out of the count. The address keeps the
+ * switch, so All shows inactive players again when the visitor goes back.
+ */
+export function countLeaderboardFilters(state: LeaderboardListState): number {
+  const count = countActiveFilters(LEADERBOARD_LIST_PARAMS, state);
+  return state.friend && state.includeInactive ? count - 1 : count;
 }
 
 /** The tier filter's chips, in tier order. */
