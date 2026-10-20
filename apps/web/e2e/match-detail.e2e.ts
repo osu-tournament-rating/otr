@@ -243,8 +243,7 @@ test.describe('Match Detail Page', () => {
       );
     });
 
-    // Back right after a sort leaves the rows in the new order (#1134).
-    test.fixme('Back right after a sort restores the previous order', async ({
+    test('Back right after a sort restores the previous order', async ({
       page,
     }) => {
       await page.goto(`${ROUTES.match(TEST_MATCH_ID)}?tab=stats`);
@@ -261,7 +260,9 @@ test.describe('Match Detail Page', () => {
           );
       await expect(costHeader).toHaveAttribute('aria-sort', 'descending');
       const descendingCosts = await getMatchCosts();
-      await costHeader.getByRole('button', { name: 'Match cost' }).click();
+      const costSort = costHeader.getByRole('button', { name: 'Match cost' });
+      await waitForHydration(costSort);
+      await costSort.click();
       await expect(page).toHaveURL(/[?&]dir=asc/);
 
       await page.goBack();
