@@ -248,33 +248,34 @@ jobs:
       # Secrets cannot appear in `if:`, so the Docker Hub sign-in checks this.
       # It is empty on pull requests from forks, which then pull anonymously.
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      # The settings the toolchain action used to make: no incremental builds,
+      # which the cache cannot reuse, and colored output.
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # rustfmt.toml uses unstable options.
-      - name: Set up nightly rustfmt
-        if: matrix.task == 'fmt'
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-
-      # The action makes its toolchain the rustup default, which
-      # rust-toolchain.toml overrides in this directory, so install the pinned
-      # toolchain itself rather than whatever stable is current.
-      - name: Read pinned toolchain
-        id: toolchain
-        if: matrix.task != 'fmt'
-        run: |
-          channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
-          echo "channel=${channel:?no channel in rust-toolchain.toml}" >> "$GITHUB_OUTPUT"
-
+      # The runners come with rustup, so this needs no third-party action.
+      # rustfmt.toml uses unstable options, so fmt runs nightly rustfmt. The
+      # other tasks run the toolchain rust-toolchain.toml pins, which cargo
+      # picks in this directory, so that is the one installed rather than
+      # whatever stable is current.
       - name: Set up Rust
-        if: matrix.task != 'fmt'
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.toolchain.outputs.channel }}
-          components: ${{ matrix.task == 'clippy' && 'clippy' || '' }}
+        env:
+          TASK: ${{ matrix.task }}
+        run: |
+          set -euo pipefail
+          if [[ "$TASK" == fmt ]]; then
+            rustup toolchain install nightly --profile minimal --component rustfmt \
+              --allow-downgrade --no-self-update
+          else
+            channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+            components=()
+            if [[ "$TASK" == clippy ]]; then components=(--component clippy); fi
+            rustup toolchain install "${channel:?no channel in rust-toolchain.toml}" \
+              --profile minimal "${components[@]}" --no-self-update
+          fi
 
       - name: Show toolchain
         run: |
