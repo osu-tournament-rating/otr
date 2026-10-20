@@ -11,6 +11,7 @@ import SearchCommandDialog from '@/components/search/SearchCommandDialog';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { hasAdminScope } from '@/lib/auth/roles';
+import { usePendingApprovalCount } from '@/lib/hooks/usePendingApprovalCount';
 import { useReportCount } from '@/lib/hooks/useReportCount';
 import { useSession } from '@/lib/hooks/useSession';
 
@@ -36,19 +37,23 @@ export default function Header() {
   // Both read 0 while signed out, and the admin count for non-admins.
   const unseenReports = useReportCount(isAdmin ? userId : null, true);
   const unreadReportUpdates = useReportCount(userId, false);
+  const pendingApprovals = usePendingApprovalCount(isAdmin ? userId : null);
 
   const entries = getNavEntries({
     hasSession: Boolean(user),
     isAdmin,
     unseenReports,
+    pendingApprovals,
   });
 
   const menuNotification =
     isAdmin && unseenReports > 0
       ? 'unseen reports'
-      : unreadReportUpdates > 0
-        ? 'unread report updates'
-        : undefined;
+      : isAdmin && pendingApprovals > 0
+        ? 'approvals waiting'
+        : unreadReportUpdates > 0
+          ? 'unread report updates'
+          : undefined;
 
   return (
     <header

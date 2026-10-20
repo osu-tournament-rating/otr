@@ -82,6 +82,7 @@ describe('getNavEntries', () => {
     expect(admin.links.map((link) => [link.title, link.href])).toEqual([
       ['Admin', '/admin'],
       ['Reports', '/admin/reports'],
+      ['Approvals', '/admin/approvals'],
     ]);
     expect(admin.notification).toBeUndefined();
   });
@@ -94,6 +95,23 @@ describe('getNavEntries', () => {
 
     expect(admin.notification).toBe('Unseen reports');
     expect(admin.links.find((link) => link.title === 'Reports')?.count).toBe(3);
+  });
+
+  it('puts waiting approvals on the Admin trigger and the Approvals item', () => {
+    const admin = menu(
+      getNavEntries({
+        hasSession: true,
+        isAdmin: true,
+        unseenReports: 0,
+        pendingApprovals: 2,
+      }),
+      'Admin'
+    );
+
+    expect(admin.notification).toBe('Approvals waiting');
+    expect(admin.links.find((link) => link.title === 'Approvals')?.count).toBe(
+      2
+    );
   });
 
   it('writes every label in sentence case', () => {

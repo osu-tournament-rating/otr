@@ -99,6 +99,7 @@ import {
   listFilterRequestsAdmin,
   listMyFilterRequests,
 } from './procedures/filtering/requestProcedures';
+import { getPendingApprovalCount } from './procedures/approvalProcedures';
 import {
   deleteUserApiKey,
   generateUserApiKey,
@@ -138,6 +139,9 @@ const base = os.$context<InitialContext>();
 export const router = base.router({
   admin: {
     massEnqueue,
+  },
+  approvals: {
+    pendingCount: getPendingApprovalCount,
   },
   reports: {
     templates: getReportTemplates,
