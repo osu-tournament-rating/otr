@@ -1,7 +1,6 @@
-import { and, eq, not } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { API, Match } from 'osu-api-v2-js';
 
-import { ensureBeatmapPlaceholder } from '../beatmap-store';
 import { TournamentDataCompletionService } from './tournament-data-completion-service';
 import { RoomFetchService } from './room-fetch-service';
 import {
@@ -19,6 +18,13 @@ import {
   convertTeamType,
   normalizeDate,
 } from '../conversions';
+import { storeFetchedGames } from '../game-store';
+import type {
+  FetchedGame,
+  FetchedMatch,
+  FetchedMatchResult,
+  PlayerMeta,
+} from '../match-source';
 import { getOrCreatePlayerId } from '../player-store';
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
@@ -26,16 +32,7 @@ import type { RateLimiter } from '../../rate-limiter';
 import * as schema from '@otr/core/db/schema';
 import type { JobExecutor } from '@otr/core/jobs';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import {
-  GameRejectionReason,
-  Ruleset,
-  ScoreRejectionReason,
-  VerificationStatus,
-} from '@otr/core/osu/enums';
-import {
-  cascadeGameRejection,
-  cascadeMatchRejection,
-} from '@otr/core/db/rejection-cascade';
+import { Ruleset } from '@otr/core/osu/enums';
 import {
   findMatchHoldingGames,
   mergeMatchesInto,
@@ -57,6 +54,20 @@ interface MatchFetchServiceOptions {
 }
 
 type MatchGame = NonNullable<Match.Event['game']>;
+
+interface MatchRow {
+  id: number;
+  tournamentId: number;
+  verificationStatus: number;
+  isLazer: boolean;
+}
+
+/** A match merged into the one being fetched, whose games it now holds. */
+interface MergedSource {
+  osuId: number;
+  isLazer: boolean;
+  match: FetchedMatch;
+}
 
 export class MatchFetchService {
   private readonly db: DatabaseClient;
@@ -80,6 +91,11 @@ export class MatchFetchService {
     this.roomFetchService = new RoomFetchService(options);
   }
 
+  /**
+   * Fetches a match (or lazer room) from osu! and stores it with its games
+   * and scores. The games of matches merged into it are fetched from their
+   * own osu! matches and refreshed too.
+   */
   async fetchAndPersist(
     osuMatchId: number,
     isLazer: boolean
@@ -92,14 +108,12 @@ export class MatchFetchService {
       columns: {
         id: true,
         tournamentId: true,
-        dataFetchStatus: true,
         verificationStatus: true,
         isLazer: true,
       },
       with: {
         tournament: {
           columns: {
-            id: true,
             ruleset: true,
           },
         },
@@ -111,25 +125,6 @@ export class MatchFetchService {
       return false;
     }
 
-    if (matchRow.isLazer) {
-      return this.fetchAndPersistLazerRoom(osuMatchId, matchRow);
-    }
-
-    return this.fetchAndPersistStableMatch(osuMatchId, matchRow);
-  }
-
-  private async fetchAndPersistStableMatch(
-    osuMatchId: number,
-    matchRow: {
-      id: number;
-      tournamentId: number;
-      dataFetchStatus: number;
-      verificationStatus: number;
-      isLazer: boolean;
-      tournament?: { id: number; ruleset: number } | null;
-    }
-  ): Promise<boolean> {
-    const nowIso = new Date().toISOString();
     const tournamentRuleset = coerceNumericEnumValue(
       Ruleset,
       matchRow.tournament?.ruleset
@@ -137,38 +132,33 @@ export class MatchFetchService {
 
     await this.db
       .update(schema.matches)
-      .set({ dataFetchStatus: DataFetchStatus.Fetching, updated: nowIso })
+      .set({
+        dataFetchStatus: DataFetchStatus.Fetching,
+        updated: new Date().toISOString(),
+      })
       .where(eq(schema.matches.id, matchRow.id));
 
-    const matchResult = await this.fetchFullMatch(osuMatchId);
-
-    if (matchResult.status === 'unauthorized') {
-      this.logger.error('Unauthorized fetching match - check API credentials', {
-        osuMatchId,
-      });
-      await this.dataCompletion.updateMatchFetchStatus(
-        matchRow.id,
-        DataFetchStatus.Error
-      );
-      return false;
-    }
-
-    if (matchResult.status === 'not_found') {
-      await this.dataCompletion.updateMatchFetchStatus(
-        matchRow.id,
-        DataFetchStatus.NotFound
-      );
-      this.logger.warn('osu! API returned no data for match', { osuMatchId });
-      return false;
-    }
-
-    const { initialMatch, allEvents, allUsers } = matchResult.data;
-
-    const beatmapsToQueue = new Map<number, { beatmapDbId: number }>();
-
-    const gameEvents = (allEvents ?? []).filter(
-      (event) => event?.detail?.type === 'other' && event.game != null
+    const result = await this.fetchMatch(
+      osuMatchId,
+      matchRow.isLazer,
+      tournamentRuleset
     );
+
+    if (result.status !== 'success') {
+      await this.recordFetchFailure(osuMatchId, matchRow, result);
+      return false;
+    }
+
+    const merged = await this.fetchMergedSources(matchRow, tournamentRuleset);
+    if (merged === 'unauthorized') {
+      await this.recordFetchFailure(osuMatchId, matchRow, {
+        status: 'unauthorized',
+      });
+      return false;
+    }
+
+    const nowIso = new Date().toISOString();
+    const primary = result.match;
 
     const mergedInto = await this.db.transaction(async (tx) => {
       // Another match holding these games means this match was merged into
@@ -176,7 +166,7 @@ export class MatchFetchService {
       const holderMatchId = await findMatchHoldingGames(
         tx,
         matchRow.id,
-        gameEvents.map((event) => event.game!.id)
+        primary.listedGameOsuIds
       );
 
       if (holderMatchId != null) {
@@ -184,8 +174,8 @@ export class MatchFetchService {
           {
             id: matchRow.id,
             osuId: osuMatchId,
-            isLazer: false,
-            name: initialMatch.match?.name ?? '',
+            isLazer: matchRow.isLazer,
+            name: primary.name ?? '',
             tournamentId: matchRow.tournamentId,
           },
         ]);
@@ -195,160 +185,43 @@ export class MatchFetchService {
       await tx
         .update(schema.matches)
         .set({
-          name: initialMatch.match?.name ?? `Match ${matchRow.id}`,
-          startTime: normalizeDate(initialMatch.match?.start_time) ?? null,
-          endTime: normalizeDate(initialMatch.match?.end_time) ?? null,
+          name:
+            primary.name ??
+            `${matchRow.isLazer ? 'Room' : 'Match'} ${matchRow.id}`,
+          startTime: primary.startTime,
+          endTime: primary.endTime,
           dataFetchStatus: DataFetchStatus.Fetched,
           updated: nowIso,
         })
         .where(eq(schema.matches.id, matchRow.id));
 
-      const userMap = new Map<
-        number,
-        { username?: string; country?: string }
-      >();
-      for (const [userId, meta] of allUsers) {
-        userMap.set(userId, meta);
-        await getOrCreatePlayerId(tx, userId, meta);
+      const sources = [primary, ...merged.map((source) => source.match)];
+      const users = new Map<number, PlayerMeta>();
+      for (const source of sources) {
+        for (const [osuUserId, meta] of source.users) {
+          users.set(osuUserId, meta);
+        }
       }
 
-      const isMatchRejected =
-        matchRow.verificationStatus === VerificationStatus.Rejected;
-      const rejectedGameIds = new Set<number>();
-
-      for (const event of gameEvents) {
-        const game = event.game!;
-        const rawRuleset = convertRuleset(game.mode_int ?? game.mode);
-        const ruleset = resolveRulesetWithTournament(
-          rawRuleset,
-          tournamentRuleset ?? rawRuleset
+      const playerIds = new Map<number, number>();
+      for (const [osuUserId, meta] of users) {
+        playerIds.set(
+          osuUserId,
+          await getOrCreatePlayerId(tx, osuUserId, meta)
         );
-        const scoringType = convertScoringType(game.scoring_type);
-        const teamType = convertTeamType(game.team_type);
-        const mods = convertModsToFlags(game.mods ?? []);
-
-        const beatmapRecord = await ensureBeatmapPlaceholder(
-          tx,
-          game.beatmap_id,
-          DataFetchStatus.NotFetched,
-          nowIso
-        );
-
-        if (beatmapRecord.dataFetchStatus === DataFetchStatus.NotFetched) {
-          const [marked] = await tx
-            .update(schema.beatmaps)
-            .set({
-              dataFetchStatus: DataFetchStatus.Fetching,
-              updated: nowIso,
-            })
-            .where(
-              and(
-                eq(schema.beatmaps.id, beatmapRecord.id),
-                eq(schema.beatmaps.dataFetchStatus, DataFetchStatus.NotFetched),
-                not(schema.beatmaps.manualOverride)
-              )
-            )
-            .returning({ id: schema.beatmaps.id });
-
-          if (marked) {
-            beatmapsToQueue.set(game.beatmap_id, {
-              beatmapDbId: beatmapRecord.id,
-            });
-          }
-        }
-
-        const existingGame = await tx.query.games.findFirst({
-          where: eq(schema.games.osuId, game.id),
-          columns: {
-            id: true,
-            verificationStatus: true,
-          },
-        });
-
-        const gameValues = {
-          matchId: matchRow.id,
-          beatmapId: beatmapRecord.id,
-          ruleset,
-          scoringType,
-          teamType,
-          mods,
-          startTime: normalizeDate(game.start_time) ?? nowIso,
-          endTime: normalizeDate(game.end_time ?? game.start_time) ?? nowIso,
-          updated: nowIso,
-        };
-
-        let gameId: number;
-        let gameVerificationStatus = existingGame?.verificationStatus;
-
-        if (existingGame) {
-          await tx
-            .update(schema.games)
-            .set(gameValues)
-            .where(eq(schema.games.id, existingGame.id));
-          gameId = existingGame.id;
-        } else {
-          let verificationStatus = VerificationStatus.None;
-          let rejectionReason = 0;
-
-          if (matchRow.verificationStatus === VerificationStatus.Rejected) {
-            verificationStatus = VerificationStatus.Rejected;
-            rejectionReason = GameRejectionReason.RejectedMatch;
-          }
-
-          const [insertedGame] = await tx
-            .insert(schema.games)
-            .values({
-              osuId: game.id,
-              ...gameValues,
-              verificationStatus,
-              rejectionReason,
-              warningFlags: 0,
-            })
-            .returning({
-              id: schema.games.id,
-              verificationStatus: schema.games.verificationStatus,
-            });
-
-          if (!insertedGame) {
-            throw new Error('Failed to insert game');
-          }
-
-          gameId = insertedGame.id;
-          gameVerificationStatus = insertedGame.verificationStatus;
-        }
-
-        await this.processScores({
-          tx,
-          gameId,
-          game,
-          ruleset,
-          matchVerificationStatus: matchRow.verificationStatus,
-          gameVerificationStatus:
-            gameVerificationStatus ?? VerificationStatus.None,
-          userMap,
-          nowIso,
-        });
-
-        if (
-          !isMatchRejected &&
-          gameVerificationStatus === VerificationStatus.Rejected
-        ) {
-          rejectedGameIds.add(gameId);
-        }
       }
 
-      if (isMatchRejected) {
-        await cascadeMatchRejection(tx, [matchRow.id], {
-          updatedAt: nowIso,
-        });
-      } else if (rejectedGameIds.size > 0) {
-        await cascadeGameRejection(tx, Array.from(rejectedGameIds), {
-          updatedAt: nowIso,
-        });
-      }
+      const beatmapsToQueue = await storeFetchedGames(tx, {
+        match: matchRow,
+        games: sources.flatMap((source) => source.games),
+        playerIds,
+        users,
+        nowIso,
+      });
+
       // Queued with the games, so a beatmap marked Fetching always has a job.
       // One batch, so its keys lock in the same order as anyone else's.
-      await this.publishBeatmapFetches(tx, [...beatmapsToQueue.keys()]);
+      await this.publishBeatmapFetches(tx, beatmapsToQueue);
 
       return null;
     });
@@ -376,11 +249,204 @@ export class MatchFetchService {
     return true;
   }
 
+  private fetchMatch(
+    osuMatchId: number,
+    isLazer: boolean,
+    tournamentRuleset: Ruleset | undefined
+  ): Promise<FetchedMatchResult> {
+    return isLazer
+      ? this.roomFetchService.fetchRoom(osuMatchId, tournamentRuleset)
+      : this.fetchStableMatch(osuMatchId, tournamentRuleset);
+  }
+
+  /**
+   * The matches merged into this one, read from osu!. One osu! no longer
+   * serves is left out, and its games stay as they are.
+   */
+  private async fetchMergedSources(
+    matchRow: MatchRow,
+    tournamentRuleset: Ruleset | undefined
+  ): Promise<MergedSource[] | 'unauthorized'> {
+    const merges = await this.db
+      .select({
+        osuId: schema.matchMerges.osuId,
+        isLazer: schema.matchMerges.isLazer,
+      })
+      .from(schema.matchMerges)
+      .where(eq(schema.matchMerges.matchId, matchRow.id))
+      .orderBy(schema.matchMerges.id);
+
+    const sources: MergedSource[] = [];
+
+    for (const merge of merges) {
+      const result = await this.fetchMatch(
+        merge.osuId,
+        merge.isLazer,
+        tournamentRuleset
+      );
+
+      if (result.status === 'unauthorized') {
+        return 'unauthorized';
+      }
+
+      if (result.status !== 'success') {
+        this.logger.warn('Skipped a merged match osu! did not serve', {
+          matchId: matchRow.id,
+          osuMatchId: merge.osuId,
+          isLazer: merge.isLazer,
+          status: result.status,
+          ...(result.status === 'invalid' && { reason: result.reason }),
+        });
+        continue;
+      }
+
+      sources.push({ ...merge, match: result.match });
+    }
+
+    return sources;
+  }
+
+  private async recordFetchFailure(
+    osuMatchId: number,
+    matchRow: MatchRow,
+    result: Exclude<FetchedMatchResult, { status: 'success' }>
+  ) {
+    const kind = matchRow.isLazer ? 'room' : 'match';
+
+    if (result.status === 'not_found') {
+      this.logger.warn(`osu! API returned no data for ${kind}`, {
+        osuMatchId,
+      });
+      await this.dataCompletion.updateMatchFetchStatus(
+        matchRow.id,
+        DataFetchStatus.NotFound
+      );
+      return;
+    }
+
+    if (result.status === 'unauthorized') {
+      this.logger.error(
+        `Unauthorized fetching ${kind} - check API credentials`,
+        { osuMatchId }
+      );
+    } else {
+      this.logger.warn(result.reason, { osuMatchId });
+    }
+
+    await this.dataCompletion.updateMatchFetchStatus(
+      matchRow.id,
+      DataFetchStatus.Error
+    );
+  }
+
+  private async fetchStableMatch(
+    osuMatchId: number,
+    tournamentRuleset: Ruleset | undefined
+  ): Promise<FetchedMatchResult> {
+    const matchResult = await this.fetchFullMatch(osuMatchId);
+
+    if (matchResult.status !== 'success') {
+      return matchResult;
+    }
+
+    const { initialMatch, allEvents, allUsers } = matchResult.data;
+    const nowIso = new Date().toISOString();
+
+    const games = (allEvents ?? [])
+      .filter((event) => event?.detail?.type === 'other' && event.game != null)
+      .map((event) =>
+        this.convertStableGame(event.game!, tournamentRuleset, nowIso)
+      );
+
+    return {
+      status: 'success',
+      match: {
+        name: initialMatch.match?.name ?? null,
+        startTime: normalizeDate(initialMatch.match?.start_time),
+        endTime: normalizeDate(initialMatch.match?.end_time),
+        users: allUsers,
+        games,
+        listedGameOsuIds: games.map((game) => game.osuId),
+      },
+    };
+  }
+
+  private convertStableGame(
+    game: MatchGame,
+    tournamentRuleset: Ruleset | undefined,
+    nowIso: string
+  ): FetchedGame {
+    const rawRuleset = convertRuleset(game.mode_int ?? game.mode);
+    const ruleset = resolveRulesetWithTournament(
+      rawRuleset,
+      tournamentRuleset ?? rawRuleset
+    );
+
+    return {
+      osuId: game.id,
+      osuBeatmapId: game.beatmap_id,
+      fields: {
+        ruleset,
+        scoringType: convertScoringType(game.scoring_type),
+        teamType: convertTeamType(game.team_type),
+        mods: convertModsToFlags(game.mods ?? []),
+        lazerMods: null,
+        startTime: normalizeDate(game.start_time) ?? nowIso,
+        endTime: normalizeDate(game.end_time ?? game.start_time) ?? nowIso,
+      },
+      scores: (game.scores ?? [])
+        .filter((score) => score.user_id != null)
+        .map((score) => {
+          const mods = convertModsToFlags(score.mods ?? []);
+          const rawScore = score.total_score ?? 0;
+          const adjustedScore = calculateScoreWithMods(rawScore, mods);
+          const stats = score.statistics ?? {};
+
+          return {
+            osuUserId: score.user_id,
+            fields: {
+              rawScore,
+              adjustedScore: adjustedScore === rawScore ? null : adjustedScore,
+              accuracy: score.accuracy,
+              pp: score.pp ?? null,
+              maxCombo: score.max_combo ?? 0,
+              statComboBreak: stats.combo_break ?? null,
+              pass: score.passed ?? score.match?.pass ?? false,
+              isPerfectCombo: score.is_perfect_combo,
+              legacyPerfect: score.legacy_perfect,
+              grade: convertScoreGrade(score.rank),
+              mods,
+              lazerMods: null,
+              statGreat: stats.great ?? null,
+              statOk: stats.ok ?? null,
+              statMeh: stats.meh ?? null,
+              statMiss: stats.miss ?? null,
+              statGood: stats.good ?? null,
+              statPerfect: stats.perfect ?? null,
+              statSliderTailHit: stats.slider_tail_hit ?? null,
+              statLargeTickHit: stats.large_tick_hit ?? null,
+              statLargeTickMiss: stats.large_tick_miss ?? null,
+              statSmallTickHit: stats.small_tick_hit ?? null,
+              statSmallTickMiss: stats.small_tick_miss ?? null,
+              statLargeBonus: stats.large_bonus ?? null,
+              statSmallBonus: stats.small_bonus ?? null,
+              statIgnoreHit: stats.ignore_hit ?? null,
+              statIgnoreMiss: stats.ignore_miss ?? null,
+              statLegacyComboIncrease: stats.legacy_combo_increase ?? null,
+              legacyTotalScore: score.legacy_total_score,
+              team: convertTeam(score.match?.team ?? 'none'),
+              ruleset,
+            },
+          };
+        }),
+    };
+  }
+
   private async fetchFullMatch(osuMatchId: number): Promise<
     ApiCallResult<{
       initialMatch: Match;
       allEvents: NonNullable<Match['events']>;
-      allUsers: Map<number, { username?: string; country?: string }>;
+      allUsers: Map<number, PlayerMeta>;
     }>
   > {
     const initialResult = await this.rateLimiter.schedule(() =>
@@ -399,7 +465,7 @@ export class MatchFetchService {
       number,
       NonNullable<Match['events']>[number]
     >();
-    const allUsers = new Map<number, { username?: string; country?: string }>();
+    const allUsers = new Map<number, PlayerMeta>();
 
     const addPage = (page: Match | null) => {
       if (!page) return { added: 0 };
@@ -498,159 +564,5 @@ export class MatchFetchService {
     );
 
     return { status: 'success', data: { initialMatch, allEvents, allUsers } };
-  }
-
-  private async processScores(options: {
-    tx: Pick<DatabaseClient, 'query' | 'insert' | 'update'>;
-    gameId: number;
-    game: MatchGame;
-    ruleset: Ruleset;
-    matchVerificationStatus: number;
-    gameVerificationStatus: number;
-    userMap: Map<number, { username?: string; country?: string }>;
-    nowIso: string;
-  }) {
-    const {
-      tx,
-      gameId,
-      game,
-      ruleset,
-      matchVerificationStatus,
-      gameVerificationStatus,
-      userMap,
-      nowIso,
-    } = options;
-
-    const existingScores = await tx.query.gameScores.findMany({
-      where: eq(schema.gameScores.gameId, gameId),
-      columns: {
-        id: true,
-        playerId: true,
-        verificationStatus: true,
-      },
-    });
-
-    const scoreMap = new Map<
-      number,
-      { id: number; verificationStatus: number }
-    >();
-    for (const score of existingScores) {
-      scoreMap.set(score.playerId, score);
-    }
-
-    for (const score of game.scores ?? []) {
-      const userId = score.user_id;
-      if (userId == null) {
-        continue;
-      }
-
-      const playerId = await getOrCreatePlayerId(
-        tx,
-        userId,
-        userMap.get(userId)
-      );
-      const team = convertTeam(score.match?.team ?? 'none');
-      const mods = convertModsToFlags(score.mods ?? []);
-      const rawScore = score.total_score ?? 0;
-      const adjustedScore = calculateScoreWithMods(rawScore, mods);
-      const grade = convertScoreGrade(score.rank);
-
-      const stats = score.statistics ?? {};
-
-      const baseValues = {
-        rawScore,
-        adjustedScore: adjustedScore === rawScore ? null : adjustedScore,
-        placement: 0,
-        accuracy: score.accuracy,
-        pp: score.pp ?? null,
-        maxCombo: score.max_combo ?? 0,
-        statComboBreak: stats.combo_break ?? null,
-        pass: score.passed ?? score.match?.pass ?? false,
-        perfect: score.perfect ?? false,
-        isPerfectCombo: score.is_perfect_combo,
-        legacyPerfect: score.legacy_perfect,
-        grade,
-        mods,
-        statGreat: stats.great ?? null,
-        statOk: stats.ok ?? null,
-        statMeh: stats.meh ?? null,
-        statMiss: stats.miss ?? null,
-        statGood: stats.good ?? null,
-        statPerfect: stats.perfect ?? null,
-        statSliderTailHit: stats.slider_tail_hit ?? null,
-        statLargeTickHit: stats.large_tick_hit ?? null,
-        statLargeTickMiss: stats.large_tick_miss ?? null,
-        statSmallTickHit: stats.small_tick_hit ?? null,
-        statSmallTickMiss: stats.small_tick_miss ?? null,
-        statLargeBonus: stats.large_bonus ?? null,
-        statSmallBonus: stats.small_bonus ?? null,
-        statIgnoreHit: stats.ignore_hit ?? null,
-        statIgnoreMiss: stats.ignore_miss ?? null,
-        statLegacyComboIncrease: stats.legacy_combo_increase ?? null,
-        legacyTotalScore: score.legacy_total_score,
-        team,
-        ruleset,
-        updated: nowIso,
-      };
-
-      const existing = scoreMap.get(playerId);
-
-      if (existing) {
-        let verificationStatus = existing.verificationStatus;
-        let rejectionReason = 0;
-
-        if (
-          matchVerificationStatus === VerificationStatus.Rejected ||
-          gameVerificationStatus === VerificationStatus.Rejected
-        ) {
-          verificationStatus = VerificationStatus.Rejected;
-          rejectionReason = ScoreRejectionReason.RejectedGame;
-        }
-
-        await tx
-          .update(schema.gameScores)
-          .set({
-            ...baseValues,
-            verificationStatus,
-            rejectionReason,
-          })
-          .where(eq(schema.gameScores.id, existing.id));
-
-        continue;
-      }
-
-      let verificationStatus = VerificationStatus.None;
-      let rejectionReason = 0;
-
-      if (
-        matchVerificationStatus === VerificationStatus.Rejected ||
-        gameVerificationStatus === VerificationStatus.Rejected
-      ) {
-        verificationStatus = VerificationStatus.Rejected;
-        rejectionReason = ScoreRejectionReason.RejectedGame;
-      }
-
-      await tx.insert(schema.gameScores).values({
-        gameId,
-        playerId,
-        ...baseValues,
-        verificationStatus,
-        rejectionReason,
-      });
-    }
-  }
-
-  private async fetchAndPersistLazerRoom(
-    roomId: number,
-    matchRow: {
-      id: number;
-      tournamentId: number;
-      dataFetchStatus: number;
-      verificationStatus: number;
-      isLazer: boolean;
-      tournament?: { id: number; ruleset: number } | null;
-    }
-  ): Promise<boolean> {
-    return this.roomFetchService.fetchAndPersistRoom(roomId, matchRow);
   }
 }
