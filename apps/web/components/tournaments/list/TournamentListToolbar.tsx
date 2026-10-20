@@ -5,8 +5,9 @@ import type { Ruleset } from '@otr/core/osu';
 import {
   TOURNAMENT_LIST_PARAMS,
   TOURNAMENT_REJECTION_REASONS,
-  TOURNAMENT_SORT_OPTIONS,
   LOBBY_SIZES,
+  getTournamentSortOptions,
+  resolveTournamentSort,
   rulesetsForAddress,
   type TournamentListState,
 } from '@/app/tournaments/list-params';
@@ -159,8 +160,8 @@ export default function TournamentListToolbar({
       sort={
         <SortControl
           label="Sort tournaments by"
-          options={TOURNAMENT_SORT_OPTIONS}
-          value={state.sort}
+          options={getTournamentSortOptions(state.q !== '')}
+          value={resolveTournamentSort(state)}
           onValueChange={(sort) => setState({ sort })}
         />
       }

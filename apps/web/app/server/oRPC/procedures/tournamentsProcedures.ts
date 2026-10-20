@@ -55,6 +55,7 @@ import {
 } from './shared/rulesetFilter';
 import { buildTournamentListOrder } from './shared/tournamentListOrder';
 import { deriveTournamentWinRecord } from './shared/winRecord';
+import { logger } from '@/lib/logger';
 
 const DEFAULT_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
@@ -292,7 +293,7 @@ export const listTournaments = publicProcedure
         offset,
       });
     } catch (error) {
-      console.error('[orpc] tournaments.list failed', error);
+      logger.error('tournaments.list failed', { error });
 
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message:
@@ -344,7 +345,7 @@ export const listTournamentsPage = publicProcedure
         totalPages: Math.ceil(totalCount / pageSize),
       };
     } catch (error) {
-      console.error('[orpc] tournaments.listPage failed', error);
+      logger.error('tournaments.listPage failed', { error });
 
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message: 'Failed to load tournaments',
@@ -1025,7 +1026,7 @@ export const getTournament = publicProcedure
         throw error;
       }
 
-      console.error('[orpc] tournaments.get failed', error);
+      logger.error('tournaments.get failed', { error });
 
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message:

@@ -20,6 +20,7 @@ import {
   TournamentRejectionReason,
 } from '@otr/core/osu';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { JobQueue } from '@otr/core/jobs/enums';
 
 import { EMPTY_VALUE } from './empty';
 
@@ -188,6 +189,54 @@ export const RANKED_STATUS_LABELS: EnumLabels = {
   3: 'Qualified',
   4: 'Loved',
 };
+
+/** Background job queues (`jobs.queue`), by the work each one does. */
+export const JOB_QUEUE_LABELS: Readonly<Record<JobQueue, string>> = {
+  [JobQueue.OsuFetch]: 'osu! fetches',
+  [JobQueue.OsuTrackFetch]: 'osu!track fetches',
+  [JobQueue.TournamentChecks]: 'Automated checks',
+  [JobQueue.TournamentStats]: 'Tournament stats',
+  [JobQueue.BeatmapAttributes]: 'Beatmap attributes',
+};
+
+/** The services outbound requests go to (`api_request_stats_daily.service`). */
+export const API_SERVICE_LABELS: Readonly<Record<string, string>> = {
+  osu: 'osu!',
+  osutrack: 'osu!track',
+};
+
+/** The worker's request metric endpoints (`api_request_stats_daily.endpoint`). */
+export const API_ENDPOINT_LABELS: Readonly<Record<string, string>> = {
+  getMatch: 'Match',
+  getRoomEvents: 'Room events',
+  getBeatmap: 'Beatmap',
+  getBeatmapset: 'Beatmapset',
+  getUser: 'User',
+  getForumTopic: 'Forum topic',
+  beatmapFile: 'Beatmap file',
+  statsHistory: 'Stats history',
+};
+
+/** The worker's request metric statuses (`api_request_stats_daily.status`). */
+export const API_REQUEST_STATUS_LABELS: Readonly<Record<string, string>> = {
+  success: 'Success',
+  not_found: 'Not found',
+  unauthorized: 'Unauthorized',
+  rate_limited: 'Rate limited',
+  invalid: 'Invalid',
+  error: 'Error',
+};
+
+/**
+ * The name of a stored text value, or the value itself when it has none, so
+ * an endpoint or queue added after this release still reads.
+ */
+export function formatTextValue(
+  value: string,
+  labels: Readonly<Record<string, string>>
+): string {
+  return Object.hasOwn(labels, value) ? labels[value]! : value;
+}
 
 /** The name of one enum value, or `Unknown (7)` for a value with none. */
 export function formatEnumValue(value: number, labels: EnumLabels): string {

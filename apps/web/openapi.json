@@ -2,7 +2,7 @@
   "info": {
     "title": "o!TR API",
     "version": "1.0.0",
-    "description": "osu! Tournament Rating API\n\n> **API Stability Notice:** The o!TR public API is still evolving and is not considered fully stable. Breaking changes may be introduced at any time without advance notice. Past breaking changes are recorded in the [API changelog](https://docs.otr.stagec.net/changelogs/website-changelog#breaking-api-changes)."
+    "description": "osu! Tournament Rating API\n\nInclude your API key via `Authorization: Bearer <key>` or `x-api-key: <key>` when making API calls.\n\n> **API Stability Notice:** The o!TR public API is still evolving and is not considered fully stable. Breaking changes may be introduced at any time without advance notice. Past breaking changes are recorded in the [API changelog](https://docs.otr.stagec.net/changelogs/website-changelog#breaking-api-changes)."
   },
   "tags": [
     {
@@ -10,7 +10,7 @@
       "description": "Public endpoints that do not require authentication when used from the website, accessible via public API"
     }
   ],
-  "security": [{ "ApiKeyAuth": [] }],
+  "security": [{ "ApiKeyAuth": [] }, { "ApiKeyHeader": [] }],
   "components": {
     "securitySchemes": {
       "ApiKeyAuth": {
@@ -18,6 +18,12 @@
         "scheme": "bearer",
         "bearerFormat": "API Key",
         "description": "Send an o!TR API key using the Authorization: Bearer <key> header."
+      },
+      "ApiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Send an o!TR API key using the x-api-key: <key> header. A non-empty Authorization header takes precedence over it."
       }
     },
     "schemas": {
@@ -4321,6 +4327,42 @@
                 "schema": { "$ref": "#/components/schemas/Player" }
               }
             }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": true },
+                        "code": { "const": "INVALID_PLAYER_ID" },
+                        "status": { "const": 400 },
+                        "message": {
+                          "type": "string",
+                          "default": "Player ID is not a number. To look up a player by username, pass keyType=username."
+                        },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": false },
+                        "code": { "type": "string" },
+                        "status": { "type": "number" },
+                        "message": { "type": "string" },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -4390,6 +4432,42 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": true },
+                        "code": { "const": "INVALID_PLAYER_ID" },
+                        "status": { "const": 400 },
+                        "message": {
+                          "type": "string",
+                          "default": "Player ID is not a number. To look up a player by username, pass keyType=username."
+                        },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": false },
+                        "code": { "type": "string" },
+                        "status": { "type": "number" },
+                        "message": { "type": "string" },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -4453,6 +4531,42 @@
                 "schema": { "$ref": "#/components/schemas/PlayerStats" }
               }
             }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": true },
+                        "code": { "const": "INVALID_PLAYER_ID" },
+                        "status": { "const": 400 },
+                        "message": {
+                          "type": "string",
+                          "default": "Player ID is not a number. To look up a player by username, pass keyType=username."
+                        },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": false },
+                        "code": { "type": "string" },
+                        "status": { "type": "number" },
+                        "message": { "type": "string" },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -4461,7 +4575,7 @@
       "get": {
         "operationId": "players.tournaments",
         "summary": "List player tournaments",
-        "description": "List tournaments a player has participated in.\n\n**Examples:**\n- By o!TR ID: `GET /players/123/tournaments`\n- By osu! ID: `GET /players/4504101/tournaments?keyType=osu`\n- By username: `GET /players/Stage/tournaments?keyType=username`",
+        "description": "List tournaments a player has participated in. With `dateMin` or `dateMax`, list those the player played a match in during that range, the matches player stats count for it.\n\n**Examples:**\n- By o!TR ID: `GET /players/123/tournaments`\n- By osu! ID: `GET /players/4504101/tournaments?keyType=osu`\n- By username: `GET /players/Stage/tournaments?keyType=username`",
         "tags": ["public"],
         "parameters": [
           {
@@ -4566,6 +4680,42 @@
                       "matchesLost"
                     ]
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": true },
+                        "code": { "const": "INVALID_PLAYER_ID" },
+                        "status": { "const": 400 },
+                        "message": {
+                          "type": "string",
+                          "default": "Player ID is not a number. To look up a player by username, pass keyType=username."
+                        },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": { "const": false },
+                        "code": { "type": "string" },
+                        "status": { "type": "number" },
+                        "message": { "type": "string" },
+                        "data": {}
+                      },
+                      "required": ["defined", "code", "status", "message"]
+                    }
+                  ]
                 }
               }
             }
@@ -5786,7 +5936,7 @@
                         "excludedUnverifiedGameCount": {
                           "type": "integer",
                           "minimum": 0,
-                          "description": "Two-roster TeamVs games on this beatmap that are not verified at every level (tournament, match and game). A history figure only: it explains why gameCount can be small, and is never an input to any statistic in this object."
+                          "description": "TeamVs games on this beatmap with scores from exactly two teams that are not verified at every level (tournament, match and game). A history figure only: it explains why gameCount can be small, and is never an input to any statistic in this object."
                         },
                         "cohort": {
                           "anyOf": [
