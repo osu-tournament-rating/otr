@@ -158,14 +158,17 @@ describe('PlayerFetchService restricted players', () => {
       })
     );
 
-  const fetchWith = async (getUser: () => Promise<unknown>) => {
+  const fetchWith = async (
+    getUser: () => Promise<unknown>,
+    statusBefore: number = DataFetchStatus.Fetching
+  ) => {
     const updates: PlayerUpdate[] = [];
     const db = {
       query: {
         players: {
           findFirst: async () => ({
             id: PLAYER_ID,
-            dataFetchStatus: DataFetchStatus.Fetching,
+            dataFetchStatus: statusBefore,
           }),
         },
       },
@@ -190,7 +193,7 @@ describe('PlayerFetchService restricted players', () => {
     });
 
     const fetched = await service.fetchAndPersist(OSU_ID);
-    return { fetched, last: updates.at(-1) };
+    return { fetched, updates, last: updates.at(-1) };
   };
 
   it('marks the player restricted when osu! returns not found', async () => {
@@ -211,5 +214,28 @@ describe('PlayerFetchService restricted players', () => {
       dataFetchStatus: DataFetchStatus.Fetched,
       restricted: false,
     });
+  });
+
+  it('keeps the restricted flag when a refetch fails another way', async () => {
+    // A player last seen as not found, refetched while osu! refuses the
+    // worker's credentials: the fetch starts, then ends in Error.
+    const unauthorized = () =>
+      Promise.reject(
+        Object.assign(new APIError('Unauthorized'), {
+          response: { status_code: 401 },
+        })
+      );
+
+    const { fetched, updates } = await fetchWith(
+      unauthorized,
+      DataFetchStatus.NotFound
+    );
+
+    expect(fetched).toBe(false);
+    expect(updates.map((update) => update.dataFetchStatus)).toEqual([
+      DataFetchStatus.Fetching,
+      DataFetchStatus.Error,
+    ]);
+    expect(updates.filter((update) => 'restricted' in update)).toEqual([]);
   });
 });
