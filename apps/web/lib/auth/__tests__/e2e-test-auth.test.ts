@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
+
+import { isE2eAuthEnabled } from '../e2e-test-auth-plugin';
 
 type ComposeService = {
   image?: string;
@@ -62,5 +64,49 @@ describe('production', () => {
         .filter(({ service }) => service.environment?.E2E_TEST_AUTH !== 'false')
         .map(({ name }) => name)
     ).toEqual([]);
+  });
+});
+
+describe('test sign-in', () => {
+  // Widened view: the app's env typings declare these vars as required
+  const env = process.env as Record<string, string | undefined>;
+  const saved = {
+    E2E_TEST_AUTH: env.E2E_TEST_AUTH,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+  };
+
+  const serve = (flag: string | undefined, url: string | undefined) => {
+    env.E2E_TEST_AUTH = flag;
+    env.BETTER_AUTH_URL = url;
+    if (flag === undefined) delete env.E2E_TEST_AUTH;
+    if (url === undefined) delete env.BETTER_AUTH_URL;
+  };
+
+  beforeEach(() => serve(undefined, undefined));
+
+  afterEach(() => serve(saved.E2E_TEST_AUTH, saved.BETTER_AUTH_URL));
+
+  // Playwright, worktree stacks, and PR previews turn it on
+  it.each([
+    'http://localhost:3001',
+    'http://127.0.0.1:20080',
+    'https://otr-pr-1234.tail1a2b3c.ts.net',
+  ])('turns on with the flag on a site served from %s', (url) => {
+    serve('true', url);
+    expect(isE2eAuthEnabled()).toBe(true);
+  });
+
+  // An operator's override or a copied .env must not open it on the live site
+  it.each([
+    ['the live site', 'https://otr.stagec.net'],
+    ['a site with no sign-in URL', undefined],
+  ])('stays off on %s, even with the flag on', (_, url) => {
+    serve('true', url);
+    expect(isE2eAuthEnabled()).toBe(false);
+  });
+
+  it('stays off without the flag', () => {
+    serve('false', 'http://localhost:3001');
+    expect(isE2eAuthEnabled()).toBe(false);
   });
 });

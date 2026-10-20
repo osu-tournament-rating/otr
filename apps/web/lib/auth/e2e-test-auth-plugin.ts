@@ -10,15 +10,38 @@ import { db } from '@/lib/db';
 import { E2E_FAKE_OSU_ID_FLOOR } from './e2e-auth';
 
 /**
+ * Whether the site signs in at this machine or on the tailnet, where PR
+ * previews run. osu! sign-in has no callback on either, and the live site is
+ * never served from them.
+ */
+const isTestSignInHost = (authUrl: string | undefined) => {
+  if (!authUrl || !URL.canParse(authUrl)) {
+    return false;
+  }
+
+  const { hostname } = new URL(authUrl);
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname.endsWith('.ts.net')
+  );
+};
+
+/**
  * Test-only plugin: `POST /api/auth/e2e/sign-in` with `{ playerId, admin? }` mints a
  * signed session for an existing player, provisioning its `users`/`auth_users` rows
  * if the local database has none. `POST /api/auth/e2e/delete-player` with
  * `{ osuId }` removes a fake player the suite signed up, and everything that
  * hangs off it. Gated on {@link isE2eAuthEnabled}, which each endpoint rechecks
  * per request — Playwright runs a production build, so the gate cannot key off
- * NODE_ENV. Production's docker-compose.yml pins the flag off.
+ * NODE_ENV. It needs the flag and a test sign-in URL, so neither a flag
+ * turned on by mistake nor an override on the live site opens it; production's
+ * docker-compose.yml also pins the flag off.
  */
-export const isE2eAuthEnabled = () => process.env.E2E_TEST_AUTH === 'true';
+export const isE2eAuthEnabled = () =>
+  process.env.E2E_TEST_AUTH === 'true' &&
+  isTestSignInHost(process.env.BETTER_AUTH_URL);
 
 export const e2eTestAuthPlugin = () =>
   ({
