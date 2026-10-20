@@ -14,6 +14,7 @@ import {
   API_KEY_MESSAGES,
   parseBearerAuthorization,
 } from '@/lib/api/api-key-header';
+import { PUBLIC_API_PREFIX } from '@/lib/api/prefix';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import {
@@ -608,6 +609,17 @@ const requestPathname = (requestUrl?: string): string | null => {
   }
 };
 
+/**
+ * A public API procedure's route, such as `/api/players/{id}`. Its span
+ * records this rather than the path, which can hold user input such as a
+ * player's name. A path on /rpc names only the procedure.
+ */
+const publicApiRoute = (
+  procedure: { '~orpc': { route: { path?: string } } },
+  path: readonly string[]
+): string =>
+  `${PUBLIC_API_PREFIX}${procedure['~orpc'].route.path ?? `/${path.join('/')}`}`;
+
 // Runs ahead of the rest of the chain so session lookups and database work all
 // land inside the procedure span.
 const withTracing = base.middleware(async ({ path, next }) => {
@@ -623,7 +635,8 @@ const withTracing = base.middleware(async ({ path, next }) => {
   );
 });
 
-const withLoggingContext = base.middleware(async ({ context, path, next }) => {
+const withLoggingContext = base.middleware(async (options) => {
+  const { context, path, procedure, next } = options;
   const correlationId =
     extractCorrelationId(context.headers) ?? generateCorrelationId();
   const procedurePath = formatProcedurePath(path);
@@ -634,7 +647,9 @@ const withLoggingContext = base.middleware(async ({ context, path, next }) => {
     'otr.correlation_id': correlationId,
     'otr.access_method': actor.accessMethod,
     'otr.player_id': actor.playerId ?? undefined,
-    'otr.request_path': requestPath ?? undefined,
+    'otr.request_path': context.apiKeyRequired
+      ? publicApiRoute(procedure, path)
+      : (requestPath ?? undefined),
     'otr.rpc_caller': context.rpc?.kind,
   });
 

@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { call } from '@orpc/server';
 import * as tracing from '@otr/core/tracing';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+
+import { GET } from '@/app/api/[[...openapi]]/route';
+import { createOpenAPIHandler, openAPIHandler } from '@/app/server/openapi';
+import { auth } from '@/lib/auth/auth';
+import { db } from '@/lib/db';
 
 import { publicProcedure } from '../procedures/base';
 
@@ -59,5 +66,54 @@ describe('the request path on spans and log lines', () => {
 
     expect(spanRequestPath()).toBe('/rpc/search/query');
     expect(loggedRequestPath()).toBe('/rpc/search/query');
+  });
+
+  // A player's name can be part of a REST address, and user input never goes
+  // on a span; the log line already carries the input
+  it('records the address of a public API request, and only its route on the span (#1096)', async () => {
+    const probeHandler = createOpenAPIHandler({
+      players: {
+        get: publicProcedure
+          .route({ tags: ['public'], method: 'GET', path: '/players/{id}' })
+          .input(z.object({ id: z.string(), keyType: z.string().optional() }))
+          .handler(() => ({ ok: true })),
+      },
+    });
+    const handle = spyOn(openAPIHandler, 'handle').mockImplementation(
+      (request, options) =>
+        probeHandler.handle(
+          request,
+          options as Parameters<typeof probeHandler.handle>[1]
+        )
+    );
+    const verifyApiKey = spyOn(auth.api, 'verifyApiKey').mockResolvedValue({
+      valid: true,
+      key: {
+        id: 'key-123',
+        referenceId: 'user-1',
+        name: 'probe',
+        enabled: true,
+      },
+      error: null,
+    } as never);
+    const findOwner = spyOn(db.query.auth_users, 'findFirst').mockResolvedValue(
+      { id: 'user-1', name: 'Stage', playerId: null, player: null } as never
+    );
+
+    try {
+      const response = await GET(
+        new NextRequest('http://localhost/api/players/Stage?keyType=username', {
+          headers: { authorization: 'Bearer key-123' },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(spanRequestPath()).toBe('/api/players/{id}');
+      expect(loggedRequestPath()).toBe('/api/players/Stage');
+    } finally {
+      handle.mockRestore();
+      verifyApiKey.mockRestore();
+      findOwner.mockRestore();
+    }
   });
 });
