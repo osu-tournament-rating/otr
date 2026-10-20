@@ -34,10 +34,12 @@ including an offset-less API value, as UTC.
   `YYYY.MM.DD[.N]` processor release usable at the cutoff, ordering tags
   numerically. Processor releases are otr releases, since the processor lives
   in its `apps/processor`; the former otr-processor repository holds the history,
-  and its entry wins a tag both repositories have. A release counts only with an
-  active `stagecodes/otr-processor` Docker Hub tag, which otr pushes only when
-  the processor changed. Usable time is the later GitHub publication or Docker
-  push time. Preserve retry and rate-limit failure.
+  and its entry wins a tag both repositories have. A release counts only with a
+  `stagecodes/otr-processor` Docker Hub tag, which otr pushes only when the
+  processor changed. Ignore the tag's status: Docker Hub calls a tag inactive
+  after a month without a push or pull, and its image still pulls. Usable time
+  is the later GitHub publication or Docker push time. Preserve retry and
+  rate-limit failure.
 - `sandbox.py` owns run-labeled Docker resources, streams imports, uses processor
   image digests, and removes only resources with its label. Teardown never hides
   the original error.

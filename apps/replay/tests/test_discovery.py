@@ -363,3 +363,15 @@ def test_get_reports_exhausted_rate_limits(monkeypatch):
     ):
         _get(client, "https://api.github.com/repos/o/r/releases")
     assert "rate limit is exhausted" in exc.value.message
+
+
+def test_select_release_counts_inactive_docker_tags(releases, tags):
+    # Docker Hub marks a tag inactive after a month without a push or pull, and
+    # the image still pulls, so 2026.08.04 stays the release in effect.
+    stale = [
+        {**tag, "tag_status": "inactive"} if tag["name"] == "2026.08.04" else tag for tag in tags
+    ]
+
+    release = select_release(releases, stale, datetime(2026, 8, 5, 12, 0, tzinfo=UTC))
+
+    assert release.tag == "2026.08.04"

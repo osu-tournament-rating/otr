@@ -148,15 +148,17 @@ def tag_key(tag: str) -> tuple[int, int, int, int] | None:
 
 
 def select_release(releases: list[dict], tags: list[dict], cutoff: datetime) -> Release:
-    # A release counts only if it is both a GitHub release and an active Docker Hub
-    # tag with a digest. otr releases the whole monorepo and pushes
+    # A release counts only if it is both a GitHub release and a Docker Hub tag
+    # with a digest. otr releases the whole monorepo and pushes
     # stagecodes/otr-processor:<tag> only for releases in which the processor
     # changed, so the releases that have an image are exactly the processor's
     # releases. A release without one left the previous processor release in effect.
+    # Docker Hub calls a tag inactive after a month without a push or pull, but
+    # its image still pulls, so the status is ignored.
     pushed: dict[str, tuple[datetime, str]] = {
         tag["name"]: (_parse_utc(tag["tag_last_pushed"]), tag["digest"])
         for tag in tags
-        if tag.get("tag_status", "active") == "active" and tag.get("digest")
+        if tag.get("digest")
     }
     candidates = []
     for entry in releases:
