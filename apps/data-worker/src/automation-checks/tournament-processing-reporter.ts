@@ -294,13 +294,24 @@ export const resetVerificationState = (
   }
 };
 
+/** Every row of a rejected tournament follows its rejection, so none is checked. */
 export const shouldSkipAutomation = (
   tournament: AutomationTournament,
   overrideVerifiedState: boolean
 ) =>
   !overrideVerifiedState &&
-  (tournament.verificationStatus === VerificationStatus.Verified ||
-    tournament.verificationStatus === VerificationStatus.Rejected);
+  tournament.verificationStatus === VerificationStatus.Rejected;
+
+/**
+ * An admin verified the tournament, so the checks keep its status and check
+ * only the rows nobody decided, such as a match added since.
+ */
+export const keepsTournamentStatus = (
+  tournament: AutomationTournament,
+  overrideVerifiedState: boolean
+) =>
+  !overrideVerifiedState &&
+  tournament.verificationStatus === VerificationStatus.Verified;
 
 export const resetTournamentVerification = (
   tournament: AutomationTournament

@@ -545,6 +545,30 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
     });
   });
 
+  it('checks a match added to a verified tournament', async () => {
+    const row: TournamentRow = {
+      ...reviewedTournament(),
+      verificationStatus: Verified,
+    };
+    row.matches.push(
+      matchRow({
+        id: 4,
+        games: [401, 402, 403, 404].map((id) => gameRow({ id, matchId: 4 })),
+      })
+    );
+
+    const persisted = await runChecks(row, false);
+
+    expect(persisted).toMatchObject({
+      'tournaments:1': [Verified, TournamentRejectionReason.None],
+      'matches:1': [Rejected, MatchRejectionReason.None],
+      'matches:2': [Verified, MatchRejectionReason.None],
+      'matches:4': [PreVerified, MatchRejectionReason.None],
+      'games:401': [PreVerified, GameRejectionReason.None],
+      'game_scores:4011': [PreVerified, ScoreRejectionReason.None],
+    });
+  });
+
   it('checks admin decisions again when asked to override them', async () => {
     const persisted = await runChecks(reviewedTournament(), true);
 

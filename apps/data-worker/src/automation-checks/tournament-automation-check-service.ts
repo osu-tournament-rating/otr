@@ -39,6 +39,7 @@ import {
   cascadeTournamentRejection,
   determinePostTournamentStatus,
   isLockedVerificationStatus,
+  keepsTournamentStatus,
   resetTournamentVerification,
   resetVerificationState,
   shouldSkipAutomation,
@@ -315,10 +316,7 @@ export class TournamentAutomationCheckService {
       });
 
       await this.saveChangedRows(tx, asRead, tournament);
-      return {
-        passed: tournament.verificationStatus === VerificationStatus.Verified,
-        report: null,
-      };
+      return { passed: false, report: null };
     }
 
     if (overrideVerifiedState) {
@@ -377,11 +375,14 @@ export class TournamentAutomationCheckService {
       applyMatchAutomationResult(match, matchRejection);
     }
 
-    const tournamentRejectionReason = this.tournamentChecks.process(tournament);
-    tournament.verificationStatus = determinePostTournamentStatus(
-      tournamentRejectionReason
-    );
-    tournament.rejectionReason = tournamentRejectionReason;
+    if (!keepsTournamentStatus(tournament, overrideVerifiedState)) {
+      const tournamentRejectionReason =
+        this.tournamentChecks.process(tournament);
+      tournament.verificationStatus = determinePostTournamentStatus(
+        tournamentRejectionReason
+      );
+      tournament.rejectionReason = tournamentRejectionReason;
+    }
 
     const processingState = captureTournamentProcessingState(
       tournament,
