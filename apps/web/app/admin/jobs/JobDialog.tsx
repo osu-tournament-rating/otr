@@ -1,5 +1,6 @@
 'use client';
 
+import { JobQueue } from '@otr/core/jobs/enums';
 import { MessagePriority } from '@otr/core/messages/values';
 import { Ban, RotateCcw } from 'lucide-react';
 import type * as React from 'react';
@@ -26,6 +27,14 @@ const PRIORITY_NAMES: Record<number, string> = {
   [MessagePriority.Normal]: 'Normal',
   [MessagePriority.High]: 'High',
 };
+
+/**
+ * A match or beatmap fetch: once cancelled, the data worker's hourly sweep
+ * queues it again while the match or beatmap is still not fetched.
+ */
+const isRequeuedAfterCancel = (job: Job) =>
+  job.queue === JobQueue.OsuFetch &&
+  (job.payload.type === 'match' || job.payload.type === 'beatmap');
 
 /** The SWR keys of the queue counts and of each page of the jobs list. */
 export const JOB_SUMMARY_KEY = 'admin-job-summary';
@@ -147,6 +156,11 @@ export function JobDialog({
       }
       size="lg"
       data-testid="admin-job-detail"
+      footerStart={
+        job && waiting && isRequeuedAfterCancel(job)
+          ? 'Queued again within the hour while not fetched'
+          : undefined
+      }
       footer={
         job && (waiting || retryable) ? (
           waiting ? (
