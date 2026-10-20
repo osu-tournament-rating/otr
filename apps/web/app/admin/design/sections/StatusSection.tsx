@@ -10,6 +10,7 @@ import { FilterButton } from '@/components/kit/lists/FilterButton';
 import { Badge } from '@/components/kit/status/Badge';
 import { NotificationDot } from '@/components/kit/status/NotificationDot';
 import { NotInRatings } from '@/components/kit/status/NotInRatings';
+import { ApprovalStatusBadge } from '@/components/kit/status/ApprovalStatusBadge';
 import { ReportStatusBadge } from '@/components/kit/status/ReportStatusBadge';
 import { VerificationStatusBadge } from '@/components/kit/status/VerificationStatusBadge';
 import { VerificationStatusIcon } from '@/components/kit/status/VerificationStatusIcon';
@@ -28,6 +29,7 @@ import { formatLobbySize, formatRankRange } from '@/lib/kit/format/fields';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { formatBadgeCount } from '@/lib/kit/status/count';
+import { APPROVAL_STATUS_ORDER } from '@/lib/kit/status/approval';
 import { REPORT_STATUS_ORDER } from '@/lib/kit/status/report';
 import {
   RATINGS_GROUPS,
@@ -608,6 +610,19 @@ export default function StatusSection() {
         <Row label="States">
           {REPORT_STATUS_ORDER.map((status) => (
             <ReportStatusBadge key={status} status={status} />
+          ))}
+        </Row>
+      </Specimen>
+
+      <Specimen
+        id="status-approval-badge"
+        name="ApprovalStatusBadge"
+        importPath={`${KIT}/ApprovalStatusBadge`}
+        description="A held tournament submission's or filter request's state, for its requester and in the approval queue: a clock while it waits, then a green check or a red cross for the admin's decision."
+      >
+        <Row label="States">
+          {APPROVAL_STATUS_ORDER.map((status) => (
+            <ApprovalStatusBadge key={status} status={status} />
           ))}
         </Row>
       </Specimen>

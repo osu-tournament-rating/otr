@@ -11,6 +11,7 @@ The glyph carries the meaning and colour only reinforces it, so every status sti
 - [NotInRatings](#notinratings): the muted "Not in ratings yet" label and notice
 - [Badge](#badge): the one small label, for mods, rulesets, roles, tags and counts
 - [ReportStatusBadge](#reportstatusbadge): a data report's state
+- [ApprovalStatusBadge](#approvalstatusbadge): a held submission's or filter request's state
 - [NotificationDot](#notificationdot): the one "something new" dot
 - [CircleDashedX](#circledashedx): the Pre-rejected glyph lucide lacks
 
@@ -34,7 +35,7 @@ Gallery anchor: `/admin/design#status-sheet`
 
 ## Status copy
 
-Plain TypeScript in `@/lib/kit/status/verification`, `report`, `reasons` and `count`, with unit tests. Every status name and line on the site comes from here.
+Plain TypeScript in `@/lib/kit/status/verification`, `report`, `approval`, `reasons` and `count`, with unit tests. Every status name and line on the site comes from here.
 
 ```ts
 import {
@@ -69,6 +70,7 @@ formatBadgeCount(140); // "99+"
 - `RATING_FAQ_URL`: the Rating FAQ answer on why a tournament is not in ratings.
 - `getWarningTexts(entityType, flags)` and `getRejectionReasonTexts(entityType, reason)`: one sentence-case line per set bitflag: the entity's labels from the format family, split by its `getFlagLabels`.
 - `REPORT_STATUS_COPY` and `getReportStatusCopy(status)`: Pending, Confirmed and Dismissed, with their tones. `REPORT_STATUS_ORDER` is their order in filters and legends, such as the admin queue's status switch.
+- `APPROVAL_STATUS_COPY` and `getApprovalStatusCopy(status)`: Pending, Approved and Denied, with their tones, for held tournament submissions and filter requests. `APPROVAL_STATUS_ORDER` is their order.
 - `formatBadgeCount(count, max = 99)`: a count for a badge, with thousands separators, capped as "99+".
 
 Don't:
@@ -252,7 +254,7 @@ Props that matter:
 
 When to pick each:
 
-- Status: never by hand; use `VerificationStatusBadge` or `ReportStatusBadge`.
+- Status: never by hand; use `VerificationStatusBadge`, `ReportStatusBadge` or `ApprovalStatusBadge`.
 - Mods: `customColor` with `getModPaletteColor(mods)` and `MOD_FILL_FOREGROUND` from `@/lib/kit/color/mods` (the reviewed mod palette; every entry takes black text), or `swatch={getModPaletteColor(mods)}` beside a count. The label comes from `getBeatmapModLabel` in `@/lib/utils/mods`.
 - Tiers: `swatch={getTierColor(tierName)}` from `@/lib/kit/color/tiers`.
 - Rulesets: neutral soft with `RulesetIcon` (`className="fill-current"`) and the label from `getRulesetLabel` (`@/lib/kit/format/ruleset`): osu!, taiko, catch, mania 4K, mania 7K.
@@ -292,6 +294,24 @@ Don't:
 - Don't build a report state from `Badge` or a solid fill; My reports and the admin queue both render this component.
 
 Gallery anchor: `/admin/design#status-report-badge`
+
+## ApprovalStatusBadge
+
+Where a held request stands: a non-admin's tournament submission, or a registrant filter request held for its unknown players. Pending (clock, neutral), Approved (circled check, green) or Denied (circled cross, red), the words of the approval queue's Approve and Deny buttons. The submitter sees it under the submission form and the filter, admins in the approval queue at `/admin/approvals`.
+
+```tsx
+import { ApprovalStatusBadge } from '@/components/kit/status/ApprovalStatusBadge';
+
+<ApprovalStatusBadge status={submission.status} size="sm" />;
+```
+
+- `size` as for Badge. It has no tooltip: the name is the whole message.
+
+Don't:
+
+- Don't show a held request with `ReportStatusBadge`: its names (Confirmed, Dismissed) are a data report's.
+
+Gallery anchor: `/admin/design#status-approval-badge`
 
 ## NotificationDot
 
