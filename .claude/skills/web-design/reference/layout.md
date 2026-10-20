@@ -95,7 +95,7 @@ Props:
 - `icon`: the page's lucide icon, the one its header menu item or home card uses (Trophy for tournaments, Medal for the leaderboard, Upload for submission, ClipboardList for audit logs). It renders muted at 28px; blue is for things you can act on.
 - `title`: the page's only h1.
 - `description`: one sentence.
-- `actions`: page-level buttons. They stack full width on phones and sit on the right from `sm`.
+- `actions`: page-level buttons, or a view toggle that changes every panel on the page ([ScopeSwitch](lists.md#scopeswitch)). They stack full width on phones and sit on the right from `sm`.
 - `back`: `{ href, label }` for a page that belongs to one entity, such as its audit history. It replaces breadcrumbs.
 
 Do:

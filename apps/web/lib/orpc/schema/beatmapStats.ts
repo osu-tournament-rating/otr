@@ -237,7 +237,7 @@ export const BeatmapClosenessSummarySchema = z.object({
     .int()
     .nonnegative()
     .describe(
-      'Two-roster TeamVs games on this beatmap that are not verified at every level (tournament, match and game). A history figure only: it explains why gameCount can be small, and is never an input to any statistic in this object.'
+      'TeamVs games on this beatmap with scores from exactly two teams that are not verified at every level (tournament, match and game). A history figure only: it explains why gameCount can be small, and is never an input to any statistic in this object.'
     ),
   cohort: z
     .object({

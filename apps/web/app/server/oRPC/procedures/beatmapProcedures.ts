@@ -133,11 +133,12 @@ export const getBeatmapStats = publicProcedure
         CHARTED_SCORE_MODS_FILTER
       );
 
-      // Team Vs games the closeness summary skips, held out only by verification
+      // Team Vs games the closeness summary skips, held out only by verification.
+      // Rosters exist only for fully verified games, so teams are counted from scores
       const excludedClosenessGames = context.db
         .select({ gameId: schema.games.id })
-        .from(schema.gameRosters)
-        .innerJoin(schema.games, eq(schema.games.id, schema.gameRosters.gameId))
+        .from(schema.gameScores)
+        .innerJoin(schema.games, eq(schema.games.id, schema.gameScores.gameId))
         .innerJoin(schema.matches, eq(schema.matches.id, schema.games.matchId))
         .innerJoin(
           schema.tournaments,
@@ -151,7 +152,7 @@ export const getBeatmapStats = publicProcedure
           )
         )
         .groupBy(schema.games.id)
-        .having(sql`COUNT(*) = 2`)
+        .having(sql`COUNT(DISTINCT ${schema.gameScores.team}) = 2`)
         .as('excluded_closeness_games');
 
       const [

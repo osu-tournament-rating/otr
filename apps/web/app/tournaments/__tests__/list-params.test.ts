@@ -146,6 +146,54 @@ describe('tournament list params', () => {
     ).toEqual([Ruleset.Osu]);
   });
 
+  it('lists a search’s best matches first when no sort is chosen', () => {
+    const request = toTournamentListRequest(parse('q=OWC'), []);
+    expect(request.sort).toBe(TournamentQuerySortType.SearchQueryRelevance);
+  });
+
+  it('keeps a chosen sort for a search, end date included', () => {
+    expect(
+      toTournamentListRequest(parse('q=OWC&sort=endTime'), [])
+    ).toMatchObject({
+      sort: TournamentQuerySortType.EndTime,
+      descending: true,
+    });
+    expect(
+      toTournamentListRequest(parse('q=OWC&sort=startTime&dir=asc'), [])
+    ).toMatchObject({
+      sort: TournamentQuerySortType.StartTime,
+      descending: false,
+    });
+  });
+
+  // A direction alone in the address can only come from end date: relevance
+  // has none to write.
+  it('sorts by end date, in the address’s direction, without a search', () => {
+    expect(toTournamentListRequest(parse('dir=asc'), [])).toMatchObject({
+      sort: TournamentQuerySortType.EndTime,
+      descending: false,
+    });
+  });
+
+  // Before relevance was the default, the toolbar saved a search sorted
+  // oldest first as `q=OWC&dir=asc`.
+  it('keeps an older search link’s oldest-first end date order', () => {
+    expect(toTournamentListRequest(parse('q=OWC&dir=asc'), [])).toMatchObject({
+      searchQuery: 'OWC',
+      sort: TournamentQuerySortType.EndTime,
+      descending: false,
+    });
+  });
+
+  it('writes end date into the address once it is chosen', () => {
+    expect(
+      tournamentListHref({
+        ...parse('q=OWC'),
+        sort: { key: 'endTime', direction: 'desc' },
+      })
+    ).toBe('/tournaments?q=OWC&sort=endTime');
+  });
+
   it('sends the default sort and nothing else for a fresh list', () => {
     expect(
       toTournamentListRequest(getDefaultListState(TOURNAMENT_LIST_PARAMS), [])
@@ -174,6 +222,38 @@ describe('legacyTournamentListHref', () => {
     ).toBe(
       '/tournaments?q=Dio&sort=lobbySize&dir=asc&ruleset=0&status=4&status=0'
     );
+  });
+
+  it('reads an old relevance sort as the best matches first', () => {
+    const href = legacyTournamentListHref(
+      `searchQuery=OWC&sort=${TournamentQuerySortType.SearchQueryRelevance}`
+    );
+    expect(href).toBe('/tournaments?q=OWC');
+    expect(
+      toTournamentListRequest(parse(new URL(href!, 'http://x').search), []).sort
+    ).toBe(TournamentQuerySortType.SearchQueryRelevance);
+  });
+
+  // The old relevance sort ignored `descending`, as relevance does now.
+  it('reads an old ascending relevance sort as the best matches first', () => {
+    const href = legacyTournamentListHref(
+      `searchQuery=OWC&sort=${TournamentQuerySortType.SearchQueryRelevance}&descending=false`
+    );
+    expect(href).toBe('/tournaments?q=OWC');
+    expect(
+      toTournamentListRequest(parse(new URL(href!, 'http://x').search), []).sort
+    ).toBe(TournamentQuerySortType.SearchQueryRelevance);
+  });
+
+  it('keeps an old search’s oldest-first end date order', () => {
+    const href = legacyTournamentListHref('searchQuery=OWC&descending=false');
+    expect(href).toBe('/tournaments?q=OWC&dir=asc');
+    expect(
+      toTournamentListRequest(parse(new URL(href!, 'http://x').search), [])
+    ).toMatchObject({
+      sort: TournamentQuerySortType.EndTime,
+      descending: false,
+    });
   });
 
   it('reads `rulesets` as ruleset chips', () => {

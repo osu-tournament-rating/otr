@@ -10,6 +10,10 @@ on:
         description: 'Also build the apps; the deploy builds them into images instead'
         type: boolean
         default: true
+      base:
+        description: 'The release tag the changes job compares with; deploy.yml passes the previous release'
+        type: string
+        default: ''
     # A called workflow sees only the secrets its caller passes, so deploy.yml
     # passes these for the Docker Hub sign-ins below. Without them, CI pulls
     # anonymously.
@@ -28,10 +32,12 @@ jobs:
   # their database from the migrations and check those values. On a pull
   # request, CI checks out GitHub's trial merge of the pull request into
   # master, so comparing it with master lists exactly what the pull request
-  # changes. When deploy.yml runs CI on a push to master, the job
-  # compares master before the push with master after it. This uses plain git
-  # rather than the dorny/paths-filter action, which would need a token and add
-  # a third-party dependency.
+  # changes. When deploy.yml runs CI on a push to master, the job compares the
+  # push with the previous release, which is what the release ships. A deploy
+  # run that a newer merge cancelled, or that failed, released nothing, so the
+  # next run checks its changes too. This uses plain git rather than the
+  # dorny/paths-filter action, which would need a token and add a third-party
+  # dependency.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -41,7 +47,7 @@ jobs:
       replay: ${{ steps.diff.outputs.replay }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Also fetches the master commit that a pull request is compared with.
           fetch-depth: 2
@@ -50,16 +56,16 @@ jobs:
         id: diff
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
+          BASE: ${{ inputs.base }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base=HEAD^1
-          elif [[ -n "$BEFORE" && ! "$BEFORE" =~ ^0+$ ]] &&
-            git fetch --quiet --depth=1 origin "$BEFORE"; then
-            base="$BEFORE"
+          elif [[ "$BASE" =~ ^[A-Za-z0-9._-]+$ ]] &&
+            git fetch --quiet --depth=1 --no-tags origin "refs/tags/$BASE:refs/tags/$BASE"; then
+            base="refs/tags/$BASE"
           else
-            # No commit to compare the push with, so run the processor, docs,
+            # No release to compare the push with, so run the processor, docs,
             # scripts, and replay jobs.
             printf '%s\n' processor=true docs=true scripts=true replay=true | tee -a "$GITHUB_OUTPUT"
             exit 0
@@ -101,15 +107,15 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.x
 
       - name: Cache bun install store
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.bun/install/cache
           key: bun-store-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -121,7 +127,7 @@ jobs:
 
       - name: Cache type-check results
         if: matrix.task == 'typecheck'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: tsconfig.tsbuildinfo
           key: tsc-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ github.sha }}
@@ -131,7 +137,7 @@ jobs:
 
       - name: Cache lint results
         if: matrix.task == 'lint'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             apps/web/node_modules/.cache/eslint
@@ -147,7 +153,7 @@ jobs:
       # can sign in, and a service's credentials cannot be left empty.
       - name: Log in to Docker Hub
         if: matrix.task == 'test' && env.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -197,15 +203,15 @@ jobs:
       DATABASE_URL: postgresql://dummy:dummy@127.0.0.1:5432/dummy
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.x
 
       - name: Cache bun install store
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.bun/install/cache
           key: bun-store-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -213,7 +219,7 @@ jobs:
             bun-store-${{ runner.os }}-
 
       - name: Cache Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: apps/web/.next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/web/**/*.[jt]s', 'apps/web/**/*.[jt]sx') }}
@@ -242,33 +248,34 @@ jobs:
       # Secrets cannot appear in `if:`, so the Docker Hub sign-in checks this.
       # It is empty on pull requests from forks, which then pull anonymously.
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      # The settings the toolchain action used to make: no incremental builds,
+      # which the cache cannot reuse, and colored output.
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      # rustfmt.toml uses unstable options.
-      - name: Set up nightly rustfmt
-        if: matrix.task == 'fmt'
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-
-      # The action makes its toolchain the rustup default, which
-      # rust-toolchain.toml overrides in this directory, so install the pinned
-      # toolchain itself rather than whatever stable is current.
-      - name: Read pinned toolchain
-        id: toolchain
-        if: matrix.task != 'fmt'
-        run: |
-          channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
-          echo "channel=${channel:?no channel in rust-toolchain.toml}" >> "$GITHUB_OUTPUT"
-
+      # The runners come with rustup, so this needs no third-party action.
+      # rustfmt.toml uses unstable options, so fmt runs nightly rustfmt. The
+      # other tasks run the toolchain rust-toolchain.toml pins, which cargo
+      # picks in this directory, so that is the one installed rather than
+      # whatever stable is current.
       - name: Set up Rust
-        if: matrix.task != 'fmt'
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.toolchain.outputs.channel }}
-          components: ${{ matrix.task == 'clippy' && 'clippy' || '' }}
+        env:
+          TASK: ${{ matrix.task }}
+        run: |
+          set -euo pipefail
+          if [[ "$TASK" == fmt ]]; then
+            rustup toolchain install nightly --profile minimal --component rustfmt \
+              --allow-downgrade --no-self-update
+          else
+            channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+            components=()
+            if [[ "$TASK" == clippy ]]; then components=(--component clippy); fi
+            rustup toolchain install "${channel:?no channel in rust-toolchain.toml}" \
+              --profile minimal "${components[@]}" --no-self-update
+          fi
 
       - name: Show toolchain
         run: |
@@ -282,7 +289,7 @@ jobs:
       # image build below for why.
       - name: Cache cargo
         if: matrix.task != 'fmt'
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: apps/processor
           # Matrix entries share a job id, so keep clippy and test apart.
@@ -294,7 +301,7 @@ jobs:
       # the credentials this writes to ~/.docker/config.json.
       - name: Log in to Docker Hub
         if: matrix.task == 'test' && env.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -340,19 +347,19 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The Dockerfile's base images come from Docker Hub, and so does the
       # BuildKit image that setting up Buildx pulls, so this signs in first.
       - name: Log in to Docker Hub
         if: env.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # Checks the image builds and starts without pushing it. Pull requests
       # read the caches master saves but write none of their own: the
@@ -360,7 +367,7 @@ jobs:
       # The deploy saves every stage, so a pull request that changes only the
       # processor's source reuses the cached dependency layer.
       - name: Build processor image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: apps/processor
           file: apps/processor/Dockerfile
@@ -387,7 +394,7 @@ jobs:
         working-directory: apps/docs
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Lint markdown
         run: npx --yes markdownlint-cli2@0.17.2 '*.md'
@@ -405,25 +412,25 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The Dockerfile's base image comes from Docker Hub, and so does the
       # BuildKit image that setting up Buildx pulls, so this signs in first.
       - name: Log in to Docker Hub
         if: env.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # Building the image builds the site, so a page Quartz cannot render
       # fails here. Reads the cache the deploy saves and writes none, as the
       # processor image above explains.
       - name: Build docs image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: apps/docs
           file: apps/docs/Dockerfile
@@ -455,10 +462,10 @@ jobs:
         working-directory: apps/scripts
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           python-version: '3.14'
 
@@ -490,10 +497,10 @@ jobs:
         working-directory: apps/replay
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           python-version: '3.14'
 
