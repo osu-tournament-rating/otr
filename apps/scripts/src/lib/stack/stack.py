@@ -46,6 +46,16 @@ COMPONENTS = ("web", "worker", "monitoring")
 TEST_DATABASE = "otr_test"
 MIGRATIONS = Path("apps") / "web" / "drizzle"
 
+# Settings only the stack's web app gets, kept out of the worktree's .env,
+# which Bun also loads into `bun test`.
+WEB_ONLY_ENV = {
+    # Sends osu! sign-in to the fake osu! server the e2e suite starts
+    # (FAKE_OSU_URL in apps/web/e2e/fixtures/fake-osu.ts), so the suite's
+    # sign-in specs run against the stack. The unit tests fake osu! their own
+    # way, which this would bypass.
+    "E2E_OSU_URL": "http://localhost:3002",
+}
+
 
 def stacks_root() -> Path:
     if override := os.environ.get("OTR_STACKS_DIR"):
@@ -296,6 +306,14 @@ def reset_web_cache(worktree: Path) -> None:
     shutil.rmtree(worktree / "apps" / "web" / ".next" / "dev", ignore_errors=True)
 
 
+def process_settings(
+    process: str, managed: dict[str, str | None]
+) -> dict[str, str | None]:
+    """The settings otr gives `process`: the .env block's, plus the web app's
+    own. A running process restarts when these change."""
+    return {**managed, **WEB_ONLY_ENV} if process == "web" else managed
+
+
 def start_process(stack: Stack, process: str, managed: dict[str, str | None]) -> None:
     ports = stack.ports
     if process == "web":
@@ -311,12 +329,13 @@ def start_process(stack: Stack, process: str, managed: dict[str, str | None]) ->
 
     print(f"otr: starting {process}")
     log = stack.log(process)
+    settings = process_settings(process, managed)
     record = procs.start(
         stack.record(process),
         argv,
         cwd,
-        process_env(managed),
-        procs.env_digest(managed),
+        process_env(settings),
+        procs.env_digest(settings),
         log,
     )
     try:
@@ -330,9 +349,9 @@ def sync_processes(
 ) -> None:
     """Starts each wanted process that is not running, and restarts any running
     one whose settings changed, such as when monitoring comes or goes."""
-    digest = procs.env_digest(managed)
     for process in PROCESSES:
         record = procs.load(stack.record(process))
+        digest = procs.env_digest(process_settings(process, managed))
         if record and record.env != digest:
             print(f"otr: restarting {process} with the new settings")
             procs.stop(stack.record(process))

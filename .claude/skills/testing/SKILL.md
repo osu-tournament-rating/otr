@@ -160,9 +160,16 @@ Each of these passes while the code it names is broken:
 The Playwright suite runs nightly on `master` in `e2e-tests.yml`, against the
 redacted dev archive, and by hand on any branch through `workflow_dispatch`. It
 runs on no pull request, so run the specs you change yourself, from
-`apps/web` with your stack up: `bun run test:e2e <spec>`. It serves the site on port 3001 and a fake osu!
-server on 3002. If another worktree already serves on those ports, the run
-tests that worktree's site instead, so stop it first.
+`apps/web` with your stack up: `bun run test:e2e <spec>`. It builds the site
+and serves it on port 3001, as the nightly run does, and starts a fake osu!
+server on 3002. If another worktree already serves on port 3001, the run tests
+that worktree's site instead, so stop it first, or run against your stack's
+own site with `E2E_BASE_URL=<the stack's web URL> bun run test:e2e <spec>`.
+The fake osu! server keeps no state, so worktrees can share it, and a stack
+sends osu! sign-in to it. A stack's site is a dev server, which compiles each
+page on its first visit and hydrates later than a build, so a spec that fails
+only there may still be waiting on the wrong thing; check it against the
+build before you call it the site's fault.
 
 - Check the outcome the test's name promises, such as results narrowed, a row
   saved, or a 403 returned. A URL change or a page that renders is not enough.

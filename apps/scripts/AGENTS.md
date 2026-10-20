@@ -126,7 +126,10 @@ without syncing the venv. It refuses to run in the main checkout.
 - Each `up` runs `bun install --frozen-lockfile` and the worktree's pending
   migrations. The web app and worker run on the host from the worktree's code,
   in their own process groups, and the web app starts without the dev cache
-  an earlier start left. Monitoring (`grafana/otel-lgtm`) runs in the
+  an earlier start left. The web app alone also gets `E2E_OSU_URL`, which
+  sends osu! sign-in to the e2e suite's fake osu! server; it stays out of the
+  `.env`, which Bun loads into `bun test`, whose sign-in tests fake osu!
+  their own way. Monitoring (`grafana/otel-lgtm`) runs in the
   stack's Compose project, from `src/lib/stack/compose.yml`.
 - Each `up` also creates the empty `otr_test` database beside the copy when
   it is missing, and migrates it from a temporary copy of the migrations with

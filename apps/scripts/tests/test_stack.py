@@ -134,6 +134,68 @@ def test_managed_env_escapes_credentials_and_toggles_tracing(tmp_path):
     assert off["PLAYER_OSU_AUTO_REFETCH_ENABLED"] == "false"
 
 
+def test_only_the_web_app_sends_osu_sign_in_to_the_e2e_suites_fake_osu(
+    tmp_path, monkeypatch
+):
+    fixture = (
+        Path(__file__).resolve().parents[2] / "web/e2e/fixtures/fake-osu.ts"
+    ).read_text()
+    port = re.search(r"FAKE_OSU_PORT = (\d+);", fixture).group(1)
+    fake_osu = re.search(r"FAKE_OSU_URL = `(.+)`;", fixture).group(1)
+    fake_osu = fake_osu.replace("${FAKE_OSU_PORT}", port)
+    entry = stack.Stack(tmp_path / "stacks", "otr-wt-123456", tmp_path / "wt", 1)
+    envs = {}
+
+    def start(record, argv, cwd, env, digest, log):
+        envs[record.stem] = env
+        return procs.Record(1, 1, digest)
+
+    monkeypatch.delenv("E2E_OSU_URL", raising=False)
+    monkeypatch.setattr(stack.procs, "start", start)
+    monkeypatch.setattr(stack.procs, "wait_healthy", lambda *args: None)
+    managed = stack.managed_env(entry, CREDS, monitoring=False)
+
+    stack.start_process(entry, "web", managed)
+    stack.start_process(entry, "worker", managed)
+
+    assert envs["web"]["E2E_OSU_URL"] == fake_osu
+    assert "E2E_OSU_URL" not in envs["worker"]
+    # Bun loads the .env into `bun test`, whose sign-in tests fake osu! alone.
+    assert "E2E_OSU_URL" not in managed
+
+
+def test_a_running_web_app_restarts_when_its_own_settings_change(tmp_path, monkeypatch):
+    entry = stack.Stack(tmp_path / "stacks", "otr-wt-123456", tmp_path / "wt", 1)
+    managed = stack.managed_env(entry, CREDS, monitoring=False)
+    records, events = {}, []
+
+    def start(record, argv, cwd, env, digest, log):
+        events.append(("start", record.stem, env.get("E2E_OSU_URL")))
+        records[record.stem] = procs.Record(1, 1, digest)
+        return records[record.stem]
+
+    def stop(record):
+        events.append(("stop", record.stem))
+        return records.pop(record.stem, None) is not None
+
+    monkeypatch.setattr(stack.procs, "start", start)
+    monkeypatch.setattr(stack.procs, "stop", stop)
+    monkeypatch.setattr(stack.procs, "load", lambda record: records.get(record.stem))
+    monkeypatch.setattr(stack.procs, "wait_healthy", lambda *args: None)
+    monkeypatch.setattr(stack, "WEB_ONLY_ENV", {"E2E_OSU_URL": "http://old"})
+    stack.sync_processes(entry, managed, {"web", "worker"})
+    events.clear()
+
+    monkeypatch.setattr(stack, "WEB_ONLY_ENV", {"E2E_OSU_URL": "http://new"})
+    stack.sync_processes(entry, managed, {"web", "worker"})
+    restarted = list(events)
+    events.clear()
+    stack.sync_processes(entry, managed, {"web", "worker"})
+
+    assert restarted == [("stop", "web"), ("start", "web", "http://new")]
+    assert events == []
+
+
 def test_managed_env_blanks_the_beatmap_files_bucket(tmp_path, monkeypatch):
     monkeypatch.setenv("BEATMAP_FILES_BUCKET", "otr-beatmaps")
     entry = stack.Stack(tmp_path, "otr-a-123456", Path("/w/a"), 1)
