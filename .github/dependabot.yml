@@ -1,0 +1,23 @@
+# Keeps the actions in .github/workflows current. Each one is pinned to a
+# commit, with its version in a comment, because a tag can be moved to other
+# code, and several of these jobs hold the Docker Hub push token or the
+# credentials that reach the production host. Dependabot reads the comment and
+# moves the commit and the comment together.
+#
+# Minor and patch updates arrive together in one weekly pull request. A major
+# version arrives in a pull request of its own, since it can change what the
+# action expects.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
+    labels: ['meta:ops']
