@@ -87,8 +87,9 @@ worker defers osu! fetches.
   app, with no data worker. Most previews share the dev tier's database, so
   their writes land in shared data. A PR that adds migrations gets its own
   copy.
-- The dev tier is a shared environment, restored nightly from a redacted copy of
-  production.
+- The dev tier is a shared environment, restored nightly from the newest
+  redacted copy of production. `dev-archive.yml` makes a new copy every
+  Wednesday.
 - Dev tier `deploy` and nightly runs install `scripts/preview` on the dev host
   from `master`, and previews use that copy. A merge that changes
   `scripts/preview` or `docker-compose-dev.yml` runs the `deploy` action by

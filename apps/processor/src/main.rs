@@ -3,7 +3,7 @@ use otr_processor::{
     args::{first_env, unset_blank_env, Args, ARGS_ENV_VARS, DATABASE_URL_VARS},
     database::db::DbClient,
     model::{otr_model::OtrModel, rating_utils::create_initial_ratings},
-    utils::test_utils::generate_country_mapping_players
+    utils::country_mapping::build_country_mapping
 };
 use std::{
     collections::{BTreeSet, HashMap},
@@ -70,7 +70,7 @@ async fn main() {
         info!("Initial ratings generated.");
 
         // 4. Generate country mapping and set
-        let country_mapping: HashMap<i32, String> = generate_country_mapping_players(&players);
+        let country_mapping: HashMap<i32, String> = build_country_mapping(&players);
         info!("Country mapping generated.");
 
         // 5. Create the model

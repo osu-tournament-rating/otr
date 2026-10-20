@@ -16,6 +16,7 @@ import { PlayerRefetchScheduler } from '../player-refetch-scheduler';
 const url = process.env.SEARCH_TEST_DATABASE_URL;
 
 const FALLBACK_DAYS = 14;
+const UNRATED_DAYS = 30;
 
 const daysAgo = (days: number) =>
   new Date(Date.now() - days * 86_400_000).toISOString();
@@ -144,7 +145,14 @@ const seed: SeededPlayer[] = [
     ratings: [[Ruleset.Osu, 50000]],
     expected: FALLBACK_DAYS,
   },
-  { osuId: 999_300_008, lastFetch: 20, ratings: [], expected: FALLBACK_DAYS },
+  // Unrated players wait UNRATED_DAYS, not the fallback.
+  { osuId: 999_300_008, lastFetch: 20, ratings: [], expected: null },
+  {
+    osuId: 999_300_021,
+    lastFetch: 31,
+    ratings: [],
+    expected: UNRATED_DAYS,
+  },
   {
     osuId: 999_300_009,
     lastFetch: 4,
@@ -277,6 +285,7 @@ describe.skipIf(!url)('osu! auto-refetch tiers', () => {
           enabled: true,
           intervalMinutes: 30,
           outdatedDays: FALLBACK_DAYS,
+          unratedDays: UNRATED_DAYS,
         },
         osuTrack: { enabled: false, intervalMinutes: 30, outdatedDays: 60 },
       },
@@ -542,7 +551,12 @@ describe.skipIf(!url)('auto-refetch fetch leases', () => {
       db: db as unknown as DatabaseClient,
       logger: silentLogger,
       config: {
-        osu: { enabled: true, intervalMinutes: 30, outdatedDays: 14 },
+        osu: {
+          enabled: true,
+          intervalMinutes: 30,
+          outdatedDays: 14,
+          unratedDays: 30,
+        },
         osuTrack: { enabled: true, intervalMinutes: 30, outdatedDays: 60 },
       },
     });

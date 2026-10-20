@@ -1,38 +1,48 @@
-The o!TR platform relies on multiple projects and technologies to function. These projects were recently overhauled to incorporate [queueing](https://en.wikipedia.org/wiki/Message_queue). This is a very important aspect of our architecture to be aware of in order to understand how data flows throughout the system.
+The o!TR platform is made of several applications that share one PostgreSQL database. The applications never call each other directly. Each one reads and writes the database, and background work passes between them as rows in its `jobs` table, so following those jobs is the key to understanding how data flows through the system.
 
-This section details the high-level architecture of the platform and each software project. To skip straight to development, jump to the [[Development/Development Guide|development guide]].
+This page details the high-level architecture of the platform and each application. To skip straight to development, jump to the [[Development/Development Guide|development guide]].
 
-### Queueing
+## Background Jobs
 
-Here are a few scenarios that showcase exactly how data flows across applications using a message broker (powered by [RabbitMQ](https://www.rabbitmq.com/)).
+The data worker runs every background job. Each job is a row in the `jobs` table, in one of these queues:
 
-#### Tournament submission
+- `data.osu` fetches matches, beatmaps, players, and forum topics from the osu! API.
+- `data.osutrack` fetches a player's rank history from osu!track.
+- `processing.checks.tournaments` runs [[Automated Checks|automated checks]] for a tournament.
+- `processing.stats.tournaments` calculates a tournament's stats.
+- `processing.attributes.beatmaps` stores a beatmap's file and calculates its [[#Beatmap files and attributes|difficulty attributes]].
 
-1. An admin submits a tournament.
-2. The web backend enqueues messages for each osu! beatmap and match ID provided, and for the forum topic when the forum URL links to one.
-3. The queues `data.osu.matches` and `data.osu.beatmaps` are now populated, so the data worker activates to empty these queues by fetching data from the osu! API.
-4. Once all queues are empty, the data worker enqueues a message to `processing.checks.tournaments` to run automated checks for that tournament.
-5. The `processing.checks.tournaments` queue sees a new message and runs automated checks for the tournament.
+A job is queued in the same transaction that saves the data it needs, so the two are saved together or not at all. Jobs with a higher priority run first, which keeps admin requests and submissions ahead of background refreshes. A repeated request for work that is already queued or running merges into the existing job, except in `processing.stats.tournaments`: duplicate stats jobs are harmless, since each one rewrites the tournament's stats. A failed job is retried after about 1 minute, 5 minutes, 30 minutes, and 2 hours, then marked failed. Finished jobs are deleted after 14 days. Since jobs are stored in the database, none are lost while the data worker is down, and it resumes where it left off when it restarts.
 
-#### Resetting automated checks
+### Tournament submission
 
-1. Admin clicks button to reset automated checks for a tournament.
-2. The web backend enqueues a message to reset automated checks for the tournament.
-3. Automated checks are reset by the `processing.checks.tournaments` queue consumer (data worker).
+1. A user submits a tournament.
+1. In the transaction that saves the tournament, the web backend queues a `data.osu` job for each osu! match and beatmap ID provided, and for the forum topic when the forum URL links to one.
+1. The data worker fetches each of them from the osu! API.
+1. Once every match and beatmap of the tournament is fetched, the data worker queues a `processing.checks.tournaments` job.
+1. The data worker runs automated checks for the tournament, marking its data `PreVerified` or `PreRejected`.
 
-Thus, a pattern emerges. Usually, the web backend publishes new queue messages, but the great thing about queues is that anyone can publish a new queue message. This means the processor can publish queue messages to regenerate stats after generating ratings for all tournaments. Another benefit is that the queue will always be live, so even if the data worker goes down, it will resume where it left off upon restart.
+### Resetting automated checks
 
-### Web application
+1. An admin resets automated checks for a tournament.
+1. The web backend queues a `processing.checks.tournaments` job for the tournament.
+1. The data worker runs automated checks for the tournament again.
+
+### Weekly rating run
+
+1. The [[#Processor|processor]] rebuilds every rating in one transaction.
+1. In the same transaction, it queues a `processing.stats.tournaments` job for each tournament whose stats need a refresh.
+1. Once the ratings are saved, the data worker calculates those tournaments' stats.
+
+## Web Application
 
 The web application, located under `otr/apps/web`, is both the public-facing site and our API layer. It runs on [Next.js](https://nextjs.org/) using Bun and features server-side rendered pages, oRPC procedures, and auth management via BetterAuth.
 
-### Data worker
+## Data Worker
 
-The data worker lives under `otr/apps/data-worker`. This Bun-based application consumes and publishes [RabbitMQ](https://www.rabbitmq.com/) messages to fetch external osu! data, generate statistics, and run all [[Automated Checks|automated checks]]. It relies on queues to know when to fetch data, what data to fetch, and which tournaments need stats or automated checks to be processed.
+The data worker lives under `otr/apps/data-worker`. This Bun-based application runs the jobs in the `jobs` table: it fetches external osu! and osu!track data, calculates statistics and beatmap attributes, and runs all [[Automated Checks|automated checks]]. It also queues jobs of its own, such as a tournament's automated checks once its data is fetched, and scheduled refreshes of player data.
 
-Further, it natively supports message queue priority. The platform utilizes priority queues to separate background data fetching from manual data fetching requests. This means admin actions and user submissions are always handled as fast as possible.
-
-#### Beatmap files and attributes
+### Beatmap files and attributes
 
 Each time the data worker fetches a beatmap, it queues a `processing.attributes.beatmaps` job. The job stores the beatmap's `.osu` file, downloaded from `https://osu.ppy.sh/osu/{id}`, and calculates difficulty attributes from it with [rosu-pp-js](https://github.com/MaxOhn/rosu-pp-js). Files are stored for every ruleset, but attributes are calculated only for osu! standard beatmaps.
 
@@ -45,7 +55,7 @@ Each time the data worker fetches a beatmap, it queues a `processing.attributes.
 - `ar` and `od` include the speed change of `DT`. `cs` and `hp` change only with `EZ` and `HR`.
 - Values follow the osu! difficulty algorithm of the pinned rosu-pp-js release, which can lag behind the star rating osu! shows. The `NM` row can therefore differ from `beatmaps.sr`, which comes from the osu! API. The `calculator` column names the release that produced each row.
 - o!TR fetches a beatmap once, unless someone refetches it, and the job stores the file osu! serves at that time. The backfill stores the current file, even for beatmaps from old matches, so a stored file can be newer than the version that was played. A refetch downloads the file again when osu! reports a new checksum.
-- When a download gives no usable file but an older file is stored, the job calculates from the stored file. A refusal, an HTML page, or a server error from osu! fails the job, so the queue retries it.
+- When a download gives no usable file but an older file is stored, the job calculates from the stored file. A refusal, an HTML page, or a server error from osu! fails the job, so the queue retries it. A response the data worker cannot parse, such as one whose file name holds control characters from the difficulty name, fails the job too, until the third in a row for that beatmap counts as an unusable file.
 - A beatmap without a usable stored file, because osu! never served one or the calculator rejects it, has no attributes until a refetch gets a usable file. The calculator rejects maps that rosu-pp-js flags as suspicious, and maps whose slider curves would take too long to calculate.
 
 Every 10 minutes, when the queue is empty, the data worker queues up to 1,000 low-priority jobs, so jobs from beatmap fetches go first. It picks osu! standard beatmaps whose attributes are missing or came from another calculator, then fetched beatmaps in a game or mappool that have no stored file yet. This sweep is the backfill, and it also adds rows for mods that newly verified games played. Once it finds no beatmap that needs attributes, it looks again only after an hour. A failed sweep job is not retried, because the next sweep finds the beatmap again.
@@ -58,7 +68,7 @@ To roll out a star rating change once rosu-pp-js releases it:
 
 Files the calculator rejected keep `fetch_status` 4 (Error) and are not recalculated. To try them with the new release, set `fetch_status` to 2 (Fetched) on the `beatmap_files` rows that have a checksum, and the sweep picks them up.
 
-#### Tournament forum posts
+### Tournament forum posts
 
 The data worker stores the BBCode of each tournament's forum post in `tournament_forum_posts`, one row per osu! forum topic. It fetches the topic from `https://osu.ppy.sh/api/v2/forums/topics/{topic}` and keeps only the opening post, with the topic title and the post's last edit time. Each tournament links to its row through `tournaments.forum_post_id`, and tournaments that share a topic share a row. A tournament whose forum URL is a wiki page has no row.
 
@@ -69,9 +79,9 @@ The data worker stores the BBCode of each tournament's forum post in `tournament
 - Organizers' later edits to a post are not picked up until the topic is fetched again.
 - `forum_post_id` is left out of tournament audits, because the worker derives it from the audited `forum_url`.
 
-### Processor
+## Processor
 
-The processor, located under `otr/apps/processor`, is a [Rust](https://www.rust-lang.org/) CLI tool. A cron job on the production host runs it [[Rating Calculation Overview#Rating update schedule|once a week]], on Tuesdays at 12:00 UTC. It looks at all verified tournament data and builds a rating network from individual match data by utilizing OpenSkill[^1], an open-source multiplayer rating algorithm ([source code](https://crates.io/crates/openskill)). For each game the processor hasn't processed before, placements for the game's scores are stored in the `game_scores` table.
+The processor, located under `otr/apps/processor`, is a [Rust](https://www.rust-lang.org/) CLI tool. A cron job on the production host runs it [[Rating Calculation Overview#Rating update schedule|once a week]], on Tuesdays at 12:00 UTC. It looks at all verified tournament data and builds a rating network from individual match data by utilizing OpenSkill[^1], an open-source multiplayer rating algorithm ([source code](https://crates.io/crates/openskill)). Every run rebuilds all ratings from scratch in one transaction. It first recalculates the placement of every score in every game, stored in the `game_scores` table, and finally queues the stats jobs described in [[#Weekly rating run|weekly rating run]].
 
 Processor releases up to `2026.08.16` were published from the [otr-processor](https://github.com/osu-tournament-rating/otr-processor) repository; later processor releases are [otr releases](https://github.com/osu-tournament-rating/otr/releases) that changed the processor. The [[Processor Changelog|processor changelog]] records them.
 

@@ -1,6 +1,5 @@
-import { and, asc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lt, ne, or } from 'drizzle-orm';
 import { MessagePriority } from '@otr/core';
-import { Ruleset } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { enqueueJob, JobQueue } from '@otr/core/jobs';
@@ -12,6 +11,11 @@ import {
   type PlayerFetchSource,
   type PlayerFetchState,
 } from '../osu/player-store';
+import {
+  fetchLeaseCutoff,
+  selectPlayersDueForOsuRefetch,
+  type OsuRefetchCadence,
+} from './osu-refetch-cadence';
 
 type Transaction = Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
 
@@ -22,30 +26,12 @@ type AutoRefetchConfig = {
 };
 
 type SchedulerConfig = {
-  osu: AutoRefetchConfig;
+  osu: AutoRefetchConfig & OsuRefetchCadence;
   osuTrack: AutoRefetchConfig;
 };
 
 const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 86_400_000;
-
-// A Fetching player whose lease started longer ago than this is enqueued again.
-// It must outlast the longest queue wait: at 60 osu! requests a minute, four
-// per player, refetching every player once takes about five days.
-const FETCH_LEASE_DAYS = 7;
-
-// Ceilings on player_ratings.global_rank; `maxRank: null` matches any rank.
-const REFETCH_TIERS = {
-  osu: [
-    { maxRank: 500, days: 1 },
-    { maxRank: 5000, days: 3 },
-    { maxRank: 20000, days: 7 },
-  ],
-  otherRulesets: [
-    { maxRank: 500, days: 1 },
-    { maxRank: null, days: 7 },
-  ],
-} as const;
 
 type IntervalHandle = ReturnType<typeof setInterval> | null;
 
@@ -155,39 +141,10 @@ export class PlayerRefetchScheduler {
   }
 
   private async runOsuRefetch() {
-    const cadenceDays = this.buildCadenceExpression(
-      this.config.osu.outdatedDays
+    const players = await selectPlayersDueForOsuRefetch(
+      this.db,
+      this.config.osu
     );
-
-    const players = await this.db
-      .select({
-        osuPlayerId: schema.players.osuId,
-        cadenceDays,
-        status: schema.players.dataFetchStatus,
-        lastFetch: schema.players.osuLastFetch,
-      })
-      .from(schema.players)
-      .leftJoin(
-        schema.playerRatings,
-        eq(schema.playerRatings.playerId, schema.players.id)
-      )
-      .groupBy(schema.players.id)
-      .having(
-        or(
-          and(
-            ne(schema.players.dataFetchStatus, DataFetchStatus.Fetching),
-            sql`${schema.players.osuLastFetch} < now() - (${cadenceDays} * interval '1 day')`
-          ),
-          and(
-            eq(schema.players.dataFetchStatus, DataFetchStatus.Fetching),
-            lt(
-              schema.players.osuLastFetch,
-              this.calculateCutoff(FETCH_LEASE_DAYS)
-            )
-          )
-        )
-      )
-      .orderBy(asc(cadenceDays), asc(schema.players.osuLastFetch));
 
     const enqueuedByCadence = new Map<number, number>();
 
@@ -219,29 +176,6 @@ export class PlayerRefetchScheduler {
     }
   }
 
-  private buildCadenceExpression(fallbackDays: number) {
-    // Inlined as literals so postgres types them as integers rather than text parameters.
-    const literal = (value: number) => sql.raw(String(Math.trunc(value)));
-
-    const branch = (
-      rulesetMatch: ReturnType<typeof sql>,
-      tier: { maxRank: number | null; days: number }
-    ) =>
-      tier.maxRank === null
-        ? sql`when ${rulesetMatch} then ${literal(tier.days)}`
-        : sql`when ${rulesetMatch} and ${schema.playerRatings.globalRank} <= ${literal(tier.maxRank)} then ${literal(tier.days)}`;
-
-    const isOsu = sql`${schema.playerRatings.ruleset} = ${literal(Ruleset.Osu)}`;
-    const isNotOsu = sql`${schema.playerRatings.ruleset} <> ${literal(Ruleset.Osu)}`;
-
-    const branches = [
-      ...REFETCH_TIERS.osu.map((tier) => branch(isOsu, tier)),
-      ...REFETCH_TIERS.otherRulesets.map((tier) => branch(isNotOsu, tier)),
-    ];
-
-    return sql<number>`coalesce(min(case ${sql.join(branches, sql` `)} else ${literal(fallbackDays)} end), ${literal(fallbackDays)})`;
-  }
-
   private async runOsuTrackRefetch() {
     const cutoffIso = this.calculateCutoff(this.config.osuTrack.outdatedDays);
     const players = await this.db
@@ -266,10 +200,7 @@ export class PlayerRefetchScheduler {
               schema.players.osuTrackDataFetchStatus,
               DataFetchStatus.Fetching
             ),
-            lt(
-              schema.players.osuTrackLastFetch,
-              this.calculateCutoff(FETCH_LEASE_DAYS)
-            )
+            lt(schema.players.osuTrackLastFetch, fetchLeaseCutoff())
           )
         )
       )

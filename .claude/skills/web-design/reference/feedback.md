@@ -30,6 +30,8 @@ Import each component from its own file under `@/components/kit/feedback/`; the 
 | The result of an action (saved, deleted, could not save)   | a toast (`toast` from `sonner`), not a callout                                                                                                                                                                    |
 | The site has been updated since the tab loaded             | `SiteUpdatedToast`, already in the root layout: a pill centred at the bottom whose Reload icon turns every few seconds (`motion-safe:animate-spin-pause`). It cannot be dismissed and stays until the tab reloads |
 
+A save reports its result with `saveToast()` and `errorSaveToast(error)` from `@/lib/utils/toasts`. Pass the error: when the server refused the save (invalid input, an expired session, a page from an older release, the maintenance window), the toast shows the server's reason. A server error or a lost connection shows the generic failure.
+
 Sizes for empty and error states, by container:
 
 - `regular`: the main content of a panel (a list, a table, the whole section). It is at least 288px tall, so a panel keeps its weight.

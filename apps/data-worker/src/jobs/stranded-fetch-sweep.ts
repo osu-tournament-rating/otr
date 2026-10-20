@@ -1,7 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { MessagePriority } from '@otr/core';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import { enqueueJobs, JobQueue, JobStatus } from '@otr/core/jobs';
+import {
+  beatmapFetchKeysSql,
+  enqueueJobs,
+  JobQueue,
+  JobStatus,
+  matchFetchKeySql,
+} from '@otr/core/jobs';
 import { isWithinMaintenanceWindow } from '@otr/core/maintenance';
 import { withoutTracing } from '@otr/core/tracing';
 
@@ -23,14 +29,21 @@ interface StrandedFetchSweepOptions {
   db: Pick<DatabaseClient, 'execute'>;
   logger: Logger;
   maintenanceWindowEnabled: boolean;
+  /**
+   * Also queue players left Fetching with no job. Follows automatic player
+   * refetching, which is off on stacks and developer machines: their players
+   * are copied from production without the jobs, so every Fetching player
+   * there looks stranded.
+   */
+  players: boolean;
   now?: () => Date;
 }
 
 /**
  * Hourly: queues a fetch for every match and beatmap still waiting to be
- * fetched with no job to do it, such as one whose queue message was lost
- * before the move to the jobs table. Low priority, so a backlog waits behind
- * new submissions.
+ * fetched, and every player still Fetching, with no job to do it, such as one
+ * whose queue message was lost before the move to the jobs table. Low
+ * priority, so a backlog waits behind new submissions.
  */
 export class StrandedFetchSweep {
   private readonly options: StrandedFetchSweepOptions;
@@ -69,15 +82,15 @@ export class StrandedFetchSweep {
     return this.inFlight;
   }
 
-  /** Returns how many matches and beatmaps it queued. */
-  async run(): Promise<{ matches: number; beatmaps: number }> {
+  /** Returns how many matches, beatmaps, and players it queued. */
+  async run(): Promise<{ matches: number; beatmaps: number; players: number }> {
     const {
       db,
       maintenanceWindowEnabled,
       now = () => new Date(),
     } = this.options;
     if (maintenanceWindowEnabled && isWithinMaintenanceWindow(now())) {
-      return { matches: 0, beatmaps: 0 };
+      return { matches: 0, beatmaps: 0, players: 0 };
     }
 
     const unfinished = sql`(${DataFetchStatus.NotFetched}, ${DataFetchStatus.Fetching})`;
@@ -90,19 +103,32 @@ export class StrandedFetchSweep {
       SELECT m.osu_id, m.is_lazer, m.tournament_id
       FROM matches m
       WHERE m.data_fetch_status IN ${unfinished}
-        AND NOT ${activeOsuJob(sql`'match:' || m.osu_id || ':' || CASE WHEN m.is_lazer THEN 'lazer' ELSE 'stable' END`)}
+        AND NOT ${activeOsuJob(matchFetchKeySql(sql`m.osu_id`, sql`m.is_lazer`))}
       ORDER BY m.id
       LIMIT ${BATCH_SIZE}`);
 
+    const [withChecks, withoutChecks] = beatmapFetchKeysSql(sql`b.osu_id`);
     const { rows: beatmaps } = await db.execute<{ osu_id: string }>(sql`
       SELECT b.osu_id
       FROM beatmaps b
       WHERE b.data_fetch_status IN ${unfinished}
         AND NOT b.manual_override
-        AND NOT ${activeOsuJob(sql`'beatmap:' || b.osu_id`)}
-        AND NOT ${activeOsuJob(sql`'beatmap:' || b.osu_id || ':nochecks'`)}
+        AND NOT ${activeOsuJob(withChecks)}
+        AND NOT ${activeOsuJob(withoutChecks)}
       ORDER BY b.id
       LIMIT ${BATCH_SIZE}`);
+
+    // Only Fetching: a player who was never fetched waits for the refetch
+    // scheduler instead. Longest stranded first.
+    const { rows: players } = this.options.players
+      ? await db.execute<{ osu_id: string }>(sql`
+          SELECT p.osu_id
+          FROM players p
+          WHERE p.data_fetch_status = ${DataFetchStatus.Fetching}
+            AND NOT ${activeOsuJob(sql`'player:' || p.osu_id`)}
+          ORDER BY p.osu_last_fetch, p.id
+          LIMIT ${BATCH_SIZE}`)
+      : { rows: [] };
 
     await enqueueJobs(
       db,
@@ -128,14 +154,30 @@ export class StrandedFetchSweep {
         priority: MessagePriority.Low,
       }))
     );
+    await enqueueJobs(
+      db,
+      JobQueue.OsuFetch,
+      players.map((player) => ({
+        payload: {
+          type: 'player' as const,
+          osuPlayerId: Number(player.osu_id),
+        },
+        priority: MessagePriority.Low,
+      }))
+    );
 
-    if (matches.length > 0 || beatmaps.length > 0) {
+    if (matches.length > 0 || beatmaps.length > 0 || players.length > 0) {
       this.options.logger.warn('Queued fetches that had no job', {
         matches: matches.length,
         beatmaps: beatmaps.length,
+        players: players.length,
       });
     }
 
-    return { matches: matches.length, beatmaps: beatmaps.length };
+    return {
+      matches: matches.length,
+      beatmaps: beatmaps.length,
+      players: players.length,
+    };
   }
 }

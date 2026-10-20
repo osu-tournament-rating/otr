@@ -278,7 +278,12 @@ export const createOpenAPIHandler = <T extends Context>(
 export const openAPIHandler = createOpenAPIHandler(router);
 
 const API_SECURITY_SCHEME_NAME = 'ApiKeyAuth';
-const securityRequirement = [{ [API_SECURITY_SCHEME_NAME]: [] as string[] }];
+const API_KEY_HEADER_SCHEME_NAME = 'ApiKeyHeader';
+// Alternatives: a request authenticates with either header
+const securityRequirement: OpenAPI.SecurityRequirementObject[] = [
+  { [API_SECURITY_SCHEME_NAME]: [] },
+  { [API_KEY_HEADER_SCHEME_NAME]: [] },
+];
 const publicTags = [
   {
     name: 'public',
@@ -355,6 +360,8 @@ export const generatePublicOpenAPISpec = async () => {
       version: '1.0.0',
       description: `osu! Tournament Rating API
 
+Include your API key via \`Authorization: Bearer <key>\` or \`x-api-key: <key>\` when making API calls.
+
 > **API Stability Notice:** The o!TR public API is still evolving and is not considered fully stable. Breaking changes may be introduced at any time without advance notice. Past breaking changes are recorded in the [API changelog](https://docs.otr.stagec.net/changelogs/website-changelog#breaking-api-changes).`,
     },
     servers: buildServers(),
@@ -368,6 +375,13 @@ export const generatePublicOpenAPISpec = async () => {
           bearerFormat: 'API Key',
           description:
             'Send an o!TR API key using the Authorization: Bearer <key> header.',
+        },
+        [API_KEY_HEADER_SCHEME_NAME]: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-api-key',
+          description:
+            'Send an o!TR API key using the x-api-key: <key> header. A non-empty Authorization header takes precedence over it.',
         },
       },
     },

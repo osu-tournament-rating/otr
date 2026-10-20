@@ -5,6 +5,9 @@
 -- lists the games and scores admins deleted or merged away, which fetches
 -- skip. Both are filled from the audit log first.
 --
+-- rollback: the only tables it drops are the temporary backfill tables it
+-- creates, which no release reads
+--
 -- The audit log is read before any table is altered: ADD COLUMN locks
 -- matches, games and game_scores until the migration commits, so everything
 -- after it must be quick.

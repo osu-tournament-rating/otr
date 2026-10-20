@@ -38,7 +38,7 @@ The o!TR admins have the ability to manually modify match data in the database, 
 
 - Renaming a tournament for consistency with past or future iterations
 - Renaming individual match names to fix prefix inconsistencies
-- Correcting the EZ (or other mod) multipliers specified in a particular tournament's ruleset by manually changing the appropriate scores across that tournament
+- Correcting the EZ (or other mod) multipliers specified in a particular tournament's ruleset by manually changing the appropriate scores across that tournament, in place of the [[Data Processing Overview#Data Manipulation|automatic 1.75x EZ multiplier]]
 - Adding a new score to correct a lobby size mismatch if (1) the player disconnected mid-game but provided a local replay or records of an on-stream score and (2) that data was actually used as the source of truth for tournament proceedings
 - Assigning team rosters to a 1v1 match played in the `HeadToHead` team mode so that the match may be converted to `TeamVS`
 - Reassigning team rosters in a `TeamVS` match in case a player mistakenly assigned themselves the wrong team color for a game
@@ -47,7 +47,7 @@ The o!TR admins have the ability to manually modify match data in the database, 
 
 Refetching match data from osu! keeps these modifications. A match, game, or score keeps the osu! values an admin changed by hand, such as a match name, a team, or a score's mods, and a game or score an admin deleted or merged into another is not added back. The public match data lists each row's edited fields. An admin can reset an edited field to osu!'s value, which refetches the match.
 
-Any modifications of this kind, as well as any changes to verification status detailed above, will be recorded in audit logs. These logs include the time the change was made, the user who performed it, and the state of properties before and after the change; thus, any manual edits will be trackable and reversible if needed. While these audit logs will not be available in the [public replicas](https://data.otr.stagec.net) (since they are attached to specific users), more transparent record-keeping is in development.
+Any modifications of this kind, as well as any changes to verification status detailed above, will be recorded in audit logs. These logs include the time the change was made, the user who performed it, and the state of properties before and after the change; thus, any manual edits will be trackable and reversible if needed. Anyone can browse these audit logs on the website. The [audit logs](https://otr.stagec.net/tools/audit-logs) page shows the history of changes made to tournaments, matches, games, scores, and beatmaps. Tournament, match, and beatmap pages each link to their own audit history, and on a match page, the menu of each game and score links to its history. The audit logs are not included in the [public replicas](https://data.otr.stagec.net), since they are attached to specific users.
 
 ### Effect on ratings
 

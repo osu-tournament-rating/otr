@@ -8,9 +8,8 @@
 import { Mods } from '@otr/core/osu';
 import type { LazerMod } from '@otr/core/osu/lazer-mods';
 
-import { ModsEnumHelper } from '@/lib/enum-helpers';
 import { formatNumber } from '@/lib/kit/format/number';
-import { getLazerModSpeed } from '@/lib/kit/format/mods';
+import { getLazerModSpeed, MOD_ACRONYMS } from '@/lib/kit/format/mods';
 
 export type ModType =
   | 'Automation'
@@ -153,18 +152,25 @@ export const MOD_BADGES: Readonly<Record<string, ModBadge>> = {
 };
 
 /**
- * The badges a combination draws, in bit order, after FM when `freemod`.
- * Nightcore and Perfect stand for the Double Time and Sudden Death they
- * imply, as in osu!, and mods without an acronym draw nothing.
+ * Key co-op's badge. osu!lazer plays it as Dual Stages; its legacy acronym,
+ * CO, is lazer's Cover, so `toLazerAcronym` cannot map it.
+ */
+const KEY_COOP_ACRONYM = 'DS';
+
+/**
+ * The badges a combination draws, one per stored flag in bit order, in
+ * lazer's acronyms, after FM when `freemod`. Nightcore and Perfect stand for
+ * the Double Time and Sudden Death they imply, as in osu!.
  */
 export function getModBadgeAcronyms(mods: number, freemod = false): string[] {
   let shown = mods;
   if (shown & Mods.Nightcore) shown &= ~Mods.DoubleTime;
   if (shown & Mods.Perfect) shown &= ~Mods.SuddenDeath;
 
-  const acronyms = ModsEnumHelper.getMetadata(shown as Mods)
-    .map(({ text }) => text)
-    .filter((text) => text !== '');
+  const acronyms = MOD_ACRONYMS.filter(([flag]) => shown & flag).map(
+    ([flag, acronym]) =>
+      flag === Mods.KeyCoop ? KEY_COOP_ACRONYM : toLazerAcronym(acronym)
+  );
   return freemod ? ['FM', ...acronyms] : acronyms;
 }
 

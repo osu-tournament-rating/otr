@@ -20,6 +20,7 @@ import {
   buildLeaderboardSearchCondition,
 } from './shared/leaderboardQuery';
 import type { DatabaseClient } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -326,7 +327,7 @@ export async function runLeaderboard({
       leaderboard,
     });
   } catch (error) {
-    console.error('[orpc] leaderboard.list failed', error);
+    logger.error('leaderboard.list failed', { error });
     throw new ORPCError('INTERNAL_SERVER_ERROR', {
       message:
         error instanceof Error

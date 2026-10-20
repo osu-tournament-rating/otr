@@ -71,7 +71,9 @@ configured application database.
   the restored seed itself.
 - `processor` runs the configured image against configured PostgreSQL. Do not
   treat it as a test command. It passes `DATABASE_URL` and no RabbitMQ URL, so
-  it requires an image that queues stats jobs in the database.
+  it requires an image that queues stats jobs in the database. The container
+  runs as `otr-processor` and is removed when it exits, so a second run cannot
+  start while one is running.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task
@@ -89,17 +91,20 @@ configured application database.
   and operations in `src/lib/`.
 - Prefer argument lists for subprocesses. Preserve upstream failure and quote
   paths when a shell pipeline is unavoidable.
-- The cron and `run-script.yml` see only the exit code and the log. Each
-  operation returns `True` only when every step worked, and logs one error
-  naming the step that failed. `main.py` exits 1 on any other result or an
-  uncaught exception. Check every subprocess's return code.
-- When `METRICS_DIR` is set, `main.py` also records how each run production's
-  cron makes ended in node-exporter's textfile collector (`src/lib/metrics.py`):
-  `processor`, `refresh-index`, and `archive` to the production and public
-  buckets. The cron must run this installed copy, not an older checkout. Production's alert rules in
-  `monitoring/prod/prometheus/rules` raise a Discord alert when the last run
-  failed or none finished within its cron interval. Their thresholds follow
-  the production crontab, so update them when it changes.
+- The cron, `run-script.yml`, and `dev-archive.yml` see only the exit code and
+  the log. Each operation returns `True` only when every step worked, and logs
+  one error naming the step that failed. `main.py` exits 1 on any other result
+  or an uncaught exception. Check every subprocess's return code.
+- When `METRICS_DIR` is set, `main.py` also records how each scheduled run on
+  the production host ended in node-exporter's textfile collector
+  (`src/lib/metrics.py`): the cron's `processor`, `refresh-index`, and
+  `archive` to the production and public buckets, and the weekly `archive` to
+  the dev bucket that `.github/workflows/dev-archive.yml` runs over SSH. The
+  cron must run this installed copy, not an older checkout. Production's alert
+  rules in `monitoring/prod/prometheus/rules` raise a Discord alert when the
+  last run failed or none finished within its interval. Their thresholds
+  follow the production crontab and that workflow's schedule, so update them
+  when either changes.
 
 ## Agent stacks
 

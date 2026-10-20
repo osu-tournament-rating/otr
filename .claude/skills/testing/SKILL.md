@@ -190,7 +190,7 @@ section has no other bullet when the pull request does any of these:
 - Deletes a test file, or moves it out of the paths its runner reads.
 - Changes a line inside a `#[cfg(test)]` module in `apps/processor/src`.
 
-Test files are the ones under `__tests__/`, `apps/web/e2e/`, `apps/*/tests/`,
-and `apps/processor/test_data/`. So are `*.test.*`, `*.spec.*`, `*.e2e.*`,
-`test-utils` and `test_utils` helpers, and the processor's `tests.rs`
-modules. The `reviewer` agent checks that each change was required.
+Test files are the ones under `__tests__/`, `apps/web/e2e/`, and
+`apps/*/tests/`. So are `*.test.*`, `*.spec.*`, `*.e2e.*`, `test-utils` and
+`test_utils` helpers, and the processor's `tests.rs` modules. The `reviewer`
+agent checks that each change was required.

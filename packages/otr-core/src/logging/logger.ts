@@ -14,16 +14,48 @@ const PINO_LEVEL_TO_LABEL: Record<number, string> = {
   60: 'fatal',
 };
 
+/**
+ * Quotes a value logfmt would otherwise split, so Grafana reads a sentence, or
+ * an error with its stack, back as one field.
+ */
+function quoteIfNeeded(text: string): string {
+  return /[\s"]/.test(text) || text.length === 0 ? JSON.stringify(text) : text;
+}
+
+// Deep enough for a failed query's whole chain, and stops a cause that leads
+// back to itself
+const MAX_CAUSE_DEPTH = 5;
+
+interface SerializedError {
+  name: string;
+  message: string;
+  stack?: string;
+  cause?: SerializedError;
+}
+
+/**
+ * An error's fields for a log line, with its cause. A wrapper such as
+ * Drizzle's query error says only which query failed; its cause says why.
+ */
+function serializeError(error: Error, depth = 0): SerializedError {
+  return {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    cause:
+      error.cause instanceof Error && depth < MAX_CAUSE_DEPTH
+        ? serializeError(error.cause, depth + 1)
+        : undefined,
+  };
+}
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {
     return 'null';
   }
 
   if (typeof value === 'string') {
-    if (value.includes(' ') || value.includes('"') || value.length === 0) {
-      return JSON.stringify(value);
-    }
-    return value;
+    return quoteIfNeeded(value);
   }
 
   if (typeof value === 'number' || typeof value === 'boolean') {
@@ -31,14 +63,10 @@ function formatValue(value: unknown): string {
   }
 
   if (value instanceof Error) {
-    return JSON.stringify({
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-    });
+    return quoteIfNeeded(JSON.stringify(serializeError(value)));
   }
 
-  return JSON.stringify(value);
+  return quoteIfNeeded(JSON.stringify(value) ?? String(value));
 }
 
 function formatLogLine(obj: Record<string, unknown>): string {
@@ -119,16 +147,8 @@ function createPinoLogger(serviceName: string): pino.Logger {
       mixin: traceBindings,
       timestamp: pino.stdTimeFunctions.isoTime,
       serializers: {
-        error: (err: unknown) => {
-          if (err instanceof Error) {
-            return {
-              name: err.name,
-              message: err.message,
-              stack: err.stack,
-            };
-          }
-          return err;
-        },
+        error: (err: unknown) =>
+          err instanceof Error ? serializeError(err) : err,
       },
     },
     keyValueDestination()

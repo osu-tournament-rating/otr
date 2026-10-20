@@ -26,9 +26,11 @@ or a template database. Testcontainers tests start their own databases.
 
 ## Commands
 
-- `cargo run -- --help` lists options. A run needs `DATABASE_URL`, or
-  `CONNECTION_STRING`, which the production cron still passes, and nothing
-  else: it queues stats jobs in the same database, with no broker.
+- `cargo run -- --help` lists options. A run needs `DATABASE_URL`, which the
+  production cron passes, and nothing else: it queues stats jobs in the same
+  database, with no broker. Keep the fallback to the legacy
+  `CONNECTION_STRING`. otr-replay and the manual rating reproduction steps
+  pass that name, because every processor release reads it.
 - `cargo test` runs unit tests. Database tests use Testcontainers and Docker,
   and build each database from otr's drizzle migrations.
   A test that spawns the binary sets `DATABASE_URL` itself; otherwise the root

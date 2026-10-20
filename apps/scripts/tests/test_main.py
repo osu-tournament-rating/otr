@@ -350,6 +350,31 @@ def test_each_archive_bucket_records_its_own_result(
     assert 'otr_script_last_run_success{script="archive",bucket="public"} 0\n' in public
 
 
+def test_a_dev_archive_records_its_result(monkeypatch, cli, dirs, metrics_dir):
+    # dev-archive.yml makes one every week, and the dev tier stops working
+    # when they stop, so its runs alert like the cron's.
+    fake_docker(monkeypatch)
+    fake_storage(monkeypatch)
+    monkeypatch.setattr(
+        db,
+        "_table_columns",
+        lambda table: [
+            db.Column("id", "text"),
+            *(db.Column(name, "text") for name in db.dev_secret_columns[table]),
+        ],
+    )
+
+    code, _ = cli("-s", "archive", "--archive-bucket", "dev")
+
+    assert code == 0
+    files = recorded(metrics_dir)
+    assert list(files) == ["otr_script_archive_dev.prom"]
+    assert (
+        'otr_script_last_run_success{script="archive",bucket="dev"} 1\n'
+        in files["otr_script_archive_dev.prom"]
+    )
+
+
 def test_a_run_that_raises_records_a_failure(monkeypatch, cli, metrics_dir):
     def popen(cmd, **kwargs):
         raise FileNotFoundError(2, "No such file or directory", "docker")
