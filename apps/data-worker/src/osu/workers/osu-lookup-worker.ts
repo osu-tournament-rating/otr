@@ -197,7 +197,7 @@ export class OsuLookupWorker {
       api,
       rateLimiter: speed,
       logger: this.options.logger,
-      throwOnRefusedToken: true,
+      userToken: true,
     });
   }
 

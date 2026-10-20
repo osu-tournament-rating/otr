@@ -9,6 +9,7 @@ import {
 } from 'bun:test';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { APIError } from 'osu-api-v2-js';
+import type { Counter } from 'prom-client';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { enqueueJobs, JobQueue, JobStatus } from '@otr/core/jobs';
@@ -20,6 +21,8 @@ import {
   silentLogger,
   testDatabaseUrl,
 } from '../../../jobs/__tests__/test-db';
+import { osuApiRequests, osuLookupRequests } from '../../../metrics';
+import { apiRequestStats } from '../../../metrics/api-request-stats';
 
 // The client module reads the worker's environment at import time, which CI
 // doesn't set. The fetch helpers only need its error class.
@@ -45,6 +48,9 @@ const ALL_PLAYERS = [
 
 const CLIENT = { clientId: '41', clientSecret: 'site-secret' };
 const HOUR_MS = 60 * 60_000;
+
+const counterTotal = async (counter: Counter<string>) =>
+  (await counter.get()).values.reduce((sum, { value }) => sum + value, 0);
 
 /**
  * A stand-in for osu!: its token endpoint refreshes the refresh tokens it
@@ -310,6 +316,35 @@ describe.skipIf(!testDatabaseUrl)("osu! lookups with a user's account", () => {
     expect(new Set(osu.state.lookups.map((lookup) => lookup.token))).toEqual(
       new Set(['access-1'])
     );
+  });
+
+  it("counts requests made with a user's token apart from o!TR's own osu! requests", async () => {
+    // Drop what earlier tests recorded into the shared totals
+    await apiRequestStats.flush(db);
+    await db.execute(sql`DELETE FROM api_request_stats_daily`);
+    const otrBefore = await counterTotal(osuApiRequests);
+    const userBefore = await counterTotal(osuLookupRequests);
+    await queueLookups(requesterId, [LOOKED_UP[0]!]);
+
+    startWorker();
+    await waitFor(
+      async () =>
+        (await lookupJobs(requesterId))[0]?.status === JobStatus.Succeeded
+    );
+    await apiRequestStats.flush(db);
+
+    expect(await counterTotal(osuApiRequests)).toBe(otrBefore);
+    expect(await counterTotal(osuLookupRequests)).toBe(userBefore + 4);
+    const { rows } = await db.execute(sql`
+      SELECT service, endpoint, status, count FROM api_request_stats_daily`);
+    expect(rows).toEqual([
+      {
+        service: 'osu-lookup',
+        endpoint: 'getUser',
+        status: 'success',
+        count: 4,
+      },
+    ]);
   });
 
   it('refreshes an expired token with the site client first, and saves the new pair', async () => {

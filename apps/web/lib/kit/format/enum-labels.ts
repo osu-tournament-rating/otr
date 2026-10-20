@@ -203,6 +203,7 @@ export const JOB_QUEUE_LABELS: Readonly<Record<JobQueue, string>> = {
 /** The services outbound requests go to (`api_request_stats_daily.service`). */
 export const API_SERVICE_LABELS: Readonly<Record<string, string>> = {
   osu: 'osu!',
+  'osu-lookup': "Users' osu! accounts",
   osutrack: 'osu!track',
 };
 

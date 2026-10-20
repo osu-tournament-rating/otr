@@ -63,11 +63,12 @@ interface PlayerFetchServiceOptions {
   rateLimiter: RateLimiter;
   logger: Logger;
   /**
-   * Throw {@link OsuTokenRefusedError} when osu! refuses the token, leaving
-   * the player as it was, instead of marking the player errored. For a
-   * user's token, which signing in again can fix.
+   * `api` carries a user's own osu! token rather than o!TR's. osu! refusing
+   * it throws {@link OsuTokenRefusedError} and leaves the player as it was,
+   * since signing in again can fix it, and its requests count apart from
+   * o!TR's own osu! requests.
    */
-  throwOnRefusedToken?: boolean;
+  userToken?: boolean;
 }
 
 export class PlayerFetchService {
@@ -75,14 +76,14 @@ export class PlayerFetchService {
   private readonly api: API;
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
-  private readonly throwOnRefusedToken: boolean;
+  private readonly userToken: boolean;
 
   constructor(options: PlayerFetchServiceOptions) {
     this.db = options.db;
     this.api = options.api;
     this.rateLimiter = options.rateLimiter;
     this.logger = options.logger;
-    this.throwOnRefusedToken = options.throwOnRefusedToken ?? false;
+    this.userToken = options.userToken ?? false;
   }
 
   async fetchAndPersist(osuPlayerId: number): Promise<boolean> {
@@ -111,12 +112,17 @@ export class PlayerFetchService {
     for (const ruleset of FETCHABLE_RULESETS) {
       const apiRuleset = ruleset as number;
       const result = await this.rateLimiter.schedule(() =>
-        withApiMetrics('getUser', () =>
-          withApiErrorHandling(() => this.api.getUser(osuPlayerId, apiRuleset))
+        withApiMetrics(
+          'getUser',
+          () =>
+            withApiErrorHandling(() =>
+              this.api.getUser(osuPlayerId, apiRuleset)
+            ),
+          this.userToken ? 'user' : 'otr'
         )
       );
 
-      if (result.status === 'unauthorized' && this.throwOnRefusedToken) {
+      if (result.status === 'unauthorized' && this.userToken) {
         throw new OsuTokenRefusedError();
       }
 
