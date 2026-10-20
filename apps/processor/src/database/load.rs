@@ -62,6 +62,10 @@ impl DbClient {
     }
 
     /// Verified matches of verified tournaments, in id order and without games.
+    ///
+    /// A match osu! returned no data for has no start time, so it cannot be
+    /// rated or ordered. It is left out with a data-integrity warning instead
+    /// of failing the run.
     async fn fetch_verified_matches(&self) -> DbResult<Vec<Match>> {
         let mut matches = Vec::new();
 
@@ -75,10 +79,21 @@ impl DbClient {
             ",
             &[],
             |row| {
+                let id: i32 = row.try_get("id")?;
+                let name: String = row.try_get("name")?;
+                let Some(start_time) = row.try_get("start_time")? else {
+                    warn!(
+                        match_id = id,
+                        match_name = %name,
+                        "DATA INTEGRITY: Verified match has no start time - skipping (requires o!TR Admin inspection)"
+                    );
+                    return Ok(());
+                };
+
                 matches.push(Match {
-                    id: row.try_get("id")?,
-                    name: row.try_get("name")?,
-                    start_time: row.try_get("start_time")?,
+                    id,
+                    name,
+                    start_time,
                     end_time: row.try_get("end_time")?,
                     // A match is rated in its tournament's ruleset.
                     ruleset: ruleset_column(&row, "match")?,

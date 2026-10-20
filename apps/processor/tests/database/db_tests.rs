@@ -201,6 +201,36 @@ async fn test_get_matches_orders_by_start_time_and_skips_unratable_games() {
 
 #[tokio::test]
 #[serial]
+async fn test_get_matches_skips_a_verified_match_with_no_start_time() {
+    init_test_env();
+    let test_db = TestDatabase::new().await.expect("Failed to create test database");
+    test_db.seed_test_data().await.expect("Failed to seed test data");
+
+    // A match osu! returned no data for, verified in the verified tournament.
+    let admin_client = test_db.get_client().await.expect("Failed to get client");
+    admin_client
+        .batch_execute(
+            "
+            INSERT INTO matches (osu_id, name, verification_status, tournament_id)
+            SELECT 33333, 'No Data Match', 4, id
+            FROM tournaments
+            WHERE abbreviation = 'TT';
+            "
+        )
+        .await
+        .expect("Failed to seed a match with no data");
+
+    let db_client = DbClient::connect(&test_db.connection_string)
+        .await
+        .expect("Failed to connect");
+    let matches = db_client.get_matches().await.expect("Failed to fetch matches");
+
+    let names: Vec<&str> = matches.iter().map(|match_| match_.name.as_str()).collect();
+    assert_eq!(names, vec!["Test Match 1", "Test Match 2"]);
+}
+
+#[tokio::test]
+#[serial]
 async fn test_get_tournament_info_requires_a_scored_game() {
     init_test_env();
     let test_db = TestDatabase::new().await.expect("Failed to create test database");
