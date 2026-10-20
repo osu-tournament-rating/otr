@@ -94,6 +94,13 @@ import {
 } from './procedures/apiKeyProcedures';
 import { massEnqueue } from './procedures/admin/massEnqueueProcedures';
 import {
+  cancelJobsAdmin,
+  getJobDailyTotals,
+  getJobSummary,
+  listJobs,
+  retryJobsAdmin,
+} from './procedures/admin/jobProcedures';
+import {
   createReport,
   getMyUnreadReportCount,
   getReport,
@@ -126,6 +133,13 @@ const base = os.$context<InitialContext>();
 export const router = base.router({
   admin: {
     massEnqueue,
+    jobs: {
+      summary: getJobSummary,
+      list: listJobs,
+      retry: retryJobsAdmin,
+      cancel: cancelJobsAdmin,
+      daily: getJobDailyTotals,
+    },
   },
   reports: {
     templates: getReportTemplates,
