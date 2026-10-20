@@ -134,6 +134,23 @@ const generateMatchRosters = (
   }));
 };
 
+/**
+ * Whether another team won more games than the player's team. A drawn match
+ * is neither a win nor a loss.
+ */
+const lostMatch = (
+  matchRosters: MatchProcessingResult['matchRosters'],
+  playerId: number
+) => {
+  const own = matchRosters.find((roster) => roster.roster.includes(playerId));
+  return (
+    own !== undefined &&
+    matchRosters.some(
+      (roster) => roster.team !== own.team && roster.score > own.score
+    )
+  );
+};
+
 export class TournamentStatsCalculator {
   calculateAllStatistics(tournament: StatsTournament): StatsCalculationResult {
     if (tournament.verificationStatus !== VerificationStatus.Verified) {
@@ -276,10 +293,10 @@ export class TournamentStatsCalculator {
       }
     }
 
-    const maxMatchScore =
-      matchRosters.length > 0
-        ? Math.max(...matchRosters.map((roster) => roster.score))
-        : 0;
+    // A drawn match has no winner, so nobody in it won.
+    const winningTeam = soleLeader(
+      new Map(matchRosters.map((roster) => [roster.team, roster.score]))
+    );
 
     const stats: PlayerMatchStatRecord[] = [];
 
@@ -324,7 +341,7 @@ export class TournamentStatsCalculator {
         .filter((id) => id !== playerId);
 
       const matchCost = sanitizeNumber(matchCosts.get(playerId) ?? 0);
-      const won = matchRoster ? matchRoster.score === maxMatchScore : false;
+      const won = winningTeam !== null && matchRoster?.team === winningTeam;
 
       stats.push({
         playerId,
@@ -362,6 +379,7 @@ export class TournamentStatsCalculator {
       number,
       {
         matchStats: PlayerMatchStatRecord[];
+        matchesLost: number;
         ratingDeltas: number[];
         teammateIds: Set<number>;
       }
@@ -384,11 +402,15 @@ export class TournamentStatsCalculator {
 
         const entry = aggregateMap.get(stat.playerId) ?? {
           matchStats: [],
+          matchesLost: 0,
           ratingDeltas: [],
           teammateIds: new Set<number>(),
         };
 
         entry.matchStats.push(stat);
+        if (lostMatch(matchResult.matchRosters, stat.playerId)) {
+          entry.matchesLost += 1;
+        }
         adjustments.forEach((adjustment) => {
           entry.ratingDeltas.push(
             adjustment.ratingAfter - adjustment.ratingBefore
@@ -409,7 +431,7 @@ export class TournamentStatsCalculator {
 
       const matchesPlayed = data.matchStats.length;
       const matchesWon = data.matchStats.filter((stat) => stat.won).length;
-      const matchesLost = matchesPlayed - matchesWon;
+      const { matchesLost } = data;
       const gamesPlayed = data.matchStats.reduce(
         (sum, stat) => sum + stat.gamesPlayed,
         0

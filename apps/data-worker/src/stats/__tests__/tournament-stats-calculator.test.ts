@@ -405,4 +405,36 @@ describe('TournamentStatsCalculator', () => {
       matchesLost: 1,
     });
   });
+
+  it('counts a drawn match as neither a win nor a loss', () => {
+    // A 1v1 that ends 1-1.
+    const tournament = tournamentOf(
+      match(
+        10,
+        [
+          game(100, 10, [
+            score(100, 1, Team.Red, 600_000),
+            score(100, 2, Team.Blue, 400_000),
+          ]),
+          game(101, 10, [
+            score(101, 1, Team.Red, 400_000),
+            score(101, 2, Team.Blue, 600_000),
+          ]),
+        ],
+        [1, 2]
+      )
+    );
+
+    const result = calculate(tournament);
+
+    for (const playerId of [1, 2]) {
+      expect(playerMatchStat(result, 10, playerId).won).toBe(false);
+      expect(playerTournamentStat(result, playerId)).toMatchObject({
+        matchesPlayed: 1,
+        matchesWon: 0,
+        matchesLost: 0,
+        matchWinRate: 0,
+      });
+    }
+  });
 });
