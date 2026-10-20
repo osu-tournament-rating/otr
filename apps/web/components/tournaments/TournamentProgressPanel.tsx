@@ -54,7 +54,7 @@ export default function TournamentProgressPanel({
   const session = useSession();
   const isAdmin = hasAdminScope(session?.scopes ?? []);
 
-  const { data } = useSWR(
+  const { data, mutate } = useSWR(
     ['tournament-progress', tournamentId],
     () => orpc.tournaments.progress({ id: tournamentId }),
     {
@@ -67,6 +67,15 @@ export default function TournamentProgressPanel({
       shouldRetryOnError: false,
     }
   );
+
+  // Each render of the page brings fresh progress, such as the refresh after
+  // an admin queues a refetch. It replaces what the cache held, which may be
+  // from before the work was queued, so the panel shows it and polls again.
+  useEffect(() => {
+    if (initialProgress) {
+      void mutate(initialProgress, { revalidate: false });
+    }
+  }, [initialProgress, mutate]);
 
   // Once seen in flight, the panel stays until the page is left, so its
   // finished state shows instead of the panel vanishing.

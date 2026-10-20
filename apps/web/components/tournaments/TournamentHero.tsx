@@ -357,6 +357,7 @@ export default function TournamentHero({
               });
               showWarnings(result.warnings);
               toast.success('Queued automated checks re-run');
+              router.refresh();
             }}
           >
             <div className="flex items-center gap-2">
@@ -398,6 +399,7 @@ export default function TournamentHero({
                   ? `Queued ${formatCount(result.matchesUpdated)} matches for refetch`
                   : 'Queued match data for refetch'
               );
+              router.refresh();
             }}
           />
 
