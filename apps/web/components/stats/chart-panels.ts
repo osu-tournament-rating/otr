@@ -9,6 +9,7 @@ import {
   ListChecks,
   Medal,
   Percent,
+  Scale,
   Target,
   Users,
   Zap,
@@ -87,12 +88,24 @@ export const STATS_PANELS = {
     title: 'Rank restrictions by year',
     infoText: `A tournament counts in the band its rank restriction starts at: 10k+ is for players ranked #10,000 and beyond. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
   },
+  higherRatedWins: {
+    icon: Scale,
+    title: 'Win rate by rating gap',
+    infoText:
+      "Rates each side by its players' average rating going into the match",
+  },
   biggestUpsets: {
     icon: Zap,
     title: 'Biggest upsets',
     infoText: `Only matches where every player had ${UPSET_MIN_EARLIER_MATCHES}+ earlier rated matches`,
   },
 } as const satisfies Record<string, StatsPanelCopy>;
+
+/** The rating gap panel's tile labels, shared with the loading screen. */
+export const RATING_GAP_TILE_LABELS = [
+  'Higher-rated side wins',
+  'Median rating gap',
+] as const;
 
 /** The overview's tile labels, shared with the loading screen. */
 export const OVERVIEW_LABELS = [

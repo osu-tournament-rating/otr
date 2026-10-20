@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import type { BiggestUpsets, HeadlineTotals } from '@otr/core/platform-stats';
+import type {
+  BiggestUpsets,
+  HeadlineTotals,
+  HigherRatedWins,
+} from '@otr/core/platform-stats';
 
 import { RANK_RANGE_BUCKET_KEYS } from '@/lib/beatmaps/rankRange';
 
@@ -20,6 +24,17 @@ export const HeadlineTotalsSchema = z.object({
   scores: count,
   ratedPlayers: count,
 }) satisfies z.ZodType<HeadlineTotals>;
+
+export const HigherRatedWinsSchema = z.object({
+  buckets: z.array(
+    z.object({
+      minGap: count,
+      matches: count,
+      higherRatedWins: count,
+    })
+  ),
+  medianGap: z.number().nonnegative().nullable(),
+}) satisfies z.ZodType<HigherRatedWins>;
 
 const MatchRecordShape = {
   matchId: z.number().int(),
@@ -108,6 +123,7 @@ export const RulesetStatsSchema = z.object({
   topPlayersByCountry: CountrySummarySchema,
   rankRestrictionsByYear: z.array(RankRestrictionYearSchema),
   /** Stored statistics, null until the data worker has computed them. */
+  higherRatedWins: HigherRatedWinsSchema.nullable(),
   biggestUpsets: BiggestUpsetsSchema.nullable(),
 });
 
@@ -141,6 +157,7 @@ export type CountryCountData = z.infer<typeof CountryCountSchema>;
 export type CountrySummaryData = z.infer<typeof CountrySummarySchema>;
 export type RankRestrictionYearData = z.infer<typeof RankRestrictionYearSchema>;
 export type RulesetStatsData = z.infer<typeof RulesetStatsSchema>;
+export type HigherRatedWinsData = z.infer<typeof HigherRatedWinsSchema>;
 export type BiggestUpsetsData = z.infer<typeof BiggestUpsetsSchema>;
 export type BiggestUpsetData = BiggestUpsetsData['matches'][number];
 /** The parts every listed match shares. */

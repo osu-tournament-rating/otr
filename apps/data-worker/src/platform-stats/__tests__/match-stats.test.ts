@@ -10,6 +10,7 @@ import {
 } from '@otr/core/osu';
 import {
   type BiggestUpsets,
+  type HigherRatedWins,
   PLATFORM_STATS,
   PlatformStatKey,
   type PlatformStatsRuleset,
@@ -23,7 +24,7 @@ const url = process.env.SEARCH_TEST_DATABASE_URL;
 
 type Transaction = Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
 
-const { Verified } = VerificationStatus;
+const { Verified, PreVerified, Rejected } = VerificationStatus;
 
 /**
  * The newest verified tournament ends here in every test, so the last 12
@@ -383,6 +384,120 @@ describe.skipIf(!url)('match and tournament platform stats', () => {
       beatmap,
     };
   };
+
+  describe('higher-rated wins', () => {
+    const totalMatches = (stats: HigherRatedWins) =>
+      stats.buckets.reduce((sum, bucket) => sum + bucket.matches, 0);
+
+    it('counts the higher-rated side’s wins by the gap between side averages', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const osu = await f.tournament();
+        // Gap 50: the higher-rated side wins.
+        await f.match(osu, {
+          red: await f.side(3, 1500),
+          blue: await f.side(1, 1450),
+        });
+        // Gap 100, the second bucket's first: red's average is
+        // (1000 + 2000) / 2 = 1500, and the lower-rated blue side wins.
+        await f.match(osu, {
+          red: await f.side(1, 1000, 2000),
+          blue: await f.side(3, 1400, 1400),
+        });
+        // Gap 650, in the last bucket, which has no top.
+        await f.match(osu, {
+          red: await f.side(2, 900),
+          blue: await f.side(3, 1550),
+        });
+        // A taiko match counts for taiko only.
+        const taiko = await f.tournament({ ruleset: Ruleset.Taiko });
+        await f.match(taiko, {
+          ruleset: Ruleset.Taiko,
+          red: await f.side(3, 1250),
+          blue: await f.side(0, 1000),
+        });
+
+        const stats = await compute<HigherRatedWins>(
+          tx,
+          PlatformStatKey.HigherRatedWins
+        );
+
+        expect(stats[Ruleset.Osu]).toEqual({
+          buckets: [
+            { minGap: 0, matches: 1, higherRatedWins: 1 },
+            { minGap: 100, matches: 1, higherRatedWins: 0 },
+            { minGap: 200, matches: 0, higherRatedWins: 0 },
+            { minGap: 300, matches: 0, higherRatedWins: 0 },
+            { minGap: 400, matches: 0, higherRatedWins: 0 },
+            { minGap: 500, matches: 1, higherRatedWins: 1 },
+          ],
+          // The middle of 50, 100 and 650.
+          medianGap: 100,
+        });
+        expect(stats[Ruleset.Taiko].buckets[2]).toEqual({
+          minGap: 200,
+          matches: 1,
+          higherRatedWins: 1,
+        });
+        expect(totalMatches(stats[Ruleset.Taiko])).toBe(1);
+        expect(stats[Ruleset.Catch]).toEqual({
+          buckets: expect.any(Array),
+          medianGap: null,
+        });
+        expect(totalMatches(stats[Ruleset.Catch])).toBe(0);
+      });
+    });
+
+    it('leaves out level, partly unrated and unverified matches', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const osu = await f.tournament();
+        // The one match that counts.
+        await f.match(osu, {
+          red: await f.side(3, 1300),
+          blue: await f.side(1, 1000),
+        });
+        // Level on maps.
+        await f.match(osu, {
+          red: await f.side(2, 1300),
+          blue: await f.side(2, 1000),
+        });
+        // Level on rating.
+        await f.match(osu, {
+          red: await f.side(3, 1200),
+          blue: await f.side(1, 1200),
+        });
+        // A player without a rating for the match.
+        await f.match(osu, {
+          red: await f.side(3, 1300, null),
+          blue: await f.side(1, 1000, 1000),
+        });
+        // A rejected match, and a verified match of a pre-verified
+        // tournament.
+        await f.match(osu, {
+          status: Rejected,
+          red: await f.side(3, 1300),
+          blue: await f.side(1, 1000),
+        });
+        await f.match(await f.tournament({ status: PreVerified }), {
+          red: await f.side(3, 1300),
+          blue: await f.side(1, 1000),
+        });
+
+        const stats = await compute<HigherRatedWins>(
+          tx,
+          PlatformStatKey.HigherRatedWins
+        );
+
+        expect(totalMatches(stats[Ruleset.Osu])).toBe(1);
+        expect(stats[Ruleset.Osu].buckets[3]).toEqual({
+          minGap: 300,
+          matches: 1,
+          higherRatedWins: 1,
+        });
+      });
+    });
+  });
 
   describe('biggest upsets', () => {
     it('lists the widest upsets of the last 12 months first', async () => {

@@ -10,6 +10,7 @@ import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
   BiggestUpsetsSchema,
   HeadlineTotalsSchema,
+  HigherRatedWinsSchema,
   RecentlyVerifiedInputSchema,
   RecentlyVerifiedPageSchema,
   StatsPageSchema,
@@ -107,6 +108,12 @@ export async function runStatsPage({
       ),
       rankRestrictionsByYear: bandRankRestrictions(
         rankRestrictions.filter((row) => row.ruleset === ruleset)
+      ),
+      higherRatedWins: storedPayload(
+        stored,
+        PlatformStatKey.HigherRatedWins,
+        ruleset,
+        HigherRatedWinsSchema
       ),
       biggestUpsets: storedPayload(
         stored,

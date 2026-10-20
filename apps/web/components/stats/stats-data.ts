@@ -12,12 +12,17 @@ import { getStatusHueColor } from '@/lib/kit/color/verification';
 import { getTierColor } from '@/lib/kit/color/tiers';
 import { EMPTY_VALUE } from '@/lib/kit/format/empty';
 import { formatLobbySize } from '@/lib/kit/format/fields';
-import { formatCountOf, formatYear } from '@/lib/kit/format/number';
+import {
+  formatCount,
+  formatCountOf,
+  formatYear,
+} from '@/lib/kit/format/number';
 import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { RATINGS_GROUPS } from '@/lib/kit/status/verification';
 import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
 import type {
   CountryCountData,
+  HigherRatedWinsData,
   LazerYearData,
   MatchRecordData,
   RankRestrictionYearData,
@@ -306,6 +311,26 @@ export function formatDaysToVerify(days: number | null): string {
   if (days === null || !Number.isFinite(days)) return EMPTY_VALUE;
   if (days < 1) return 'Under a day';
   return formatCountOf(Math.round(days), 'day');
+}
+
+/**
+ * The share of matches the higher-rated side won in each rating gap bucket,
+ * labelled `0–100` to `500+`: one series out of each bucket's matches.
+ */
+export function getRatingGapBars(
+  buckets: HigherRatedWinsData['buckets']
+): StackedBarDatum[] {
+  return buckets.map((bucket, index) => {
+    const next = buckets[index + 1];
+    return {
+      key: String(bucket.minGap),
+      label: next
+        ? `${formatCount(bucket.minGap)}–${formatCount(next.minGap)}`
+        : `${formatCount(bucket.minGap)}+`,
+      values: { higherRated: bucket.higherRatedWins },
+      total: bucket.matches,
+    };
+  });
 }
 
 /**

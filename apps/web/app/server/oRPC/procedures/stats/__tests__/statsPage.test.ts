@@ -322,9 +322,14 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
   it('serves each stored per-ruleset statistic in its own field, for its own ruleset', async () => {
     // Distinct totals, so two fields that read each other's rows differ.
     const payloads = {
+      [PlatformStatKey.HigherRatedWins]: {
+        buckets: [{ minGap: 0, matches: 2, higherRatedWins: 1 }],
+        medianGap: 50,
+      },
       [PlatformStatKey.BiggestUpsets]: { total: 1, matches: [] },
     };
     const storedFields = (entry: RulesetStatsData) => ({
+      higherRatedWins: entry.higherRatedWins,
       biggestUpsets: entry.biggestUpsets,
     });
 
@@ -345,9 +350,11 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         storedFields(byRuleset.find((item) => item.ruleset === ruleset)!);
 
       expect(entry(Ruleset.Taiko)).toEqual({
+        higherRatedWins: payloads[PlatformStatKey.HigherRatedWins],
         biggestUpsets: payloads[PlatformStatKey.BiggestUpsets],
       });
       expect(entry(Ruleset.Osu)).toEqual({
+        higherRatedWins: null,
         biggestUpsets: null,
       });
     });

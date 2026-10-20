@@ -9,5 +9,9 @@ export {
 export { readPlatformStats, type StoredPlatformStat } from './read';
 export type { HeadlineTotals } from './stats/headline-totals';
 export * from './constants';
+export type {
+  HigherRatedWins,
+  RatingGapBucket,
+} from './stats/higher-rated-wins';
 export type { BiggestUpset, BiggestUpsets } from './stats/biggest-upsets';
 export type { MatchRecord } from './stats/shared';

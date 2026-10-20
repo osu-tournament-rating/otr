@@ -13,6 +13,7 @@ import { PageSection } from '@/components/kit/layout/PageSection';
 import {
   BY_RULESET_SECTION,
   OVERVIEW_LABELS,
+  RATING_GAP_TILE_LABELS,
   STATS_PANELS,
   type StatsPanelCopy,
   VERIFICATION_TILE_LABELS,
@@ -133,6 +134,20 @@ export default function StatsLoading() {
           level={3}
         />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <PanelSkeleton>
+            <SectionHeaderSkeleton
+              {...STATS_PANELS.higherRatedWins}
+              meta="w-28"
+              level={3}
+            />
+            <div className="flex flex-col gap-3 p-4">
+              <StatTileGridSkeleton
+                labels={RATING_GAP_TILE_LABELS}
+                columns={2}
+              />
+              <ChartPlotSkeleton className="h-60" />
+            </div>
+          </PanelSkeleton>
           <RecordListSkeleton copy={STATS_PANELS.biggestUpsets} rows={5} />
         </div>
       </PageSection>

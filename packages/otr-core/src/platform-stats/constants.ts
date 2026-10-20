@@ -15,3 +15,9 @@ export const MATCH_RECORD_LIMIT = 5;
  * Players whose first rating was set too low would otherwise fill the list.
  */
 export const UPSET_MIN_EARLIER_MATCHES = 10;
+
+/** The width of a rating gap bucket. */
+export const RATING_GAP_BUCKET_SIZE = 100;
+
+/** Rating gap buckets per ruleset; the last holds every wider gap (500+). */
+export const RATING_GAP_BUCKETS = 6;

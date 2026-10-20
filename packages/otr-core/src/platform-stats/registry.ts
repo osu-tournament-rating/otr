@@ -1,5 +1,6 @@
 import { biggestUpsets } from './stats/biggest-upsets';
 import { headlineTotals } from './stats/headline-totals';
+import { higherRatedWins } from './stats/higher-rated-wins';
 import type { PlatformStatDefinition } from './types';
 
 /**
@@ -8,5 +9,6 @@ import type { PlatformStatDefinition } from './types';
  */
 export const PLATFORM_STATS: readonly PlatformStatDefinition[] = [
   headlineTotals,
+  higherRatedWins,
   biggestUpsets,
 ];

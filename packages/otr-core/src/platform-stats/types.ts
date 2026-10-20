@@ -19,6 +19,7 @@ export const queryRows = async <TRow>(
  */
 export enum PlatformStatKey {
   HeadlineTotals = 'headline-totals',
+  HigherRatedWins = 'higher-rated-wins',
   BiggestUpsets = 'biggest-upsets',
 }
 
