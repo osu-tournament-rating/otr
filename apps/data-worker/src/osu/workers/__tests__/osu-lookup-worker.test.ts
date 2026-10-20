@@ -211,6 +211,7 @@ describe.skipIf(!testDatabaseUrl)("osu! lookups with a user's account", () => {
         logger: silentLogger,
         maintenanceWindowEnabled: false,
         server: osu.url,
+        startupPauseMs: 0,
       }).registration()
     );
     runner.start();
@@ -585,5 +586,23 @@ describe.skipIf(!testDatabaseUrl)("osu! lookups with a user's account", () => {
     expect((await players([LOOKED_UP[0]!]))[0]?.status).toBe(
       DataFetchStatus.Error
     );
+  });
+
+  it("claims no lookup for a minute after the worker starts, so a restart can't add to a user's last minute", () => {
+    // A Monday morning, outside the maintenance window
+    const start = Date.parse('2026-10-19T10:00:00Z');
+    const { pausedUntil } = new OsuLookupWorker({
+      db,
+      tokens: new UserOsuTokens({ db, client: CLIENT, server: osu.url }),
+      logger: silentLogger,
+      maintenanceWindowEnabled: true,
+      server: osu.url,
+      now: () => start,
+    }).registration();
+
+    expect(pausedUntil!(new Date(start + 59_000))).toEqual(
+      new Date(start + 60_000)
+    );
+    expect(pausedUntil!(new Date(start + 60_000))).toBeNull();
   });
 });

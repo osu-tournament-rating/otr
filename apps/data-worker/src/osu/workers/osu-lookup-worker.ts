@@ -62,6 +62,13 @@ interface OsuLookupWorkerOptions {
   maintenanceWindowEnabled: boolean;
   /** osu!'s base URL. */
   server?: string;
+  /**
+   * How long the queue claims nothing after the worker starts. Each user's
+   * speed lives in memory, so the requests the previous worker made in its
+   * last minute must age out of every user's window first. Defaults to a
+   * minute.
+   */
+  startupPauseMs?: number;
   now?: () => number;
 }
 
@@ -75,17 +82,21 @@ interface OsuLookupWorkerOptions {
  * A job never sleeps on a user's speed: it spreads that user's waiting
  * lookups out to their speed, so other users' lookups run in between. When
  * the user's credentials can't be used, their lookups wait for them to sign
- * in with osu! again, without using attempts.
+ * in with osu! again, without using attempts. The queue waits a minute after
+ * the worker starts, so a restart never adds to a user's last minute.
  */
 export class OsuLookupWorker {
   private readonly options: OsuLookupWorkerOptions;
   private readonly maintenancePause: (now: Date) => Date | null;
   private readonly now: () => number;
+  private readonly startupPauseEndsAt: number;
   private readonly speeds = new Map<number, SlidingWindowRateLimiter>();
 
   constructor(options: OsuLookupWorkerOptions) {
     this.options = options;
     this.now = options.now ?? Date.now;
+    this.startupPauseEndsAt =
+      this.now() + (options.startupPauseMs ?? MINUTE_MS);
     this.maintenancePause = pauseForMaintenanceWindow(
       options.maintenanceWindowEnabled
     );
@@ -95,7 +106,12 @@ export class OsuLookupWorker {
     return {
       queue: JobQueue.OsuLookup,
       handler: (job) => this.handle(job),
-      pausedUntil: (now) => this.maintenancePause(now),
+      // The runner asks again once a pause ends, so the other one still applies
+      pausedUntil: (now) =>
+        this.maintenancePause(now) ??
+        (now.getTime() < this.startupPauseEndsAt
+          ? new Date(this.startupPauseEndsAt)
+          : null),
       onGiveUp: (job, tx) => this.releasePlayer(job.payload.osuPlayerId, tx),
     };
   }
