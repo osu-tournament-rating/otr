@@ -7,13 +7,18 @@ import { EmptyState } from '@/components/kit/feedback/EmptyState';
 import { Panel } from '@/components/kit/layout/Panel';
 import { RowList, RowListItem } from '@/components/kit/layout/RowList';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
+import { typeScale } from '@/components/kit/layout/Typography';
 import { EntityLink } from '@/components/kit/tables/EntityLink';
 import {
   formatCount,
   formatCountOf,
   formatRating,
 } from '@/lib/kit/format/number';
-import type { MatchRecordData } from '@/lib/orpc/schema/statsPage';
+import type {
+  ClosestGameData,
+  MatchRecordData,
+} from '@/lib/orpc/schema/statsPage';
+import { cn } from '@/lib/utils';
 
 import { STATS_PANELS, type StatsPanelCopy } from './chart-panels';
 import { NotCalculatedYet } from './NotCalculatedYet';
@@ -171,6 +176,51 @@ export function BiggestUpsetsPanel() {
           match={match}
           detail={`Rated ${formatRating(match.winnerRating)} vs ${formatRating(match.loserRating)}`}
         />
+      )}
+    />
+  );
+}
+
+/** `Title [Difficulty]`, or the difficulty alone when no title is known. */
+function beatmapName(beatmap: NonNullable<ClosestGameData['beatmap']>) {
+  return beatmap.title
+    ? `${beatmap.title} [${beatmap.diffName}]`
+    : `[${beatmap.diffName}]`;
+}
+
+/** Tiebreakers of the last 12 months won by the fewest points. */
+export function ClosestGamesPanel() {
+  const { stats } = useRulesetStats();
+  const data = stats?.closestGames ?? null;
+
+  return (
+    <MatchRecordPanel
+      copy={STATS_PANELS.closestGames}
+      testId="closest-games"
+      data={data && { total: data.total, items: data.games }}
+      noun="tiebreaker"
+      emptyTitle={`No tiebreakers ${IN_WINDOW}`}
+      renderRow={(game) => (
+        <MatchRecordRow
+          key={game.matchId}
+          match={game}
+          detail={`Won by ${formatCount(game.margin)}`}
+        >
+          {game.beatmap ? (
+            <div className={cn('mt-1.5 flex min-w-0', typeScale.bodyMuted)}>
+              <DetailLink
+                href={`/beatmaps/${game.beatmap.osuId}`}
+                title={
+                  game.beatmap.artist
+                    ? `${game.beatmap.artist} - ${beatmapName(game.beatmap)}`
+                    : beatmapName(game.beatmap)
+                }
+              >
+                {beatmapName(game.beatmap)}
+              </DetailLink>
+            </div>
+          ) : null}
+        </MatchRecordRow>
       )}
     />
   );

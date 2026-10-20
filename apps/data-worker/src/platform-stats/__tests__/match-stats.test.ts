@@ -10,6 +10,7 @@ import {
 } from '@otr/core/osu';
 import {
   type BiggestUpsets,
+  type ClosestGames,
   type HigherRatedWins,
   PLATFORM_STATS,
   PlatformStatKey,
@@ -576,6 +577,116 @@ describe.skipIf(!url)('match and tournament platform stats', () => {
 
         expect(upsets.total).toBe(1);
         expect(upsets.matches.map((item) => item.loserRating)).toEqual([1200]);
+      });
+    });
+  });
+
+  describe('closest games', () => {
+    it('lists tiebreakers by the points the winners won the last verified game by', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const osu = await f.tournament();
+        const map = await f.beatmap({
+          set: { artist: 'Camellia', title: 'Exit This Earth' },
+          diffName: 'Extra',
+        });
+        const deletedMap = await f.beatmap({
+          set: null,
+          diffName: 'Insane',
+          titleOverride: 'Lost Song',
+          artistOverride: 'Gone Artist',
+        });
+
+        // Won 3–2 by 50 points on the last game, after a lopsided one.
+        // The last game is inserted first: games go by start time.
+        const byFifty = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(2, null),
+        });
+        await f.game(byFifty, {
+          start: minute(10),
+          red: 500_050,
+          blue: 500_000,
+          beatmapId: map.id,
+        });
+        await f.game(byFifty, { start: minute(5), red: 900_000, blue: 1_000 });
+
+        // Won 4–3 by 10 points; a rejected game after it doesn't count.
+        const byTen = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(4, null),
+        });
+        await f.game(byTen, {
+          start: minute(10),
+          red: 600_000,
+          blue: 600_010,
+          beatmapId: deletedMap.id,
+        });
+        await f.game(byTen, {
+          start: minute(15),
+          red: 900_000,
+          blue: 100,
+          status: Rejected,
+        });
+
+        // Won 3–1: no tiebreaker, however close the last game.
+        const notTied = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(1, null),
+        });
+        await f.game(notTied, {
+          start: minute(10),
+          red: 500_001,
+          blue: 500_000,
+        });
+
+        // Won 3–2, but the losers won the last game: the games and the
+        // score disagree.
+        const disagrees = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(2, null),
+        });
+        await f.game(disagrees, {
+          start: minute(10),
+          red: 500_000,
+          blue: 500_002,
+        });
+
+        // Won 3–2 with a level last game.
+        const level = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(2, null),
+        });
+        await f.game(level, { start: minute(10), red: 500_000, blue: 500_000 });
+
+        const closest = (
+          await compute<ClosestGames>(tx, PlatformStatKey.ClosestGames)
+        )[Ruleset.Osu];
+
+        expect(closest.total).toBe(2);
+        expect(
+          closest.games.map((item) => [item.matchId, item.margin])
+        ).toEqual([
+          [byTen, 10],
+          [byFifty, 50],
+        ]);
+        expect(closest.games[0]).toMatchObject({
+          winnerTeam: Team.Blue,
+          winnerScore: 4,
+          loserScore: 3,
+          beatmap: {
+            osuId: deletedMap.osuId,
+            diffName: 'Insane',
+            artist: 'Gone Artist',
+            title: 'Lost Song',
+          },
+        });
+        expect(closest.games[1]!.beatmap).toEqual({
+          osuId: map.osuId,
+          diffName: 'Extra',
+          artist: 'Camellia',
+          title: 'Exit This Earth',
+        });
       });
     });
   });

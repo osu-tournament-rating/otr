@@ -149,6 +149,7 @@ export default function StatsLoading() {
             </div>
           </PanelSkeleton>
           <RecordListSkeleton copy={STATS_PANELS.biggestUpsets} rows={5} />
+          <RecordListSkeleton copy={STATS_PANELS.closestGames} rows={5} meta />
         </div>
       </PageSection>
     </PageFrame>

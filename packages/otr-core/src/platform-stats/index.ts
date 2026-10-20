@@ -14,4 +14,9 @@ export type {
   RatingGapBucket,
 } from './stats/higher-rated-wins';
 export type { BiggestUpset, BiggestUpsets } from './stats/biggest-upsets';
+export type {
+  ClosestGame,
+  ClosestGameBeatmap,
+  ClosestGames,
+} from './stats/closest-games';
 export type { MatchRecord } from './stats/shared';

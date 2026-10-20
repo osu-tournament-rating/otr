@@ -3,6 +3,7 @@ import {
   Calendar,
   ChartNoAxesColumn,
   CircleCheck,
+  Crosshair,
   Gamepad2,
   Globe,
   LayoutGrid,
@@ -98,6 +99,11 @@ export const STATS_PANELS = {
     icon: Zap,
     title: 'Biggest upsets',
     infoText: `Only matches where every player had ${UPSET_MIN_EARLIER_MATCHES}+ earlier rated matches`,
+  },
+  closestGames: {
+    icon: Crosshair,
+    title: 'Closest games',
+    infoText: 'Tiebreakers only: the last map of a match won by one map',
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

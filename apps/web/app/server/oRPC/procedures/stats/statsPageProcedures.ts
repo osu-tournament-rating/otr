@@ -9,6 +9,7 @@ import type { DatabaseClient } from '@/lib/db';
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
   BiggestUpsetsSchema,
+  ClosestGamesSchema,
   HeadlineTotalsSchema,
   HigherRatedWinsSchema,
   RecentlyVerifiedInputSchema,
@@ -120,6 +121,12 @@ export async function runStatsPage({
         PlatformStatKey.BiggestUpsets,
         ruleset,
         BiggestUpsetsSchema
+      ),
+      closestGames: storedPayload(
+        stored,
+        PlatformStatKey.ClosestGames,
+        ruleset,
+        ClosestGamesSchema
       ),
     })),
   };

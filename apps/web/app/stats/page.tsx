@@ -9,7 +9,10 @@ import {
 } from '@/components/stats/CountryPanels';
 import HigherRatedWinsPanel from '@/components/stats/HigherRatedWinsPanel';
 import LazerSharePanel from '@/components/stats/LazerSharePanel';
-import { BiggestUpsetsPanel } from '@/components/stats/MatchRecordPanels';
+import {
+  BiggestUpsetsPanel,
+  ClosestGamesPanel,
+} from '@/components/stats/MatchRecordPanels';
 import OverviewPanel from '@/components/stats/OverviewPanel';
 import RankRestrictionsPanel from '@/components/stats/RankRestrictionsPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
@@ -79,6 +82,7 @@ export default async function StatsPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <HigherRatedWinsPanel />
             <BiggestUpsetsPanel />
+            <ClosestGamesPanel />
           </div>
         </PageSection>
       </RulesetStatsProvider>

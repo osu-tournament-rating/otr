@@ -327,10 +327,12 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         medianGap: 50,
       },
       [PlatformStatKey.BiggestUpsets]: { total: 1, matches: [] },
+      [PlatformStatKey.ClosestGames]: { total: 2, games: [] },
     };
     const storedFields = (entry: RulesetStatsData) => ({
       higherRatedWins: entry.higherRatedWins,
       biggestUpsets: entry.biggestUpsets,
+      closestGames: entry.closestGames,
     });
 
     await onEmptyTables(async (tx) => {
@@ -352,10 +354,12 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       expect(entry(Ruleset.Taiko)).toEqual({
         higherRatedWins: payloads[PlatformStatKey.HigherRatedWins],
         biggestUpsets: payloads[PlatformStatKey.BiggestUpsets],
+        closestGames: payloads[PlatformStatKey.ClosestGames],
       });
       expect(entry(Ruleset.Osu)).toEqual({
         higherRatedWins: null,
         biggestUpsets: null,
+        closestGames: null,
       });
     });
   });

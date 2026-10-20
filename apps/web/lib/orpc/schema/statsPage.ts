@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type {
   BiggestUpsets,
+  ClosestGames,
   HeadlineTotals,
   HigherRatedWins,
 } from '@otr/core/platform-stats';
@@ -56,6 +57,24 @@ export const BiggestUpsetsSchema = z.object({
     })
   ),
 }) satisfies z.ZodType<BiggestUpsets>;
+
+export const ClosestGamesSchema = z.object({
+  total: count,
+  games: z.array(
+    z.object({
+      ...MatchRecordShape,
+      margin: count,
+      beatmap: z
+        .object({
+          osuId: z.number().int(),
+          diffName: z.string(),
+          artist: z.string().nullable(),
+          title: z.string().nullable(),
+        })
+        .nullable(),
+    })
+  ),
+}) satisfies z.ZodType<ClosestGames>;
 
 export const VerificationSummarySchema = z.object({
   windowDays: count,
@@ -125,6 +144,7 @@ export const RulesetStatsSchema = z.object({
   /** Stored statistics, null until the data worker has computed them. */
   higherRatedWins: HigherRatedWinsSchema.nullable(),
   biggestUpsets: BiggestUpsetsSchema.nullable(),
+  closestGames: ClosestGamesSchema.nullable(),
 });
 
 /**
@@ -160,6 +180,8 @@ export type RulesetStatsData = z.infer<typeof RulesetStatsSchema>;
 export type HigherRatedWinsData = z.infer<typeof HigherRatedWinsSchema>;
 export type BiggestUpsetsData = z.infer<typeof BiggestUpsetsSchema>;
 export type BiggestUpsetData = BiggestUpsetsData['matches'][number];
+export type ClosestGamesData = z.infer<typeof ClosestGamesSchema>;
+export type ClosestGameData = ClosestGamesData['games'][number];
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<
   BiggestUpsetData,
