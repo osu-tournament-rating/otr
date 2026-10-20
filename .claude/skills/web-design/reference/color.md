@@ -747,6 +747,7 @@ import { SeriesMarker } from '@/components/kit/charts/SeriesMarker';
 - `SeriesMarker`: the marker on its own, for direct labels and custom rows. `square` for bars and areas, `line` for lines, `dashed` for reference and trend lines, `dot` for points.
 - A single series needs no legend; the SectionHeader title names it. With four or fewer series, direct labels on the marks are a good addition.
 - The legend's text stays muted; the marker carries the colour.
+- When colour and dash each carry a dimension, key them apart: a coloured marker per series, then one muted marker (`var(--muted-foreground)`) per dash. The stats page's pool difficulty colours the kind of tournament and dashes the 90th percentile: Open rank, Rank-restricted, Median (`line`), 90th percentile (`dashed`), with the dash `4 2` that the `dashed` marker draws (`components/stats/PoolDifficultyPanel.tsx`).
 
 Don't:
 

@@ -40,3 +40,9 @@ export const MOST_PLAYED_CREATORS_LIMIT = 5;
  * between maps that two tournaments happened to share.
  */
 export const MOST_PLAYED_MIN_TOURNAMENTS = 3;
+
+/**
+ * Tournaments a year's open rank, or rank-restricted, pools need before
+ * their star ratings are charted; a year with fewer leaves a gap.
+ */
+export const POOL_DIFFICULTY_MIN_TOURNAMENTS = 5;

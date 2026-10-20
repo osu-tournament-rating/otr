@@ -395,6 +395,9 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       [PlatformStatKey.MostPlayedBeatmaps]: { total: 6, beatmaps: [] },
       [PlatformStatKey.MostPlayedMappers]: { total: 7, mappers: [] },
       [PlatformStatKey.MostPlayedArtists]: { total: 8, artists: [] },
+      [PlatformStatKey.PoolDifficulty]: {
+        years: [{ year: 2025, tournaments: 9, open: null, restricted: null }],
+      },
     };
     const storedFields = (entry: RulesetStatsData) => ({
       higherRatedWins: entry.higherRatedWins,
@@ -406,6 +409,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       mostPlayedBeatmaps: entry.mostPlayedBeatmaps,
       mostPlayedMappers: entry.mostPlayedMappers,
       mostPlayedArtists: entry.mostPlayedArtists,
+      poolDifficulty: entry.poolDifficulty,
     });
 
     await onEmptyTables(async (tx) => {
@@ -434,6 +438,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         mostPlayedBeatmaps: payloads[PlatformStatKey.MostPlayedBeatmaps],
         mostPlayedMappers: payloads[PlatformStatKey.MostPlayedMappers],
         mostPlayedArtists: payloads[PlatformStatKey.MostPlayedArtists],
+        poolDifficulty: payloads[PlatformStatKey.PoolDifficulty],
       });
       expect(entry(Ruleset.Osu)).toEqual({
         higherRatedWins: null,
@@ -445,6 +450,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         mostPlayedBeatmaps: null,
         mostPlayedMappers: null,
         mostPlayedArtists: null,
+        poolDifficulty: null,
       });
     });
   });

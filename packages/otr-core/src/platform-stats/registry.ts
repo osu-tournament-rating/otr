@@ -7,6 +7,7 @@ import { higherRatedWins } from './stats/higher-rated-wins';
 import { mostPlayedArtists } from './stats/most-played-artists';
 import { mostPlayedBeatmaps } from './stats/most-played-beatmaps';
 import { mostPlayedMappers } from './stats/most-played-mappers';
+import { poolDifficulty } from './stats/pool-difficulty';
 import { strongestFields } from './stats/strongest-fields';
 import type { PlatformStatDefinition } from './types';
 
@@ -25,4 +26,5 @@ export const PLATFORM_STATS: readonly PlatformStatDefinition[] = [
   mostPlayedBeatmaps,
   mostPlayedMappers,
   mostPlayedArtists,
+  poolDifficulty,
 ];

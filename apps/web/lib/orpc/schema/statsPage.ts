@@ -10,6 +10,7 @@ import type {
   MostPlayedArtists,
   MostPlayedBeatmaps,
   MostPlayedMappers,
+  PoolDifficulty,
   StrongestFields,
 } from '@otr/core/platform-stats';
 
@@ -151,6 +152,24 @@ export const MostPlayedArtistsSchema = z.object({
   ),
 }) satisfies z.ZodType<MostPlayedArtists>;
 
+const PoolDifficultyPointSchema = z.object({
+  maps: count,
+  tournaments: count,
+  median: z.number().nonnegative(),
+  p90: z.number().nonnegative(),
+});
+
+export const PoolDifficultySchema = z.object({
+  years: z.array(
+    z.object({
+      year: z.number().int(),
+      tournaments: count,
+      open: PoolDifficultyPointSchema.nullable(),
+      restricted: PoolDifficultyPointSchema.nullable(),
+    })
+  ),
+}) satisfies z.ZodType<PoolDifficulty>;
+
 /** Verified matches by the UTC weekday and hour they started. */
 export const MatchStartTimesSchema = z.object({
   matches: count,
@@ -233,6 +252,7 @@ export const RulesetStatsSchema = z.object({
   mostPlayedBeatmaps: MostPlayedBeatmapsSchema.nullable(),
   mostPlayedMappers: MostPlayedMappersSchema.nullable(),
   mostPlayedArtists: MostPlayedArtistsSchema.nullable(),
+  poolDifficulty: PoolDifficultySchema.nullable(),
   matchStartTimes: MatchStartTimesSchema,
 });
 
@@ -279,6 +299,7 @@ export type ActivePlayersData = z.infer<typeof ActivePlayersSchema>;
 export type MostPlayedBeatmapsData = z.infer<typeof MostPlayedBeatmapsSchema>;
 export type MostPlayedBeatmapData = MostPlayedBeatmapsData['beatmaps'][number];
 
+export type PoolDifficultyData = z.infer<typeof PoolDifficultySchema>;
 export type MatchStartTimesData = z.infer<typeof MatchStartTimesSchema>;
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<

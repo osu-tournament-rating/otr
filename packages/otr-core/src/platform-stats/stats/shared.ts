@@ -6,6 +6,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 
 import {
+  Mods,
   RatingAdjustmentType,
   type Team,
   VerificationStatus,
@@ -130,6 +131,27 @@ export const recentGames = sql`
     and t.ruleset in (${ratedRulesets})
     and m.start_time >= ${recentWindowStart}
     and g.beatmap_id is not null`;
+
+/**
+ * A tournament's year, as the stats page's tournament charts count it: its
+ * start, else its end, else when it was submitted, in UTC.
+ */
+export const tournamentYear = (alias: SQL) =>
+  sql`date_part('year', coalesce(${alias}.start_time, ${alias}.end_time, ${alias}.created) at time zone 'UTC')::int`;
+
+/**
+ * A CTE body: verified tournaments per rated ruleset and year. Trend charts
+ * read it to leave out years with too few tournaments to show a trend.
+ */
+export const verifiedTournamentsByYear = sql`
+  select t.ruleset, ${tournamentYear(sql`t`)} as year, count(*) as tournaments
+  from tournaments t
+  where t.verification_status = ${VERIFIED}
+    and t.ruleset in (${ratedRulesets})
+  group by 1, 2`;
+
+/** Mod masks as SQL literals: a bound parameter has no type for `~`. */
+export const NO_FAIL = sql.raw(String(Mods.NoFail));
 
 /** A UTC timestamp as an ISO 8601 string, in SQL, so no driver parses it. */
 export const isoTimestamp = (column: SQL) =>

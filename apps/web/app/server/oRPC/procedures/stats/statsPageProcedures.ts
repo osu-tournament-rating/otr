@@ -17,6 +17,7 @@ import {
   MostPlayedArtistsSchema,
   MostPlayedBeatmapsSchema,
   MostPlayedMappersSchema,
+  PoolDifficultySchema,
   StrongestFieldsSchema,
   RecentlyVerifiedInputSchema,
   RecentlyVerifiedPageSchema,
@@ -176,6 +177,12 @@ export async function runStatsPage({
         PlatformStatKey.MostPlayedArtists,
         ruleset,
         MostPlayedArtistsSchema
+      ),
+      poolDifficulty: storedPayload(
+        stored,
+        PlatformStatKey.PoolDifficulty,
+        ruleset,
+        PoolDifficultySchema
       ),
       matchStartTimes: tabulateMatchStartTimes(
         matchStartTimes.filter((row) => row.ruleset === ruleset)

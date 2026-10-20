@@ -28,6 +28,7 @@ export enum PlatformStatKey {
   MostPlayedBeatmaps = 'most-played-beatmaps',
   MostPlayedMappers = 'most-played-mappers',
   MostPlayedArtists = 'most-played-artists',
+  PoolDifficulty = 'pool-difficulty',
 }
 
 /** The rulesets a per-ruleset statistic is computed for: every rated one. */

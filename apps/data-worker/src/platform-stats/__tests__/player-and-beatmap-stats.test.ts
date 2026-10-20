@@ -11,6 +11,7 @@ import {
   PLATFORM_STATS,
   PlatformStatKey,
   type PlatformStatsRuleset,
+  type PoolDifficulty,
 } from '@otr/core/platform-stats';
 
 import type { DatabaseClient } from '../../db';
@@ -582,6 +583,113 @@ describe.skipIf(!url)('player and beatmap platform stats', () => {
         expect(
           artists[Ruleset.Taiko].artists.map((item) => item.artist)
         ).toEqual(['Taiko artist']);
+      });
+    });
+  });
+
+  describe('pool difficulty', () => {
+    it('takes nomod star ratings per year, open rank and rank-restricted apart', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const open = await f.tournament({ start: '2025-03-01T00:00:00Z' });
+        const openMatch = await f.match(open);
+        for (const sr of [4, 5, 6, 7, 8]) {
+          const map = await f.beatmap({ sr });
+          // With No Fail, as most lobbies force it.
+          await f.game(openMatch, {
+            beatmapId: map.id,
+            mods: Mods.NoFail,
+            scores: [{ mods: Mods.NoFail }],
+          });
+          // Played twice in one tournament, the map counts once.
+          if (sr === 8) await f.game(openMatch, { beatmapId: map.id });
+        }
+        const restricted = await f.tournament({
+          start: '2025-04-01T00:00:00Z',
+          rankRangeLowerBound: 1000,
+        });
+        const restrictedMatch = await f.match(restricted);
+        for (const sr of [3, 5]) {
+          await f.game(restrictedMatch, {
+            beatmapId: (await f.beatmap({ sr })).id,
+          });
+        }
+        // A 2024 tournament with no nomod game.
+        await f.tournament({ start: '2024-06-01T00:00:00Z' });
+
+        const stats = await compute<PoolDifficulty>(
+          tx,
+          PlatformStatKey.PoolDifficulty
+        );
+
+        expect(stats[Ruleset.Osu].years).toEqual([
+          { year: 2024, tournaments: 1, open: null, restricted: null },
+          {
+            year: 2025,
+            tournaments: 2,
+            // 4, 5, 6, 7, 8: the 90th percentile is 7 + 0.6 × (8 − 7).
+            open: { maps: 5, tournaments: 1, median: 6, p90: 7.6 },
+            // 3 and 5: the median is 4, the 90th percentile 3 + 0.9 × 2.
+            restricted: { maps: 2, tournaments: 1, median: 4, p90: 4.8 },
+          },
+        ]);
+      });
+    });
+
+    it('counts a game as nomod only when it and its verified scores have no mod', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const osu = await f.tournament({ start: '2025-03-01T00:00:00Z' });
+        const matchId = await f.match(osu);
+        const map = async (sr: number) => (await f.beatmap({ sr })).id;
+
+        // Counts: a rejected score's Hidden does not make it a mod game.
+        await f.game(matchId, {
+          beatmapId: await map(5),
+          scores: [{}, { mods: Mods.Hidden, status: Rejected }],
+        });
+        // None of these count: a Hidden lobby, a score with Hard Rock (a
+        // freemod pick), a rejected game, a map osu! gives no star rating,
+        // and a taiko map converted from osu! in an osu! tournament.
+        await f.game(matchId, { beatmapId: await map(7), mods: Mods.Hidden });
+        await f.game(matchId, {
+          beatmapId: await map(7),
+          scores: [{}, { mods: Mods.HardRock }],
+        });
+        await f.game(matchId, { beatmapId: await map(7), status: Rejected });
+        await f.game(matchId, { beatmapId: await map(0) });
+        await f.game(matchId, {
+          beatmapId: (await f.beatmap({ sr: 7, ruleset: Ruleset.Taiko })).id,
+        });
+        // A mania 4K tournament plays mania beatmaps, stored as mania (other).
+        const mania = await f.tournament({
+          ruleset: Ruleset.Mania4k,
+          start: '2025-03-01T00:00:00Z',
+        });
+        await f.game(await f.match(mania), {
+          beatmapId: (await f.beatmap({ sr: 4, ruleset: Ruleset.ManiaOther }))
+            .id,
+        });
+
+        const stats = await compute<PoolDifficulty>(
+          tx,
+          PlatformStatKey.PoolDifficulty
+        );
+
+        expect(stats[Ruleset.Osu].years).toEqual([
+          {
+            year: 2025,
+            tournaments: 1,
+            open: { maps: 1, tournaments: 1, median: 5, p90: 5 },
+            restricted: null,
+          },
+        ]);
+        expect(stats[Ruleset.Mania4k].years[0]?.open).toEqual({
+          maps: 1,
+          tournaments: 1,
+          median: 4,
+          p90: 4,
+        });
       });
     });
   });

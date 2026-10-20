@@ -192,6 +192,12 @@ export default function StatsLoading() {
             rows={5}
             description={false}
           />
+          <ChartPanelSkeleton
+            copy={STATS_PANELS.poolDifficulty}
+            metaWidth="w-20"
+            plot="h-80"
+            level={3}
+          />
         </div>
       </PageSection>
     </PageFrame>

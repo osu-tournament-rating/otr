@@ -22,6 +22,7 @@ import {
   MostPlayedMappersPanel,
 } from '@/components/stats/MostPlayedPanels';
 import OverviewPanel from '@/components/stats/OverviewPanel';
+import PoolDifficultyPanel from '@/components/stats/PoolDifficultyPanel';
 import RankRestrictionsPanel from '@/components/stats/RankRestrictionsPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
 import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
@@ -103,6 +104,7 @@ export default async function StatsPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <MostPlayedMappersPanel />
             <MostPlayedArtistsPanel />
+            <PoolDifficultyPanel />
           </div>
         </PageSection>
       </RulesetStatsProvider>

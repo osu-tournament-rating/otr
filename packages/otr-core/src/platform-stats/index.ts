@@ -37,4 +37,9 @@ export type {
   MostPlayedArtist,
   MostPlayedArtists,
 } from './stats/most-played-artists';
+export type {
+  PoolDifficulty,
+  PoolDifficultyPoint,
+  PoolDifficultyYear,
+} from './stats/pool-difficulty';
 export type { MatchRecord } from './stats/shared';

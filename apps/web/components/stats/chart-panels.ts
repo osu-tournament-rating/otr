@@ -1,6 +1,7 @@
 import {
   FIELD_SIZE,
   MOST_PLAYED_MIN_TOURNAMENTS,
+  POOL_DIFFICULTY_MIN_TOURNAMENTS,
   UPSET_MIN_EARLIER_MATCHES,
 } from '@otr/core/platform-stats/constants';
 import {
@@ -12,6 +13,7 @@ import {
   Crown,
   Disc3,
   Gamepad2,
+  Gauge,
   Globe,
   LayoutGrid,
   ListChecks,
@@ -151,7 +153,20 @@ export const STATS_PANELS = {
     title: 'Most played artists',
     infoText: `Only artists played in ${MOST_PLAYED_MIN_TOURNAMENTS}+ tournaments`,
   },
+  poolDifficulty: {
+    icon: Gauge,
+    title: 'Pool difficulty',
+    infoText: `Star ratings of beatmaps played without mods, as osu! rated them. A year shows once it has ${POOL_DIFFICULTY_MIN_TOURNAMENTS} tournaments of a kind.`,
+  },
 } as const satisfies Record<string, StatsPanelCopy>;
+
+/** The pool difficulty chart's legend: two kinds of tournament, two measures. */
+export const POOL_DIFFICULTY_LABELS = {
+  open: 'Open rank',
+  restricted: 'Rank-restricted',
+  median: 'Median',
+  p90: '90th percentile',
+} as const;
 
 /** The rating gap panel's tile labels, shared with the loading screen. */
 export const RATING_GAP_TILE_LABELS = [

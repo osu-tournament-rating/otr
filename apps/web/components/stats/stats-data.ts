@@ -26,6 +26,7 @@ import type {
   HigherRatedWinsData,
   LazerYearData,
   MatchRecordData,
+  PoolDifficultyData,
   RankRestrictionYearData,
 } from '@/lib/orpc/schema/statsPage';
 import {
@@ -371,6 +372,55 @@ export function getActivePlayerBars(
       },
     };
   });
+}
+
+/** One year of the pool difficulty chart; null where a group has too few tournaments. */
+export interface PoolDifficultyRow {
+  year: number;
+  label: string;
+  openMedian: number | null;
+  openP90: number | null;
+  restrictedMedian: number | null;
+  restrictedP90: number | null;
+  openMaps: number;
+  restrictedMaps: number;
+}
+
+/**
+ * Nomod star ratings per year over the trend years. A group's point needs
+ * `minTournaments` tournaments that year, or it is left as a gap. Empty
+ * when no year has a point.
+ */
+export function getPoolDifficultyRows(
+  years: PoolDifficultyData['years'],
+  minTournaments: number
+): PoolDifficultyRow[] {
+  const byYear = new Map(years.map((entry) => [entry.year, entry]));
+  const totals = new Map(years.map((entry) => [entry.year, entry.tournaments]));
+  const enough = (point: PoolDifficultyData['years'][number]['open']) =>
+    point && point.tournaments >= minTournaments ? point : null;
+
+  const rows = getTrendYears(totals).map((year) => {
+    const entry = byYear.get(year);
+    const open = enough(entry?.open ?? null);
+    const restricted = enough(entry?.restricted ?? null);
+    return {
+      year,
+      label: formatYear(year),
+      openMedian: open?.median ?? null,
+      openP90: open?.p90 ?? null,
+      restrictedMedian: restricted?.median ?? null,
+      restrictedP90: restricted?.p90 ?? null,
+      openMaps: open?.maps ?? 0,
+      restrictedMaps: restricted?.maps ?? 0,
+    };
+  });
+
+  return rows.some(
+    (row) => row.openMedian !== null || row.restrictedMedian !== null
+  )
+    ? rows
+    : [];
 }
 
 /** The heatmap's rows: ISO weekdays, Monday first, as UTC counts them. */
