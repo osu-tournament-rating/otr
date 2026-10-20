@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type {
+  BiggestComebacks,
   BiggestUpsets,
   ClosestGames,
   HeadlineTotals,
@@ -76,6 +77,11 @@ export const ClosestGamesSchema = z.object({
   ),
 }) satisfies z.ZodType<ClosestGames>;
 
+export const BiggestComebacksSchema = z.object({
+  total: count,
+  matches: z.array(z.object({ ...MatchRecordShape, deficit: count })),
+}) satisfies z.ZodType<BiggestComebacks>;
+
 export const VerificationSummarySchema = z.object({
   windowDays: count,
   tournaments: count,
@@ -145,6 +151,7 @@ export const RulesetStatsSchema = z.object({
   higherRatedWins: HigherRatedWinsSchema.nullable(),
   biggestUpsets: BiggestUpsetsSchema.nullable(),
   closestGames: ClosestGamesSchema.nullable(),
+  biggestComebacks: BiggestComebacksSchema.nullable(),
 });
 
 /**
@@ -182,6 +189,8 @@ export type BiggestUpsetsData = z.infer<typeof BiggestUpsetsSchema>;
 export type BiggestUpsetData = BiggestUpsetsData['matches'][number];
 export type ClosestGamesData = z.infer<typeof ClosestGamesSchema>;
 export type ClosestGameData = ClosestGamesData['games'][number];
+export type BiggestComebacksData = z.infer<typeof BiggestComebacksSchema>;
+export type BiggestComebackData = BiggestComebacksData['matches'][number];
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<
   BiggestUpsetData,

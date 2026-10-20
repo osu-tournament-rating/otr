@@ -8,6 +8,7 @@ import {
 import type { DatabaseClient } from '@/lib/db';
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
+  BiggestComebacksSchema,
   BiggestUpsetsSchema,
   ClosestGamesSchema,
   HeadlineTotalsSchema,
@@ -127,6 +128,12 @@ export async function runStatsPage({
         PlatformStatKey.ClosestGames,
         ruleset,
         ClosestGamesSchema
+      ),
+      biggestComebacks: storedPayload(
+        stored,
+        PlatformStatKey.BiggestComebacks,
+        ruleset,
+        BiggestComebacksSchema
       ),
     })),
   };

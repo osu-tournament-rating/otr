@@ -10,6 +10,7 @@ import {
 import HigherRatedWinsPanel from '@/components/stats/HigherRatedWinsPanel';
 import LazerSharePanel from '@/components/stats/LazerSharePanel';
 import {
+  BiggestComebacksPanel,
   BiggestUpsetsPanel,
   ClosestGamesPanel,
 } from '@/components/stats/MatchRecordPanels';
@@ -83,6 +84,7 @@ export default async function StatsPage() {
             <HigherRatedWinsPanel />
             <BiggestUpsetsPanel />
             <ClosestGamesPanel />
+            <BiggestComebacksPanel />
           </div>
         </PageSection>
       </RulesetStatsProvider>

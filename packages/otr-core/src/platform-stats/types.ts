@@ -22,6 +22,7 @@ export enum PlatformStatKey {
   HigherRatedWins = 'higher-rated-wins',
   BiggestUpsets = 'biggest-upsets',
   ClosestGames = 'closest-games',
+  BiggestComebacks = 'biggest-comebacks',
 }
 
 /** The rulesets a per-ruleset statistic is computed for: every rated one. */

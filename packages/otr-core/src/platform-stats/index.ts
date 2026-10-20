@@ -19,4 +19,8 @@ export type {
   ClosestGameBeatmap,
   ClosestGames,
 } from './stats/closest-games';
+export type {
+  BiggestComeback,
+  BiggestComebacks,
+} from './stats/biggest-comebacks';
 export type { MatchRecord } from './stats/shared';

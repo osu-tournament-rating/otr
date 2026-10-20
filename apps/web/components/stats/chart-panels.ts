@@ -12,6 +12,7 @@ import {
   Percent,
   Scale,
   Target,
+  TrendingUp,
   Users,
   Zap,
 } from 'lucide-react';
@@ -104,6 +105,11 @@ export const STATS_PANELS = {
     icon: Crosshair,
     title: 'Closest games',
     infoText: 'Tiebreakers only: the last map of a match won by one map',
+  },
+  // No info button: each row says how far the winners trailed.
+  biggestComebacks: {
+    icon: TrendingUp,
+    title: 'Biggest comebacks',
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

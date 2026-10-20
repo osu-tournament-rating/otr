@@ -9,6 +9,7 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 import {
+  type BiggestComebacks,
   type BiggestUpsets,
   type ClosestGames,
   type HigherRatedWins,
@@ -686,6 +687,69 @@ describe.skipIf(!url)('match and tournament platform stats', () => {
           diffName: 'Extra',
           artist: 'Camellia',
           title: 'Exit This Earth',
+        });
+      });
+    });
+  });
+
+  describe('biggest comebacks', () => {
+    it('finds the winners’ largest deficit, replaying verified games in start order', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        const osu = await f.tournament();
+
+        // Lost the first three and won the last four: trailed by 3. The
+        // games are inserted last first.
+        const fromThreeDown = await f.match(osu, {
+          red: await f.side(4, null),
+          blue: await f.side(3, null),
+        });
+        await f.games(fromThreeDown, 'BBBRRRR', { reverse: true });
+
+        // Led 1–0, then trailed 1–2 after a level game that scores for
+        // neither side: trailed by 1, though the losers won 2 maps. A
+        // rejected game after the last doesn't count.
+        const fromOneDown = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(2, null),
+        });
+        await f.games(fromOneDown, 'RB=BRR');
+        await f.game(fromOneDown, {
+          start: minute(30),
+          red: 900_000,
+          blue: 100,
+          status: Rejected,
+        });
+
+        // Led throughout.
+        const wireToWire = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(0, null),
+        });
+        await f.games(wireToWire, 'RRR');
+
+        // Trailed by 2, but the games add up to 2–2, not the 3–2 score.
+        const disagrees = await f.match(osu, {
+          red: await f.side(3, null),
+          blue: await f.side(2, null),
+        });
+        await f.games(disagrees, 'BBRR');
+
+        const comebacks = (
+          await compute<BiggestComebacks>(tx, PlatformStatKey.BiggestComebacks)
+        )[Ruleset.Osu];
+
+        expect(comebacks.total).toBe(2);
+        expect(
+          comebacks.matches.map((item) => [item.matchId, item.deficit])
+        ).toEqual([
+          [fromThreeDown, 3],
+          [fromOneDown, 1],
+        ]);
+        expect(comebacks.matches[0]).toMatchObject({
+          winnerTeam: Team.Red,
+          winnerScore: 4,
+          loserScore: 3,
         });
       });
     });

@@ -225,3 +225,26 @@ export function ClosestGamesPanel() {
     />
   );
 }
+
+/** Matches of the last 12 months won after trailing by the most maps. */
+export function BiggestComebacksPanel() {
+  const { stats } = useRulesetStats();
+  const data = stats?.biggestComebacks ?? null;
+
+  return (
+    <MatchRecordPanel
+      copy={STATS_PANELS.biggestComebacks}
+      testId="biggest-comebacks"
+      data={data && { total: data.total, items: data.matches }}
+      noun="comeback"
+      emptyTitle={`No comebacks ${IN_WINDOW}`}
+      renderRow={(match) => (
+        <MatchRecordRow
+          key={match.matchId}
+          match={match}
+          detail={`Trailed by ${formatCountOf(match.deficit, 'map')}`}
+        />
+      )}
+    />
+  );
+}
