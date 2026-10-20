@@ -101,3 +101,10 @@ tests.
   tests also read.
 - Every stats job a run queues carries the run id, logged when the run starts,
   as its `correlation_id`.
+- After the commit, `src/receipt.rs` prints the run's receipt as the only
+  stdout line: `OTR_RECEIPT=` and compact JSON with the run id, start, decay
+  horizon, commit time, and counts. Logs go to stderr, so nothing else may
+  print to stdout. `apps/scripts` publishes the receipt beside the public
+  replicas and otr-replay reads it, so its field names and timestamp format are
+  a contract with both. A rolled-back run prints none, and a receipt that
+  cannot be printed only logs an error, since the ratings are committed.
