@@ -1,0 +1,51 @@
+<!-- @dsCard group="Layout" height=260 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PageSection</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        R = O.osu.Ruleset,
+        h = React.createElement;
+      function Demo() {
+        var s = React.useState(R.Osu),
+          value = s[0],
+          setValue = s[1];
+        return h(
+          O.PageSection,
+          {
+            icon: I.Gamepad2,
+            title: 'By ruleset',
+            actions: h(O.RulesetSwitch, {
+              value: value,
+              onValueChange: setValue,
+            }),
+          },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.Globe,
+              title: 'Players by country',
+              level: 3,
+              meta: 'Top 10 of 149 countries',
+            }),
+            h(
+              O.PanelBody,
+              { className: 'text-sm text-muted-foreground' },
+              'Chart'
+            )
+          )
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        h(O.TooltipProvider, null, h(Demo))
+      );
+    </script>
+  </body>
+</html>

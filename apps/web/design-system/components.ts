@@ -52,6 +52,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     refs: ['layout.md#Panel and PanelBody'],
   },
   {
+    name: 'PageSection',
+    group: 'Layout',
+    src: 'components/kit/layout/PageSection.tsx',
+    refs: ['layout.md#PageSection'],
+  },
+  {
     name: 'SectionHeader',
     group: 'Layout',
     src: 'components/kit/layout/SectionHeader.tsx',

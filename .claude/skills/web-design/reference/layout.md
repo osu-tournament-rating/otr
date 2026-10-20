@@ -10,6 +10,7 @@ Every value here comes from the beatmap pages, which are the reference. Import e
 - [HeroTabsRoot, HeroTabsList, HeroTabsTrigger, HeroTabsContent](#herotabsroot-herotabslist-herotabstrigger-herotabscontent): in-page tabs under a hero
 - [Panel and PanelBody](#panel-and-panelbody): the one surface
 - [SectionHeader](#sectionheader): the strip at the top of a panel
+- [PageSection](#pagesection): a group of panels that follow one control
 - [InfoButton](#infobutton): the one help button
 - [Tile](#tile): the small bordered box inside a panel
 - [StatTile and StatTileGrid](#stattile-and-stattilegrid): one number with its label
@@ -18,7 +19,7 @@ Every value here comes from the beatmap pages, which are the reference. Import e
 
 ## Page anatomy
 
-A list or tool page is a PageFrame holding a PageHeader and then panels. A detail page is a PageFrame holding a DetailHero (with its tabs) and then panels. A panel starts with a SectionHeader and then holds rows, tiles, a table or a chart. The exception is the panel of a searchable or filterable list (tournaments, beatmaps, the leaderboard, audit logs, reports): it starts with its [ListToolbar](lists.md#listtoolbar), as the beatmap list does, and has no SectionHeader; the toolbar's count stands in for the header's meta. A short fixed list inside a detail page, such as teammates, keeps its SectionHeader. That is the whole nesting: never a panel or card inside a panel, never a box around a table inside a panel.
+A list or tool page is a PageFrame holding a PageHeader and then panels. A detail page is a PageFrame holding a DetailHero (with its tabs) and then panels. A panel starts with a SectionHeader and then holds rows, tiles, a table or a chart. The exception is the panel of a searchable or filterable list (tournaments, beatmaps, the leaderboard, audit logs, reports): it starts with its [ListToolbar](lists.md#listtoolbar), as the beatmap list does, and has no SectionHeader; the toolbar's count stands in for the header's meta. A short fixed list inside a detail page, such as teammates, keeps its SectionHeader. That is the whole nesting: never a panel or card inside a panel, never a box around a table inside a panel. One page-level grouping exists for long pages: when the panels after some point all follow one control, such as the stats page's ruleset, they sit in a [PageSection](#pagesection) with that control in its heading row, after the panels that don't.
 
 ```tsx
 import { ListToolbar } from '@/components/kit/lists/ListToolbar';
@@ -364,6 +365,47 @@ Don't:
 Loading: `SectionHeaderSkeleton` ([feedback.md](feedback.md#skeletons)) draws the real strip with its static title.
 
 Gallery anchor: `/admin/design#layout-section-header`
+
+## PageSection
+
+A group of panels on a long page that all follow one control: a divider, a 16px heading with a muted icon, the control on the right (under the heading on phones), and the panels under it, 16px apart. The stats page puts the panels for one ruleset in one, headed "By ruleset" with the page's RulesetSwitch, after the panels over every ruleset.
+
+```tsx
+import { PageSection } from '@/components/kit/layout/PageSection';
+
+<PageFrame>
+  <PageHeader icon={ChartColumn} title="Platform statistics" description="…" />
+  <Panel>…every ruleset…</Panel>
+  <PageSection
+    icon={Gamepad2}
+    title="By ruleset"
+    actions={<StatsRulesetSwitch />}
+  >
+    <Panel>
+      <SectionHeader icon={Globe} title="Players by country" level={3} />…
+    </Panel>
+  </PageSection>
+</PageFrame>;
+```
+
+Props:
+
+- `title`: the section's h2, sentence case. The heading's id comes from `useId`, and the section is named by it.
+- `icon`: muted, like a SectionHeader's.
+- `actions`: the control the panels follow, such as a RulesetSwitch. Its state lives in the page address like any list control.
+- `children`: panels and grids of panels. Their SectionHeaders take `level={3}`.
+
+Do:
+
+- Put the panels that don't follow the control before the section, so its heading marks where the control starts to apply.
+- Use RulesetSwitchSkeleton as `actions` on the loading screen, inside the same PageSection.
+
+Don't:
+
+- Don't use it to split a short page into chapters, or to title one panel; a panel's SectionHeader does that.
+- Don't nest one PageSection in another, or put one inside a panel.
+
+Gallery anchor: `/admin/design#layout-page-section`
 
 ## InfoButton
 

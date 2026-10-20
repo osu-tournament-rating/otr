@@ -51,6 +51,7 @@ import {
 import { InfoButton } from '@/components/kit/layout/InfoButton';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageHeader } from '@/components/kit/layout/PageHeader';
+import { PageSection } from '@/components/kit/layout/PageSection';
 import { Panel, PanelBody } from '@/components/kit/layout/Panel';
 import { RowList, RowListItem } from '@/components/kit/layout/RowList';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
@@ -186,6 +187,32 @@ function PlayerHeroDemo() {
         <RulesetSwitch value={ruleset} onValueChange={setRuleset} />
       </div>
     </DetailHero>
+  );
+}
+
+/**
+ * A group of panels that follow one control, as the stats page's panels for
+ * one ruleset do.
+ */
+function PageSectionDemo() {
+  const [ruleset, setRuleset] = React.useState<Ruleset>(Ruleset.Osu);
+
+  return (
+    <PageSection
+      icon={Gamepad2}
+      title="By ruleset"
+      actions={<RulesetSwitch value={ruleset} onValueChange={setRuleset} />}
+    >
+      <Panel>
+        <SectionHeader
+          icon={Globe}
+          title="Players by country"
+          level={3}
+          meta="Top 10 of 149 countries"
+        />
+        <PanelBody className={typeScale.bodyMuted}>Chart</PanelBody>
+      </Panel>
+    </PageSection>
   );
 }
 
@@ -608,6 +635,16 @@ export default function LayoutSection() {
             Rows, tiles, a table or a chart
           </PanelBody>
         </Panel>
+      </Specimen>
+
+      <Specimen
+        id="layout-page-section"
+        name="PageSection"
+        importPath={`${KIT}/PageSection`}
+        description="A group of panels on a long page that all follow one control, such as the stats page's panels for one ruleset: a divider, a heading and the control, then the panels, whose section headers take level 3. Most pages have none."
+        stacked
+      >
+        <PageSectionDemo />
       </Specimen>
 
       <Specimen
