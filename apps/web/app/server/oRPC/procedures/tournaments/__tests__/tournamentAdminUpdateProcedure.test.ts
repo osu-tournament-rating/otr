@@ -6,8 +6,10 @@ import {
   type UpdateTournamentAdminArgs,
 } from '../adminProcedures';
 import * as schema from '@otr/core/db/schema';
+import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import {
   GameWarningFlags,
+  MatchRejectionReason,
   MatchWarningFlags,
   Ruleset,
   VerificationStatus,
@@ -564,6 +566,139 @@ describe('updateTournamentAdminHandler', () => {
       }
     );
   });
+
+  describe.skipIf(!testDatabaseUrl)(
+    'verifying with a match with no data',
+    () => {
+      const { pool, db } = createTestDb(testDatabaseUrl!);
+      const NAME = 'tournament-admin-update-no-data';
+      const USER_OSU_ID = 991_167_001;
+      const MATCH_OSU_IDS = [991_167_101, 991_167_102];
+      let userId = 0;
+      let tournamentId = 0;
+      let fetchedMatchId = 0;
+      let noDataMatchId = 0;
+
+      const removeSeed = async () => {
+        await db
+          .delete(schema.tournaments)
+          .where(like(schema.tournaments.name, `${NAME}%`));
+      };
+
+      /** A match osu! returned, and one it returned no data for. */
+      const seed = async (noData: {
+        verificationStatus: VerificationStatus;
+        rejectionReason: number;
+      }) => {
+        const [tournament] = await db
+          .insert(schema.tournaments)
+          .values({
+            name: NAME,
+            abbreviation: baseInput.abbreviation,
+            forumUrl: 'https://osu.ppy.sh/community/forums/topics/991167',
+            rankRangeLowerBound: baseInput.rankRangeLowerBound,
+            ruleset: baseInput.ruleset,
+            lobbySize: baseInput.lobbySize,
+            verificationStatus: VerificationStatus.PreVerified,
+          })
+          .returning({ id: schema.tournaments.id });
+        tournamentId = tournament!.id;
+
+        const [fetched, noDataMatch] = await db
+          .insert(schema.matches)
+          .values([
+            {
+              osuId: MATCH_OSU_IDS[0]!,
+              tournamentId,
+              name: 'TT: (Red) vs (Blue)',
+              startTime: '2024-01-01T00:00:00Z',
+              endTime: '2024-01-01T02:00:00Z',
+              dataFetchStatus: DataFetchStatus.Fetched,
+              verificationStatus: VerificationStatus.PreVerified,
+            },
+            {
+              osuId: MATCH_OSU_IDS[1]!,
+              tournamentId,
+              dataFetchStatus: DataFetchStatus.NotFound,
+              ...noData,
+            },
+          ])
+          .returning({ id: schema.matches.id });
+        fetchedMatchId = fetched!.id;
+        noDataMatchId = noDataMatch!.id;
+      };
+
+      const verify = (children: 'set' | 'accept') =>
+        updateTournamentAdminHandler({
+          input: {
+            ...baseInput,
+            id: tournamentId,
+            name: NAME,
+            forumUrl: 'https://osu.ppy.sh/community/forums/topics/991167',
+            verificationStatus: VerificationStatus.Verified,
+            children,
+          },
+          context: { db, session: createAdminSession(userId) },
+        });
+
+      const matchStatus = async (id: number) => {
+        const [row] = await db
+          .select({
+            verificationStatus: schema.matches.verificationStatus,
+            rejectionReason: schema.matches.rejectionReason,
+          })
+          .from(schema.matches)
+          .where(eq(schema.matches.id, id));
+        return row;
+      };
+
+      beforeEach(async () => {
+        await removeSeed();
+        userId ||= await seedAdminUser(db, USER_OSU_ID);
+      });
+
+      afterAll(async () => {
+        await removeSeed();
+        await deleteJobs(db, userId);
+        await removePlayers(db, [USER_OSU_ID]);
+        await pool.end();
+      });
+
+      it('verifying every child leaves it rejected, with its reason', async () => {
+        await seed({
+          verificationStatus: VerificationStatus.Rejected,
+          rejectionReason: MatchRejectionReason.NoData,
+        });
+
+        await verify('set');
+
+        expect(await matchStatus(fetchedMatchId)).toEqual({
+          verificationStatus: VerificationStatus.Verified,
+          rejectionReason: 0,
+        });
+        expect(await matchStatus(noDataMatchId)).toEqual({
+          verificationStatus: VerificationStatus.Rejected,
+          rejectionReason: MatchRejectionReason.NoData,
+        });
+      });
+
+      it('accepting pre-statuses leaves it unverified', async () => {
+        await seed({
+          verificationStatus: VerificationStatus.PreVerified,
+          rejectionReason: 0,
+        });
+
+        await verify('accept');
+
+        expect(await matchStatus(fetchedMatchId)).toMatchObject({
+          verificationStatus: VerificationStatus.Verified,
+        });
+        expect(await matchStatus(noDataMatchId)).toMatchObject({
+          verificationStatus: VerificationStatus.PreVerified,
+        });
+      });
+    }
+  );
 
   describe('submittedByUserId and verifiedByUserId', () => {
     it('preserves verifiedByUserId when status unchanged', async () => {

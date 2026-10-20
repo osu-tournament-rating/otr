@@ -138,8 +138,8 @@ describe('updateMatchAdminHandler', () => {
     verificationStatus: VerificationStatus.None,
     rejectionReason: 0,
     warningFlags: MatchWarningFlags.None,
-    startTime: null,
-    endTime: null,
+    startTime: '2024-01-01T00:00:00.000Z',
+    endTime: '2024-01-01T02:00:00.000Z',
   };
 
   const adminSession: NonNullable<UpdateMatchAdminArgs['context']['session']> =
@@ -254,6 +254,34 @@ describe('updateMatchAdminHandler', () => {
     });
 
     expect(db.matchUpdates[0].verifiedByUserId).toBeNull();
+  });
+
+  it('refuses to verify a match with no data', async () => {
+    const db = new UpdateMatchTestDb({
+      id: 1,
+      verificationStatus: VerificationStatus.Rejected,
+      verifiedByUserId: 55,
+    });
+
+    const update = updateMatchAdminHandler({
+      input: {
+        ...baseInput,
+        verificationStatus: VerificationStatus.Verified,
+        startTime: null,
+        endTime: null,
+        children: 'set',
+      },
+      context: {
+        db: db as unknown as DatabaseClient,
+        session: adminSession,
+      },
+    });
+
+    await expect(update).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'A match with no data cannot be verified',
+    });
+    expect(db.matchUpdates).toHaveLength(0);
   });
 
   it('only includes expected keys in .set()', async () => {
