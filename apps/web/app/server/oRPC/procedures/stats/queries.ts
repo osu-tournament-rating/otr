@@ -117,7 +117,7 @@ export interface RecentlyVerifiedTournament {
   isLazer: boolean;
   /** ISO 8601, UTC; null when the tournament has no end. */
   endTime: string | null;
-  /** The latest verification, ISO 8601, UTC. */
+  /** The first verification on record, ISO 8601, UTC. */
   verifiedAt: string;
 }
 
@@ -135,10 +135,12 @@ export interface RecentlyVerifiedPage {
 }
 
 /**
- * Verified tournaments, most recently verified first, each at its latest
- * verification. Tournaments verified before the audit trail began have no
- * verification on record and are left out. Pages by keyset, so a
- * verification between two pages neither repeats nor skips a row.
+ * Verified tournaments, most recently verified first, each at its first
+ * verification. A later re-verification, such as after automated checks
+ * reset verified data, keeps the tournament where it was, so a batch of
+ * them does not bury new ones. Tournaments verified before the audit trail
+ * began have no verification on record and are left out. Pages by keyset,
+ * so a verification between two pages neither repeats nor skips a row.
  */
 export async function getRecentlyVerified(
   db: QueryDb,
@@ -159,10 +161,10 @@ export async function getRecentlyVerified(
     db,
     sql`
       with events as (${verificationEvents()}),
-      latest as (
-        select distinct on (tournament_id) tournament_id, verified_at
+      firsts as (
+        select tournament_id, min(verified_at) as verified_at
         from events
-        order by tournament_id, verified_at desc
+        group by tournament_id
       ),
       feed as (
         select
@@ -174,11 +176,11 @@ export async function getRecentlyVerified(
           ${schema.tournaments.rankRangeLowerBound} as rank_range_lower_bound,
           ${schema.tournaments.isLazer} as is_lazer,
           ${schema.tournaments.endTime} as end_time_raw,
-          latest.verified_at,
+          firsts.verified_at,
           count(*) over () as total
-        from latest
+        from firsts
         inner join ${schema.tournaments}
-          on ${schema.tournaments.id} = latest.tournament_id
+          on ${schema.tournaments.id} = firsts.tournament_id
         where ${schema.tournaments.verificationStatus} = ${VERIFIED}
       )
       select

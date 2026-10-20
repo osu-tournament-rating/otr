@@ -151,7 +151,7 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
     return { t1, t2, t3, t4, t5, t6, t7, t8 };
   };
 
-  it('lists verified tournaments by their latest verification, a page at a time', async () => {
+  it('lists verified tournaments by their first verification, a page at a time', async () => {
     await onEmptyTables(async (tx) => {
       const { t1, t2, t3, t6, t7, t8 } = await seedVerificationHistory(tx);
 
@@ -165,9 +165,10 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         cursor: second.nextCursor!,
       });
 
+      // T1's re-verification on Aug 20 leaves it at Aug 3, below T7.
       expect(first.items.map((item) => [item.id, item.verifiedAt])).toEqual([
-        [t1, '2026-08-20T00:00:00.000Z'],
         [t7, '2026-08-05T00:00:00.000Z'],
+        [t1, '2026-08-03T00:00:00.000Z'],
       ]);
       expect(second.items.map((item) => item.id)).toEqual([t8, t2]);
       expect(third.items.map((item) => item.id)).toEqual([t3, t6]);
