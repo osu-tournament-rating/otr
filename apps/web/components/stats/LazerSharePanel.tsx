@@ -26,14 +26,17 @@ const SERIES = [{ key: 'lazer', label: 'Lazer', color: seriesColor(0) }];
  */
 export default function LazerSharePanel({
   rows,
+  startYear,
   currentYear,
 }: {
   rows: readonly LazerYearData[];
+  /** The first year of the trend charts (`getTrendStartYear`). */
+  startYear: number | null;
   /** The UTC year now, whose tournaments are "so far". */
   currentYear: number;
 }) {
   const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
-  const bars = getLazerShareBars(rows);
+  const bars = getLazerShareBars(rows, startYear);
   const latest = bars?.at(-1);
 
   return (

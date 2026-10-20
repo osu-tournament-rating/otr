@@ -26,10 +26,10 @@ import { getFreemodModBars } from './stats-data';
  */
 export default function FreemodModsPanel() {
   const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
-  const { stats } = useRulesetStats();
+  const { stats, trendStartYear } = useRulesetStats();
   const data = stats?.freemodMods ?? null;
   const copy = STATS_PANELS.freemodMods;
-  const bars = data ? getFreemodModBars(data) : [];
+  const bars = data ? getFreemodModBars(data, trendStartYear) : [];
   const scores = bars.reduce((sum, bar) => sum + (bar.total ?? 0), 0);
   const games = new Map(
     (data?.years ?? []).map((entry) => [String(entry.year), entry.games])

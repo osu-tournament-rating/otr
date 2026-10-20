@@ -36,8 +36,11 @@ export default function RankRestrictionsPanel({
   currentYear: number;
 }) {
   const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
-  const { stats } = useRulesetStats();
-  const bars = getRankRestrictionBars(stats?.rankRestrictionsByYear ?? []);
+  const { stats, trendStartYear } = useRulesetStats();
+  const bars = getRankRestrictionBars(
+    stats?.rankRestrictionsByYear ?? [],
+    trendStartYear
+  );
   const counted = bars.reduce(
     (sum, bar) => sum + getStackedTotal(bar, SERIES),
     0

@@ -1,42 +1,42 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
-  TREND_MIN_TOURNAMENTS,
   formatHourRange,
   getActivePlayerBars,
   getFreemodModBars,
   getPoolDifficultyRows,
 } from '@/components/stats/stats-data';
 
-const ENOUGH = TREND_MIN_TOURNAMENTS;
-const TOO_FEW = TREND_MIN_TOURNAMENTS - 1;
-
 describe('getActivePlayerBars', () => {
   it('splits each trend year into returning and new players, a year without matches as zero', () => {
-    const bars = getActivePlayerBars([
-      // Many players, but too few tournaments to start the trend.
-      {
-        year: 2017,
-        tournaments: TOO_FEW,
-        players: 90,
-        newPlayers: 90,
-        newPlayersReturned: 4,
-      },
-      {
-        year: 2018,
-        tournaments: ENOUGH,
-        players: 50,
-        newPlayers: 30,
-        newPlayersReturned: 10,
-      },
-      {
-        year: 2020,
-        tournaments: 1,
-        players: 20,
-        newPlayers: 5,
-        newPlayersReturned: 0,
-      },
-    ]);
+    const bars = getActivePlayerBars(
+      [
+        // Before the trend's start year, however busy.
+        {
+          year: 2017,
+          tournaments: 40,
+          players: 90,
+          newPlayers: 90,
+          newPlayersReturned: 4,
+        },
+        // A small ruleset's years: a few tournaments each, still charted.
+        {
+          year: 2018,
+          tournaments: 3,
+          players: 50,
+          newPlayers: 30,
+          newPlayersReturned: 10,
+        },
+        {
+          year: 2020,
+          tournaments: 1,
+          players: 20,
+          newPlayers: 5,
+          newPlayersReturned: 0,
+        },
+      ],
+      2018
+    );
 
     expect(bars).toEqual([
       { key: '2018', label: '2018', values: { returning: 20, new: 30 } },
@@ -59,17 +59,18 @@ describe('getPoolDifficultyRows', () => {
       [
         {
           year: 2024,
-          tournaments: ENOUGH,
+          tournaments: 9,
           open: point(5, 6),
           restricted: point(4, 5),
         },
         {
           year: 2025,
-          tournaments: ENOUGH,
+          tournaments: 6,
           open: point(6, 6.5),
           restricted: null,
         },
       ],
+      2018,
       5
     );
 
@@ -103,11 +104,12 @@ describe('getPoolDifficultyRows', () => {
         [
           {
             year: 2025,
-            tournaments: ENOUGH,
+            tournaments: 2,
             open: point(2, 6),
             restricted: null,
           },
         ],
+        2018,
         5
       )
     ).toEqual([]);
@@ -116,26 +118,29 @@ describe('getPoolDifficultyRows', () => {
 
 describe('getFreemodModBars', () => {
   it('gives each trend year its picks out of its freemod scores', () => {
-    const bars = getFreemodModBars({
-      series: [{ key: 'HD', label: 'HD', mods: 8 }],
-      years: [
-        {
-          year: 2017,
-          tournaments: TOO_FEW,
-          games: 1,
-          scores: 4,
-          values: { HD: 4 },
-        },
-        {
-          year: 2018,
-          tournaments: ENOUGH,
-          games: 3,
-          scores: 10,
-          values: { HD: 6 },
-        },
-        { year: 2019, tournaments: ENOUGH, games: 0, scores: 0, values: {} },
-      ],
-    });
+    const bars = getFreemodModBars(
+      {
+        series: [{ key: 'HD', label: 'HD', mods: 8 }],
+        years: [
+          {
+            year: 2017,
+            tournaments: 40,
+            games: 1,
+            scores: 4,
+            values: { HD: 4 },
+          },
+          {
+            year: 2018,
+            tournaments: 2,
+            games: 3,
+            scores: 10,
+            values: { HD: 6 },
+          },
+          { year: 2019, tournaments: 3, games: 0, scores: 0, values: {} },
+        ],
+      },
+      2018
+    );
 
     expect(bars).toEqual([
       { key: '2018', label: '2018', values: { HD: 6 }, total: 10 },

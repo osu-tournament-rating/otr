@@ -88,7 +88,7 @@ export const STATS_PANELS = {
   lazerShare: {
     icon: Percent,
     title: 'Lazer share',
-    infoText: `Tournaments played on osu!lazer, of each year's verified tournaments. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
+    infoText: `Tournaments played on osu!lazer, of each year's verified tournaments. Starts in the first year the site had ${TREND_MIN_TOURNAMENTS} verified tournaments.`,
   },
   playersByCountry: {
     icon: Globe,
@@ -101,7 +101,7 @@ export const STATS_PANELS = {
   rankRestrictions: {
     icon: Target,
     title: 'Rank restrictions by year',
-    infoText: `A tournament counts in the band its rank restriction starts at: 10k+ is for players ranked #10,000 and beyond. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
+    infoText: `A tournament counts in the band its rank restriction starts at: 10k+ is for players ranked #10,000 and beyond. Starts in the first year the site had ${TREND_MIN_TOURNAMENTS} verified tournaments.`,
   },
   higherRatedWins: {
     icon: Scale,
@@ -132,7 +132,7 @@ export const STATS_PANELS = {
   activePlayers: {
     icon: UsersRound,
     title: 'Active players by year',
-    infoText: `Players of each year's verified matches. New players played their first in this ruleset that year. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
+    infoText: `Players of each year's verified matches. New players played their first in this ruleset that year. Starts in the first year the site had ${TREND_MIN_TOURNAMENTS} verified tournaments.`,
   },
   matchTimes: {
     icon: CalendarClock,

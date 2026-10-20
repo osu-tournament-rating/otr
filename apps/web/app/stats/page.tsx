@@ -28,6 +28,7 @@ import RankRestrictionsPanel from '@/components/stats/RankRestrictionsPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
 import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
 import { RulesetStatsProvider } from '@/components/stats/ruleset-stats';
+import { getTrendStartYear } from '@/components/stats/stats-data';
 import StatsRulesetSwitch from '@/components/stats/StatsRulesetSwitch';
 import StrongestFieldsPanel from '@/components/stats/StrongestFieldsPanel';
 import TournamentsByLobbySizeChart from '@/components/stats/TournamentsByLobbySizeChart';
@@ -58,6 +59,7 @@ export default async function StatsPage() {
     )
   );
   const currentYear = new Date().getUTCFullYear();
+  const trendStartYear = getTrendStartYear(tournamentStats.verifiedByYear);
 
   return (
     <PageFrame>
@@ -73,6 +75,7 @@ export default async function StatsPage() {
         <TournamentsByYearChart data={tournamentStats.verifiedByYear} />
         <LazerSharePanel
           rows={allRulesets.lazerByYear}
+          startYear={trendStartYear}
           currentYear={currentYear}
         />
         <TournamentsByRulesetChart data={tournamentStats.verifiedByRuleset} />
@@ -80,7 +83,11 @@ export default async function StatsPage() {
           data={tournamentStats.verifiedByLobbySize}
         />
       </div>
-      <RulesetStatsProvider byRuleset={byRuleset} countryNames={countryNames}>
+      <RulesetStatsProvider
+        byRuleset={byRuleset}
+        countryNames={countryNames}
+        trendStartYear={trendStartYear}
+      >
         <PageSection {...BY_RULESET_SECTION} actions={<StatsRulesetSwitch />}>
           <RatingDistributionPanel
             ratingsByRuleset={ratingStats.ratingsByRuleset}

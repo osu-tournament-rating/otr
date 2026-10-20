@@ -228,22 +228,48 @@ export function getRatingDistributionAxes(maxCount: number): {
 }
 
 /**
- * Trend charts start at the first year with at least this many tournaments,
- * so a year with one or two (rated data starts around 2018) does not read
- * as 0% or 100%.
+ * Trend charts start at the first year in which every ruleset together has
+ * at least this many verified tournaments. The years before it hold one or
+ * two tournaments each, from before rated data begins around 2018.
  */
 export const TREND_MIN_TOURNAMENTS = 10;
 
 /**
- * The years a trend chart covers: from the first year with at least
- * `TREND_MIN_TOURNAMENTS` tournaments to the last year with any, every year
- * in between included. Empty when no year has enough.
+ * The first year of every trend chart: the first year in which the site's
+ * verified tournaments, every ruleset together, reach
+ * `TREND_MIN_TOURNAMENTS`. Null when no year does.
+ *
+ * Every ruleset's charts start here, so a small ruleset keeps its early
+ * years. The share charts' tooltips give each year's count, which shows
+ * when a year rests on a few tournaments.
  */
-export function getTrendYears(totals: ReadonlyMap<number, number>): number[] {
-  const years = [...totals.keys()].sort((a, b) => a - b);
-  const first = years.find(
-    (year) => (totals.get(year) ?? 0) >= TREND_MIN_TOURNAMENTS
-  );
+export function getTrendStartYear(
+  totals: Readonly<Record<string, number>>
+): number | null {
+  const years = Object.entries(totals)
+    .filter(([, count]) => count >= TREND_MIN_TOURNAMENTS)
+    .map(([year]) => Number(year))
+    .filter(Number.isInteger);
+
+  return years.length > 0 ? Math.min(...years) : null;
+}
+
+/**
+ * The years a trend chart covers: from its first year with data at or
+ * after `startYear` to its last year with data, every year in between
+ * included. Empty when there is no start year or no data from it on.
+ */
+export function getTrendYears(
+  totals: ReadonlyMap<number, number>,
+  startYear: number | null
+): number[] {
+  if (startYear === null) return [];
+
+  const years = [...totals.entries()]
+    .filter(([year, count]) => year >= startYear && count > 0)
+    .map(([year]) => year)
+    .sort((a, b) => a - b);
+  const first = years[0];
   const last = years.at(-1);
   if (first === undefined || last === undefined) return [];
 
@@ -256,14 +282,15 @@ export function getTrendYears(totals: ReadonlyMap<number, number>): number[] {
  * panel shows as an empty state rather than a flat line at 0%.
  */
 export function getLazerShareBars(
-  rows: readonly LazerYearData[]
+  rows: readonly LazerYearData[],
+  startYear: number | null
 ): StackedBarDatum[] | null {
   if (!rows.some((row) => row.lazer > 0)) return null;
 
   const byYear = new Map(rows.map((row) => [row.year, row]));
   const totals = new Map(rows.map((row) => [row.year, row.total]));
 
-  return getTrendYears(totals).map((year) => ({
+  return getTrendYears(totals, startYear).map((year) => ({
     key: String(year),
     label: formatYear(year),
     values: { lazer: byYear.get(year)?.lazer ?? 0 },
@@ -276,7 +303,8 @@ export function getLazerShareBars(
  * columns, over the trend years.
  */
 export function getRankRestrictionBars(
-  years: readonly RankRestrictionYearData[]
+  years: readonly RankRestrictionYearData[],
+  startYear: number | null
 ): StackedBarDatum[] {
   const byYear = new Map(years.map((entry) => [entry.year, entry.bands]));
   const totals = new Map(
@@ -286,7 +314,7 @@ export function getRankRestrictionBars(
     ])
   );
 
-  return getTrendYears(totals).map((year) => ({
+  return getTrendYears(totals, startYear).map((year) => ({
     key: String(year),
     label: formatYear(year),
     values: byYear.get(year) ?? {},
@@ -357,12 +385,13 @@ export function getMatchSides(
  * the ruleset and those who played in an earlier year.
  */
 export function getActivePlayerBars(
-  years: ActivePlayersData['years']
+  years: ActivePlayersData['years'],
+  startYear: number | null
 ): StackedBarDatum[] {
   const byYear = new Map(years.map((entry) => [entry.year, entry]));
   const totals = new Map(years.map((entry) => [entry.year, entry.tournaments]));
 
-  return getTrendYears(totals).map((year) => {
+  return getTrendYears(totals, startYear).map((year) => {
     const entry = byYear.get(year);
     return {
       key: String(year),
@@ -394,6 +423,7 @@ export interface PoolDifficultyRow {
  */
 export function getPoolDifficultyRows(
   years: PoolDifficultyData['years'],
+  startYear: number | null,
   minTournaments: number
 ): PoolDifficultyRow[] {
   const byYear = new Map(years.map((entry) => [entry.year, entry]));
@@ -401,7 +431,7 @@ export function getPoolDifficultyRows(
   const enough = (point: PoolDifficultyData['years'][number]['open']) =>
     point && point.tournaments >= minTournaments ? point : null;
 
-  const rows = getTrendYears(totals).map((year) => {
+  const rows = getTrendYears(totals, startYear).map((year) => {
     const entry = byYear.get(year);
     const open = enough(entry?.open ?? null);
     const restricted = enough(entry?.restricted ?? null);
@@ -430,14 +460,15 @@ export function getPoolDifficultyRows(
  * draws no column.
  */
 export function getFreemodModBars(
-  summary: FreemodModsSummaryData
+  summary: FreemodModsSummaryData,
+  startYear: number | null
 ): StackedBarDatum[] {
   const byYear = new Map(summary.years.map((entry) => [entry.year, entry]));
   const totals = new Map(
     summary.years.map((entry) => [entry.year, entry.tournaments])
   );
 
-  return getTrendYears(totals).map((year) => {
+  return getTrendYears(totals, startYear).map((year) => {
     const entry = byYear.get(year);
     return {
       key: String(year),

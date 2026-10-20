@@ -129,11 +129,12 @@ function PoolDifficultyTooltip({
  */
 export default function PoolDifficultyPanel() {
   const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
-  const { stats } = useRulesetStats();
+  const { stats, trendStartYear } = useRulesetStats();
   const data = stats?.poolDifficulty ?? null;
   const copy = STATS_PANELS.poolDifficulty;
   const rows = getPoolDifficultyRows(
     data?.years ?? [],
+    trendStartYear,
     POOL_DIFFICULTY_MIN_TOURNAMENTS
   );
   const values = rows.flatMap((row) =>

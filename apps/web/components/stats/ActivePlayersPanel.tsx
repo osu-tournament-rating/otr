@@ -43,10 +43,10 @@ export default function ActivePlayersPanel({
   currentYear: number;
 }) {
   const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
-  const { stats } = useRulesetStats();
+  const { stats, trendStartYear } = useRulesetStats();
   const data = stats?.activePlayers ?? null;
   const copy = STATS_PANELS.activePlayers;
-  const bars = getActivePlayerBars(data?.years ?? []);
+  const bars = getActivePlayerBars(data?.years ?? [], trendStartYear);
   const byYear = new Map(
     (data?.years ?? []).map((entry) => [entry.year, entry])
   );

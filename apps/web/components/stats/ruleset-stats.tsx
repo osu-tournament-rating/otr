@@ -12,6 +12,8 @@ interface RulesetStatsContextValue {
   byRuleset: readonly RulesetStatsData[];
   /** English names of every country in `byRuleset`, from the server. */
   countryNames: Readonly<Record<string, string>>;
+  /** The first year of the trend charts (`getTrendStartYear`). */
+  trendStartYear: number | null;
 }
 
 const RulesetStatsContext = createContext<RulesetStatsContextValue | null>(
@@ -26,10 +28,13 @@ const RulesetStatsContext = createContext<RulesetStatsContextValue | null>(
 export function RulesetStatsProvider({
   byRuleset,
   countryNames,
+  trendStartYear,
   children,
 }: RulesetStatsContextValue & { children: ReactNode }) {
   return (
-    <RulesetStatsContext.Provider value={{ byRuleset, countryNames }}>
+    <RulesetStatsContext.Provider
+      value={{ byRuleset, countryNames, trendStartYear }}
+    >
       {children}
     </RulesetStatsContext.Provider>
   );
@@ -44,11 +49,15 @@ export function useStatsRuleset(): Ruleset {
   return useListState(STATS_PARAMS, { shallow: true }).state.ruleset;
 }
 
-/** The page's ruleset's statistics, with the country names. */
+/**
+ * The page's ruleset's statistics, with the country names and the first
+ * year of the trend charts.
+ */
 export function useRulesetStats(): {
   ruleset: Ruleset;
   stats: RulesetStatsData | undefined;
   countryNames: Readonly<Record<string, string>>;
+  trendStartYear: number | null;
 } {
   const ruleset = useStatsRuleset();
   const context = useContext(RulesetStatsContext);
@@ -57,5 +66,6 @@ export function useRulesetStats(): {
     ruleset,
     stats: context?.byRuleset.find((entry) => entry.ruleset === ruleset),
     countryNames: context?.countryNames ?? {},
+    trendStartYear: context?.trendStartYear ?? null,
   };
 }
