@@ -1,7 +1,9 @@
 'use client';
 
+import { ORPCError } from '@orpc/client';
 import { Trash2, UserX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { SETTINGS_COPY } from '@/app/settings/settings-copy';
@@ -12,6 +14,17 @@ import { Panel, PanelBody } from '@/components/kit/layout/Panel';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
 import { authClient } from '@/lib/auth/auth-client';
 import { orpc } from '@/lib/orpc/orpc';
+import { SESSION_NOT_FRESH_ERROR_CODE } from '@/lib/orpc/schema/user';
+
+const DELETE_FAILED_TEXT = 'Failed to delete account. Try again.';
+
+/** The server's own message when trying again cannot work. */
+const deleteErrorText = (error: unknown) =>
+  error instanceof ORPCError &&
+  (error.data as { code?: unknown } | undefined)?.code ===
+    SESSION_NOT_FRESH_ERROR_CODE
+    ? error.message
+    : DELETE_FAILED_TEXT;
 
 /**
  * The danger zone: a danger callout whose red outline button opens the one
@@ -19,9 +32,16 @@ import { orpc } from '@/lib/orpc/orpc';
  */
 export default function AccountDeletionClient() {
   const router = useRouter();
+  const [errorText, setErrorText] = useState(DELETE_FAILED_TEXT);
 
   const deleteAccount = async () => {
-    await orpc.users.deleteMe();
+    try {
+      await orpc.users.deleteMe();
+    } catch (error) {
+      setErrorText(deleteErrorText(error));
+      throw error;
+    }
+
     toast.success('Account deleted successfully');
 
     await authClient.signOut({
@@ -55,7 +75,7 @@ export default function AccountDeletionClient() {
               description="This action cannot be undone."
               confirmLabel="Delete account"
               pendingLabel="Deleting…"
-              errorText="Failed to delete account. Try again."
+              errorText={errorText}
               onConfirm={deleteAccount}
             />
           }

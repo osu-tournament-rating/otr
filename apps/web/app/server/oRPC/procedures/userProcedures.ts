@@ -1,4 +1,5 @@
 import { ORPCError } from '@orpc/server';
+import { APIError } from 'better-auth/api';
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -6,6 +7,7 @@ import * as schema from '@otr/core/db/schema';
 import {
   CurrentUserSchema,
   PublicUserSchema,
+  SESSION_NOT_FRESH_ERROR_CODE,
   UpdateUserSettingsInputSchema,
   UserSettingsSchema,
   type UpdateUserSettingsInput,
@@ -109,10 +111,26 @@ export const deleteMyAccount = protectedMutationProcedure
       });
     }
 
-    const result = await auth.api.deleteUser({
-      headers: context.headers,
-      body: {},
-    });
+    const result = await auth.api
+      .deleteUser({
+        headers: context.headers,
+        body: {},
+      })
+      .catch((error: unknown) => {
+        // Better Auth deletes an account only within a day of signing in
+        if (
+          error instanceof APIError &&
+          error.body?.code === 'SESSION_EXPIRED'
+        ) {
+          throw new ORPCError('FORBIDDEN', {
+            message:
+              'Deleting your account needs a log in from the last day. Log out and log back in, then try again.',
+            data: { code: SESSION_NOT_FRESH_ERROR_CODE },
+          });
+        }
+
+        throw error;
+      });
 
     if (!result) {
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
