@@ -8,6 +8,8 @@ import * as schema from '@otr/core/db/schema';
 export const KeyTypeSchema = z.enum(['otr', 'osu', 'username']).default('otr');
 export type KeyType = z.infer<typeof KeyTypeSchema>;
 
+const MAX_PLAYER_ID = 2_147_483_647;
+
 const INVALID_PLAYER_ID_MESSAGE =
   'Player ID is not a number. To look up a player by username, pass keyType=username.';
 
@@ -47,6 +49,13 @@ export async function resolvePlayerId(
   }
 
   if (keyType === 'otr') {
+    // o!TR IDs run from 1 to 2147483647, the top of Postgres's integer type.
+    // Postgres refuses a value outside that range with a server error, and an
+    // all-digit username passed without keyType=username can be one.
+    if (numericId < 1 || numericId > MAX_PLAYER_ID) {
+      throw new ORPCError('NOT_FOUND', { message: 'Player not found' });
+    }
+
     const player = await db.query.players.findFirst({
       where: (players, { eq }) => eq(players.id, numericId),
       columns: { id: true },

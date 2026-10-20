@@ -57,6 +57,16 @@ describe('a public API player ID that is not a number (#1238)', () => {
   });
 });
 
+describe('a public API o!TR ID past the largest player ID', () => {
+  // An all-digit username, passed without keyType=username, lands here.
+  // Postgres refuses any value past its integer range, 2147483647.
+  it('is not found', async () => {
+    const { status } = await get('/players/2147483648');
+
+    expect(status).toBe(404);
+  });
+});
+
 // Every ID reaches the API as text, so a number must still resolve. Needs
 // the test database, which CI's `checks` job sets up.
 describe.skipIf(!testDatabaseUrl)(
