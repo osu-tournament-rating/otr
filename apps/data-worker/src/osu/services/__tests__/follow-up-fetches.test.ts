@@ -184,6 +184,7 @@ describe.skipIf(!testDatabaseUrl)(
         rateLimiter,
         logger: silentLogger,
         dataCompletion: completion,
+        osuRefetchCadence: { outdatedDays: 14, unratedDays: 30 },
         publishPlayerFetches: async (executor, osuPlayerIds) => {
           executors.push(executor);
           await enqueueJobs(
