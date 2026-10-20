@@ -331,7 +331,7 @@ import { RulesetSwitch } from '@/components/kit/lists/RulesetSwitch';
 
 - Pair it with `enumParam(RATED_RULESETS, { default: Ruleset.Osu, role: 'scope' })`, as the stats page does. The leaderboard, whose bare address shows the visitor's browsing ruleset, leaves out `default` and passes `state.ruleset ?? defaultRuleset` ([A default that depends on the visitor](#a-default-that-depends-on-the-visitor)).
 - `rulesets` (the five rated ones by default) and `label` (the group's accessible name, "Ruleset" by default) work as on RulesetChips.
-- Outside a toolbar, such as the stats page's rating distribution strip, its loading block is `RulesetSwitchSkeleton`; in a toolbar it is ListToolbarSkeleton's `rulesets={5} rulesetsAll={false}` ([feedback.md](feedback.md#skeletons)).
+- Outside a toolbar, such as in the heading of the stats page's "By ruleset" [PageSection](layout.md#pagesection), its loading block is `RulesetSwitchSkeleton`; in a toolbar it is ListToolbarSkeleton's `rulesets={5} rulesetsAll={false}` ([feedback.md](feedback.md#skeletons)).
 
 Don't (for both ruleset controls):
 

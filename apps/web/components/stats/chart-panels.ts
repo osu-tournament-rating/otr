@@ -51,3 +51,9 @@ export const STATS_PANELS = {
     title: 'Rating distribution',
   },
 } as const satisfies Record<string, StatsPanelCopy>;
+
+/** The heading over the panels that follow the page's ruleset. */
+export const BY_RULESET_SECTION = {
+  icon: Gamepad2,
+  title: 'By ruleset',
+} as const;

@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 
 import { PageFrame } from '@/components/kit/layout/PageFrame';
+import { PageSection } from '@/components/kit/layout/PageSection';
+import { BY_RULESET_SECTION } from '@/components/stats/chart-panels';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
+import StatsRulesetSwitch from '@/components/stats/StatsRulesetSwitch';
 import TournamentsByLobbySizeChart from '@/components/stats/TournamentsByLobbySizeChart';
 import TournamentsByRulesetChart from '@/components/stats/TournamentsByRulesetChart';
 import TournamentsByYearChart from '@/components/stats/TournamentsByYearChart';
@@ -33,9 +36,11 @@ export default async function StatsPage() {
           data={tournamentStats.verifiedByLobbySize}
         />
       </div>
-      <RatingDistributionPanel
-        ratingsByRuleset={ratingStats.ratingsByRuleset}
-      />
+      <PageSection {...BY_RULESET_SECTION} actions={<StatsRulesetSwitch />}>
+        <RatingDistributionPanel
+          ratingsByRuleset={ratingStats.ratingsByRuleset}
+        />
+      </PageSection>
     </PageFrame>
   );
 }

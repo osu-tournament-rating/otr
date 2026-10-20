@@ -6,7 +6,11 @@ import {
   SkeletonText,
 } from '@/components/kit/feedback/Skeletons';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
-import { STATS_PANELS } from '@/components/stats/chart-panels';
+import { PageSection } from '@/components/kit/layout/PageSection';
+import {
+  BY_RULESET_SECTION,
+  STATS_PANELS,
+} from '@/components/stats/chart-panels';
 
 import { StatsPageHeader } from './StatsPageHeader';
 
@@ -32,23 +36,23 @@ export default function StatsLoading() {
           </PanelSkeleton>
         ))}
       </div>
-      <PanelSkeleton>
-        <SectionHeaderSkeleton
-          {...STATS_PANELS.ratingDistribution}
-          meta="w-22"
-        />
-        <div className="border-b px-4 py-3">
-          <RulesetSwitchSkeleton />
-        </div>
-        <div className="flex flex-col gap-3 p-4">
-          {/* The legend: one line on desktop, two on tablets, four on
-              phones. */}
-          <div className="flex h-19 items-start sm:h-9 lg:h-4 lg:items-center">
-            <SkeletonText className="h-3 w-full max-w-xl" />
+      <PageSection {...BY_RULESET_SECTION} actions={<RulesetSwitchSkeleton />}>
+        <PanelSkeleton>
+          <SectionHeaderSkeleton
+            {...STATS_PANELS.ratingDistribution}
+            meta="w-22"
+            level={3}
+          />
+          <div className="flex flex-col gap-3 p-4">
+            {/* The legend: one line on desktop, two on tablets, four on
+                phones. */}
+            <div className="flex h-19 items-start sm:h-9 lg:h-4 lg:items-center">
+              <SkeletonText className="h-3 w-full max-w-xl" />
+            </div>
+            <ChartPlotSkeleton className="h-72" />
           </div>
-          <ChartPlotSkeleton className="h-72" />
-        </div>
-      </PanelSkeleton>
+        </PanelSkeleton>
+      </PageSection>
     </PageFrame>
   );
 }
