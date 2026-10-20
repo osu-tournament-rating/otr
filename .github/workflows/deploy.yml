@@ -5,6 +5,15 @@ name: Deploy
 # by hand redeploys an existing release, which is how a bad release is rolled
 # back.
 #
+# A rollback does not undo migrations. The older release runs against the
+# current schema, so rolling back past a migration that renamed or dropped a
+# column or table leaves it querying one that no longer exists. Such a change
+# is split across releases: one adds the new column or table and moves the code
+# to it, and a later one drops the old one. Lint refuses a new migration that
+# renames or drops without a `-- rollback:` comment saying why rolling back
+# past it is safe (lib/db/migrations.ts). Before rolling back, check the
+# migrations merged since the target release.
+#
 # Images are built while CI runs, under the commit's `sha-` tag. Once CI has
 # passed, the release job reserves the next date tag on GitHub, gives the images
 # that tag, and publishes the release. All of that happens before production
@@ -121,12 +130,12 @@ jobs:
       # The commit this workflow runs from, for its copy of the release notes
       # script. On a push it is also the commit being released.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           sparse-checkout: .github/scripts
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.x
 
@@ -205,10 +214,15 @@ jobs:
 
   checks:
     name: CI
+    needs: resolve
     if: github.event_name == 'push'
     uses: ./.github/workflows/ci.yml
     with:
       build: false
+      # The processor, docs, scripts, and replay checks cover every change
+      # since the previous release, the baseline the processor image and the
+      # release notes use, rather than only this push.
+      base: ${{ needs.resolve.outputs.previous }}
     # A called workflow sees only the secrets passed to it. CI signs in to
     # Docker Hub with these before pulling images.
     secrets:
@@ -230,15 +244,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -251,7 +265,7 @@ jobs:
       # release tag.
       - name: Build and push web image
         id: web
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: apps/web/Dockerfile
@@ -264,7 +278,7 @@ jobs:
 
       - name: Build and push data worker image
         id: data-worker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: apps/data-worker/Dockerfile
@@ -276,7 +290,7 @@ jobs:
 
       - name: Build and push docs image
         id: docs
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: apps/docs
           file: apps/docs/Dockerfile
@@ -290,7 +304,7 @@ jobs:
       - name: Build and push processor image
         id: processor
         if: needs.resolve.outputs.processor-build == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: apps/processor
           file: apps/processor/Dockerfile
@@ -314,13 +328,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.resolve.outputs.ref }}
           fetch-depth: 0
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.x
 
@@ -396,10 +410,10 @@ jobs:
         run: bun .github/scripts/release-notes.ts render > release-notes.md
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -489,7 +503,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.resolve.outputs.ref }}
           sparse-checkout: |
@@ -500,16 +514,16 @@ jobs:
       # The installer comes from the commit this workflow runs from, because an
       # older release being redeployed may not have it.
       - name: Checkout deployment scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: .workflow
           sparse-checkout: .github/scripts
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -600,7 +614,7 @@ jobs:
           fi
 
       - name: Connect to tailscale
-        uses: tailscale/github-action@v4
+        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4.2.0
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -649,6 +663,8 @@ jobs:
             docker buildx imagetools create --tag stagecodes/otr-docs:latest "$DOCS"
           fi
 
+      # The script comes from the commit this workflow runs from, like the
+      # installer below.
       - name: Deploy stack via docker compose
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
@@ -656,40 +672,8 @@ jobs:
           REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash -s -- "$REMOTE_PATH" <<'EOF'
-            cd "$1"
-            docker compose pull
-            # compose run attaches stdin, which is this script, so without
-            # </dev/null it consumes the lines below and they never run.
-            docker compose --profile migrate run --rm -T migrate </dev/null || exit
-            # One-time move of the docs into the stack: otr-docs' own deploy
-            # ran an `otr-docs` container outside compose, which holds the
-            # name and port compose's docs service needs. Remove this once a
-            # release has deployed the docs service.
-            if labels="$(docker container inspect -f '{{ json .Config.Labels }}' otr-docs 2>/dev/null)" &&
-              [[ "$labels" != *com.docker.compose.project* ]]; then
-              docker rm -f otr-docs
-            fi
-            # One web container at a time, so the other keeps serving. --wait
-            # holds until the new container passes its health check, and a
-            # container that never does stops the deploy with the other one
-            # still serving. `web-standby` goes first because Caddy sends it
-            # traffic only while `web` is down. A rollback to a release whose
-            # compose file has no `web-standby` restarts `web` alone, and
-            # --remove-orphans below then removes the standby.
-            services="$(docker compose config --services)" || exit
-            for service in web-standby web; do
-              grep -qx "$service" <<<"$services" || continue
-              docker compose up -d --wait --wait-timeout 300 "$service" || exit
-            done
-            # Both web containers are current by now, so this leaves them be.
-            docker compose --profile node-exporter up -d --remove-orphans
-            # up -d leaves a container alone when only a file it mounts
-            # changed, so Prometheus, Alertmanager and Alloy reread their
-            # config and rules here. An invalid file keeps the previous one
-            # loaded.
-            docker compose kill -s SIGHUP prometheus alertmanager alloy
-          EOF
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" bash -s -- "$REMOTE_PATH" \
+            < .workflow/.github/scripts/deploy-stack.sh
 
       # Before the processor's `latest` moves, so a failed install leaves the
       # weekly run with the scripts and the image of the previous release.
