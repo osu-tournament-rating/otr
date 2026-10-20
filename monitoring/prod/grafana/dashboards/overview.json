@@ -761,7 +761,7 @@
           "refId": "C"
         }
       ],
-      "description": "The production cron's runs: archives, the weekly processor run, and the public index.",
+      "description": "Scheduled runs on the production host: the cron's archives, weekly processor run, and public index, and the weekly dev archive.",
       "fieldConfig": {
         "defaults": {
           "custom": {
