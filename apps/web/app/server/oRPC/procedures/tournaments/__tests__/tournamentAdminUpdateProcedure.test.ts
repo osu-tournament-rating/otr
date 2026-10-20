@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
-import { eq, inArray, like } from 'drizzle-orm';
+import { eq, inArray, like, sql } from 'drizzle-orm';
 
 import {
   updateTournamentAdminHandler,
@@ -7,6 +7,7 @@ import {
 } from '../adminProcedures';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { JobQueue } from '@otr/core/jobs';
 import {
   GameWarningFlags,
   MatchRejectionReason,
@@ -658,10 +659,24 @@ describe('updateTournamentAdminHandler', () => {
       return rows.map((row) => [row.game, row.score]);
     };
 
+    /** The automated checks queued by the admin's edits. */
+    const queuedChecks = async () => {
+      const { rows } = await db.execute<Record<string, unknown>>(sql`
+        SELECT payload, tournament_id
+        FROM jobs
+        WHERE queue = ${JobQueue.TournamentChecks}
+          AND requested_by_user_id = ${userId}`);
+      return rows.map((row) => ({
+        payload: row.payload,
+        tournamentId: Number(row.tournament_id),
+      }));
+    };
+
     beforeEach(async () => {
       await removeSeed();
       await removePlayers(db, [PLAYER_OSU_ID]);
       userId ||= await seedAdminUser(db, USER_OSU_ID);
+      await deleteJobs(db, userId);
     });
 
     afterAll(async () => {
@@ -705,6 +720,27 @@ describe('updateTournamentAdminHandler', () => {
         [Ruleset.ManiaOther, Ruleset.ManiaOther],
         [Ruleset.Osu, Ruleset.Osu],
       ]);
+    });
+
+    it('queues the automated checks again after a correction', async () => {
+      await seed(Ruleset.Osu, Ruleset.ManiaOther);
+
+      await correctRuleset(Ruleset.Mania4k);
+
+      expect(await queuedChecks()).toEqual([
+        {
+          payload: { tournamentId, overrideVerifiedState: false },
+          tournamentId,
+        },
+      ]);
+    });
+
+    it('queues no checks when the ruleset stays the same', async () => {
+      await seed(Ruleset.Mania4k, Ruleset.Mania4k);
+
+      await correctRuleset(Ruleset.Mania4k);
+
+      expect(await queuedChecks()).toEqual([]);
     });
   });
 

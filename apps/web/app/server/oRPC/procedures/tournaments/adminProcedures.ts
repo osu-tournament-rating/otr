@@ -292,6 +292,15 @@ export async function updateTournamentAdminHandler({
 
       if (rulesetChanged) {
         await alignManiaRulesets(tx, input.id, input.ruleset);
+
+        // The checks judged every game and score against the old ruleset.
+        await enqueueJob(tx, JobQueue.TournamentChecks, {
+          payload: { tournamentId: input.id, overrideVerifiedState: false },
+          correlationId: getCorrelationId(context),
+          tournamentId: input.id,
+          requestedByUserId: adminUserId,
+          explicit: true,
+        });
       }
 
       if (input.verificationStatus === VerificationStatus.Verified) {
