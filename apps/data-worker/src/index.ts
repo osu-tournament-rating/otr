@@ -149,6 +149,7 @@ const bootstrap = async () => {
     rateLimiter: osuApiRateLimiter,
     logger,
     dataCompletion,
+    osuRefetchCadence: dataWorkerEnv.playerAutoRefetch.osu,
     publishPlayerFetches: async (tx, osuPlayerIds) => {
       await enqueueJobs(
         tx,
