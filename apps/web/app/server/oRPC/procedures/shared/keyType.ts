@@ -5,6 +5,8 @@ import { z } from 'zod';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
 
+import { escapeLikePattern } from './likePattern';
+
 export const KeyTypeSchema = z.enum(['otr', 'osu', 'username']).default('otr');
 export type KeyType = z.infer<typeof KeyTypeSchema>;
 
@@ -14,7 +16,8 @@ export async function resolvePlayerId(
   keyType: KeyType
 ): Promise<number> {
   if (keyType === 'username') {
-    const username = String(id);
+    // Escaped, so the name matches only itself, in any case
+    const username = escapeLikePattern(String(id));
     const player = await db.query.players.findFirst({
       where: (players, { ilike }) => ilike(players.username, username),
       columns: { id: true },
