@@ -48,16 +48,27 @@ function RecordListSkeleton({
   copy,
   rows,
   meta = false,
+  leading = 'none',
+  description = true,
 }: {
   copy: StatsPanelCopy;
   rows: number;
   /** Rows with a second muted line, such as a tiebreaker's beatmap. */
   meta?: boolean;
+  /** An avatar before each name, as the mappers have. */
+  leading?: 'avatar' | 'none';
+  /** Rows with a muted line under the name. */
+  description?: boolean;
 }) {
   return (
     <PanelSkeleton>
       <SectionHeaderSkeleton {...copy} meta="w-48" level={3} />
-      <RowListSkeleton rows={rows} leading="none" meta={meta} />
+      <RowListSkeleton
+        rows={rows}
+        leading={leading}
+        meta={meta}
+        description={description}
+      />
     </PanelSkeleton>
   );
 }
@@ -168,6 +179,20 @@ export default function StatsLoading() {
           plot="h-48 sm:h-64"
           level={3}
         />
+        <RecordListSkeleton copy={STATS_PANELS.mostPlayedBeatmaps} rows={10} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RecordListSkeleton
+            copy={STATS_PANELS.mostPlayedMappers}
+            rows={5}
+            leading="avatar"
+            description={false}
+          />
+          <RecordListSkeleton
+            copy={STATS_PANELS.mostPlayedArtists}
+            rows={5}
+            description={false}
+          />
+        </div>
       </PageSection>
     </PageFrame>
   );

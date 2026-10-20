@@ -14,6 +14,9 @@ import {
   ClosestGamesSchema,
   HeadlineTotalsSchema,
   HigherRatedWinsSchema,
+  MostPlayedArtistsSchema,
+  MostPlayedBeatmapsSchema,
+  MostPlayedMappersSchema,
   StrongestFieldsSchema,
   RecentlyVerifiedInputSchema,
   RecentlyVerifiedPageSchema,
@@ -155,6 +158,24 @@ export async function runStatsPage({
         PlatformStatKey.ActivePlayers,
         ruleset,
         ActivePlayersSchema
+      ),
+      mostPlayedBeatmaps: storedPayload(
+        stored,
+        PlatformStatKey.MostPlayedBeatmaps,
+        ruleset,
+        MostPlayedBeatmapsSchema
+      ),
+      mostPlayedMappers: storedPayload(
+        stored,
+        PlatformStatKey.MostPlayedMappers,
+        ruleset,
+        MostPlayedMappersSchema
+      ),
+      mostPlayedArtists: storedPayload(
+        stored,
+        PlatformStatKey.MostPlayedArtists,
+        ruleset,
+        MostPlayedArtistsSchema
       ),
       matchStartTimes: tabulateMatchStartTimes(
         matchStartTimes.filter((row) => row.ruleset === ruleset)

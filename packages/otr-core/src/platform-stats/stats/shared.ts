@@ -114,6 +114,23 @@ export const sideRatings = ({
   }
   group by mr.match_id, mr.team`;
 
+/**
+ * A CTE body: verified games with a beatmap, in verified matches that
+ * started in the last 12 months, of verified tournaments in a rated
+ * ruleset. Columns: ruleset, tournament_id, game_id, beatmap_id.
+ */
+export const recentGames = sql`
+  select t.ruleset, t.id as tournament_id, g.id as game_id, g.beatmap_id
+  from games g
+  inner join matches m on m.id = g.match_id
+  inner join tournaments t on t.id = m.tournament_id
+  where g.verification_status = ${VERIFIED}
+    and m.verification_status = ${VERIFIED}
+    and t.verification_status = ${VERIFIED}
+    and t.ruleset in (${ratedRulesets})
+    and m.start_time >= ${recentWindowStart}
+    and g.beatmap_id is not null`;
+
 /** A UTC timestamp as an ISO 8601 string, in SQL, so no driver parses it. */
 export const isoTimestamp = (column: SQL) =>
   sql`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;

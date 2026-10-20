@@ -25,4 +25,16 @@ export type {
 } from './stats/biggest-comebacks';
 export type { StrongestField, StrongestFields } from './stats/strongest-fields';
 export type { ActivePlayers, ActivePlayersYear } from './stats/active-players';
+export type {
+  MostPlayedBeatmap,
+  MostPlayedBeatmaps,
+} from './stats/most-played-beatmaps';
+export type {
+  MostPlayedMapper,
+  MostPlayedMappers,
+} from './stats/most-played-mappers';
+export type {
+  MostPlayedArtist,
+  MostPlayedArtists,
+} from './stats/most-played-artists';
 export type { MatchRecord } from './stats/shared';

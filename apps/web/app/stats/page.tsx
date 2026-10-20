@@ -16,6 +16,11 @@ import {
   ClosestGamesPanel,
 } from '@/components/stats/MatchRecordPanels';
 import MatchTimesPanel from '@/components/stats/MatchTimesPanel';
+import {
+  MostPlayedArtistsPanel,
+  MostPlayedBeatmapsPanel,
+  MostPlayedMappersPanel,
+} from '@/components/stats/MostPlayedPanels';
 import OverviewPanel from '@/components/stats/OverviewPanel';
 import RankRestrictionsPanel from '@/components/stats/RankRestrictionsPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
@@ -94,6 +99,11 @@ export default async function StatsPage() {
             <BiggestComebacksPanel />
           </div>
           <MatchTimesPanel />
+          <MostPlayedBeatmapsPanel />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <MostPlayedMappersPanel />
+            <MostPlayedArtistsPanel />
+          </div>
         </PageSection>
       </RulesetStatsProvider>
     </PageFrame>

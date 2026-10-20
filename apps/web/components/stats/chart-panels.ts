@@ -1,5 +1,6 @@
 import {
   FIELD_SIZE,
+  MOST_PLAYED_MIN_TOURNAMENTS,
   UPSET_MIN_EARLIER_MATCHES,
 } from '@otr/core/platform-stats/constants';
 import {
@@ -9,11 +10,14 @@ import {
   CircleCheck,
   Crosshair,
   Crown,
+  Disc3,
   Gamepad2,
   Globe,
   LayoutGrid,
   ListChecks,
   Medal,
+  MicVocal,
+  PenLine,
   Percent,
   Scale,
   Target,
@@ -131,6 +135,21 @@ export const STATS_PANELS = {
     icon: CalendarClock,
     title: 'When matches are played',
     infoText: 'Start times of every verified match, in UTC',
+  },
+  mostPlayedBeatmaps: {
+    icon: Disc3,
+    title: 'Most played beatmaps',
+    infoText: `Only beatmaps played in ${MOST_PLAYED_MIN_TOURNAMENTS}+ tournaments`,
+  },
+  mostPlayedMappers: {
+    icon: PenLine,
+    title: 'Most played mappers',
+    infoText: `A guest difficulty counts for its own mapper. Only mappers played in ${MOST_PLAYED_MIN_TOURNAMENTS}+ tournaments.`,
+  },
+  mostPlayedArtists: {
+    icon: MicVocal,
+    title: 'Most played artists',
+    infoText: `Only artists played in ${MOST_PLAYED_MIN_TOURNAMENTS}+ tournaments`,
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

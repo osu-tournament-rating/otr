@@ -27,3 +27,16 @@ export const FIELD_SIZE = 16;
 
 /** Tournaments the strongest fields keep per ruleset. */
 export const STRONGEST_FIELDS_LIMIT = 10;
+
+/** Beatmaps the most played list keeps per ruleset. */
+export const MOST_PLAYED_BEATMAPS_LIMIT = 10;
+
+/** Mappers, and artists, the most played lists keep per ruleset. */
+export const MOST_PLAYED_CREATORS_LIMIT = 5;
+
+/**
+ * Tournaments of the last 12 months a beatmap, mapper or artist must have
+ * been played in to be listed. Below it, a small ruleset's list is a tie
+ * between maps that two tournaments happened to share.
+ */
+export const MOST_PLAYED_MIN_TOURNAMENTS = 3;

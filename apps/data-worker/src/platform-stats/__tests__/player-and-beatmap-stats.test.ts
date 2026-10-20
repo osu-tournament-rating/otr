@@ -5,6 +5,9 @@ import * as schema from '@otr/core/db/schema';
 import { Mods, Ruleset, Team, VerificationStatus } from '@otr/core/osu';
 import {
   type ActivePlayers,
+  type MostPlayedArtists,
+  type MostPlayedBeatmaps,
+  type MostPlayedMappers,
   PLATFORM_STATS,
   PlatformStatKey,
   type PlatformStatsRuleset,
@@ -26,6 +29,7 @@ const { Verified, PreVerified, Rejected } = VerificationStatus;
  */
 const NEWEST_END = '2026-08-01T00:00:00Z';
 const IN_WINDOW = '2026-03-01T12:00:00Z';
+const BEFORE_WINDOW = '2025-07-15T12:00:00Z';
 
 let nextOsuId = 990_400_000;
 const osuId = () => nextOsuId++;
@@ -372,6 +376,212 @@ describe.skipIf(!url)('player and beatmap platform stats', () => {
           },
         ]);
         expect(stats[Ruleset.Catch].years).toEqual([]);
+      });
+    });
+  });
+
+  describe('most played beatmaps, mappers and artists', () => {
+    /**
+     * Beatmaps X and Y played in three tournaments each, Y in more games,
+     * and Z in two; plus games that must not count.
+     */
+    const seedPlays = async (tx: Transaction) => {
+      const f = fixtures(tx);
+      const mir = await f.player('Mir');
+      const guest = await f.player('Guest');
+      const x = await f.beatmap({
+        set: { artist: 'Camellia', title: 'X' },
+        diffName: 'Extra',
+        creators: [mir],
+      });
+      // A guest difficulty by two mappers; a blank override falls back to the set.
+      const y = await f.beatmap({
+        set: { artist: 'xi', title: 'Y' },
+        artistOverride: '',
+        titleOverride: 'Y (Cut Ver.)',
+        creators: [mir, guest],
+      });
+      const z = await f.beatmap({
+        set: null,
+        artistOverride: 'Camellia',
+        titleOverride: 'Z',
+        creators: [guest],
+      });
+
+      const tournaments = [
+        await f.tournament(),
+        await f.tournament(),
+        await f.tournament(),
+      ];
+      for (const [index, tournamentId] of tournaments.entries()) {
+        const matchId = await f.match(tournamentId);
+        await f.game(matchId, { beatmapId: x.id });
+        await f.game(matchId, { beatmapId: y.id });
+        if (index < 2) await f.game(matchId, { beatmapId: z.id });
+      }
+      // Y again in the first tournament: one more game, no more tournaments.
+      await f.game(await f.match(tournaments[0]!), { beatmapId: y.id });
+
+      // None of these count: a match before the window, a rejected game, a
+      // rejected match, a pre-verified tournament, and a taiko tournament.
+      const z3 = await f.tournament();
+      await f.game(await f.match(z3, { start: BEFORE_WINDOW }), {
+        beatmapId: z.id,
+      });
+      await f.game(await f.match(z3), { beatmapId: z.id, status: Rejected });
+      await f.game(await f.match(z3, { status: Rejected }), {
+        beatmapId: z.id,
+      });
+      await f.game(await f.match(await f.tournament({ status: PreVerified })), {
+        beatmapId: z.id,
+      });
+      const taiko = await f.tournament({ ruleset: Ruleset.Taiko });
+      await f.game(await f.match(taiko), { beatmapId: z.id });
+
+      return { x, y, z, mir, guest };
+    };
+
+    it('ranks beatmaps by the verified tournaments that played them lately', async () => {
+      await onEmptyTables(async (tx) => {
+        const { x, y } = await seedPlays(tx);
+
+        const stats = await compute<MostPlayedBeatmaps>(
+          tx,
+          PlatformStatKey.MostPlayedBeatmaps
+        );
+
+        // Z, in two tournaments, is under the minimum of three but counts
+        // in the total.
+        expect(stats[Ruleset.Osu]).toEqual({
+          total: 3,
+          beatmaps: [
+            {
+              osuId: y.osuId,
+              diffName: 'Insane',
+              artist: 'xi',
+              title: 'Y (Cut Ver.)',
+              starRating: 6,
+              tournaments: 3,
+              games: 4,
+            },
+            {
+              osuId: x.osuId,
+              diffName: 'Extra',
+              artist: 'Camellia',
+              title: 'X',
+              starRating: 6,
+              tournaments: 3,
+              games: 3,
+            },
+          ],
+        });
+        expect(stats[Ruleset.Taiko]).toEqual({ total: 1, beatmaps: [] });
+      });
+    });
+
+    it('credits every mapper of a played beatmap, and its artist', async () => {
+      await onEmptyTables(async (tx) => {
+        const { mir, guest } = await seedPlays(tx);
+
+        const mappers = await compute<MostPlayedMappers>(
+          tx,
+          PlatformStatKey.MostPlayedMappers
+        );
+        const artists = await compute<MostPlayedArtists>(
+          tx,
+          PlatformStatKey.MostPlayedArtists
+        );
+
+        // Mir mapped X and Y; Guest mapped Y and Z. Both reach the same
+        // three tournaments.
+        expect(mappers[Ruleset.Osu]).toEqual({
+          total: 2,
+          mappers: [
+            {
+              playerId: mir,
+              osuId: expect.any(Number),
+              username: 'Mir',
+              tournaments: 3,
+              beatmaps: 2,
+            },
+            {
+              playerId: guest,
+              osuId: expect.any(Number),
+              username: 'Guest',
+              tournaments: 3,
+              beatmaps: 2,
+            },
+          ].sort((first, second) => first.playerId - second.playerId),
+        });
+        // Camellia is X's set artist and Z's override; xi is Y's set artist
+        // behind a blank override.
+        expect(artists[Ruleset.Osu]).toEqual({
+          total: 2,
+          artists: [
+            { artist: 'Camellia', tournaments: 3, beatmaps: 2 },
+            { artist: 'xi', tournaments: 3, beatmaps: 1 },
+          ],
+        });
+        // The taiko tournament's one beatmap is under the minimum.
+        expect(artists[Ruleset.Taiko]).toEqual({ total: 1, artists: [] });
+      });
+    });
+
+    it('ranks each ruleset on its own', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+        // Eleven osu! beatmaps, each with its own mapper and artist, in the
+        // same three tournaments: more than any list keeps.
+        const osuMaps = [];
+        for (let index = 0; index < 11; index++) {
+          osuMaps.push(
+            await f.beatmap({
+              set: { artist: `Artist ${index}`, title: `Map ${index}` },
+              creators: [await f.player()],
+            })
+          );
+        }
+        for (let index = 0; index < 3; index++) {
+          const matchId = await f.match(await f.tournament());
+          for (const map of osuMaps)
+            await f.game(matchId, { beatmapId: map.id });
+        }
+        // One taiko beatmap, seeded last, in three taiko tournaments.
+        const taikoMap = await f.beatmap({
+          ruleset: Ruleset.Taiko,
+          set: { artist: 'Taiko artist', title: 'Taiko map' },
+          creators: [await f.player('Taiko mapper')],
+        });
+        for (let index = 0; index < 3; index++) {
+          const taiko = await f.tournament({ ruleset: Ruleset.Taiko });
+          await f.game(await f.match(taiko), { beatmapId: taikoMap.id });
+        }
+
+        const beatmaps = await compute<MostPlayedBeatmaps>(
+          tx,
+          PlatformStatKey.MostPlayedBeatmaps
+        );
+        const mappers = await compute<MostPlayedMappers>(
+          tx,
+          PlatformStatKey.MostPlayedMappers
+        );
+        const artists = await compute<MostPlayedArtists>(
+          tx,
+          PlatformStatKey.MostPlayedArtists
+        );
+
+        expect(beatmaps[Ruleset.Osu].beatmaps).toHaveLength(10);
+        expect(
+          beatmaps[Ruleset.Taiko].beatmaps.map((map) => map.osuId)
+        ).toEqual([taikoMap.osuId]);
+        expect(mappers[Ruleset.Osu].mappers).toHaveLength(5);
+        expect(
+          mappers[Ruleset.Taiko].mappers.map((item) => item.username)
+        ).toEqual(['Taiko mapper']);
+        expect(artists[Ruleset.Osu].artists).toHaveLength(5);
+        expect(
+          artists[Ruleset.Taiko].artists.map((item) => item.artist)
+        ).toEqual(['Taiko artist']);
       });
     });
   });

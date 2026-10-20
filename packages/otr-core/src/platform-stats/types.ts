@@ -25,6 +25,9 @@ export enum PlatformStatKey {
   BiggestComebacks = 'biggest-comebacks',
   StrongestFields = 'strongest-fields',
   ActivePlayers = 'active-players',
+  MostPlayedBeatmaps = 'most-played-beatmaps',
+  MostPlayedMappers = 'most-played-mappers',
+  MostPlayedArtists = 'most-played-artists',
 }
 
 /** The rulesets a per-ruleset statistic is computed for: every rated one. */

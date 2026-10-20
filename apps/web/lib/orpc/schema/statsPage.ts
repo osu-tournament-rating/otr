@@ -7,6 +7,9 @@ import type {
   ClosestGames,
   HeadlineTotals,
   HigherRatedWins,
+  MostPlayedArtists,
+  MostPlayedBeatmaps,
+  MostPlayedMappers,
   StrongestFields,
 } from '@otr/core/platform-stats';
 
@@ -113,6 +116,41 @@ export const ActivePlayersSchema = z.object({
   ),
 }) satisfies z.ZodType<ActivePlayers>;
 
+export const MostPlayedBeatmapsSchema = z.object({
+  total: count,
+  beatmaps: z.array(
+    z.object({
+      osuId: z.number().int(),
+      diffName: z.string(),
+      artist: z.string().nullable(),
+      title: z.string().nullable(),
+      starRating: z.number().nonnegative(),
+      tournaments: count,
+      games: count,
+    })
+  ),
+}) satisfies z.ZodType<MostPlayedBeatmaps>;
+
+export const MostPlayedMappersSchema = z.object({
+  total: count,
+  mappers: z.array(
+    z.object({
+      playerId: z.number().int(),
+      osuId: z.number().int(),
+      username: z.string(),
+      tournaments: count,
+      beatmaps: count,
+    })
+  ),
+}) satisfies z.ZodType<MostPlayedMappers>;
+
+export const MostPlayedArtistsSchema = z.object({
+  total: count,
+  artists: z.array(
+    z.object({ artist: z.string(), tournaments: count, beatmaps: count })
+  ),
+}) satisfies z.ZodType<MostPlayedArtists>;
+
 /** Verified matches by the UTC weekday and hour they started. */
 export const MatchStartTimesSchema = z.object({
   matches: count,
@@ -192,6 +230,9 @@ export const RulesetStatsSchema = z.object({
   biggestComebacks: BiggestComebacksSchema.nullable(),
   strongestFields: StrongestFieldsSchema.nullable(),
   activePlayers: ActivePlayersSchema.nullable(),
+  mostPlayedBeatmaps: MostPlayedBeatmapsSchema.nullable(),
+  mostPlayedMappers: MostPlayedMappersSchema.nullable(),
+  mostPlayedArtists: MostPlayedArtistsSchema.nullable(),
   matchStartTimes: MatchStartTimesSchema,
 });
 
@@ -235,6 +276,9 @@ export type BiggestComebackData = BiggestComebacksData['matches'][number];
 export type StrongestFieldsData = z.infer<typeof StrongestFieldsSchema>;
 export type StrongestFieldData = StrongestFieldsData['tournaments'][number];
 export type ActivePlayersData = z.infer<typeof ActivePlayersSchema>;
+export type MostPlayedBeatmapsData = z.infer<typeof MostPlayedBeatmapsSchema>;
+export type MostPlayedBeatmapData = MostPlayedBeatmapsData['beatmaps'][number];
+
 export type MatchStartTimesData = z.infer<typeof MatchStartTimesSchema>;
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<
