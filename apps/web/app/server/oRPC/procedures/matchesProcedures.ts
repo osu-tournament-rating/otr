@@ -43,10 +43,6 @@ interface AdminNoteRow {
   playerUsername: string | null;
   playerCountry: string | null;
   playerDefaultRuleset: number | null;
-  playerOsuLastFetch: string | null;
-  playerOsuTrackLastFetch: string | null;
-  playerOsuTrackDataFetchStatus: number | null;
-  playerDataFetchStatus: number | null;
 }
 
 const FALLBACK_PLAYER = {
@@ -55,10 +51,6 @@ const FALLBACK_PLAYER = {
   username: 'Unknown',
   country: '',
   defaultRuleset: Ruleset.Osu,
-  osuLastFetch: '2007-09-17 00:00:00',
-  osuTrackLastFetch: '2007-09-17 00:00:00',
-  osuTrackDataFetchStatus: 0,
-  dataFetchStatus: 0,
   userId: null as number | null,
 };
 
@@ -92,11 +84,6 @@ function mapAdminNote(row: AdminNoteRow): AdminNote {
           username: row.playerUsername ?? 'Unknown',
           country: row.playerCountry ?? '',
           defaultRuleset: (row.playerDefaultRuleset ?? Ruleset.Osu) as Ruleset,
-          osuLastFetch: row.playerOsuLastFetch ?? '2007-09-17 00:00:00',
-          osuTrackLastFetch:
-            row.playerOsuTrackLastFetch ?? '2007-09-17 00:00:00',
-          osuTrackDataFetchStatus: row.playerOsuTrackDataFetchStatus ?? 0,
-          dataFetchStatus: row.playerDataFetchStatus ?? 0,
           userId: row.userId,
         }),
       }),
@@ -235,11 +222,6 @@ export const getMatch = publicProcedure
         beatmapsetCreatorUsername: schema.players.username,
         beatmapsetCreatorCountry: schema.players.country,
         beatmapsetCreatorDefaultRuleset: defaultRulesetSql(schema.players.id),
-        beatmapsetCreatorOsuLastFetch: schema.players.osuLastFetch,
-        beatmapsetCreatorOsuTrackLastFetch: schema.players.osuTrackLastFetch,
-        beatmapsetCreatorOsuTrackDataFetchStatus:
-          schema.players.osuTrackDataFetchStatus,
-        beatmapsetCreatorDataFetchStatus: schema.players.dataFetchStatus,
       })
       .from(schema.games)
       .leftJoin(schema.beatmaps, eq(schema.beatmaps.id, schema.games.beatmapId))
@@ -271,10 +253,6 @@ export const getMatch = publicProcedure
             username: schema.players.username,
             country: schema.players.country,
             defaultRuleset: defaultRulesetSql(schema.players.id),
-            osuLastFetch: schema.players.osuLastFetch,
-            osuTrackLastFetch: schema.players.osuTrackLastFetch,
-            osuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
-            dataFetchStatus: schema.players.dataFetchStatus,
             userId: schema.users.id,
           })
           .from(schema.joinBeatmapCreators)
@@ -302,10 +280,6 @@ export const getMatch = publicProcedure
           username: creator.username,
           country: creator.country,
           defaultRuleset: creator.defaultRuleset,
-          osuLastFetch: creator.osuLastFetch,
-          osuTrackLastFetch: creator.osuTrackLastFetch,
-          osuTrackDataFetchStatus: creator.osuTrackDataFetchStatus ?? 0,
-          dataFetchStatus: creator.dataFetchStatus ?? 0,
           userId: creator.userId ?? null,
         })
       );
@@ -329,11 +303,6 @@ export const getMatch = publicProcedure
             playerUsername: schema.players.username,
             playerCountry: schema.players.country,
             playerDefaultRuleset: defaultRulesetSql(schema.players.id),
-            playerOsuLastFetch: schema.players.osuLastFetch,
-            playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
-            playerOsuTrackDataFetchStatus:
-              schema.players.osuTrackDataFetchStatus,
-            playerDataFetchStatus: schema.players.dataFetchStatus,
           })
           .from(schema.gameAdminNotes)
           .leftJoin(
@@ -452,10 +421,6 @@ export const getMatch = publicProcedure
         playerUsername: schema.players.username,
         playerCountry: schema.players.country,
         playerDefaultRuleset: defaultRulesetSql(schema.players.id),
-        playerOsuLastFetch: schema.players.osuLastFetch,
-        playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
-        playerOsuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
-        playerDataFetchStatus: schema.players.dataFetchStatus,
       })
       .from(schema.matchAdminNotes)
       .leftJoin(
@@ -522,11 +487,6 @@ export const getMatch = publicProcedure
             playerUsername: schema.players.username,
             playerCountry: schema.players.country,
             playerDefaultRuleset: defaultRulesetSql(schema.players.id),
-            playerOsuLastFetch: schema.players.osuLastFetch,
-            playerOsuTrackLastFetch: schema.players.osuTrackLastFetch,
-            playerOsuTrackDataFetchStatus:
-              schema.players.osuTrackDataFetchStatus,
-            playerDataFetchStatus: schema.players.dataFetchStatus,
           })
           .from(schema.gameScoreAdminNotes)
           .leftJoin(
@@ -581,10 +541,6 @@ export const getMatch = publicProcedure
             username: schema.players.username,
             country: schema.players.country,
             defaultRuleset: defaultRulesetSql(schema.players.id),
-            osuLastFetch: schema.players.osuLastFetch,
-            osuTrackLastFetch: schema.players.osuTrackLastFetch,
-            osuTrackDataFetchStatus: schema.players.osuTrackDataFetchStatus,
-            dataFetchStatus: schema.players.dataFetchStatus,
             userId: schema.users.id,
           })
           .from(schema.players)
@@ -605,10 +561,6 @@ export const getMatch = publicProcedure
           username: player.username,
           country: player.country,
           defaultRuleset: player.defaultRuleset as Ruleset,
-          osuLastFetch: player.osuLastFetch,
-          osuTrackLastFetch: player.osuTrackLastFetch,
-          osuTrackDataFetchStatus: player.osuTrackDataFetchStatus ?? 0,
-          dataFetchStatus: player.dataFetchStatus ?? 0,
           userId: player.userId ?? null,
         })
       );
@@ -663,17 +615,6 @@ export const getMatch = publicProcedure
                               defaultRuleset:
                                 (game.beatmapsetCreatorDefaultRuleset ??
                                   Ruleset.Osu) as Ruleset,
-                              osuLastFetch:
-                                game.beatmapsetCreatorOsuLastFetch ??
-                                '2007-09-17 00:00:00',
-                              osuTrackLastFetch:
-                                game.beatmapsetCreatorOsuTrackLastFetch ??
-                                '2007-09-17 00:00:00',
-                              osuTrackDataFetchStatus:
-                                game.beatmapsetCreatorOsuTrackDataFetchStatus ??
-                                0,
-                              dataFetchStatus:
-                                game.beatmapsetCreatorDataFetchStatus ?? 0,
                               userId: null,
                             })
                           : null,
