@@ -133,6 +133,7 @@ export default function StatsLoading() {
           plot="h-80"
           level={3}
         />
+        <RecordListSkeleton copy={STATS_PANELS.strongestFields} rows={10} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <PanelSkeleton>
             <SectionHeaderSkeleton

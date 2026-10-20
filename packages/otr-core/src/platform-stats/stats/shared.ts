@@ -114,6 +114,10 @@ export const sideRatings = ({
   }
   group by mr.match_id, mr.team`;
 
+/** A UTC timestamp as an ISO 8601 string, in SQL, so no driver parses it. */
+export const isoTimestamp = (column: SQL) =>
+  sql`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
 /** A match a statistic lists, with its result. */
 export interface MatchRecord {
   matchId: number;

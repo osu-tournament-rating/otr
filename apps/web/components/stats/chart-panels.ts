@@ -1,9 +1,13 @@
-import { UPSET_MIN_EARLIER_MATCHES } from '@otr/core/platform-stats/constants';
+import {
+  FIELD_SIZE,
+  UPSET_MIN_EARLIER_MATCHES,
+} from '@otr/core/platform-stats/constants';
 import {
   Calendar,
   ChartNoAxesColumn,
   CircleCheck,
   Crosshair,
+  Crown,
   Gamepad2,
   Globe,
   LayoutGrid,
@@ -110,6 +114,11 @@ export const STATS_PANELS = {
   biggestComebacks: {
     icon: TrendingUp,
     title: 'Biggest comebacks',
+  },
+  strongestFields: {
+    icon: Crown,
+    title: 'Strongest fields',
+    infoText: `Average rating of each tournament's ${FIELD_SIZE} highest-rated players going in`,
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

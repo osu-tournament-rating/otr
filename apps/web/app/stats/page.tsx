@@ -20,6 +20,7 @@ import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel'
 import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
 import { RulesetStatsProvider } from '@/components/stats/ruleset-stats';
 import StatsRulesetSwitch from '@/components/stats/StatsRulesetSwitch';
+import StrongestFieldsPanel from '@/components/stats/StrongestFieldsPanel';
 import TournamentsByLobbySizeChart from '@/components/stats/TournamentsByLobbySizeChart';
 import TournamentsByRulesetChart from '@/components/stats/TournamentsByRulesetChart';
 import TournamentsByYearChart from '@/components/stats/TournamentsByYearChart';
@@ -80,6 +81,7 @@ export default async function StatsPage() {
             <TopPlayersByCountryPanel />
           </div>
           <RankRestrictionsPanel currentYear={currentYear} />
+          <StrongestFieldsPanel />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <HigherRatedWinsPanel />
             <BiggestUpsetsPanel />

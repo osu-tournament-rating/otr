@@ -329,12 +329,14 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       [PlatformStatKey.BiggestUpsets]: { total: 1, matches: [] },
       [PlatformStatKey.ClosestGames]: { total: 2, games: [] },
       [PlatformStatKey.BiggestComebacks]: { total: 3, matches: [] },
+      [PlatformStatKey.StrongestFields]: { total: 4, tournaments: [] },
     };
     const storedFields = (entry: RulesetStatsData) => ({
       higherRatedWins: entry.higherRatedWins,
       biggestUpsets: entry.biggestUpsets,
       closestGames: entry.closestGames,
       biggestComebacks: entry.biggestComebacks,
+      strongestFields: entry.strongestFields,
     });
 
     await onEmptyTables(async (tx) => {
@@ -358,12 +360,14 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
         biggestUpsets: payloads[PlatformStatKey.BiggestUpsets],
         closestGames: payloads[PlatformStatKey.ClosestGames],
         biggestComebacks: payloads[PlatformStatKey.BiggestComebacks],
+        strongestFields: payloads[PlatformStatKey.StrongestFields],
       });
       expect(entry(Ruleset.Osu)).toEqual({
         higherRatedWins: null,
         biggestUpsets: null,
         closestGames: null,
         biggestComebacks: null,
+        strongestFields: null,
       });
     });
   });

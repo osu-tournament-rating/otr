@@ -6,6 +6,7 @@ import type {
   ClosestGames,
   HeadlineTotals,
   HigherRatedWins,
+  StrongestFields,
 } from '@otr/core/platform-stats';
 
 import { RANK_RANGE_BUCKET_KEYS } from '@/lib/beatmaps/rankRange';
@@ -82,6 +83,23 @@ export const BiggestComebacksSchema = z.object({
   matches: z.array(z.object({ ...MatchRecordShape, deficit: count })),
 }) satisfies z.ZodType<BiggestComebacks>;
 
+export const StrongestFieldsSchema = z.object({
+  total: count,
+  tournaments: z.array(
+    z.object({
+      tournamentId: z.number().int(),
+      name: z.string(),
+      abbreviation: z.string(),
+      lobbySize: count,
+      rankRangeLowerBound: z.number().int(),
+      startTime: isoTimestamp.nullable(),
+      endTime: isoTimestamp.nullable(),
+      players: count,
+      rating: z.number(),
+    })
+  ),
+}) satisfies z.ZodType<StrongestFields>;
+
 export const VerificationSummarySchema = z.object({
   windowDays: count,
   tournaments: count,
@@ -152,6 +170,7 @@ export const RulesetStatsSchema = z.object({
   biggestUpsets: BiggestUpsetsSchema.nullable(),
   closestGames: ClosestGamesSchema.nullable(),
   biggestComebacks: BiggestComebacksSchema.nullable(),
+  strongestFields: StrongestFieldsSchema.nullable(),
 });
 
 /**
@@ -191,6 +210,8 @@ export type ClosestGamesData = z.infer<typeof ClosestGamesSchema>;
 export type ClosestGameData = ClosestGamesData['games'][number];
 export type BiggestComebacksData = z.infer<typeof BiggestComebacksSchema>;
 export type BiggestComebackData = BiggestComebacksData['matches'][number];
+export type StrongestFieldsData = z.infer<typeof StrongestFieldsSchema>;
+export type StrongestFieldData = StrongestFieldsData['tournaments'][number];
 /** The parts every listed match shares. */
 export type MatchRecordData = Pick<
   BiggestUpsetData,

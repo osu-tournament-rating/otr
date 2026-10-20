@@ -13,6 +13,7 @@ import {
   ClosestGamesSchema,
   HeadlineTotalsSchema,
   HigherRatedWinsSchema,
+  StrongestFieldsSchema,
   RecentlyVerifiedInputSchema,
   RecentlyVerifiedPageSchema,
   StatsPageSchema,
@@ -134,6 +135,12 @@ export async function runStatsPage({
         PlatformStatKey.BiggestComebacks,
         ruleset,
         BiggestComebacksSchema
+      ),
+      strongestFields: storedPayload(
+        stored,
+        PlatformStatKey.StrongestFields,
+        ruleset,
+        StrongestFieldsSchema
       ),
     })),
   };

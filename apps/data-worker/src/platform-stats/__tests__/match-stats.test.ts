@@ -16,6 +16,7 @@ import {
   PLATFORM_STATS,
   PlatformStatKey,
   type PlatformStatsRuleset,
+  type StrongestFields,
 } from '@otr/core/platform-stats';
 
 import type { DatabaseClient } from '../../db';
@@ -750,6 +751,87 @@ describe.skipIf(!url)('match and tournament platform stats', () => {
           winnerTeam: Team.Red,
           winnerScore: 4,
           loserScore: 3,
+        });
+      });
+    });
+  });
+
+  describe('strongest fields', () => {
+    it('ranks tournaments of the last 12 months by their 16 highest-rated players going in', async () => {
+      await onEmptyTables(async (tx) => {
+        const f = fixtures(tx);
+
+        // 17 players rated 1,000 to 2,600 in steps of 100. The top 16,
+        // 1,100 to 2,600, average (1,100 + 2,600) / 2 = 1,850.
+        const strong = await f.tournament();
+        const ratings = Array.from({ length: 17 }, (_, i) => 1000 + i * 100);
+        const red = await f.side(1, ...ratings.slice(0, 9));
+        await f.match(strong, {
+          start: minute(0),
+          red,
+          blue: await f.side(0, ...ratings.slice(9)),
+        });
+        // A player's later match doesn't change the rating they came in
+        // with, and a rejected match's players don't count.
+        await f.match(strong, {
+          start: minute(60),
+          red: { score: 1, players: [{ ...red.players[0]!, rating: 9000 }] },
+          blue: await f.side(0, null),
+        });
+        await f.match(strong, {
+          status: Rejected,
+          red: await f.side(1, 5000),
+          blue: await f.side(0, 5000),
+        });
+
+        // 16 players at 1,500.
+        const even = await f.tournament();
+        await f.match(even, {
+          red: await f.side(1, ...Array<number>(8).fill(1500)),
+          blue: await f.side(0, ...Array<number>(8).fill(1500)),
+        });
+
+        // 15 strong players are not a full field.
+        const small = await f.tournament();
+        await f.match(small, {
+          red: await f.side(1, ...Array<number>(8).fill(3000)),
+          blue: await f.side(0, ...Array<number>(7).fill(3000)),
+        });
+
+        // Neither is a tournament that ended before the last 12 months, nor
+        // one that is not verified.
+        for (const options of [
+          { end: BEFORE_WINDOW },
+          { status: PreVerified },
+        ]) {
+          const left = await f.tournament(options);
+          await f.match(left, {
+            start: BEFORE_WINDOW,
+            red: await f.side(1, ...Array<number>(8).fill(3000)),
+            blue: await f.side(0, ...Array<number>(8).fill(3000)),
+          });
+        }
+
+        const fields = (
+          await compute<StrongestFields>(tx, PlatformStatKey.StrongestFields)
+        )[Ruleset.Osu];
+
+        expect(fields.total).toBe(2);
+        expect(
+          fields.tournaments.map((item) => [
+            item.tournamentId,
+            item.rating,
+            item.players,
+          ])
+        ).toEqual([
+          [strong, 1850, 17],
+          [even, 1500, 16],
+        ]);
+        expect(fields.tournaments[0]).toMatchObject({
+          lobbySize: 1,
+          rankRangeLowerBound: 1,
+          startTime: '2025-01-01T00:00:00.000Z',
+          endTime: '2026-08-01T00:00:00.000Z',
         });
       });
     });

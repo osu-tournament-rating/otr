@@ -21,3 +21,9 @@ export const RATING_GAP_BUCKET_SIZE = 100;
 
 /** Rating gap buckets per ruleset; the last holds every wider gap (500+). */
 export const RATING_GAP_BUCKETS = 6;
+
+/** How many of a tournament's highest-rated players make its field. */
+export const FIELD_SIZE = 16;
+
+/** Tournaments the strongest fields keep per ruleset. */
+export const STRONGEST_FIELDS_LIMIT = 10;

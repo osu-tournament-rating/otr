@@ -3,6 +3,7 @@ import { biggestUpsets } from './stats/biggest-upsets';
 import { closestGames } from './stats/closest-games';
 import { headlineTotals } from './stats/headline-totals';
 import { higherRatedWins } from './stats/higher-rated-wins';
+import { strongestFields } from './stats/strongest-fields';
 import type { PlatformStatDefinition } from './types';
 
 /**
@@ -15,4 +16,5 @@ export const PLATFORM_STATS: readonly PlatformStatDefinition[] = [
   biggestUpsets,
   closestGames,
   biggestComebacks,
+  strongestFields,
 ];
