@@ -147,11 +147,50 @@ export class TournamentAutomationCheckService {
     this.scoreChecks = options.scoreChecks;
   }
 
+  /**
+   * Checks the tournament and saves the statuses whose result changed.
+   *
+   * The read and the save share one repeatable-read transaction, so the
+   * database refuses to save over a row someone else changed since the read.
+   * The checks then read the tournament again and rerun at once, up to
+   * {@link MAX_CHECK_RUNS} runs in all, before the error goes to the job's
+   * retry.
+   */
   async processAutomationChecks(
     tournamentId: number,
     overrideVerifiedState = false
   ): Promise<boolean> {
-    const row = await this.db.query.tournaments.findFirst({
+    for (let run = 1; ; run++) {
+      try {
+        const outcome = await this.db.transaction(
+          (tx) => this.checkTournament(tx, tournamentId, overrideVerifiedState),
+          { isolationLevel: 'repeatable read' }
+        );
+
+        if (outcome.report) {
+          this.logger.info(outcome.report);
+        }
+
+        return outcome.passed;
+      } catch (error) {
+        if (run >= MAX_CHECK_RUNS || !isConcurrentWriteConflict(error)) {
+          throw error;
+        }
+
+        this.logger.info(
+          'Tournament changed during its automation checks; checking it again',
+          { tournamentId, run }
+        );
+      }
+    }
+  }
+
+  private async checkTournament(
+    tx: Transaction,
+    tournamentId: number,
+    overrideVerifiedState: boolean
+  ): Promise<{ passed: boolean; report: string | null }> {
+    const row = await tx.query.tournaments.findFirst({
       where: eq(schema.tournaments.id, tournamentId),
       columns: {
         id: true,
@@ -252,10 +291,11 @@ export class TournamentAutomationCheckService {
       this.logger.warn('Tournament not found for automation checks', {
         tournamentId,
       });
-      return false;
+      return { passed: false, report: null };
     }
 
     const tournament = mapTournament(row as unknown as TournamentRow);
+    const asRead = structuredClone(tournament);
     const beforeStatus = tournament.verificationStatus;
 
     if (tournament.verificationStatus !== VerificationStatus.Verified) {
@@ -274,8 +314,11 @@ export class TournamentAutomationCheckService {
         verificationStatus: tournament.verificationStatus,
       });
 
-      await this.persistTournamentState(tournament, beforeStatus);
-      return tournament.verificationStatus === VerificationStatus.Verified;
+      await this.saveChangedRows(tx, asRead, tournament);
+      return {
+        passed: tournament.verificationStatus === VerificationStatus.Verified,
+        report: null,
+      };
     }
 
     if (overrideVerifiedState) {
@@ -345,75 +388,194 @@ export class TournamentAutomationCheckService {
       beforeStatus
     );
 
-    await this.persistTournamentState(tournament, beforeStatus);
+    await this.saveChangedRows(tx, asRead, tournament);
 
-    const report = generateTournamentProcessingReport(processingState);
-    this.logger.info(report);
-
-    return tournament.rejectionReason === TournamentRejectionReason.None;
+    return {
+      passed: tournament.rejectionReason === TournamentRejectionReason.None,
+      report: generateTournamentProcessingReport(processingState),
+    };
   }
 
-  private async persistTournamentState(
-    tournament: AutomationTournament,
-    beforeStatus: VerificationStatus
+  /**
+   * Saves the columns the checks own, for each row where they differ from
+   * `asRead`. A row the checks left as it was is not written, so a change
+   * someone else saved to it stands.
+   */
+  private async saveChangedRows(
+    tx: Transaction,
+    asRead: AutomationTournament,
+    checked: AutomationTournament
   ) {
     const nowIso = new Date().toISOString();
+    const changes = changedRows(asRead, checked);
 
-    await this.db.transaction(async (tx) => {
+    if (changes.tournament) {
       await tx
         .update(schema.tournaments)
-        .set({
-          verificationStatus: tournament.verificationStatus,
-          rejectionReason: tournament.rejectionReason,
-          updated: nowIso,
-        })
-        .where(eq(schema.tournaments.id, tournament.id));
+        .set({ ...changes.tournament, updated: nowIso })
+        .where(eq(schema.tournaments.id, checked.id));
+    }
 
-      for (const match of tournament.matches) {
-        await tx
-          .update(schema.matches)
-          .set({
-            verificationStatus: match.verificationStatus,
-            rejectionReason: match.rejectionReason,
-            warningFlags: match.warningFlags,
-            updated: nowIso,
-          })
-          .where(eq(schema.matches.id, match.id));
+    for (const { id, values } of changes.matches) {
+      await tx
+        .update(schema.matches)
+        .set({ ...values, updated: nowIso })
+        .where(eq(schema.matches.id, id));
+    }
 
-        for (const game of match.games) {
-          await tx
-            .update(schema.games)
-            .set({
-              teamType: game.teamType,
-              verificationStatus: game.verificationStatus,
-              rejectionReason: game.rejectionReason,
-              warningFlags: game.warningFlags,
-              updated: nowIso,
-            })
-            .where(eq(schema.games.id, game.id));
+    for (const { id, values } of changes.games) {
+      await tx
+        .update(schema.games)
+        .set({ ...values, updated: nowIso })
+        .where(eq(schema.games.id, id));
+    }
 
-          for (const score of game.scores) {
-            await tx
-              .update(schema.gameScores)
-              .set({
-                team: score.team,
-                verificationStatus: score.verificationStatus,
-                rejectionReason: score.rejectionReason,
-                updated: nowIso,
-              })
-              .where(eq(schema.gameScores.id, score.id));
-          }
-        }
-      }
-    });
+    for (const { id, values } of changes.scores) {
+      await tx
+        .update(schema.gameScores)
+        .set({ ...values, updated: nowIso })
+        .where(eq(schema.gameScores.id, id));
+    }
 
     this.logger.info('Persisted tournament automation state', {
-      tournamentId: tournament.id,
-      previousStatus: beforeStatus,
-      currentStatus: tournament.verificationStatus,
+      tournamentId: checked.id,
+      previousStatus: asRead.verificationStatus,
+      currentStatus: checked.verificationStatus,
+      changedMatches: changes.matches.length,
+      changedGames: changes.games.length,
+      changedScores: changes.scores.length,
     });
   }
 }
+
+type Transaction = Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
+
+/**
+ * How many times a check runs when each run meets another transaction's
+ * write, before its error goes to the job's retry and backoff.
+ */
+export const MAX_CHECK_RUNS = 5;
+
+/**
+ * Serialization failures and deadlocks. Drizzle wraps the driver's error, so
+ * this walks the cause chain.
+ */
+const isConcurrentWriteConflict = (error: unknown) => {
+  for (let current = error; current;) {
+    if (typeof current !== 'object') {
+      return false;
+    }
+
+    const { code, cause } = current as { code?: unknown; cause?: unknown };
+    if (code === '40001' || code === '40P01') {
+      return true;
+    }
+
+    current = cause;
+  }
+
+  return false;
+};
+
+type RowChange<T> = { id: number; values: Partial<T> };
+
+/** The columns each row's checks own, and so may write. */
+const TOURNAMENT_COLUMNS = ['verificationStatus', 'rejectionReason'] as const;
+const MATCH_COLUMNS = [
+  'verificationStatus',
+  'rejectionReason',
+  'warningFlags',
+] as const;
+const GAME_COLUMNS = [
+  'teamType',
+  'verificationStatus',
+  'rejectionReason',
+  'warningFlags',
+] as const;
+const SCORE_COLUMNS = [
+  'team',
+  'verificationStatus',
+  'rejectionReason',
+] as const;
+
+const changedColumns = <T, K extends keyof T>(
+  before: T | undefined,
+  after: T,
+  columns: readonly K[]
+): Partial<Pick<T, K>> | null => {
+  const values: Partial<Pick<T, K>> = {};
+  let changed = false;
+
+  for (const column of columns) {
+    if (before?.[column] !== after[column]) {
+      values[column] = after[column];
+      changed = true;
+    }
+  }
+
+  return changed ? values : null;
+};
+
+/** The owned columns of each row that differ between the two copies. */
+const changedRows = (
+  asRead: AutomationTournament,
+  checked: AutomationTournament
+) => {
+  const readMatches = new Map(asRead.matches.map((m) => [m.id, m]));
+  const readGames = new Map(
+    asRead.matches.flatMap((m) => m.games).map((g) => [g.id, g])
+  );
+  const readScores = new Map(
+    asRead.matches
+      .flatMap((m) => m.games)
+      .flatMap((g) => g.scores)
+      .map((s) => [s.id, s])
+  );
+
+  const matches: RowChange<AutomationMatch>[] = [];
+  const games: RowChange<AutomationGame>[] = [];
+  const scores: RowChange<AutomationScore>[] = [];
+
+  for (const match of checked.matches) {
+    const matchValues = changedColumns(
+      readMatches.get(match.id),
+      match,
+      MATCH_COLUMNS
+    );
+    if (matchValues) {
+      matches.push({ id: match.id, values: matchValues });
+    }
+
+    for (const game of match.games) {
+      const gameValues = changedColumns(
+        readGames.get(game.id),
+        game,
+        GAME_COLUMNS
+      );
+      if (gameValues) {
+        games.push({ id: game.id, values: gameValues });
+      }
+
+      for (const score of game.scores) {
+        const scoreValues = changedColumns(
+          readScores.get(score.id),
+          score,
+          SCORE_COLUMNS
+        );
+        if (scoreValues) {
+          scores.push({ id: score.id, values: scoreValues });
+        }
+      }
+    }
+  }
+
+  return {
+    tournament: changedColumns(asRead, checked, TOURNAMENT_COLUMNS),
+    matches,
+    games,
+    scores,
+  };
+};
 
 const mapTournament = (row: TournamentRow): AutomationTournament => ({
   id: row.id,

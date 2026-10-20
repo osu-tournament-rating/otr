@@ -54,6 +54,14 @@ class StubTransaction {
     values: Record<string, unknown>;
   }> = [];
 
+  constructor(private readonly row: TournamentRow) {}
+
+  query = {
+    tournaments: {
+      findFirst: async () => this.row,
+    },
+  } as const;
+
   update(table: { tableName?: string }) {
     let tableName = table?.tableName ?? 'unknown';
 
@@ -83,14 +91,8 @@ class StubDatabase {
     this.row = row;
   }
 
-  query = {
-    tournaments: {
-      findFirst: async () => this.row,
-    },
-  } as const;
-
   async transaction<T>(callback: (tx: StubTransaction) => Promise<T>) {
-    const tx = new StubTransaction();
+    const tx = new StubTransaction(this.row);
     this.transactions.push(tx);
     return callback(tx);
   }
@@ -423,12 +425,34 @@ const runChecks = async (
     scoreChecks: new ScoreAutomationChecks(),
   });
 
+  // Each row as read, by `${table}:${id}`, then with the checks' writes
+  type Status = { verificationStatus: unknown; rejectionReason: unknown };
+  const saved = new Map<string, Status>();
+  const read = (key: string, { verificationStatus, rejectionReason }: Status) =>
+    saved.set(key, { verificationStatus, rejectionReason });
+
+  read(`tournaments:${row.id}`, row);
+  for (const match of row.matches) {
+    read(`matches:${match.id}`, match);
+    for (const game of match.games) {
+      read(`games:${game.id}`, game);
+      for (const score of game.gameScores) {
+        read(`game_scores:${score.id}`, score);
+      }
+    }
+  }
+
   await service.processAutomationChecks(row.id, overrideVerifiedState);
 
+  for (const { table, id, values } of db.transactions[0]?.updates ?? []) {
+    const key = `${table}:${id}`;
+    saved.set(key, { ...saved.get(key)!, ...values });
+  }
+
   return Object.fromEntries(
-    (db.transactions[0]?.updates ?? []).map(({ table, id, values }) => [
-      `${table}:${id}`,
-      [values.verificationStatus, values.rejectionReason],
+    [...saved].map(([key, { verificationStatus, rejectionReason }]) => [
+      key,
+      [verificationStatus, rejectionReason],
     ])
   );
 };
