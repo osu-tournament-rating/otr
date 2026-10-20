@@ -49,6 +49,11 @@ export const processOsuTrackPlayerResults = async ({
     return;
   }
 
+  // Taken before the ruleset data is read, so ruleset data created after the
+  // read is newer than the recorded fetch, and the next profile fetch queues
+  // osu!track again (see requeueOsuTrackForNewRulesetData).
+  const nowIso = new Date().toISOString();
+
   const player = await db.query.players.findFirst({
     where: eq(schema.players.osuId, osuPlayerId),
     columns: {
@@ -79,7 +84,6 @@ export const processOsuTrackPlayerResults = async ({
     player.playerOsuRulesetData.map((entry) => [entry.ruleset, entry])
   );
 
-  const nowIso = new Date().toISOString();
   let persistedAny = false;
 
   for (const { mode, updates } of results) {
