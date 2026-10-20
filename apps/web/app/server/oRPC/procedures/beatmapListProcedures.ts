@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   lte,
@@ -167,80 +168,131 @@ export const listBeatmaps = publicProcedure
         }
       };
 
-      const creatorSubquery = context.db
-        .select({
-          beatmapId: schema.joinBeatmapCreators.createdBeatmapsId,
-          creatorId:
-            sql<number>`MIN(${schema.joinBeatmapCreators.creatorsId})`.as(
-              'creator_id'
-            ),
-        })
-        .from(schema.joinBeatmapCreators)
-        .groupBy(schema.joinBeatmapCreators.createdBeatmapsId)
-        .as('beatmap_creator');
+      const orderBy = [
+        direction(getSortColumn()),
+        ...(searchRank ? [desc(searchRank)] : []),
+        direction(schema.beatmaps.id),
+      ];
 
-      const baseQuery = context.db
-        .select({
-          id: schema.beatmaps.id,
-          osuId: schema.beatmaps.osuId,
-          diffName: schema.beatmaps.diffName,
-          ruleset: schema.beatmaps.ruleset,
-          sr: schema.beatmaps.sr,
-          bpm: schema.beatmaps.bpm,
-          cs: schema.beatmaps.cs,
-          ar: schema.beatmaps.ar,
-          od: schema.beatmaps.od,
-          hp: schema.beatmaps.hp,
-          totalLength: schema.beatmaps.totalLength,
-          artist:
-            sql`coalesce(${schema.beatmaps.artistOverride}, ${schema.beatmapsets.artist})`.as(
-              'artist'
-            ),
-          title:
-            sql`coalesce(${schema.beatmaps.titleOverride}, ${schema.beatmapsets.title})`.as(
-              'title'
-            ),
-          beatmapsetOsuId: schema.beatmapsets.osuId,
-          creator: schema.players.username,
-          verifiedTournamentCount:
-            sql<number>`COALESCE(${schema.beatmapStats.verifiedTournamentCount}, 0)`.as(
-              'verified_tournament_count'
-            ),
-          verifiedGameCount:
-            sql<number>`COALESCE(${schema.beatmapStats.verifiedGameCount}, 0)`.as(
-              'verified_game_count'
-            ),
-        })
-        .from(schema.beatmaps)
-        .leftJoin(
-          schema.beatmapStats,
-          eq(schema.beatmaps.id, schema.beatmapStats.beatmapId)
-        )
-        .leftJoin(
-          schema.beatmapsets,
-          eq(schema.beatmaps.beatmapsetId, schema.beatmapsets.id)
-        )
-        .leftJoin(
-          creatorSubquery,
-          eq(schema.beatmaps.id, creatorSubquery.beatmapId)
-        )
-        .leftJoin(
-          schema.players,
-          sql`"beatmap_creator"."creator_id" = ${schema.players.id}`
-        );
+      // Without `beatmapIds`, the creator lookup groups every creator row
+      const buildListQuery = (beatmapIds?: number[]) => {
+        const creatorSubquery = context.db
+          .select({
+            beatmapId: schema.joinBeatmapCreators.createdBeatmapsId,
+            creatorId:
+              sql<number>`MIN(${schema.joinBeatmapCreators.creatorsId})`.as(
+                'creator_id'
+              ),
+          })
+          .from(schema.joinBeatmapCreators)
+          .where(
+            beatmapIds
+              ? inArray(
+                  schema.joinBeatmapCreators.createdBeatmapsId,
+                  beatmapIds
+                )
+              : undefined
+          )
+          .groupBy(schema.joinBeatmapCreators.createdBeatmapsId)
+          .as('beatmap_creator');
 
-      const conditionedQuery = whereClause
-        ? baseQuery.where(whereClause)
-        : baseQuery;
+        return context.db
+          .select({
+            id: schema.beatmaps.id,
+            osuId: schema.beatmaps.osuId,
+            diffName: schema.beatmaps.diffName,
+            ruleset: schema.beatmaps.ruleset,
+            sr: schema.beatmaps.sr,
+            bpm: schema.beatmaps.bpm,
+            cs: schema.beatmaps.cs,
+            ar: schema.beatmaps.ar,
+            od: schema.beatmaps.od,
+            hp: schema.beatmaps.hp,
+            totalLength: schema.beatmaps.totalLength,
+            artist:
+              sql`coalesce(${schema.beatmaps.artistOverride}, ${schema.beatmapsets.artist})`.as(
+                'artist'
+              ),
+            title:
+              sql`coalesce(${schema.beatmaps.titleOverride}, ${schema.beatmapsets.title})`.as(
+                'title'
+              ),
+            beatmapsetOsuId: schema.beatmapsets.osuId,
+            creator: schema.players.username,
+            verifiedTournamentCount:
+              sql<number>`COALESCE(${schema.beatmapStats.verifiedTournamentCount}, 0)`.as(
+                'verified_tournament_count'
+              ),
+            verifiedGameCount:
+              sql<number>`COALESCE(${schema.beatmapStats.verifiedGameCount}, 0)`.as(
+                'verified_game_count'
+              ),
+          })
+          .from(schema.beatmaps)
+          .leftJoin(
+            schema.beatmapStats,
+            eq(schema.beatmaps.id, schema.beatmapStats.beatmapId)
+          )
+          .leftJoin(
+            schema.beatmapsets,
+            eq(schema.beatmaps.beatmapsetId, schema.beatmapsets.id)
+          )
+          .leftJoin(
+            creatorSubquery,
+            eq(schema.beatmaps.id, creatorSubquery.beatmapId)
+          )
+          .leftJoin(
+            schema.players,
+            sql`"beatmap_creator"."creator_id" = ${schema.players.id}`
+          );
+      };
 
-      const rows = await conditionedQuery
-        .orderBy(
-          direction(getSortColumn()),
-          ...(searchRank ? [desc(searchRank)] : []),
-          direction(schema.beatmaps.id)
-        )
-        .limit(pageSize)
-        .offset(offset);
+      /**
+       * A page of the default order, most played first, read from the stats
+       * index on the game count instead of sorting every beatmap (#1240).
+       * Every beatmap with a verified game has a stats row, so that part of
+       * the order comes straight from the index. Beatmaps without verified
+       * games, some with no stats row, sort after them, so a page that
+       * reaches them returns null and the full sort lists it.
+       */
+      const listMostPlayedPage = async () => {
+        const pageIds = await context.db
+          .select({ id: schema.beatmapStats.beatmapId })
+          .from(schema.beatmapStats)
+          .innerJoin(
+            schema.beatmaps,
+            eq(schema.beatmaps.id, schema.beatmapStats.beatmapId)
+          )
+          .where(and(whereClause, gt(schema.beatmapStats.verifiedGameCount, 0)))
+          .orderBy(
+            desc(schema.beatmapStats.verifiedGameCount),
+            desc(schema.beatmapStats.beatmapId)
+          )
+          .limit(pageSize)
+          .offset(offset);
+
+        if (pageIds.length < pageSize) {
+          return null;
+        }
+
+        const beatmapIds = pageIds.map(({ id }) => id);
+
+        return buildListQuery(beatmapIds)
+          .where(inArray(schema.beatmaps.id, beatmapIds))
+          .orderBy(...orderBy);
+      };
+
+      // A search filter reads beatmapsets, which the stats page doesn't join
+      const isMostPlayedOrder =
+        sortValue === 'gameCount' && input.descending && !searchRank;
+
+      const rows =
+        (isMostPlayedOrder ? await listMostPlayedPage() : null) ??
+        (await buildListQuery()
+          .where(whereClause)
+          .orderBy(...orderBy)
+          .limit(pageSize)
+          .offset(offset));
 
       // No filter references the creator, so this skips the list query's creator joins
       const countQuery = context.db
