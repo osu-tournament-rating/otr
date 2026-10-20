@@ -5,7 +5,7 @@ const count = z.number().int().nonnegative();
 /** Matches or beatmaps by fetch status. */
 export const FetchProgressSchema = z.object({
   total: count,
-  /** Not fetched yet, or being fetched. */
+  /** Not fetched yet, being fetched, or queued to fetch again. */
   inFlight: count,
   fetched: count,
   notFound: count,

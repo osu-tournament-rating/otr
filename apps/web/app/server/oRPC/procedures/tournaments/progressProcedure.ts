@@ -99,6 +99,25 @@ const optionalNumber = (value: unknown) =>
 const optionalText = (value: unknown) =>
   value === null || value === undefined ? null : String(value);
 
+/** A waiting or running osu! fetch job has one of the keys. */
+const hasActiveFetchJob = (keys: SQL[]) => sql`EXISTS (
+  SELECT 1 FROM jobs
+  WHERE queue = ${JobQueue.OsuFetch}
+    AND status IN ${ACTIVE}
+    AND dedup_key IN (${sql.join(keys, sql`, `)})
+)`;
+
+/**
+ * An item's fetch status for its progress: one that is done fetching but has
+ * a fetch queued again, such as a failed match an admin retried, counts as
+ * fetching until a worker takes the job and updates the item.
+ */
+const progressStatusSql = (status: SQL, keys: SQL[]) => sql`CASE
+  WHEN ${status} IN ${UNFINISHED} THEN ${status}
+  WHEN ${hasActiveFetchJob(keys)} THEN ${DataFetchStatus.Fetching}
+  ELSE ${status}
+END`;
+
 /** The tournament's beatmaps: pooled, or played in one of its games. */
 const tournamentBeatmapIds = (tournamentId: number) => sql`
   SELECT pooled_beatmaps_id AS id FROM join_pooled_beatmaps
@@ -275,14 +294,19 @@ export async function getTournamentProgressHandler({
   const [tournament, matches, beatmaps, stageJobs] = await Promise.all([
     db.execute<Row>(sql`SELECT id FROM tournaments WHERE id = ${tournamentId}`),
     db.execute<Row>(sql`
-      SELECT data_fetch_status AS status, count(*)::int AS count
-      FROM matches WHERE tournament_id = ${tournamentId}
-      GROUP BY data_fetch_status`),
+      SELECT ${progressStatusSql(sql`m.data_fetch_status`, [
+        matchFetchKeySql(sql`m.osu_id`, sql`m.is_lazer`),
+      ])} AS status, count(*)::int AS count
+      FROM matches m WHERE m.tournament_id = ${tournamentId}
+      GROUP BY 1`),
     db.execute<Row>(sql`
-      SELECT b.data_fetch_status AS status, count(*)::int AS count
+      SELECT ${progressStatusSql(
+        sql`b.data_fetch_status`,
+        beatmapFetchKeysSql(sql`b.osu_id`)
+      )} AS status, count(*)::int AS count
       FROM beatmaps b
       JOIN (${tournamentBeatmapIds(tournamentId)}) t ON t.id = b.id
-      GROUP BY b.data_fetch_status`),
+      GROUP BY 1`),
     // Each queue's waiting or running job, else its newest.
     db.execute<Row>(sql`
       SELECT DISTINCT ON (queue) id, queue, status AS job_status, attempts,

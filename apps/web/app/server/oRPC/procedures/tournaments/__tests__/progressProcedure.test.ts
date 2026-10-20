@@ -175,6 +175,33 @@ describe.skipIf(!testDatabaseUrl)('getTournamentProgressHandler', () => {
     expect(result.inFlight).toBe(true);
   });
 
+  it('counts a failed match or beatmap queued to fetch again as in flight', async () => {
+    await seedMatch(MATCH_OSU_IDS[0]!, DataFetchStatus.Error);
+    await seedJob({
+      queue: JobQueue.OsuFetch,
+      dedupKey: `match:${MATCH_OSU_IDS[0]}:stable`,
+    });
+    // A failed match with no job stays failed.
+    await seedMatch(MATCH_OSU_IDS[1]!, DataFetchStatus.Error);
+    const beatmap = await seedBeatmap(
+      BEATMAP_OSU_IDS[0]!,
+      DataFetchStatus.Error
+    );
+    await pool_(beatmap);
+    await seedJob({
+      queue: JobQueue.OsuFetch,
+      dedupKey: `beatmap:${BEATMAP_OSU_IDS[0]}:nochecks`,
+      status: JobStatus.Running,
+      jobTournamentId: null,
+    });
+
+    const result = await progress();
+
+    expect(result.matches).toMatchObject({ total: 2, inFlight: 1, failed: 1 });
+    expect(result.beatmaps).toMatchObject({ total: 1, inFlight: 1, failed: 0 });
+    expect(result.inFlight).toBe(true);
+  });
+
   it('has checks wait while anything is still being fetched', async () => {
     await seedMatch(MATCH_OSU_IDS[0]!, DataFetchStatus.NotFetched);
 
