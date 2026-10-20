@@ -486,6 +486,41 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
     });
   });
 
+  it('checks the undecided scores of a game an admin verified', async () => {
+    // Verified with "Leave children unchanged", so its scores kept their
+    // pre-statuses, apart from one an admin verified and one they rejected
+    const row = reviewedTournament();
+    row.matches[2]!.games.push(
+      gameRow({
+        id: 306,
+        matchId: 3,
+        verificationStatus: Verified,
+        gameScores: lineup(306, PreVerified).map((score) => {
+          if (score.id === 3062) {
+            return { ...score, score: 500 };
+          }
+          if (score.id === 3063) {
+            return { ...score, score: 500, verificationStatus: Verified };
+          }
+          if (score.id === 3064) {
+            return { ...score, verificationStatus: Rejected };
+          }
+          return score;
+        }),
+      })
+    );
+
+    const persisted = await runChecks(row, false);
+
+    expect(persisted).toMatchObject({
+      'games:306': [Verified, GameRejectionReason.None],
+      'game_scores:3061': [PreVerified, ScoreRejectionReason.None],
+      'game_scores:3062': [PreRejected, ScoreRejectionReason.ScoreBelowMinimum],
+      'game_scores:3063': [Verified, ScoreRejectionReason.None],
+      'game_scores:3064': [Rejected, ScoreRejectionReason.None],
+    });
+  });
+
   it('checks admin decisions again when asked to override them', async () => {
     const persisted = await runChecks(reviewedTournament(), true);
 

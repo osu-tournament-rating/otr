@@ -286,16 +286,11 @@ export class TournamentAutomationCheckService {
       resetVerificationState(match, overrideVerifiedState);
     }
 
+    // The scores of a game an admin decided are checked too, apart from the
+    // ones an admin decided. Skipping them left the scores the reset above
+    // cleared with no status.
     for (const match of tournament.matches) {
       for (const game of match.games) {
-        const skipGameAutomation =
-          !overrideVerifiedState &&
-          isLockedVerificationStatus(game.verificationStatus);
-
-        if (skipGameAutomation) {
-          continue;
-        }
-
         for (const score of game.scores) {
           if (
             !overrideVerifiedState &&
