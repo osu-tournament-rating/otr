@@ -6,9 +6,11 @@ import { FilteringFailReason, Ruleset } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
 import { hasAdminScope } from '@/lib/auth/roles';
 import type { DatabaseClient } from '@/lib/db';
+import { formatCount } from '@/lib/kit/format/number';
 import {
   FILTER_REPORTS_PER_DAY,
   FLAGGED_UNKNOWN_PERCENT,
+  MAX_FILTER_PLAYER_IDS,
   FilterReportSchema,
   FilteringRequestSchema,
   FilteringResponseSchema,
@@ -56,11 +58,13 @@ export interface FilterRegistrantsArgs {
 }
 
 /**
- * Filters registrants for a signed-in user. Outside admins, a user may make
- * {@link FILTER_REPORTS_PER_DAY} reports in a rolling 24 hours, and a request
+ * Filters registrants for a signed-in user. A user may check
+ * {@link MAX_FILTER_PLAYER_IDS} players a request and make
+ * {@link FILTER_REPORTS_PER_DAY} reports in a rolling 24 hours. A request
  * where more than 30% of the players are unknown to o!TR is held, with the
- * user's justification, until an admin approves it. Each unknown player the
- * filter looks up costs the user one request of their API allowance.
+ * user's justification, until an admin approves it, and each unknown player
+ * the filter looks up costs the user one request of their API allowance.
+ * Admins have none of these limits.
  */
 export async function filterRegistrantsHandler({
   input,
@@ -75,6 +79,16 @@ export async function filterRegistrantsHandler({
   }
 
   const isAdmin = hasAdminScope(context.session.dbUser?.scopes);
+
+  if (!isAdmin && input.osuPlayerIds.length > MAX_FILTER_PLAYER_IDS) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: `A filter report can check up to ${formatCount(MAX_FILTER_PLAYER_IDS)} osu! player IDs.`,
+      data: {
+        code: 'TOO_MANY_PLAYER_IDS',
+        maxPlayerIds: MAX_FILTER_PLAYER_IDS,
+      },
+    });
+  }
 
   await assertOutsideMaintenanceWindow(context.headers, { db: context.db });
 
@@ -129,7 +143,8 @@ export async function filterRegistrantsHandler({
       return { status: 'pending', request: toFilterRequest(request) };
     }
 
-    if (unknownPlayerCount > 0) {
+    // Admins' lookups cost nothing
+    if (!isAdmin && unknownPlayerCount > 0) {
       const retryAfter = await apiAllowanceRetryAfter(tx, userId);
 
       if (retryAfter > 0) {

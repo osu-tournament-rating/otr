@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MessageSquareText, SlidersHorizontal, Users } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,15 +35,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { hasAdminScope } from '@/lib/auth/roles';
 import { useFormDraft } from '@/lib/hooks/useFormDraft';
+import { useSession } from '@/lib/hooks/useSession';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { RATED_RULESETS, RULESET_NAMES } from '@/lib/kit/format/ruleset';
 import { RANGE_SEPARATOR, formatTimestamp } from '@/lib/kit/format/date';
 import { orpc } from '@/lib/orpc/orpc';
 import {
   FLAGGED_UNKNOWN_PERCENT,
-  MAX_FILTER_PLAYER_IDS as MAX_PLAYER_IDS,
   MAX_JUSTIFICATION_LENGTH,
+  maxFilterPlayerIds,
   type FilterUsage,
   type FilteringResult,
 } from '@/lib/orpc/schema/filtering';
@@ -81,61 +83,64 @@ function parsePlayerIds(value: string): string[] {
   return value.split(/[\s,]+/).filter((id) => id.trim() !== '');
 }
 
-const filteringFormSchema = z
-  .object({
-    ruleset: z.string().min(1, 'Ruleset is required'),
-    minRating: ratingSchema('Minimum rating'),
-    maxRating: ratingSchema('Maximum rating'),
-    osuPlayerIds: z
-      .string()
-      .refine(
-        (value) => parsePlayerIds(value).length > 0,
-        'At least one osu! player ID is required'
-      )
-      .refine(
-        (value) =>
-          parsePlayerIds(value).every(
-            (id) => /^\d+$/.test(id) && parseInt(id, 10) > 0
-          ),
-        'osu! player IDs must be positive whole numbers separated by spaces, commas, or new lines'
-      )
-      .refine((value) => {
-        const ids = parsePlayerIds(value);
-        return ids.length === new Set(ids).size;
-      }, 'Duplicate osu! player IDs are not allowed')
-      .refine(
-        (value) => parsePlayerIds(value).length <= MAX_PLAYER_IDS,
-        `osu! player IDs cannot exceed ${formatCount(MAX_PLAYER_IDS)}`
-      ),
-    // Asked for only once the filter holds the request for an admin
-    justification: z
-      .string()
-      .max(
-        MAX_JUSTIFICATION_LENGTH,
-        `Justification cannot exceed ${formatCount(MAX_JUSTIFICATION_LENGTH)} characters`
-      ),
-  })
-  // A filter on the ruleset alone would pass every rated player.
-  .refine(
-    (data) => data.minRating !== undefined || data.maxRating !== undefined,
-    {
-      message: 'A minimum or maximum rating is required',
-      path: ['minRating'],
-    }
-  )
-  .refine(
-    (data) =>
-      data.minRating === undefined ||
-      data.maxRating === undefined ||
-      data.maxRating >= data.minRating,
-    {
-      message: 'Maximum rating must be at least the minimum rating',
-      path: ['maxRating'],
-    }
-  );
+/** The form's rules, for a user who may check `maxPlayerIds` players. */
+const filteringFormSchema = (maxPlayerIds: number) =>
+  z
+    .object({
+      ruleset: z.string().min(1, 'Ruleset is required'),
+      minRating: ratingSchema('Minimum rating'),
+      maxRating: ratingSchema('Maximum rating'),
+      osuPlayerIds: z
+        .string()
+        .refine(
+          (value) => parsePlayerIds(value).length > 0,
+          'At least one osu! player ID is required'
+        )
+        .refine(
+          (value) =>
+            parsePlayerIds(value).every(
+              (id) => /^\d+$/.test(id) && parseInt(id, 10) > 0
+            ),
+          'osu! player IDs must be positive whole numbers separated by spaces, commas, or new lines'
+        )
+        .refine((value) => {
+          const ids = parsePlayerIds(value);
+          return ids.length === new Set(ids).size;
+        }, 'Duplicate osu! player IDs are not allowed')
+        .refine(
+          (value) => parsePlayerIds(value).length <= maxPlayerIds,
+          `osu! player IDs cannot exceed ${formatCount(maxPlayerIds)}`
+        ),
+      // Asked for only once the filter holds the request for an admin
+      justification: z
+        .string()
+        .max(
+          MAX_JUSTIFICATION_LENGTH,
+          `Justification cannot exceed ${formatCount(MAX_JUSTIFICATION_LENGTH)} characters`
+        ),
+    })
+    // A filter on the ruleset alone would pass every rated player.
+    .refine(
+      (data) => data.minRating !== undefined || data.maxRating !== undefined,
+      {
+        message: 'A minimum or maximum rating is required',
+        path: ['minRating'],
+      }
+    )
+    .refine(
+      (data) =>
+        data.minRating === undefined ||
+        data.maxRating === undefined ||
+        data.maxRating >= data.minRating,
+      {
+        message: 'Maximum rating must be at least the minimum rating',
+        path: ['maxRating'],
+      }
+    );
 
-type FilteringFormInput = z.input<typeof filteringFormSchema>;
-type FilteringFormValues = z.output<typeof filteringFormSchema>;
+type FilteringFormSchema = ReturnType<typeof filteringFormSchema>;
+type FilteringFormInput = z.input<FilteringFormSchema>;
+type FilteringFormValues = z.output<FilteringFormSchema>;
 
 const EMPTY_VALUES: FilteringFormInput = {
   ruleset: '',
@@ -229,8 +234,15 @@ export default function FilteringForm({
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
+  // Admins may check more players a request than other users
+  const maxPlayerIds = maxFilterPlayerIds(hasAdminScope(useSession()?.scopes));
+  const resolver = useMemo(
+    () => zodResolver(filteringFormSchema(maxPlayerIds)),
+    [maxPlayerIds]
+  );
+
   const form = useForm<FilteringFormInput, unknown, FilteringFormValues>({
-    resolver: zodResolver(filteringFormSchema),
+    resolver,
     defaultValues: EMPTY_VALUES,
     mode: 'onChange',
   });
@@ -406,7 +418,7 @@ export default function FilteringForm({
               name="osuPlayerIds"
               render={({ field }) => (
                 <FormItem>
-                  <FormFieldLabel hint={`Up to ${formatCount(MAX_PLAYER_IDS)}`}>
+                  <FormFieldLabel hint={`Up to ${formatCount(maxPlayerIds)}`}>
                     osu! player IDs
                     <RequiredMark />
                   </FormFieldLabel>

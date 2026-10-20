@@ -203,7 +203,8 @@ export async function listMyFilterRequestsHandler({
         desc(schema.filterRequests.id)
       ),
     isAdmin ? null : readDailyFilterUsage(context.db, userId),
-    apiAllowanceRetryAfter(context.db, userId),
+    // Admins' lookups are never charged or refused
+    isAdmin ? 0 : apiAllowanceRetryAfter(context.db, userId),
   ]);
 
   return {

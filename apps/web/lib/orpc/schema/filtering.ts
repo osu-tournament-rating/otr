@@ -3,8 +3,18 @@ import { z } from 'zod';
 import { ApprovalStatusSchema, ApprovalUserSchema } from './approval';
 import { RulesetSchema } from './constants';
 
-/** The most players one filter request can check. */
+/** The most players a user's filter request can check. */
 export const MAX_FILTER_PLAYER_IDS = 1000;
+
+/**
+ * The most players any filter request can check, which admins may use. It
+ * keeps one report's rows under Postgres's limit on statement parameters.
+ */
+export const MAX_ADMIN_FILTER_PLAYER_IDS = 5000;
+
+/** The most players `isAdmin`'s filter request can check. */
+export const maxFilterPlayerIds = (isAdmin: boolean) =>
+  isAdmin ? MAX_ADMIN_FILTER_PLAYER_IDS : MAX_FILTER_PLAYER_IDS;
 
 /** Filter reports a user may create in any 24 hours; admins have no limit. */
 export const FILTER_REPORTS_PER_DAY = 2;
@@ -25,7 +35,8 @@ export const FilteringRequestSchema = z.object({
   ruleset: RulesetSchema,
   minRating: z.number().int().optional().nullable(),
   maxRating: z.number().int().optional().nullable(),
-  osuPlayerIds: osuPlayerIdsSchema.min(1).max(MAX_FILTER_PLAYER_IDS),
+  // Users are held to MAX_FILTER_PLAYER_IDS by the filter itself
+  osuPlayerIds: osuPlayerIdsSchema.min(1).max(MAX_ADMIN_FILTER_PLAYER_IDS),
   /** Why an admin should run a request held for its unknown players. */
   justification: z
     .string()

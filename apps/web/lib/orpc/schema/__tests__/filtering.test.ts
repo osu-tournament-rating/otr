@@ -9,9 +9,10 @@ const request = (count: number) => ({
 });
 
 describe('FilteringRequestSchema', () => {
-  // The rule the filter page and the Registrant Filtering docs state
-  it('accepts up to 1,000 osu! IDs and refuses more', () => {
-    expect(FilteringRequestSchema.safeParse(request(1000)).success).toBe(true);
-    expect(FilteringRequestSchema.safeParse(request(1001)).success).toBe(false);
+  // An admin's limit, which the Registrant Filtering docs state; the filter
+  // holds other users to 1,000
+  it('accepts up to 5,000 osu! IDs and refuses more', () => {
+    expect(FilteringRequestSchema.safeParse(request(5000)).success).toBe(true);
+    expect(FilteringRequestSchema.safeParse(request(5001)).success).toBe(false);
   });
 });

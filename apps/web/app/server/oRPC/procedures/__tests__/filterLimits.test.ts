@@ -40,7 +40,9 @@ const REQUESTER_OSU_ID = 991_203_100;
 const ADMIN_OSU_ID = 991_203_101;
 const KNOWN_OSU_IDS = Array.from({ length: 7 }, (_, i) => 991_203_110 + i);
 const UNKNOWN_OSU_IDS = Array.from({ length: 4 }, (_, i) => 991_203_130 + i);
-const ALL_OSU_IDS = [...KNOWN_OSU_IDS, ...UNKNOWN_OSU_IDS];
+/** One more than a user's request may check. */
+const OVER_USER_LIMIT = Array.from({ length: 1001 }, (_, i) => 991_204_000 + i);
+const ALL_OSU_IDS = [...KNOWN_OSU_IDS, ...UNKNOWN_OSU_IDS, ...OVER_USER_LIMIT];
 
 /** 6 known and 4 unknown: 40%, over the 30% that holds a request. */
 const FLAGGED = [...KNOWN_OSU_IDS.slice(0, 6), ...UNKNOWN_OSU_IDS];
@@ -144,6 +146,25 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
     return Number(rows[0]?.seconds);
   };
 
+  /** Uses up a minute and a half of the user's allowance: 1,500 requests owed. */
+  const useAllowance = (userId: number) =>
+    db
+      .update(schema.users)
+      .set({
+        apiAllowanceFullAt: sql`CURRENT_TIMESTAMP + interval '90 seconds'`,
+      })
+      .where(eq(schema.users.id, userId))
+      .returning({ fullAt: schema.users.apiAllowanceFullAt })
+      .then((rows) => rows[0]!.fullAt);
+
+  const allowanceFullAt = async (userId: number) =>
+    (
+      await db
+        .select({ fullAt: schema.users.apiAllowanceFullAt })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+    )[0]?.fullAt;
+
   const heldRequests = (userId: number) =>
     db
       .select()
@@ -215,10 +236,22 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       ).toEqual([]);
     });
 
-    it("runs an admin's request at once", async () => {
+    it("runs an admin's request at once, with no lookup cost, even after the admin's allowance was used", async () => {
+      const fullAt = await useAllowance(adminId);
+
       await expect(
         filter(FLAGGED, { session: adminSession(adminId) })
       ).resolves.toMatchObject({ status: 'completed' });
+
+      expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual(UNKNOWN_OSU_IDS);
+      expect(await allowanceFullAt(adminId)).toBe(fullAt);
+      expect(
+        (
+          await listMyFilterRequestsHandler({
+            context: { db, session: adminSession(adminId) },
+          })
+        ).usage.lookupRetryAfterSeconds
+      ).toBe(0);
     });
   });
 
@@ -252,6 +285,28 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       MessagePriority.Low,
       MessagePriority.Low,
     ]);
+  });
+
+  describe('players a request', () => {
+    it('refuses more than 1,000 from a user, and saves nothing', async () => {
+      await expect(filter(OVER_USER_LIMIT)).rejects.toMatchObject({
+        status: 400,
+        data: { code: 'TOO_MANY_PLAYER_IDS', maxPlayerIds: 1000 },
+      });
+
+      expect(await savedOsuIds(OVER_USER_LIMIT)).toEqual([]);
+      expect(await heldRequests(requesterId)).toEqual([]);
+    });
+
+    it('checks more than 1,000 for an admin', async () => {
+      const result = await filter(OVER_USER_LIMIT, {
+        session: adminSession(adminId),
+      });
+
+      expect(result).toMatchObject({ status: 'completed' });
+      if (result.status !== 'completed') return;
+      expect(result.filteringResults).toHaveLength(1001);
+    });
   });
 
   it('refuses lookups while earlier lookups have used the allowance, but runs a request that needs none', async () => {

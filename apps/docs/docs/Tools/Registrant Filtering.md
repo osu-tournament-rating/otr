@@ -32,6 +32,8 @@ The tool limits how much each user can filter, because every player o!TR does no
 - Each report can check up to 1,000 osu! player IDs.
 - Each player o!TR does not have yet costs one request of the user's API rate limit of 1,000 requests a minute. Players o!TR already has cost nothing. If lookups use more than a minute's worth, the user's API calls wait until the limit refills.
 
+o!TR admins have no daily limit, lookup cost, or approval step, and can check up to 5,000 osu! player IDs a report.
+
 ### Admin approval
 
 If more than 30% of the players in a request are not in o!TR yet, the tool asks the user for a justification and holds the request for an o!TR admin instead of running it. Nothing is looked up until an admin approves it. Approval runs the filter and creates the report; the user finds it, and any denial, under Your filter requests on the filter page. A held request counts toward the daily limit when it is sent.
