@@ -592,15 +592,17 @@ const withOptionalSession = base.middleware(async ({ context, next }) => {
 
 const rootLogger = createLogger('otr-web');
 
-const extractRequestPath = (requestUrl?: string): string | null => {
+/**
+ * The path a request called, without its query string. A GET call to /rpc
+ * carries its whole input in the query string.
+ */
+const requestPathname = (requestUrl?: string): string | null => {
   if (!requestUrl) {
     return null;
   }
 
   try {
-    const url = new URL(requestUrl);
-    const search = url.search;
-    return search ? `${url.pathname}${search}` : url.pathname;
+    return new URL(requestUrl).pathname;
   } catch {
     return null;
   }
@@ -626,7 +628,7 @@ const withLoggingContext = base.middleware(async ({ context, path, next }) => {
     extractCorrelationId(context.headers) ?? generateCorrelationId();
   const procedurePath = formatProcedurePath(path);
   const actor = resolveActor(context);
-  const requestPath = extractRequestPath(context.requestUrl);
+  const requestPath = requestPathname(context.requestUrl);
 
   setActiveSpanAttributes({
     'otr.correlation_id': correlationId,
@@ -853,18 +855,6 @@ export const protectedProcedure = base
   .use(withMetrics)
   .use(withRequestLogging)
   .use(withErrorBoundary);
-
-const requestPathname = (requestUrl?: string): string | null => {
-  if (!requestUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(requestUrl).pathname;
-  } catch {
-    return null;
-  }
-};
 
 /**
  * Limits searches with a term, the costliest reads, wherever they come from:
