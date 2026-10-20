@@ -5,6 +5,7 @@ import {
   describe,
   expect,
   setSystemTime,
+  spyOn,
   test,
 } from 'bun:test';
 import { call } from '@orpc/server';
@@ -151,6 +152,21 @@ describe.skipIf(!enabled)('an API key’s requests a minute', () => {
     expect(await requestAt(60 * SECOND)).toBe('ok');
   });
 
+  // A client that floods its key costs no more than verifying the key
+  test('refuse requests over the limit without looking up the key’s owner', async () => {
+    const findOwner = spyOn(db.query.auth_users, 'findFirst');
+
+    try {
+      expect(countAllowed(await burstAt(0, 60))).toBe(60);
+      expect(findOwner).toHaveBeenCalledTimes(60);
+
+      expect(countAllowed(await burstAt(SECOND, 100))).toBe(0);
+      expect(findOwner).toHaveBeenCalledTimes(60);
+    } finally {
+      findOwner.mockRestore();
+    }
+  });
+
   // The Terms of Use offer a higher limit on request
   test('follow a limit raised on the key', async () => {
     await db
@@ -163,6 +179,17 @@ describe.skipIf(!enabled)('an API key’s requests a minute', () => {
     }
 
     expect(await requestAt(30 * SECOND)).toMatchObject({ status: 429 });
+  });
+
+  test('follow a limit raised on the key while its minute is full', async () => {
+    expect(countAllowed(await burstAt(0, 61))).toBe(60);
+
+    await db
+      .update(schema.apiKeys)
+      .set({ rateLimitMax: 120 })
+      .where(eq(schema.apiKeys.referenceId, userId));
+
+    expect(await requestAt(30 * SECOND)).toBe('ok');
   });
 
   // The key was made before its owner became an admin

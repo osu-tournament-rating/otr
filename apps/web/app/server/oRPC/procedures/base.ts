@@ -16,6 +16,7 @@ import {
 } from '@/lib/api/api-key-header';
 import {
   consumeApiKeyRequest,
+  fullApiKeyWindow,
   limitForOwnerRole,
 } from '@/lib/api/api-key-rate-limit';
 import { PUBLIC_API_PREFIX } from '@/lib/api/prefix';
@@ -413,9 +414,9 @@ const resolveSource = (context: {
 type ApiKeyOwner = { actor: ApiKeyActor; isAdmin: boolean };
 
 /**
- * The key owner's player and whether they are an admin, read on each request
- * so the admin key limit follows the owner's role. Null when the lookup
- * fails, which holds the key to the limit stored on it.
+ * The key owner's player and whether they are an admin, read for each request
+ * the key's window counts, so the admin key limit follows the owner's role.
+ * Null when the lookup fails, which holds the key to the limit stored on it.
  */
 const findApiKeyOwner = async (
   userId: string,
@@ -468,6 +469,22 @@ const findApiKeyOwner = async (
     });
     return null;
   }
+};
+
+/** The 429 for a key over its rate limit, which sets the retry-after header. */
+const apiKeyRateLimited = (
+  context: { resHeaders?: Headers },
+  retryAfterMs: number
+) => {
+  context.resHeaders?.set(
+    'retry-after',
+    String(Math.ceil(retryAfterMs / 1000))
+  );
+  return new ORPCError('TOO_MANY_REQUESTS', {
+    status: 429,
+    message: 'API key rate limit exceeded',
+    data: { code: 'RATE_LIMITED', tryAgainIn: retryAfterMs },
+  });
 };
 
 export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
@@ -524,21 +541,21 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
       });
     }
 
+    // A full window refuses the rest of its requests before the owner lookup,
+    // so requests over the limit cost no more than verifying the key
+    const fullFor = fullApiKeyWindow(activeKey);
+
+    if (fullFor !== null) {
+      throw apiKeyRateLimited(context, fullFor);
+    }
+
     owner = await findApiKeyOwner(activeKey.referenceId, activeKey.id);
     const limit = consumeApiKeyRequest(
       limitForOwnerRole(activeKey, owner?.isAdmin ?? false)
     );
 
     if (!limit.allowed) {
-      context.resHeaders?.set(
-        'retry-after',
-        String(Math.ceil(limit.retryAfterMs / 1000))
-      );
-      throw new ORPCError('TOO_MANY_REQUESTS', {
-        status: 429,
-        message: 'API key rate limit exceeded',
-        data: { code: 'RATE_LIMITED', tryAgainIn: limit.retryAfterMs },
-      });
+      throw apiKeyRateLimited(context, limit.retryAfterMs);
     }
 
     requestsInWindow = limit.requests;

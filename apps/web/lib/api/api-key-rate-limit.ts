@@ -3,7 +3,13 @@ import { ADMIN_API_KEY_RATE_LIMIT } from '@/lib/auth/api-key-policy';
 /** Windows tracked before the ended ones are dropped. */
 const PRUNE_ABOVE = 10_000;
 
-type KeyWindow = { startedAt: number; requests: number; windowMs: number };
+type KeyWindow = {
+  startedAt: number;
+  requests: number;
+  windowMs: number;
+  /** The limit the window's latest request counted against. */
+  maxRequests: number;
+};
 
 declare global {
   // Shared by every bundle that loads this module in the process
@@ -23,9 +29,10 @@ export type ApiKeyLimit = {
 /**
  * The limit a key's requests count against: the limit stored on the key,
  * raised to the admin limit while the key's owner is an admin. Callers read
- * the owner's role with each request, so a key gains the admin limit when its
- * owner becomes an admin and loses it when they stop. A higher limit stored on
- * the key still applies, and a key with no limit stays unlimited.
+ * the owner's role for each request they count, so a key gains the admin
+ * limit when its owner becomes an admin and loses it when they stop. A higher
+ * limit stored on the key still applies, and a key with no limit stays
+ * unlimited.
  */
 export function limitForOwnerRole<Key extends ApiKeyLimit>(
   key: Key,
@@ -55,6 +62,34 @@ export function limitForOwnerRole<Key extends ApiKeyLimit>(
         rateLimitMax: admin.maxRequests,
         rateLimitTimeWindow: admin.timeWindowMs,
       };
+}
+
+/**
+ * How long until the key's current window ends when that window is already
+ * full, or null when the request still needs counting. A window is full once
+ * its requests reach both the limit its latest request counted against and
+ * the limit stored on the key. Callers refuse such a request before they read
+ * the key's owner, so requests over the limit cost no owner lookup. A limit
+ * raised on the key applies at once, and a change to the owner's role applies
+ * from the key's next window.
+ */
+export function fullApiKeyWindow(
+  key: ApiKeyLimit,
+  now = Date.now()
+): number | null {
+  const { rateLimitEnabled, rateLimitMax, rateLimitTimeWindow } = key;
+  const current = windows().get(key.id);
+
+  const full =
+    current !== undefined &&
+    rateLimitEnabled &&
+    rateLimitMax !== null &&
+    !!rateLimitTimeWindow &&
+    now - current.startedAt < current.windowMs &&
+    current.requests >= current.maxRequests &&
+    current.requests >= rateLimitMax;
+
+  return full ? current.startedAt + current.windowMs - now : null;
 }
 
 export type ApiKeyRateLimitResult =
@@ -91,6 +126,7 @@ export function consumeApiKeyRequest(
       startedAt: now,
       requests: 1,
       windowMs: rateLimitTimeWindow,
+      maxRequests: rateLimitMax,
     });
 
     if (tracked.size > PRUNE_ABOVE) {
@@ -103,6 +139,10 @@ export function consumeApiKeyRequest(
 
     return { allowed: true, requests: 1 };
   }
+
+  // fullApiKeyWindow reads the limit this request counted against
+  current.windowMs = rateLimitTimeWindow;
+  current.maxRequests = rateLimitMax;
 
   if (current.requests >= rateLimitMax) {
     return {
