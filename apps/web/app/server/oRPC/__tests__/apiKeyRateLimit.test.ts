@@ -223,6 +223,41 @@ describe.skipIf(!enabled)('an API key’s requests a minute', () => {
     expect(await requestAt(30 * SECOND)).toMatchObject({ status: 429 });
   });
 
+  // A key edited by hand can store another window
+  test('keep a faster rate stored on a shorter window on an admin’s key', async () => {
+    await setOwnerScopes(['admin']);
+    await db
+      .update(schema.apiKeys)
+      .set({ rateLimitMax: 100, rateLimitTimeWindow: 5 * SECOND })
+      .where(eq(schema.apiKeys.referenceId, userId));
+
+    // 100 requests every 5 seconds for a minute: 1,200 a minute
+    let allowed = 0;
+    for (let burst = 0; burst < 12; burst++) {
+      allowed += countAllowed(await burstAt(burst * 5 * SECOND, 100));
+    }
+
+    expect(allowed).toBe(1200);
+  });
+
+  // Only a database error fails the lookup
+  test('hold an admin’s key to its stored limit when looking up its owner fails', async () => {
+    await setOwnerScopes(['admin']);
+    const findOwner = spyOn(db.query.auth_users, 'findFirst').mockRejectedValue(
+      new Error('connection terminated')
+    );
+    const logError = spyOn(console, 'error').mockImplementation(
+      () => undefined
+    );
+
+    try {
+      expect(countAllowed(await burstAt(0, 61))).toBe(60);
+    } finally {
+      findOwner.mockRestore();
+      logError.mockRestore();
+    }
+  });
+
   // The settings page shows each key's limit from these
   test('show an admin’s key at 1,000 requests a minute when made and listed', async () => {
     await setOwnerScopes(['admin']);
