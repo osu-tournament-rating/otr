@@ -43,6 +43,10 @@ const average = (values: number[]) => {
   return sanitizeNumber(total / values.length);
 };
 
+/**
+ * The team with the highest total, or null when no team leads on its own: a
+ * tied game goes to neither team.
+ */
 const determineWinningTeam = (scores: StatsScore[]) => {
   const totals = new Map<Team, number>();
 
@@ -51,17 +55,26 @@ const determineWinningTeam = (scores: StatsScore[]) => {
     totals.set(score.team, current + score.score);
   }
 
-  let bestTeam: Team | null = null;
-  let bestScore = Number.NEGATIVE_INFINITY;
+  return soleLeader(totals);
+};
 
-  for (const [team, totalScore] of totals.entries()) {
-    if (totalScore > bestScore) {
-      bestScore = totalScore;
-      bestTeam = team;
+/** The key with the highest value, or null when the highest value is shared. */
+const soleLeader = <K>(values: Map<K, number>): K | null => {
+  let leader: K | null = null;
+  let best = Number.NEGATIVE_INFINITY;
+  let shared = false;
+
+  for (const [key, value] of values.entries()) {
+    if (value > best) {
+      best = value;
+      leader = key;
+      shared = false;
+    } else if (value === best) {
+      shared = true;
     }
   }
 
-  return bestTeam;
+  return shared ? null : leader;
 };
 
 const generateGameRosters = (game: StatsGame, scores: StatsScore[]) => {

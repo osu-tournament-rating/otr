@@ -2,7 +2,13 @@ import { describe, expect, it } from 'bun:test';
 import { Ruleset, Team, VerificationStatus } from '@otr/core/osu';
 
 import { TournamentStatsCalculator } from '../tournament-stats-calculator';
-import type { StatsTournament } from '../types';
+import type {
+  StatsCalculationSuccess,
+  StatsGame,
+  StatsMatch,
+  StatsScore,
+  StatsTournament,
+} from '../types';
 
 type Mutable<T> = {
   -readonly [K in keyof T]: T[K];
@@ -179,6 +185,98 @@ const createVerifiedTournament = (): StatsTournament => ({
   ],
 });
 
+/** A verified score worth `value`; the stats under test ignore the rest. */
+const score = (
+  gameId: number,
+  playerId: number,
+  team: Team,
+  value: number,
+  verificationStatus = VerificationStatus.Verified
+): StatsScore => ({
+  id: gameId * 100 + playerId,
+  gameId,
+  playerId,
+  score: value,
+  placement: 1,
+  accuracy: 100,
+  statMeh: 0,
+  statOk: 0,
+  statGreat: 300,
+  statMiss: 0,
+  statGood: null,
+  statPerfect: null,
+  team,
+  ruleset: Ruleset.Osu,
+  verificationStatus,
+});
+
+const game = (
+  id: number,
+  matchId: number,
+  scores: StatsScore[],
+  verificationStatus = VerificationStatus.Verified
+): StatsGame => ({ id, matchId, verificationStatus, rosters: [], scores });
+
+/** A verified match in which each of `playerIds` has a rating change. */
+const match = (
+  id: number,
+  games: StatsGame[],
+  playerIds: number[]
+): StatsMatch => ({
+  id,
+  verificationStatus: VerificationStatus.Verified,
+  games,
+  playerRatingAdjustments: playerIds.map((playerId) => ({
+    id: id * 100 + playerId,
+    playerId,
+    ratingBefore: 1000,
+    ratingAfter: 1010,
+  })),
+});
+
+const tournamentOf = (...matches: StatsMatch[]): StatsTournament => ({
+  id: 1,
+  verificationStatus: VerificationStatus.Verified,
+  matches,
+});
+
+const calculate = (tournament: StatsTournament) => {
+  const result = new TournamentStatsCalculator().calculateAllStatistics(
+    tournament
+  );
+  if (!result.success) {
+    throw new Error(`Expected success, got: ${result.errorMessage}`);
+  }
+  return result;
+};
+
+const playerMatchStat = (
+  result: StatsCalculationSuccess,
+  matchId: number,
+  playerId: number
+) => {
+  const stat = result.matches
+    .find((entry) => entry.matchId === matchId)
+    ?.playerMatchStats.find((entry) => entry.playerId === playerId);
+  if (!stat) {
+    throw new Error(`No stats for player ${playerId} in match ${matchId}`);
+  }
+  return stat;
+};
+
+const playerTournamentStat = (
+  result: StatsCalculationSuccess,
+  playerId: number
+) => {
+  const stat = result.playerTournamentStats.find(
+    (entry) => entry.playerId === playerId
+  );
+  if (!stat) {
+    throw new Error(`No tournament stats for player ${playerId}`);
+  }
+  return stat;
+};
+
 describe('TournamentStatsCalculator', () => {
   it('calculates statistics for verified tournaments', () => {
     const calculator = new TournamentStatsCalculator();
@@ -262,5 +360,49 @@ describe('TournamentStatsCalculator', () => {
       return;
     }
     expect(result.errorMessage).toContain('Missing processor data');
+  });
+
+  it('gives a tied game to neither team', () => {
+    // Blue's score comes first in the tied game, as the database may return it.
+    const tournament = tournamentOf(
+      match(
+        10,
+        [
+          game(100, 10, [
+            score(100, 2, Team.Blue, 1_000_000),
+            score(100, 1, Team.Red, 1_000_000),
+          ]),
+          game(101, 10, [
+            score(101, 1, Team.Red, 600_000),
+            score(101, 2, Team.Blue, 400_000),
+          ]),
+        ],
+        [1, 2]
+      )
+    );
+
+    const result = calculate(tournament);
+
+    const rosterScores = Object.fromEntries(
+      result.matches[0]!.matchRosters.map((roster) => [
+        roster.team,
+        roster.score,
+      ])
+    );
+    expect(rosterScores).toEqual({ [Team.Red]: 1, [Team.Blue]: 0 });
+    expect(playerMatchStat(result, 10, 1)).toMatchObject({
+      gamesWon: 1,
+      gamesLost: 0,
+      won: true,
+    });
+    expect(playerMatchStat(result, 10, 2)).toMatchObject({
+      gamesWon: 0,
+      gamesLost: 1,
+      won: false,
+    });
+    expect(playerTournamentStat(result, 2)).toMatchObject({
+      matchesWon: 0,
+      matchesLost: 1,
+    });
   });
 });
