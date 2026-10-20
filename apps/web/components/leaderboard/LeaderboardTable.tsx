@@ -84,12 +84,12 @@ function TierMark({ entry, size }: { entry: LeaderboardEntry; size: number }) {
   );
 }
 
-const INACTIVE_TOOLTIP = 'Inactive: no verified match in the last 6 months';
+const INACTIVE_TOOLTIP = 'Inactive: no verified match in the last year';
 
 /**
- * Marks a player with no verified match in the ruleset for 184 days, whom
- * the leaderboard lists only when asked to. The tooltip opens on hover,
- * keyboard focus and tap.
+ * Marks a player with no verified match in the ruleset for a year, whom the
+ * leaderboard lists only when asked to. The tooltip opens on hover, keyboard
+ * focus and tap.
  */
 function InactiveMark() {
   return (

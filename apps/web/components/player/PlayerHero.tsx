@@ -19,7 +19,7 @@ import {
 } from '@/app/leaderboard/list-params';
 
 const INACTIVE_TOOLTIP =
-  'No verified match in the last 6 months. Rating decays weekly.';
+  'No verified match in the last year. Rating decays weekly.';
 
 /**
  * Says the player is inactive in the ruleset the profile shows. The tooltip
@@ -39,7 +39,7 @@ function InactiveBadge() {
 
 /**
  * The top of a player's profile: avatar, name, an Inactive badge when the
- * player has no verified match in the ruleset for 184 days, country (a link
+ * player has no verified match in the ruleset for a year, country (a link
  * to that country's leaderboard), the osu! profile link, and the ruleset the
  * page shows.
  */

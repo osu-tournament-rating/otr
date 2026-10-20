@@ -129,19 +129,19 @@ describe.skipIf(!url)('leaderboard filters', () => {
 
 const ACTIVITY_COUNTRY = 'XR';
 
-// Global ranks as the processor gave them: hiding a player leaves a gap. The
-// processor's decay starts 184 days after a player's last match, so the
-// first two sit an hour either side of that.
+// Global ranks as the processor gave them: hiding a player leaves a gap. A
+// player is inactive a year (365 days) after their last verified match, so
+// the first two sit an hour either side of that.
 const activityPlayers = {
   inactive: {
     osuId: 999_400_101,
     globalRank: 1,
-    lastMatchAgo: 184 * DAY_MS + HOUR_MS,
+    lastMatchAgo: 365 * DAY_MS + HOUR_MS,
   },
   active: {
     osuId: 999_400_102,
     globalRank: 2,
-    lastMatchAgo: 184 * DAY_MS - HOUR_MS,
+    lastMatchAgo: 365 * DAY_MS - HOUR_MS,
   },
   restricted: { osuId: 999_400_103, globalRank: 3, lastMatchAgo: DAY_MS },
 } as const;

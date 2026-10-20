@@ -9,10 +9,12 @@ import { createTestDb, removePlayers, testDatabaseUrl } from './test-utils';
 const OSU_ID = 999_400_201;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// The player's last match in each rated ruleset, as the processor dates it.
+// The player's last match in each rated ruleset, as the processor dates it:
+// over a year ago in osu!, so inactive there, and under a year ago in taiko,
+// though long enough that their taiko rating decays.
 const LAST_MATCH_AGO = {
-  [Ruleset.Osu]: 200 * DAY_MS,
-  [Ruleset.Taiko]: 10 * DAY_MS,
+  [Ruleset.Osu]: 400 * DAY_MS,
+  [Ruleset.Taiko]: 200 * DAY_MS,
 } as const;
 
 describe.skipIf(!testDatabaseUrl)('player activity and restriction', () => {

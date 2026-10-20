@@ -5,11 +5,12 @@ import { RatingAdjustmentType } from '../osu/enums';
 import * as schema from './schema';
 
 /**
- * A player with no verified match in a ruleset for this many days is
- * inactive in it. It is the processor's `DECAY_DAYS`, the point where their
- * rating starts to decay; the processor's contract tests check the two match.
+ * A player with no verified match in a ruleset for this many days, a year,
+ * is inactive in it, and the leaderboard hides them by default. The site's
+ * copy calls it "the last year". It is not the processor's decay rule, which
+ * starts sooner.
  */
-export const INACTIVE_AFTER_DAYS = 184;
+export const INACTIVE_AFTER_DAYS = 365;
 
 /**
  * The player rating to look at: a column (`player_ratings.id`), an aliased
@@ -45,8 +46,8 @@ export const lastMatchTimeSql = (playerRatingId: PlayerRatingId) =>
 
 /**
  * Whether the player played a verified match in the rating's ruleset within
- * the last `INACTIVE_AFTER_DAYS` days. Like the processor's decay, a match
- * exactly that many days ago no longer counts.
+ * the last `INACTIVE_AFTER_DAYS` days. A match exactly that many days ago no
+ * longer counts.
  */
 export const isActiveSql = (playerRatingId: PlayerRatingId): SQL =>
   sql`exists (

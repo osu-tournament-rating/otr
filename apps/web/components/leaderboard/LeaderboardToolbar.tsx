@@ -173,7 +173,7 @@ export default function LeaderboardToolbar({
           </FilterField>
           <SwitchFilter
             label={INCLUDE_INACTIVE_LABEL}
-            description="No verified match in the last 6 months"
+            description="No verified match in the last year"
             checked={state.includeInactive}
             onCheckedChange={(includeInactive) => setState({ includeInactive })}
           />

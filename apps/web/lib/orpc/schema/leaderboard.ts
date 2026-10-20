@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { INACTIVE_AFTER_DAYS } from '@otr/core/db/player-activity';
+
 import { playerRatingSelectSchema, playerSelectSchema } from './base';
 import { RulesetSchema } from './constants';
 
@@ -77,7 +79,7 @@ export const PlayerActivitySchema = z.object({
   inactive: z
     .boolean()
     .describe(
-      'True when the player has no verified match in the ruleset in the last 184 days, the point where their rating decays.'
+      `True when the player has no verified match in the ruleset in the last ${INACTIVE_AFTER_DAYS} days.`
     ),
 });
 
@@ -129,7 +131,7 @@ export const LeaderboardRequestSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      'Also lists inactive players, with no verified match in the ruleset in the last 184 days. Defaults to false. Players restricted on osu! are never listed.'
+      `Also lists inactive players, with no verified match in the ruleset in the last ${INACTIVE_AFTER_DAYS} days. Defaults to false. Players restricted on osu! are never listed.`
     ),
   friend: z.boolean().optional(),
   userId: z.number().int().min(1).optional(),
