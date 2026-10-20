@@ -12,9 +12,18 @@ set -euo pipefail
 
 cd "$1"
 docker compose pull
+# The previous release keeps serving while this migrates, so a migration
+# that queues behind a long transaction for a table lock, such as the
+# rating run's, would hold up every query on that table. The lock
+# timeout stops it after 10 seconds instead and fails the deploy, which
+# can then run again. The statement timeout stops a runaway statement;
+# 15 minutes leaves room to rewrite the largest table.
 # compose run attaches stdin, which is this script, so without
 # </dev/null it consumes the lines below and they never run.
-docker compose --profile migrate run --rm -T migrate </dev/null
+docker compose --profile migrate run --rm -T \
+  -e MIGRATION_LOCK_TIMEOUT_MS=10000 \
+  -e MIGRATION_STATEMENT_TIMEOUT_MS=900000 \
+  migrate </dev/null
 # One-time move of the docs into the stack: otr-docs' own deploy
 # ran an `otr-docs` container outside compose, which holds the
 # name and port compose's docs service needs. Remove this once a

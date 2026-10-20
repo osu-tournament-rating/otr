@@ -17,6 +17,7 @@ import {
   type JournalEntry,
   journalProblems,
   LAST_UNCHECKED_MIGRATION,
+  migrationTimeouts,
   MIGRATIONS_FOLDER,
   readJournal,
   rollbackProblems,
@@ -223,5 +224,48 @@ describe.skipIf(!url)('unrecordedMigrations', () => {
     await m.migrate();
 
     expect(await m.unrecorded()).toEqual([]);
+  });
+});
+
+describe('migrationTimeouts', () => {
+  it('refuses a value that is not a whole number of milliseconds', () => {
+    expect(() =>
+      migrationTimeouts({ MIGRATION_LOCK_TIMEOUT_MS: '10s' })
+    ).toThrow('MIGRATION_LOCK_TIMEOUT_MS');
+  });
+});
+
+describe.skipIf(!url)('migrationTimeouts on a connection', () => {
+  const settings = async (env: Record<string, string>) => {
+    const pool = new Pool({ connectionString: url, ...migrationTimeouts(env) });
+    try {
+      const { rows } = await pool.query<{
+        lock_timeout: string;
+        statement_timeout: string;
+      }>(
+        `SELECT current_setting('lock_timeout') AS lock_timeout,
+                current_setting('statement_timeout') AS statement_timeout`
+      );
+      return rows[0];
+    } finally {
+      await pool.end();
+    }
+  };
+
+  it('sets the limits the deploy passes', async () => {
+    expect(
+      await settings({
+        MIGRATION_LOCK_TIMEOUT_MS: '10000',
+        MIGRATION_STATEMENT_TIMEOUT_MS: '900000',
+      })
+    ).toEqual({ lock_timeout: '10s', statement_timeout: '15min' });
+  });
+
+  // Previews, recoveries, and the dev tier run the same migrator unset.
+  it('sets none when unset', async () => {
+    expect(await settings({})).toEqual({
+      lock_timeout: '0',
+      statement_timeout: '0',
+    });
   });
 });

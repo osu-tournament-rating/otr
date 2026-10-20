@@ -58,13 +58,13 @@ function deploy(fail?: string) {
 }
 
 describe('deploy-stack.sh', () => {
-  test('pulls, migrates, restarts each web container, then the rest', () => {
+  test('pulls, migrates with time limits, restarts each web container, then the rest', () => {
     const { exitCode, calls } = deploy();
 
     expect(exitCode).toBe(0);
     expect(calls).toEqual([
       'compose pull',
-      'compose --profile migrate run --rm -T migrate',
+      'compose --profile migrate run --rm -T -e MIGRATION_LOCK_TIMEOUT_MS=10000 -e MIGRATION_STATEMENT_TIMEOUT_MS=900000 migrate',
       'container inspect -f {{ json .Config.Labels }} otr-docs',
       'compose config --services',
       'compose up -d --wait --wait-timeout 300 web-standby',

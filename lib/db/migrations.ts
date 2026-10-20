@@ -167,3 +167,33 @@ export async function unrecordedMigrations(
   const recorded = new Set(rows.map((row) => Number(row.created_at)));
   return entries.filter((entry) => !recorded.has(entry.when));
 }
+
+/**
+ * Lock and statement timeouts for the migration runner's connections, read
+ * from MIGRATION_LOCK_TIMEOUT_MS and MIGRATION_STATEMENT_TIMEOUT_MS. Only the
+ * production deploy sets them, because it migrates while the previous release
+ * serves: a migration queued behind a long transaction would hold up every
+ * query on its table. Unset, as in previews and recoveries, a migration waits
+ * as long as it needs. A value that is not a whole number of milliseconds
+ * throws, so a typo fails the run instead of dropping the limit.
+ */
+export function migrationTimeouts(env: Record<string, string | undefined>): {
+  lock_timeout?: number;
+  statement_timeout?: number;
+} {
+  const read = (name: string) => {
+    const value = env[name]?.trim();
+    if (!value) return undefined;
+    if (!/^[1-9][0-9]*$/.test(value)) {
+      throw new Error(
+        `${name} must be a whole number of milliseconds, not ${JSON.stringify(value)}.`
+      );
+    }
+    return Number(value);
+  };
+
+  return {
+    lock_timeout: read('MIGRATION_LOCK_TIMEOUT_MS'),
+    statement_timeout: read('MIGRATION_STATEMENT_TIMEOUT_MS'),
+  };
+}
