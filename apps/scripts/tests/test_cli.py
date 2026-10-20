@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -22,3 +23,25 @@ def test_script_flag_takes_several_scripts(monkeypatch):
     )
 
     assert cli.init().scripts == ["archive", "processor"]
+
+
+def test_backfill_receipts_reads_every_logs_dir_and_the_upload_flag(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "main.py",
+            "-s",
+            "backfill-receipts",
+            "--logs-dir",
+            "/logs/old",
+            "--logs-dir",
+            "/logs/new",
+            "--upload",
+        ],
+    )
+
+    args = cli.init()
+
+    assert args.logs_dirs == (Path("/logs/old"), Path("/logs/new"))
+    assert args.receipts_upload is True

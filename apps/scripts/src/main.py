@@ -6,7 +6,7 @@ from functools import partial
 
 from lib import cli, logs, metrics, processor, public_html
 from lib.constants import scripts
-from lib.scripts import db, template_db
+from lib.scripts import db, receipts_backfill, template_db
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ def main() -> int:
         scripts.RECOVERY: partial(db.recovery, args),
         scripts.REFRESH_INDEX: public_html.generate_index,
         scripts.TEMPLATE_DB: partial(template_db.run, args),
+        scripts.BACKFILL_RECEIPTS: partial(receipts_backfill.run, args),
     }
 
     for script in args.scripts:

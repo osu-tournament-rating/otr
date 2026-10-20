@@ -11,7 +11,8 @@ tier's deploy and nightly runs install it from `master` on the dev host, where
 does the install and documents its layout. Each host's `.env` comes from that
 GitHub environment's `SCRIPTS_ENV` secret.
 
-`archive`, `recovery`, and `processor` operate on configured infrastructure.
+`archive`, `recovery`, `processor`, and `backfill-receipts` operate on
+configured infrastructure.
 Never run them, upload archives, publish indexes, or deploy while developing.
 Stop for manual intervention when a task truly requires one.
 
@@ -80,6 +81,14 @@ configured application database.
   already committed, so a receipt problem logs an error and never fails the
   run. The processor prints that line and the receipt's run fields; keep them
   in step with `apps/processor/src/receipt.rs` and `apps/replay`.
+- `backfill-receipts` derives receipts for the weekly runs from before
+  receipts (`src/lib/scripts/receipts_backfill.py`). The schedule, Tuesdays
+  12:00 UTC, gives each start; otr-processor's Docker Hub push times and
+  otr's successful deploy runs give the image `latest` named then; logs read
+  from `--logs-dir` replace both with what the run printed. Each receipt lists
+  what was inferred, with its evidence, in `inferred`. It writes them under
+  `DUMP_DIR/receipts-backfill` for review, uploads only with `--upload`, and
+  never replaces a receipt already in the bucket.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task

@@ -20,6 +20,8 @@ class ScriptArgs:
     template_name: str | None
     template_src: Path | None
     template_web_dir: Path | None = None
+    logs_dirs: tuple[Path, ...] = ()
+    receipts_upload: bool = False
 
 
 _script_options = [
@@ -28,6 +30,7 @@ _script_options = [
     scripts.RECOVERY,
     scripts.REFRESH_INDEX,
     scripts.TEMPLATE_DB,
+    scripts.BACKFILL_RECEIPTS,
 ]
 _template_actions = [
     scripts.SEED,
@@ -72,6 +75,8 @@ def init() -> ScriptArgs:
         args.template_name,
         Path(args.template_src) if args.template_src else None,
         Path(args.template_web_dir) if args.template_web_dir else None,
+        tuple(Path(directory) for directory in args.logs_dir or ()),
+        args.upload,
     )
 
 
@@ -154,6 +159,22 @@ def add_args(parser: ArgumentParser):
         "--template-web-dir",
         type=Path,
         help="Task otr checkout with installed dependencies (required for create)",
+    )
+
+    receipt_args = parser.add_argument_group(
+        "backfill-receipts", f"Args specific to the {scripts.BACKFILL_RECEIPTS} script"
+    )
+    receipt_args.add_argument(
+        "--logs-dir",
+        action="append",
+        help="Directory of processor run logs to read; repeat for several. "
+        "Each logged run replaces the schedule's guess for its day",
+    )
+    receipt_args.add_argument(
+        "--upload",
+        action="store_true",
+        help="Publish the derived receipts in the public bucket instead of only "
+        "writing them for review",
     )
 
     args = parser.parse_args()
