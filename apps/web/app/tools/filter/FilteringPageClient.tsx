@@ -66,9 +66,10 @@ function FilterLimitsCallout() {
         </li>
         <li>
           o!TR looks up each player it doesn&apos;t have yet on osu!. Each
-          lookup counts against your API rate limit of {API_REQUESTS_PER_MINUTE}{' '}
-          requests a minute. If a report needs more than a minute&apos;s worth,
-          your API calls wait until the limit refills.
+          lookup counts against your API rate limit of{' '}
+          {formatCount(API_REQUESTS_PER_MINUTE)} requests a minute. If lookups
+          use more than a minute&apos;s worth, your API calls wait until the
+          limit refills.
         </li>
         <li>
           If more than {FLAGGED_UNKNOWN_PERCENT}% of the players aren&apos;t in

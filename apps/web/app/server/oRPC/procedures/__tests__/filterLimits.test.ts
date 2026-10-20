@@ -131,6 +131,19 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
     return rows[0]?.seconds === null ? null : Number(rows[0]?.seconds);
   };
 
+  /**
+   * Seconds the allowance is full again after the report was made. The charge
+   * and the report share the transaction's clock, so this is exactly what the
+   * lookups cost when the allowance started full.
+   */
+  const secondsChargedBy = async (userId: number, filterReportId: number) => {
+    const { rows } = await db.execute<{ seconds: string }>(sql`
+      SELECT EXTRACT(EPOCH FROM (u.api_allowance_full_at - r.created)) AS seconds
+      FROM users u, filter_reports r
+      WHERE u.id = ${userId} AND r.id = ${filterReportId}`);
+    return Number(rows[0]?.seconds);
+  };
+
   const heldRequests = (userId: number) =>
     db
       .select()
@@ -221,10 +234,11 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
         osuPlayerId,
       }))
     );
-    // 3 lookups at 60 a minute: full again 3 seconds after the request
-    const seconds = await secondsUntilFull(requesterId);
-    expect(seconds).toBeGreaterThan(2);
-    expect(seconds).toBeLessThanOrEqual(3);
+    // 3 lookups at 1,000 a minute, 60 ms each: full again 0.18 s after the report
+    if (result.status !== 'completed') return;
+    expect(
+      await secondsChargedBy(requesterId, result.filterReportId)
+    ).toBeCloseTo(0.18, 6);
   });
 
   it('queues its lookups behind tournament fetches', async () => {
@@ -383,7 +397,11 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       expect(report).toEqual({ userId: requesterId });
       expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual(UNKNOWN_OSU_IDS);
       expect(await queuedFetches(db, requesterId)).toHaveLength(4);
-      expect(await secondsUntilFull(requesterId)).toBeGreaterThan(3);
+      // 4 lookups at 60 ms each
+      expect(await secondsChargedBy(requesterId, filterReportId)).toBeCloseTo(
+        0.24,
+        6
+      );
       expect((await heldRequests(requesterId))[0]).toMatchObject({
         status: ApprovalStatus.Approved,
         filterReportId,

@@ -1,9 +1,9 @@
 /**
- * Each user's API allowance: the API key limit, `rateLimit` in the API key
- * plugin's options in `lib/auth/auth.ts`. The registrant filter charges its
- * lookups of players o!TR has never seen to the same allowance.
+ * Each user's API allowance: the public API's rate limit of 1,000 requests a
+ * minute. The registrant filter charges its lookups of players o!TR has never
+ * seen to an allowance of this size.
  */
-export const API_REQUESTS_PER_MINUTE = 60;
+export const API_REQUESTS_PER_MINUTE = 1000;
 
 const MINUTE_MS = 60_000;
 

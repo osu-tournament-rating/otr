@@ -30,7 +30,7 @@ The tool limits how much each user can filter, because every player o!TR does no
 
 - Each user can create 2 filter reports in any 24 hours.
 - Each report can check up to 1,000 osu! player IDs.
-- Each player o!TR does not have yet costs one request of the user's API rate limit of 60 requests a minute. Players o!TR already has cost nothing. A report can use more than a minute's worth; the user's API calls then wait until the limit refills.
+- Each player o!TR does not have yet costs one request of the user's API rate limit of 1,000 requests a minute. Players o!TR already has cost nothing. If lookups use more than a minute's worth, the user's API calls wait until the limit refills.
 
 ### Admin approval
 
