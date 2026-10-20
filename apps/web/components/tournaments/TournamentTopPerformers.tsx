@@ -59,7 +59,31 @@ function PlayerLink({
 const formatMatchCost = (value: number) => formatNumber(value, { decimals: 2 });
 const formatAverage = (value: number) => formatNumber(value, { decimals: 1 });
 
-/** The three players with the best average match cost (3+ matches). */
+/** Matches played past which the match cost bonus stops growing. */
+const FULL_BONUS_MATCHES = 6;
+
+/**
+ * A player's tournament match cost: their average match cost, raised by 10%
+ * for each verified match they played past the first, up to 50% at six.
+ * One strong match then cannot outrank a run through the whole bracket.
+ */
+const weightedMatchCost = (stats: TournamentPlayerStats) =>
+  stats.averageMatchCost *
+  (0.9 + 0.1 * Math.min(stats.matchesPlayed, FULL_BONUS_MATCHES));
+
+/**
+ * The three players with the best weighted match cost (3+ matches), each
+ * with that match cost.
+ */
+export function selectTopPerformers(playerStats: TournamentPlayerStats[]) {
+  return playerStats
+    .filter((stats) => stats.matchesPlayed >= MIN_MATCHES)
+    .map((stats) => ({ stats, matchCost: weightedMatchCost(stats) }))
+    .sort((a, b) => b.matchCost - a.matchCost)
+    .slice(0, 3);
+}
+
+/** The three players with the best weighted match cost (3+ matches). */
 export default function TournamentTopPerformers({
   playerStats,
   ruleset,
@@ -67,10 +91,7 @@ export default function TournamentTopPerformers({
   playerStats: TournamentPlayerStats[];
   ruleset: Ruleset;
 }) {
-  const topPerformers = playerStats
-    .filter((stats) => stats.matchesPlayed >= MIN_MATCHES)
-    .sort((a, b) => b.averageMatchCost - a.averageMatchCost)
-    .slice(0, 3);
+  const topPerformers = selectTopPerformers(playerStats);
 
   return (
     <Panel>
@@ -87,7 +108,7 @@ export default function TournamentTopPerformers({
           aria-label="Top performers"
           phoneRows={
             <PhoneRowList as="ol" aria-label="Top performers">
-              {topPerformers.map((stats, index) => (
+              {topPerformers.map(({ stats, matchCost }, index) => (
                 <PhoneRow
                   key={stats.player.id}
                   rank={formatRank(index + 1)}
@@ -109,7 +130,7 @@ export default function TournamentTopPerformers({
                   // One phone line holds only one figure beside the match
                   // cost; average games stays in the table.
                   description={`Avg. placement ${formatAverage(stats.averagePlacement)}`}
-                  value={formatMatchCost(stats.averageMatchCost)}
+                  value={formatMatchCost(matchCost)}
                   valueDescription="Match cost"
                 />
               ))}
@@ -127,7 +148,7 @@ export default function TournamentTopPerformers({
             </DataTableRow>
           </DataTableHeader>
           <DataTableBody>
-            {topPerformers.map((stats, index) => (
+            {topPerformers.map(({ stats, matchCost }, index) => (
               <DataTableRow key={stats.player.id}>
                 <DataTableCell className="font-medium tabular-nums">
                   {formatRank(index + 1)}
@@ -136,7 +157,7 @@ export default function TournamentTopPerformers({
                   <PlayerLink player={stats.player} ruleset={ruleset} />
                 </DataTableCell>
                 <DataTableCell numeric>
-                  {formatMatchCost(stats.averageMatchCost)}
+                  {formatMatchCost(matchCost)}
                 </DataTableCell>
                 <DataTableCell numeric>
                   {formatAverage(stats.averagePlacement)}
