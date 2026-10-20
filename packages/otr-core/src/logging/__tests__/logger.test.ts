@@ -54,4 +54,54 @@ describe('createLogger', () => {
       error.mockRestore();
     }
   });
+
+  // Drizzle's query error names only the query; its cause is the database's
+  // reason, such as a unique violation or a timeout
+  it("keeps the cause of an error, and the cause's cause", () => {
+    const error = spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const timeout = new Error('connection timeout');
+      const driver = new Error('canceling statement due to statement timeout', {
+        cause: timeout,
+      });
+      const thrown = new Error('Failed query: select 1', { cause: driver });
+      createLogger('test').error('procedure failed', { error: thrown });
+
+      expect(error).toHaveBeenCalledTimes(1);
+      const field = String(error.mock.calls[0]?.[0]).match(
+        / error=("(?:[^"\\]|\\.)*")/
+      )?.[1];
+      expect(field).toBeDefined();
+      const logged = JSON.parse(JSON.parse(field!));
+      expect(logged.message).toBe(thrown.message);
+      expect(logged.cause).toEqual({
+        name: 'Error',
+        message: driver.message,
+        stack: driver.stack,
+        cause: {
+          name: 'Error',
+          message: timeout.message,
+          stack: timeout.stack,
+        },
+      });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('logs an error whose cause leads back to itself', () => {
+    const error = spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const thrown = new Error('outer');
+      thrown.cause = new Error('inner', { cause: thrown });
+      createLogger('test').error('procedure failed', { error: thrown });
+
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(String(error.mock.calls[0]?.[0])).toContain('inner');
+    } finally {
+      error.mockRestore();
+    }
+  });
 });
