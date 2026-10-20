@@ -11,6 +11,7 @@ import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { legacyOAuthCallbackURL } from './osu-callback';
+import { saveOwnOsuProfile, type OwnOsuProfile } from './osu-profile';
 import { recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
@@ -82,7 +83,7 @@ const createUserOsuApiClient = (accessToken: string) => {
 
 const fetchOsuProfile = async (
   accessToken?: string | null
-): Promise<User.Extended.WithStatisticsrulesets | null> => {
+): Promise<OwnOsuProfile | null> => {
   if (!accessToken) {
     return null;
   }
@@ -90,7 +91,11 @@ const fetchOsuProfile = async (
   try {
     const api = createUserOsuApiClient(accessToken);
 
-    return await api.getResourceOwner();
+    // `/me/mania` is the same profile as `/me`, with every ruleset's
+    // statistics, but its own statistics are mania's, the only ones that
+    // list 4K and 7K. Still one request. `getResourceOwner(ruleset)` puts
+    // the ruleset in a query parameter, not in the path osu! reads.
+    return (await api.request('get', ['me', 'mania'])) as OwnOsuProfile;
   } catch (error) {
     console.error('Failed to fetch osu! profile', error);
     return null;
@@ -138,10 +143,12 @@ const ensurePlayer = async ({
         where: eq(schema.players.osuId, osuId),
       }));
   } else if (profile) {
+    // Not the last fetch time: this saves a name and country, not a fetch,
+    // and moving the time would keep a player waiting on a refetch from ever
+    // timing out. saveOwnOsuProfile records a fetch at sign-in.
     const updatePayload = {
       username: sanitizedUsername || player.username,
       country: sanitizedCountry || player.country,
-      osuLastFetch: nowIso,
     };
 
     await db
@@ -605,6 +612,8 @@ export const auth = betterAuth({
             if (!ensured) {
               return null;
             }
+
+            await saveOwnOsuProfile(ensured.player.id, profile);
 
             await syncPlayerFriends({
               playerId: ensured.player.id,
