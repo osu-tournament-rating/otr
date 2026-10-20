@@ -1,3 +1,5 @@
+import { ADMIN_API_KEY_RATE_LIMIT } from '@/lib/auth/api-key-policy';
+
 /** Windows tracked before the ended ones are dropped. */
 const PRUNE_ABOVE = 10_000;
 
@@ -17,6 +19,43 @@ export type ApiKeyLimit = {
   rateLimitMax: number | null;
   rateLimitTimeWindow: number | null;
 };
+
+/**
+ * The limit a key's requests count against: the limit stored on the key,
+ * raised to the admin limit while the key's owner is an admin. Callers read
+ * the owner's role with each request, so a key gains the admin limit when its
+ * owner becomes an admin and loses it when they stop. A higher limit stored on
+ * the key still applies, and a key with no limit stays unlimited.
+ */
+export function limitForOwnerRole<Key extends ApiKeyLimit>(
+  key: Key,
+  ownerIsAdmin: boolean
+): Key {
+  const { rateLimitEnabled, rateLimitMax, rateLimitTimeWindow } = key;
+
+  if (
+    !ownerIsAdmin ||
+    !rateLimitEnabled ||
+    rateLimitMax === null ||
+    !rateLimitTimeWindow
+  ) {
+    return key;
+  }
+
+  const admin = ADMIN_API_KEY_RATE_LIMIT;
+  // Compared as rates, since a key edited by hand can store another window
+  const storedIsHigher =
+    rateLimitMax * admin.timeWindowMs >=
+    admin.maxRequests * rateLimitTimeWindow;
+
+  return storedIsHigher
+    ? key
+    : {
+        ...key,
+        rateLimitMax: admin.maxRequests,
+        rateLimitTimeWindow: admin.timeWindowMs,
+      };
+}
 
 export type ApiKeyRateLimitResult =
   | {

@@ -4,11 +4,13 @@ import { z } from 'zod';
 import { ORPCError } from '@orpc/server';
 import { APIError } from 'better-auth/api';
 
+import { limitForOwnerRole } from '@/lib/api/api-key-rate-limit';
 import { auth } from '@/lib/auth/auth';
 import {
   API_KEY_LIMIT_ERROR_CODE,
   API_KEY_LIMIT_MESSAGE,
 } from '@/lib/auth/api-key-policy';
+import { hasAdminScope } from '@/lib/auth/roles';
 import {
   ApiKeyMetadataSchema,
   ApiKeyWithSecretSchema,
@@ -159,8 +161,13 @@ export const getUserApiKeys = protectedProcedure
       return bCreated - aCreated;
     });
 
+    // Each key shows the limit its requests count against
+    const ownerIsAdmin = hasAdminScope(context.session.dbUser?.scopes);
+
     return records.map((record) =>
-      ApiKeyWithSecretSchema.parse(toMetadataShape(record))
+      ApiKeyWithSecretSchema.parse(
+        toMetadataShape(limitForOwnerRole(record, ownerIsAdmin))
+      )
     );
   });
 
@@ -227,7 +234,12 @@ export const generateUserApiKey = protectedMutationProcedure
     }
 
     return ApiKeyWithSecretSchema.parse({
-      ...toMetadataShape(created as unknown as ApiKeyResponse),
+      ...toMetadataShape(
+        limitForOwnerRole(
+          created as unknown as ApiKeyResponse,
+          hasAdminScope(context.session.dbUser?.scopes)
+        )
+      ),
       key: created.key,
     });
   });

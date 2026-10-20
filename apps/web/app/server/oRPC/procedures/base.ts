@@ -14,9 +14,13 @@ import {
   API_KEY_MESSAGES,
   parseBearerAuthorization,
 } from '@/lib/api/api-key-header';
-import { consumeApiKeyRequest } from '@/lib/api/api-key-rate-limit';
+import {
+  consumeApiKeyRequest,
+  limitForOwnerRole,
+} from '@/lib/api/api-key-rate-limit';
 import { PUBLIC_API_PREFIX } from '@/lib/api/prefix';
 import { auth } from '@/lib/auth/auth';
+import { hasAdminScope } from '@/lib/auth/roles';
 import { db } from '@/lib/db';
 import {
   anonymousSources,
@@ -406,6 +410,66 @@ const resolveSource = (context: {
   return ip ? sourceId(ip) : null;
 };
 
+type ApiKeyOwner = { actor: ApiKeyActor; isAdmin: boolean };
+
+/**
+ * The key owner's player and whether they are an admin, read on each request
+ * so the admin key limit follows the owner's role. Null when the lookup
+ * fails, which holds the key to the limit stored on it.
+ */
+const findApiKeyOwner = async (
+  userId: string,
+  keyId: string
+): Promise<ApiKeyOwner | null> => {
+  try {
+    const authUser = await db.query.auth_users.findFirst({
+      columns: {
+        id: true,
+        name: true,
+        playerId: true,
+      },
+      where: eq(schema.auth_users.id, userId),
+      with: {
+        player: {
+          columns: {
+            id: true,
+            osuId: true,
+            username: true,
+          },
+          with: {
+            users: {
+              columns: { scopes: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!authUser) {
+      return null;
+    }
+
+    return {
+      actor: {
+        userId,
+        playerId: authUser.player?.id ?? authUser.playerId ?? null,
+        osuId: authUser.player?.osuId ?? null,
+        osuUsername:
+          authUser.player?.username ?? (authUser.name ? authUser.name : null),
+      },
+      isAdmin:
+        authUser.player?.users.some((user) => hasAdminScope(user.scopes)) ??
+        false,
+    };
+  } catch (apiKeyOwnerError) {
+    rootLogger.error('api key owner lookup failed', {
+      apiKey: maskApiKey(keyId),
+      error: apiKeyOwnerError,
+    });
+    return null;
+  }
+};
+
 export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   const candidate = extractApiKey(context.headers);
 
@@ -432,6 +496,7 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
     Awaited<ReturnType<typeof auth.api.verifyApiKey>>['key']
   >;
   let requestsInWindow: number | null;
+  let owner: ApiKeyOwner | null;
 
   try {
     const verification = await auth.api.verifyApiKey({
@@ -459,7 +524,10 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
       });
     }
 
-    const limit = consumeApiKeyRequest(activeKey);
+    owner = await findApiKeyOwner(activeKey.referenceId, activeKey.id);
+    const limit = consumeApiKeyRequest(
+      limitForOwnerRole(activeKey, owner?.isAdmin ?? false)
+    );
 
     if (!limit.allowed) {
       context.resHeaders?.set(
@@ -517,56 +585,17 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
         });
       });
   }
-  const userId = referenceId;
-  let apiKeyActor: ApiKeyActor | null = null;
-
-  try {
-    const authUser = await db.query.auth_users.findFirst({
-      columns: {
-        id: true,
-        name: true,
-        playerId: true,
-      },
-      where: eq(schema.auth_users.id, userId),
-      with: {
-        player: {
-          columns: {
-            id: true,
-            osuId: true,
-            username: true,
-          },
-        },
-      },
-    });
-
-    if (authUser) {
-      const playerId = authUser.player?.id ?? authUser.playerId ?? null;
-
-      apiKeyActor = {
-        userId,
-        playerId,
-        osuId: authUser.player?.osuId ?? null,
-        osuUsername:
-          authUser.player?.username ?? (authUser.name ? authUser.name : null),
-      };
-    }
-  } catch (apiKeyActorError) {
-    rootLogger.error('api key owner lookup failed', {
-      apiKey: maskApiKey(id),
-      error: apiKeyActorError,
-    });
-  }
 
   return next({
     context: {
       ...context,
       apiKey: {
         id,
-        userId,
+        userId: referenceId,
         name: name ?? null,
         enabled,
       },
-      apiKeyActor,
+      apiKeyActor: owner?.actor ?? null,
     } as typeof context & VerifiedApiKeyContext,
   });
 });
