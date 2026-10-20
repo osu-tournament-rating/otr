@@ -125,7 +125,8 @@ without syncing the venv. It refuses to run in the main checkout.
   keeps its jobs.
 - Each `up` runs `bun install --frozen-lockfile` and the worktree's pending
   migrations. The web app and worker run on the host from the worktree's code,
-  in their own process groups. Monitoring (`grafana/otel-lgtm`) runs in the
+  in their own process groups, and the web app starts without the dev cache
+  an earlier start left. Monitoring (`grafana/otel-lgtm`) runs in the
   stack's Compose project, from `src/lib/stack/compose.yml`.
 - State lives in `~/.local/share/otr/stacks` (or `$OTR_STACKS_DIR`): `base/`,
   one directory per stack with its data, registry entry, and process records,

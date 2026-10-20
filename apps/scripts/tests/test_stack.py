@@ -167,6 +167,27 @@ def test_process_env_overrides_the_shell(monkeypatch):
     assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in env
 
 
+def test_every_web_start_begins_without_a_dev_cache(tmp_path, monkeypatch):
+    worktree = tmp_path / "wt"
+    entry = stack.Stack(tmp_path / "stacks", "otr-wt-123456", worktree, 1)
+    cache = worktree / "apps" / "web" / ".next" / "dev"
+    found_cache = []
+
+    def start(record, argv, cwd, env, digest, log):
+        found_cache.append(cache.exists())
+        # The dev server writes its cache as it compiles.
+        (cache / "cache").mkdir(parents=True, exist_ok=True)
+        return procs.Record(1, 1, digest)
+
+    monkeypatch.setattr(stack.procs, "start", start)
+    monkeypatch.setattr(stack.procs, "wait_healthy", lambda *args: None)
+
+    stack.start_process(entry, "web", {})
+    stack.start_process(entry, "web", {})
+
+    assert found_cache == [False, False]
+
+
 def test_registry_round_trips(tmp_path):
     entry = stack.Stack(tmp_path, "otr-a-123456", Path("/w/a"), 4, "postgres:17", "t")
     entry.save()

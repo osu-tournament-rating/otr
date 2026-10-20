@@ -277,16 +277,14 @@ def process_env(managed: dict[str, str | None]) -> dict[str, str]:
 
 
 def reset_web_cache(worktree: Path) -> None:
-    """Clears the web app's dev cache the first time otr starts it in a
-    worktree. A cache built before the web config pinned the monorepo root
-    belongs to the outer checkout, and Turbopack reuses it and then fails to
-    find packages."""
-    marker = worktree / ".tmp" / "otr" / "web-cache-reset"
-    if marker.exists():
-        return
+    """Clears the web app's dev cache before otr starts it. Turbopack keeps
+    that cache across restarts, and a server started over one an earlier
+    server wrote, on another port or with other settings, can answer every
+    page load with an "HMR hash mismatch" that reloads the page, over and
+    over. A stack's port changes whenever it is disposed and made again. The
+    cost is that each page compiles from scratch on its first load after a
+    start."""
     shutil.rmtree(worktree / "apps" / "web" / ".next" / "dev", ignore_errors=True)
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.touch()
 
 
 def start_process(stack: Stack, process: str, managed: dict[str, str | None]) -> None:
