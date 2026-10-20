@@ -10,7 +10,8 @@ type FetchFunction = (
 export type BeatmapFileDownload =
   | { status: 'ok'; bytes: Uint8Array; checksum: string }
   | { status: 'not_found' }
-  | { status: 'invalid'; reason: string };
+  | { status: 'invalid'; reason: string }
+  | { status: 'malformed'; reason: string };
 
 type Attempt =
   BeatmapFileDownload | { status: 'rate_limited'; retryAfter: string | null };
@@ -73,6 +74,13 @@ const hasFileHeader = (bytes: Uint8Array) =>
     .decode(bytes.subarray(0, UTF8_BOM_BYTES + FILE_HEADER.length))
     .startsWith(FILE_HEADER);
 
+// Bun's fetch rejects with this code when it cannot parse osu!'s response,
+// such as a file name header holding control characters from the difficulty
+// name.
+const isMalformedResponse = (error: unknown) =>
+  error instanceof Error &&
+  (error as { code?: unknown }).code === 'Malformed_HTTP_Response';
+
 // osu! serves .osu files as text/plain.
 const isHtml = (response: Response) =>
   (response.headers.get('content-type') ?? '')
@@ -123,6 +131,10 @@ export class BeatmapFileDownloader {
    * a 429 that outlasts the retries, any other status but 200 and 404, and an
    * HTML page: a refusal or challenge in front of osu! says nothing about the
    * map, so recording it would leave the beatmap without a file.
+   *
+   * Reports a response the HTTP client cannot parse as malformed. That can
+   * come from the map's own headers, and the caller decides when it repeats
+   * enough to count.
    */
   async download(osuBeatmapId: number): Promise<BeatmapFileDownload> {
     for (let retry = 0; ; retry++) {
@@ -180,6 +192,11 @@ export class BeatmapFileDownloader {
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
+
+      if (isMalformedResponse(error)) {
+        return { status: 'malformed', reason };
+      }
+
       throw new Error(`Downloading ${url} failed: ${reason}`, {
         cause: error,
       });
