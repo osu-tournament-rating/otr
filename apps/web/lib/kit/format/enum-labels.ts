@@ -197,6 +197,7 @@ export const JOB_QUEUE_LABELS: Readonly<Record<JobQueue, string>> = {
   [JobQueue.TournamentChecks]: 'Automated checks',
   [JobQueue.TournamentStats]: 'Tournament stats',
   [JobQueue.BeatmapAttributes]: 'Beatmap attributes',
+  [JobQueue.PlatformStats]: 'Platform stats',
 };
 
 /** The services outbound requests go to (`api_request_stats_daily.service`). */

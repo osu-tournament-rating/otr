@@ -11,6 +11,7 @@ export const JOB_QUEUES = [
   JobQueue.TournamentChecks,
   JobQueue.TournamentStats,
   JobQueue.BeatmapAttributes,
+  JobQueue.PlatformStats,
 ] as const satisfies readonly JobQueue[];
 
 export const JobQueueSchema = z.enum(JobQueue);
