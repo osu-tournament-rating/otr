@@ -37,7 +37,8 @@ export class TournamentAutomationCheckWorker {
   }
 
   async handle(job: ClaimedJob<JobQueue.TournamentChecks>) {
-    const { tournamentId, overrideVerifiedState } = job.payload;
+    const { tournamentId, overrideVerifiedState, requestedByUserId } =
+      job.payload;
 
     if (!Number.isInteger(tournamentId)) {
       throw new PermanentJobError(
@@ -55,7 +56,8 @@ export class TournamentAutomationCheckWorker {
     try {
       const success = await this.service.processAutomationChecks(
         tournamentId,
-        overrideVerifiedState === true
+        overrideVerifiedState === true,
+        Number.isInteger(requestedByUserId) ? requestedByUserId : undefined
       );
 
       if (success) {

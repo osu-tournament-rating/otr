@@ -60,6 +60,27 @@ describe('TournamentAutomationCheckWorker', () => {
     ]);
   });
 
+  it('runs a reset as the admin its payload names', async () => {
+    const calls: unknown[][] = [];
+    const worker = createWorker({
+      async processAutomationChecks(...args) {
+        calls.push(args);
+        return true;
+      },
+    });
+
+    await worker.handle({
+      ...job(true),
+      payload: {
+        tournamentId: 123,
+        overrideVerifiedState: true,
+        requestedByUserId: 45,
+      },
+    });
+
+    expect(calls).toEqual([[123, true, 45]]);
+  });
+
   it('leaves a thrown failure to the runner retry policy', async () => {
     const worker = createWorker({
       async processAutomationChecks() {

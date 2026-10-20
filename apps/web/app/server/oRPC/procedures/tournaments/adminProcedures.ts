@@ -192,11 +192,14 @@ export async function resetTournamentAutomatedChecksHandler({
   context,
 }: ResetAutomatedChecksArgs) {
   const { adminUserId } = ensureAdminSession(context.session);
+  const overrideVerifiedState = input.overrideVerifiedState ?? false;
 
   await enqueueJob(context.db, JobQueue.TournamentChecks, {
     payload: {
       tournamentId: input.id,
-      overrideVerifiedState: input.overrideVerifiedState ?? false,
+      overrideVerifiedState,
+      // The worker names this admin on the data the override overturns.
+      ...(overrideVerifiedState && { requestedByUserId: adminUserId }),
     },
     correlationId: getCorrelationId(context),
     tournamentId: input.id,

@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { withAuditUserId } from '@otr/core/db';
 import * as schema from '@otr/core/db/schema';
 import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import {
@@ -148,9 +149,15 @@ export class TournamentAutomationCheckService {
     this.scoreChecks = options.scoreChecks;
   }
 
+  /**
+   * Checks the tournament and saves the statuses. `resetByUserId` is the
+   * admin whose override overturns verified and rejected data; the reset's
+   * audit rows name them, as an admin's own change would.
+   */
   async processAutomationChecks(
     tournamentId: number,
-    overrideVerifiedState = false
+    overrideVerifiedState = false,
+    resetByUserId?: number
   ): Promise<boolean> {
     const row = await this.db.query.tournaments.findFirst({
       where: eq(schema.tournaments.id, tournamentId),
@@ -361,7 +368,11 @@ export class TournamentAutomationCheckService {
       beforeStatus
     );
 
-    await this.persistTournamentState(tournament, beforeStatus);
+    await this.persistTournamentState(
+      tournament,
+      beforeStatus,
+      overrideVerifiedState ? resetByUserId : undefined
+    );
 
     const report = generateTournamentProcessingReport(processingState);
     this.logger.info(report);
@@ -371,56 +382,18 @@ export class TournamentAutomationCheckService {
 
   private async persistTournamentState(
     tournament: AutomationTournament,
-    beforeStatus: VerificationStatus
+    beforeStatus: VerificationStatus,
+    auditUserId?: number
   ) {
     const nowIso = new Date().toISOString();
 
     await this.db.transaction(async (tx) => {
-      await tx
-        .update(schema.tournaments)
-        .set({
-          verificationStatus: tournament.verificationStatus,
-          rejectionReason: tournament.rejectionReason,
-          updated: nowIso,
-        })
-        .where(eq(schema.tournaments.id, tournament.id));
-
-      for (const match of tournament.matches) {
-        await tx
-          .update(schema.matches)
-          .set({
-            verificationStatus: match.verificationStatus,
-            rejectionReason: match.rejectionReason,
-            warningFlags: match.warningFlags,
-            verifiedByUserId: match.verifiedByUserId,
-            updated: nowIso,
-          })
-          .where(eq(schema.matches.id, match.id));
-
-        for (const game of match.games) {
-          await tx
-            .update(schema.games)
-            .set({
-              teamType: game.teamType,
-              verificationStatus: game.verificationStatus,
-              rejectionReason: game.rejectionReason,
-              warningFlags: game.warningFlags,
-              updated: nowIso,
-            })
-            .where(eq(schema.games.id, game.id));
-
-          for (const score of game.scores) {
-            await tx
-              .update(schema.gameScores)
-              .set({
-                team: score.team,
-                verificationStatus: score.verificationStatus,
-                rejectionReason: score.rejectionReason,
-                updated: nowIso,
-              })
-              .where(eq(schema.gameScores.id, score.id));
-          }
-        }
+      if (auditUserId !== undefined) {
+        await withAuditUserId(tx, auditUserId, () =>
+          this.writeTournamentState(tx, tournament, nowIso)
+        );
+      } else {
+        await this.writeTournamentState(tx, tournament, nowIso);
       }
     });
 
@@ -429,6 +402,59 @@ export class TournamentAutomationCheckService {
       previousStatus: beforeStatus,
       currentStatus: tournament.verificationStatus,
     });
+  }
+
+  private async writeTournamentState(
+    tx: Parameters<Parameters<DatabaseClient['transaction']>[0]>[0],
+    tournament: AutomationTournament,
+    nowIso: string
+  ) {
+    await tx
+      .update(schema.tournaments)
+      .set({
+        verificationStatus: tournament.verificationStatus,
+        rejectionReason: tournament.rejectionReason,
+        updated: nowIso,
+      })
+      .where(eq(schema.tournaments.id, tournament.id));
+
+    for (const match of tournament.matches) {
+      await tx
+        .update(schema.matches)
+        .set({
+          verificationStatus: match.verificationStatus,
+          rejectionReason: match.rejectionReason,
+          warningFlags: match.warningFlags,
+          verifiedByUserId: match.verifiedByUserId,
+          updated: nowIso,
+        })
+        .where(eq(schema.matches.id, match.id));
+
+      for (const game of match.games) {
+        await tx
+          .update(schema.games)
+          .set({
+            teamType: game.teamType,
+            verificationStatus: game.verificationStatus,
+            rejectionReason: game.rejectionReason,
+            warningFlags: game.warningFlags,
+            updated: nowIso,
+          })
+          .where(eq(schema.games.id, game.id));
+
+        for (const score of game.scores) {
+          await tx
+            .update(schema.gameScores)
+            .set({
+              team: score.team,
+              verificationStatus: score.verificationStatus,
+              rejectionReason: score.rejectionReason,
+              updated: nowIso,
+            })
+            .where(eq(schema.gameScores.id, score.id));
+        }
+      }
+    }
   }
 }
 

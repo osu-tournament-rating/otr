@@ -7,6 +7,12 @@ export interface JobPayloads {
   [JobQueue.TournamentChecks]: {
     tournamentId: number;
     overrideVerifiedState: boolean;
+    /**
+     * users.id of the admin whose override overturns verified and rejected
+     * data, so the reset's audit rows name them. Only overrides carry it; a
+     * later request merging in replaces it.
+     */
+    requestedByUserId?: number;
   };
   [JobQueue.TournamentStats]: { tournamentId: number };
   [JobQueue.BeatmapAttributes]: {
