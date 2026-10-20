@@ -37,7 +37,7 @@ const { OsuLookupWorker, SIGN_IN_WAIT_MS } =
 const BASE = 97_000_000_000;
 const REQUESTER_OSU_ID = BASE;
 const OTHER_REQUESTER_OSU_ID = BASE + 1;
-const LOOKED_UP = Array.from({ length: 17 }, (_, i) => BASE + 100 + i);
+const LOOKED_UP = Array.from({ length: 19 }, (_, i) => BASE + 100 + i);
 const ALREADY_FETCHED = BASE + 200;
 const ALL_PLAYERS = [
   REQUESTER_OSU_ID,
@@ -48,6 +48,8 @@ const ALL_PLAYERS = [
 
 const CLIENT = { clientId: '41', clientSecret: 'site-secret' };
 const HOUR_MS = 60 * 60_000;
+// One player's 4 requests, one per ruleset, at 60 requests a minute
+const PLAYER_AT_SPEED_MS = (60_000 * 4) / 60;
 
 const counterTotal = async (counter: Counter<string>) =>
   (await counter.get()).values.reduce((sum, { value }) => sum + value, 0);
@@ -483,6 +485,69 @@ describe.skipIf(!testDatabaseUrl)("osu! lookups with a user's account", () => {
     expect(waiting!.run_after.getTime()).toBeLessThanOrEqual(
       Date.now() + 61_000
     );
+  });
+
+  it("spreads a user's waiting lookups out to their speed, so a later deferral moves none of the others", async () => {
+    // 15 players fill the minute; the 16th waits and spreads out the last 3
+    await queueLookups(requesterId, LOOKED_UP.slice(0, 19));
+
+    startWorker();
+    await waitFor(async () => {
+      const jobs = await lookupJobs(requesterId);
+      return (
+        jobs.filter((job) => job.status === JobStatus.Succeeded).length ===
+          15 &&
+        jobs.some(
+          (job) => job.status === JobStatus.Pending && job.last_error !== null
+        )
+      );
+    });
+
+    const waiting = async () =>
+      (await lookupJobs(requesterId))
+        .filter((job) => job.status === JobStatus.Pending)
+        .sort(
+          (a, b) => a.run_after.getTime() - b.run_after.getTime() || a.id - b.id
+        );
+    const pending = await waiting();
+    const deferred = pending.find((job) => job.last_error !== null);
+    const rest = pending.filter((job) => job !== deferred);
+    expect(rest).toHaveLength(3);
+    // The deferred lookup goes first, then the rest one player apart
+    const times = [deferred!, ...rest].map((job) => job.run_after.getTime());
+    const gaps = times.slice(1).map((time, i) => time - times[i]!);
+    // The deferred lookup's own time comes from a statement a moment later
+    expect(gaps[0]).toBeGreaterThan(PLAYER_AT_SPEED_MS - 1_000);
+    expect(gaps[0]).toBeLessThanOrEqual(PLAYER_AT_SPEED_MS);
+    expect(gaps.slice(1)).toEqual([PLAYER_AT_SPEED_MS, PLAYER_AT_SPEED_MS]);
+
+    // Due again while the minute is still full, it waits again alone
+    const before = rest.map((job) => ({
+      id: job.id,
+      runAfter: job.run_after.getTime(),
+      updated: (job as unknown as { updated: unknown }).updated,
+    }));
+    await db.execute(
+      sql`UPDATE jobs SET run_after = now() WHERE id = ${deferred!.id}`
+    );
+    await waitFor(async () => {
+      const job = (await lookupJobs(requesterId)).find(
+        (row) => row.id === deferred!.id
+      );
+      return (
+        job?.status === JobStatus.Pending &&
+        job.run_after.getTime() > Date.now() + 30_000
+      );
+    });
+
+    const after = (await waiting())
+      .filter((job) => job.id !== deferred!.id)
+      .map((job) => ({
+        id: job.id,
+        runAfter: job.run_after.getTime(),
+        updated: (job as unknown as { updated: unknown }).updated,
+      }));
+    expect(after).toEqual(before);
   });
 
   it('finishes without calling osu! when another fetch already saved the player', async () => {

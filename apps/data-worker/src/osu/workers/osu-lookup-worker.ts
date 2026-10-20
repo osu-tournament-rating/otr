@@ -35,6 +35,13 @@ import { asJobError } from './osu-api-fetch-worker';
 const MINUTE_MS = 60_000;
 
 /**
+ * How far apart a user's waiting lookups are spread: one player's requests
+ * at the user's speed, so about 15 players a minute.
+ */
+export const LOOKUP_SPACING_MS =
+  (MINUTE_MS * PLAYER_FETCH_REQUESTS) / OSU_LOOKUP_REQUESTS_PER_MINUTE;
+
+/**
  * How long lookups waiting for their user to sign in again wait before they
  * look again. Signing in wakes them at once, so this only matters when the
  * user doesn't come back: the player's fetch lease runs out after as long,
@@ -65,10 +72,10 @@ interface OsuLookupWorkerOptions {
  * minute per user. That speed is the user's alone, apart from o!TR's own
  * osu! rate limiter and from other users'.
  *
- * A job never sleeps on a user's speed: it moves that user's waiting lookups
- * to when their speed allows the next one, so other users' lookups run in
- * between. When the user's credentials can't be used, their lookups wait for
- * them to sign in with osu! again, without using attempts.
+ * A job never sleeps on a user's speed: it spreads that user's waiting
+ * lookups out to their speed, so other users' lookups run in between. When
+ * the user's credentials can't be used, their lookups wait for them to sign
+ * in with osu! again, without using attempts.
  */
 export class OsuLookupWorker {
   private readonly options: OsuLookupWorkerOptions;
@@ -241,19 +248,38 @@ export class OsuLookupWorker {
   }
 
   /**
-   * Moves the user's lookups that would come due within `delayMs` to its
-   * end, so the queue claims other users' lookups instead of each of these
-   * in turn.
+   * Moves the user's lookups that would come due within `delayMs` behind
+   * the rest of their waiting lookups, {@link LOOKUP_SPACING_MS} apart, so
+   * the queue claims other users' lookups instead of each of these in turn.
+   * The job being deferred takes the first place, at `delayMs`. Lookups
+   * already spread out past that stay where they are, so after a long run's
+   * first deferral, later ones move only the lookups that fell behind.
    */
   private async deferLookups(userId: number, delayMs: number) {
+    const due = sql`now() + ${Math.ceil(delayMs)}::integer * interval '1 millisecond'`;
+    const spacing = sql`${LOOKUP_SPACING_MS}::integer * interval '1 millisecond'`;
+
     await this.options.db.execute(sql`
+      WITH waiting AS (
+        SELECT id, run_after FROM jobs
+        WHERE queue = ${JobQueue.OsuLookup}
+          AND status = ${JobStatus.Pending}
+          AND requested_by_user_id = ${userId}
+      ), moving AS (
+        SELECT id, row_number() OVER (ORDER BY run_after, id) AS place
+        FROM waiting
+        WHERE run_after < ${due}
+      ), behind AS (
+        -- GREATEST skips the null max when no lookup waits past the delay
+        SELECT GREATEST(${due}, max(run_after)) AS at
+        FROM waiting
+        WHERE run_after >= ${due}
+      )
       UPDATE jobs SET
-        run_after = now() + ${Math.ceil(delayMs)}::integer * interval '1 millisecond',
+        run_after = behind.at + moving.place * ${spacing},
         updated = now()
-      WHERE queue = ${JobQueue.OsuLookup}
-        AND status = ${JobStatus.Pending}
-        AND requested_by_user_id = ${userId}
-        AND run_after < now() + ${Math.ceil(delayMs)}::integer * interval '1 millisecond'`);
+      FROM moving, behind
+      WHERE jobs.id = moving.id`);
   }
 
   /**
