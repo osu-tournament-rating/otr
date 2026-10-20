@@ -248,3 +248,44 @@ export async function getLazerByYear(db: QueryDb): Promise<LazerYear[]> {
     lazer: Number(row.lazer),
   }));
 }
+
+export interface CountryCount {
+  ruleset: Ruleset;
+  /** The code osu! stores; `XX` for players without one. */
+  country: string;
+  players: number;
+}
+
+/**
+ * Rated players per ruleset and country, most first within each ruleset.
+ * With `topRank`, only players ranked that high or better.
+ */
+export async function getPlayersByCountry(
+  db: QueryDb,
+  { topRank }: { topRank?: number } = {}
+): Promise<CountryCount[]> {
+  const rows = await rowsOf<{
+    ruleset: number;
+    country: string;
+    players: string;
+  }>(
+    db,
+    sql`
+      select
+        ${schema.playerRatings.ruleset} as ruleset,
+        coalesce(nullif(${schema.players.country}, ''), 'XX') as country,
+        count(*) as players
+      from ${schema.playerRatings}
+      inner join ${schema.players}
+        on ${schema.players.id} = ${schema.playerRatings.playerId}
+      ${topRank === undefined ? sql`` : sql`where ${schema.playerRatings.globalRank} <= ${topRank}`}
+      group by 1, 2
+      order by 1, 3 desc, 2`
+  );
+
+  return rows.map((row) => ({
+    ruleset: row.ruleset as Ruleset,
+    country: row.country,
+    players: Number(row.players),
+  }));
+}

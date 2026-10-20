@@ -15,7 +15,10 @@ import { formatCountOf, formatYear } from '@/lib/kit/format/number';
 import { RATED_RULESETS, getRulesetLabel } from '@/lib/kit/format/ruleset';
 import { RATINGS_GROUPS } from '@/lib/kit/status/verification';
 import type { VerificationStatusKey } from '@/lib/orpc/schema/stats';
-import type { LazerYearData } from '@/lib/orpc/schema/statsPage';
+import type {
+  CountryCountData,
+  LazerYearData,
+} from '@/lib/orpc/schema/statsPage';
 import {
   getTierFromRating,
   type TierName,
@@ -254,6 +257,22 @@ export function getLazerShareBars(
     label: formatYear(year),
     values: { lazer: byYear.get(year)?.lazer ?? 0 },
     total: byYear.get(year)?.total ?? 0,
+  }));
+}
+
+/**
+ * A ruleset's leading countries, in the server's order (most players
+ * first), labelled with their names. `names` comes from the server
+ * (`getCountryNames`).
+ */
+export function getCountryBars(
+  rows: readonly CountryCountData[],
+  names: Readonly<Record<string, string>>
+): CountBarDatum[] {
+  return rows.map((row) => ({
+    key: row.country,
+    label: names[row.country] ?? row.country,
+    count: row.players,
   }));
 }
 

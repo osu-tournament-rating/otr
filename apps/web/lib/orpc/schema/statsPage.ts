@@ -59,9 +59,31 @@ export const LazerYearSchema = z.object({
   lazer: count,
 });
 
+export const CountryCountSchema = z.object({
+  country: z.string(),
+  players: count,
+});
+
+/** One ruleset's players by country: the leading countries and the totals. */
+export const CountrySummarySchema = z.object({
+  /** Most players first, at most `COUNTRY_BAR_LIMIT`. */
+  countries: z.array(CountryCountSchema),
+  /** Countries with any player. */
+  countryCount: count,
+  players: count,
+});
+
+export const RulesetStatsSchema = z.object({
+  ruleset: RulesetSchema,
+  playersByCountry: CountrySummarySchema,
+  topPlayersByCountry: CountrySummarySchema,
+});
+
 /**
- * Everything the stats page shows beyond `stats.platform`. A stored
- * statistic is null until the data worker has computed it.
+ * Everything the stats page shows beyond `stats.platform`: statistics over
+ * every ruleset, and one entry per rated ruleset, so the page's ruleset
+ * switch changes them without a server render. A stored statistic is null
+ * until the data worker has computed it.
  */
 export const StatsPageSchema = z.object({
   allRulesets: z.object({
@@ -70,6 +92,7 @@ export const StatsPageSchema = z.object({
     recentlyVerified: RecentlyVerifiedPageSchema,
     lazerByYear: z.array(LazerYearSchema),
   }),
+  byRuleset: z.array(RulesetStatsSchema),
 });
 
 export type StatsPage = z.infer<typeof StatsPageSchema>;
@@ -82,3 +105,6 @@ export type RecentlyVerifiedTournamentData = z.infer<
   typeof RecentlyVerifiedTournamentSchema
 >;
 export type LazerYearData = z.infer<typeof LazerYearSchema>;
+export type CountryCountData = z.infer<typeof CountryCountSchema>;
+export type CountrySummaryData = z.infer<typeof CountrySummarySchema>;
+export type RulesetStatsData = z.infer<typeof RulesetStatsSchema>;

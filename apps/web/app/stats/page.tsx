@@ -3,15 +3,21 @@ import type { Metadata } from 'next';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageSection } from '@/components/kit/layout/PageSection';
 import { BY_RULESET_SECTION } from '@/components/stats/chart-panels';
+import {
+  PlayersByCountryPanel,
+  TopPlayersByCountryPanel,
+} from '@/components/stats/CountryPanels';
 import LazerSharePanel from '@/components/stats/LazerSharePanel';
 import OverviewPanel from '@/components/stats/OverviewPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
 import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
+import { RulesetStatsProvider } from '@/components/stats/ruleset-stats';
 import StatsRulesetSwitch from '@/components/stats/StatsRulesetSwitch';
 import TournamentsByLobbySizeChart from '@/components/stats/TournamentsByLobbySizeChart';
 import TournamentsByRulesetChart from '@/components/stats/TournamentsByRulesetChart';
 import TournamentsByYearChart from '@/components/stats/TournamentsByYearChart';
 import TournamentVerificationChart from '@/components/stats/TournamentVerificationChart';
+import { getCountryNames } from '@/lib/kit/format/country';
 import { orpc } from '@/lib/orpc/orpc';
 
 import { StatsPageHeader } from './StatsPageHeader';
@@ -23,8 +29,16 @@ export const metadata: Metadata = {
 
 export default async function StatsPage() {
   // A failure reaches the error screen; this page always exists.
-  const [{ tournamentStats, ratingStats }, { allRulesets }] = await Promise.all(
-    [orpc.stats.platform(), orpc.stats.page()]
+  const [{ tournamentStats, ratingStats }, { allRulesets, byRuleset }] =
+    await Promise.all([orpc.stats.platform(), orpc.stats.page()]);
+
+  const countryNames = getCountryNames(
+    byRuleset.flatMap((entry) =>
+      [
+        ...entry.playersByCountry.countries,
+        ...entry.topPlayersByCountry.countries,
+      ].map((row) => row.country)
+    )
   );
   const currentYear = new Date().getUTCFullYear();
 
@@ -49,11 +63,17 @@ export default async function StatsPage() {
           data={tournamentStats.verifiedByLobbySize}
         />
       </div>
-      <PageSection {...BY_RULESET_SECTION} actions={<StatsRulesetSwitch />}>
-        <RatingDistributionPanel
-          ratingsByRuleset={ratingStats.ratingsByRuleset}
-        />
-      </PageSection>
+      <RulesetStatsProvider byRuleset={byRuleset} countryNames={countryNames}>
+        <PageSection {...BY_RULESET_SECTION} actions={<StatsRulesetSwitch />}>
+          <RatingDistributionPanel
+            ratingsByRuleset={ratingStats.ratingsByRuleset}
+          />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <PlayersByCountryPanel />
+            <TopPlayersByCountryPanel />
+          </div>
+        </PageSection>
+      </RulesetStatsProvider>
     </PageFrame>
   );
 }

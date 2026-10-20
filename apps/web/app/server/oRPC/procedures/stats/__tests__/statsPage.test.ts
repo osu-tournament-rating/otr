@@ -9,6 +9,7 @@ import type { DatabaseClient } from '@/lib/db';
 import { createTestDb, testDatabaseUrl } from '../../__tests__/test-utils';
 import {
   getLazerByYear,
+  getPlayersByCountry,
   getRecentlyVerified,
   getVerificationSummary,
 } from '../queries';
@@ -206,6 +207,47 @@ describe.skipIf(!testDatabaseUrl)('stats page statistics', () => {
       expect(await getLazerByYear(tx)).toEqual([
         { year: 2025, total: 2, lazer: 1 },
         { year: 2026, total: 1, lazer: 1 },
+      ]);
+    });
+  });
+
+  it('counts rated players per ruleset and country, and the top ranks alone', async () => {
+    await onEmptyTables(async (tx) => {
+      const rate = async (
+        country: string,
+        ruleset: Ruleset,
+        globalRank: number
+      ) => {
+        const id = osuId();
+        const [player] = await tx
+          .insert(schema.players)
+          .values({ osuId: id, username: `country${id}`, country })
+          .returning({ id: schema.players.id });
+        await tx.insert(schema.playerRatings).values({
+          playerId: player!.id,
+          ruleset,
+          rating: 1000,
+          volatility: 100,
+          percentile: 50,
+          globalRank,
+          countryRank: 1,
+        });
+      };
+
+      await rate('US', Ruleset.Osu, 100);
+      await rate('US', Ruleset.Osu, 101);
+      await rate('', Ruleset.Osu, 2);
+      await rate('JP', Ruleset.Taiko, 1);
+
+      expect(await getPlayersByCountry(tx)).toEqual([
+        { ruleset: Ruleset.Osu, country: 'US', players: 2 },
+        { ruleset: Ruleset.Osu, country: 'XX', players: 1 },
+        { ruleset: Ruleset.Taiko, country: 'JP', players: 1 },
+      ]);
+      expect(await getPlayersByCountry(tx, { topRank: 100 })).toEqual([
+        { ruleset: Ruleset.Osu, country: 'US', players: 1 },
+        { ruleset: Ruleset.Osu, country: 'XX', players: 1 },
+        { ruleset: Ruleset.Taiko, country: 'JP', players: 1 },
       ]);
     });
   });

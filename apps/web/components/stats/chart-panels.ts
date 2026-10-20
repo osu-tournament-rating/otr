@@ -3,8 +3,10 @@ import {
   ChartNoAxesColumn,
   CircleCheck,
   Gamepad2,
+  Globe,
   LayoutGrid,
   ListChecks,
+  Medal,
   Percent,
   Users,
 } from 'lucide-react';
@@ -68,6 +70,14 @@ export const STATS_PANELS = {
     icon: Percent,
     title: 'Lazer share',
     infoText: `Tournaments played on osu!lazer, of each year's verified tournaments. Years before the first with ${TREND_MIN_TOURNAMENTS} verified tournaments are left out.`,
+  },
+  playersByCountry: {
+    icon: Globe,
+    title: 'Players by country',
+  },
+  topPlayersByCountry: {
+    icon: Medal,
+    title: 'Top 100 by country',
   },
 } as const satisfies Record<string, StatsPanelCopy>;
 

@@ -6,6 +6,7 @@ import {
   type StoredPlatformStat,
 } from '@otr/core/platform-stats';
 import type { DatabaseClient } from '@/lib/db';
+import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
 import {
   HeadlineTotalsSchema,
   RecentlyVerifiedInputSchema,
@@ -17,12 +18,17 @@ import {
 import { publicProcedure } from '../base';
 import {
   getLazerByYear,
+  getPlayersByCountry,
   getRecentlyVerified,
   getVerificationSummary,
 } from './queries';
+import { summarizeCountries } from './shape';
 
 /** Recently verified tournaments shown before "Load more". */
 export const RECENTLY_VERIFIED_FIRST_PAGE = 5;
+
+/** The leaderboard's top: "Top 100 by country". */
+const TOP_RANK = 100;
 
 /**
  * A stored statistic's payload, or null when it is missing or has another
@@ -59,13 +65,21 @@ export async function runStatsPage({
 }): Promise<StatsPage> {
   const { db } = context;
 
-  const [stored, verification, recentlyVerified, lazerByYear] =
-    await Promise.all([
-      readPlatformStats(db),
-      getVerificationSummary(db),
-      getRecentlyVerified(db, { limit: RECENTLY_VERIFIED_FIRST_PAGE }),
-      getLazerByYear(db),
-    ]);
+  const [
+    stored,
+    verification,
+    recentlyVerified,
+    lazerByYear,
+    countries,
+    topCountries,
+  ] = await Promise.all([
+    readPlatformStats(db),
+    getVerificationSummary(db),
+    getRecentlyVerified(db, { limit: RECENTLY_VERIFIED_FIRST_PAGE }),
+    getLazerByYear(db),
+    getPlayersByCountry(db),
+    getPlayersByCountry(db, { topRank: TOP_RANK }),
+  ]);
 
   return {
     allRulesets: {
@@ -79,6 +93,15 @@ export async function runStatsPage({
       recentlyVerified,
       lazerByYear,
     },
+    byRuleset: RATED_RULESETS.map((ruleset) => ({
+      ruleset,
+      playersByCountry: summarizeCountries(
+        countries.filter((row) => row.ruleset === ruleset)
+      ),
+      topPlayersByCountry: summarizeCountries(
+        topCountries.filter((row) => row.ruleset === ruleset)
+      ),
+    })),
   };
 }
 

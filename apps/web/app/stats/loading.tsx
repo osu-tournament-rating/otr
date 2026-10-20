@@ -14,18 +14,33 @@ import {
   BY_RULESET_SECTION,
   OVERVIEW_LABELS,
   STATS_PANELS,
+  type StatsPanelCopy,
   VERIFICATION_TILE_LABELS,
 } from '@/components/stats/chart-panels';
 
 import { StatsPageHeader } from './StatsPageHeader';
 
-/** Each meta bar is as wide as the loaded count ("2,540 verified" is 80px). */
-const CHART_PANELS = [
-  { copy: STATS_PANELS.year, metaWidth: 'w-20' },
-  { copy: STATS_PANELS.lazerShare, metaWidth: 'w-20' },
-  { copy: STATS_PANELS.ruleset, metaWidth: 'w-20' },
-  { copy: STATS_PANELS.lobbySize, metaWidth: 'w-20' },
-];
+/** A chart panel: the real header, a meta bar as wide as the loaded count. */
+function ChartPanelSkeleton({
+  copy,
+  metaWidth,
+  plot = 'h-60',
+  level,
+}: {
+  copy: StatsPanelCopy;
+  metaWidth: string;
+  plot?: string;
+  level?: 3;
+}) {
+  return (
+    <PanelSkeleton>
+      <SectionHeaderSkeleton {...copy} meta={metaWidth} level={level} />
+      <div className="p-4">
+        <ChartPlotSkeleton className={plot} />
+      </div>
+    </PanelSkeleton>
+  );
+}
 
 export default function StatsLoading() {
   return (
@@ -57,14 +72,10 @@ export default function StatsLoading() {
           <RowListSkeleton rows={5} leading="none" />
           <LoadMoreSkeleton />
         </PanelSkeleton>
-        {CHART_PANELS.map(({ copy, metaWidth }) => (
-          <PanelSkeleton key={copy.title}>
-            <SectionHeaderSkeleton {...copy} meta={metaWidth} />
-            <div className="p-4">
-              <ChartPlotSkeleton className="h-60" />
-            </div>
-          </PanelSkeleton>
-        ))}
+        <ChartPanelSkeleton copy={STATS_PANELS.year} metaWidth="w-20" />
+        <ChartPanelSkeleton copy={STATS_PANELS.lazerShare} metaWidth="w-20" />
+        <ChartPanelSkeleton copy={STATS_PANELS.ruleset} metaWidth="w-20" />
+        <ChartPanelSkeleton copy={STATS_PANELS.lobbySize} metaWidth="w-20" />
       </div>
       <PageSection {...BY_RULESET_SECTION} actions={<RulesetSwitchSkeleton />}>
         <PanelSkeleton>
@@ -82,6 +93,20 @@ export default function StatsLoading() {
             <ChartPlotSkeleton className="h-72" />
           </div>
         </PanelSkeleton>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ChartPanelSkeleton
+            copy={STATS_PANELS.playersByCountry}
+            metaWidth="w-36"
+            plot="h-72"
+            level={3}
+          />
+          <ChartPanelSkeleton
+            copy={STATS_PANELS.topPlayersByCountry}
+            metaWidth="w-36"
+            plot="h-72"
+            level={3}
+          />
+        </div>
       </PageSection>
     </PageFrame>
   );
