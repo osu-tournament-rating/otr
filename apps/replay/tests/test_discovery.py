@@ -12,6 +12,7 @@ from otr_replay.discovery import (
     _parse_utc,
     download_replica,
     fetch_releases,
+    fetch_tags,
     merge_releases,
     parse_index,
     select_release,
@@ -375,3 +376,82 @@ def test_select_release_counts_inactive_docker_tags(releases, tags):
     release = select_release(releases, stale, datetime(2026, 8, 5, 12, 0, tzinfo=UTC))
 
     assert release.tag == "2026.08.04"
+
+
+def _numbered_releases(count: int) -> list[dict]:
+    """`count` otr releases, newest first, one a day back from 2027-01-31."""
+    newest = datetime(2027, 1, 31, 12, 0, tzinfo=UTC).toordinal()
+    return [
+        {
+            "tag_name": f"{datetime.fromordinal(newest - n):%Y.%m.%d}",
+            "html_url": "https://github.com/osu-tournament-rating/otr/releases",
+            "published_at": f"{datetime.fromordinal(newest - n):%Y-%m-%d}T12:00:00Z",
+            "draft": False,
+            "prerelease": False,
+        }
+        for n in range(count)
+    ]
+
+
+def _paged_github(by_repository: dict[str, list[dict]]):
+    """A GitHub API that pages each repository's releases 100 at a time."""
+
+    def handler(request):
+        repository = request.url.path.removeprefix("/repos/").removesuffix("/releases")
+        entries = by_repository.get(repository, [])
+        page = int(request.url.params.get("page", "1"))
+        headers = {}
+        if page * 100 < len(entries):
+            next_url = request.url.copy_merge_params({"page": str(page + 1)})
+            headers["link"] = f'<{next_url}>; rel="next"'
+        return httpx.Response(200, json=entries[(page - 1) * 100 : page * 100], headers=headers)
+
+    return httpx.MockTransport(handler)
+
+
+def test_fetch_releases_reads_every_page():
+    # Every merge to master publishes an otr release, so the oldest processor
+    # releases fall past the tenth page of 100.
+    otr = _numbered_releases(1100)
+
+    with httpx.Client(transport=_paged_github({OTR: otr})) as client:
+        fetched = fetch_releases(client)
+
+    assert len(fetched) == 1100
+    assert otr[-1]["tag_name"] in {entry["tag_name"] for entry in fetched}
+
+
+def test_fetch_releases_stops_with_an_error_rather_than_truncating(monkeypatch):
+    monkeypatch.setattr("otr_replay.discovery.MAX_PAGES", 3, raising=False)
+    with httpx.Client(transport=_paged_github({OTR: _numbered_releases(300)})) as client:
+        assert len(fetch_releases(client)) == 300
+
+    with (
+        httpx.Client(transport=_paged_github({OTR: _numbered_releases(301)})) as client,
+        pytest.raises(ReplayError) as exc,
+    ):
+        fetch_releases(client)
+
+    assert exc.value.phase == "discovery"
+    assert "more than 3 pages" in exc.value.message
+
+
+def test_fetch_tags_reads_every_page():
+    pages = 11
+
+    def handler(request):
+        page = int(request.url.params.get("page", "1"))
+        following = str(request.url.copy_merge_params({"page": str(page + 1)}))
+        return httpx.Response(
+            200,
+            json={
+                "results": [{"name": f"tag-{page}-{n}"} for n in range(100)],
+                "next": following if page < pages else None,
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        fetched = fetch_tags(client)
+
+    assert len(fetched) == pages * 100
+    assert fetched[-1]["name"] == f"tag-{pages}-99"

@@ -16,6 +16,10 @@ from otr_replay.models import Release, ReplayError, Replica, ReplicaRef
 DATA_SITE = "https://data.otr.stagec.net/"
 RELEASES_URL = "https://api.github.com/repos/{repository}/releases"
 TAGS_URL = "https://hub.docker.com/v2/repositories/stagecodes/otr-processor/tags"
+# Listings are read to the end, since every merge to otr publishes a release
+# and a truncated list would quietly pick an older processor. This only ends a
+# listing that never stops, at 100,000 entries of 100 a page.
+MAX_PAGES = 1000
 # Repositories whose releases may be processor releases, in precedence order: when
 # both have a release with the same tag, the earlier repository's entry wins.
 PROCESSOR_REPOSITORIES = (
@@ -113,26 +117,35 @@ def merge_releases(sources: Mapping[str, Iterable[dict]]) -> list[dict]:
 def _fetch_github_releases(client: httpx.Client, repository: str) -> list[dict]:
     headers = {"accept": "application/vnd.github+json", "x-github-api-version": "2022-11-28"}
     releases: list[dict] = []
-    url: str | None = f"{RELEASES_URL.format(repository=repository)}?per_page=100"
-    for _ in range(10):
-        if url is None:
-            break
+    url = f"{RELEASES_URL.format(repository=repository)}?per_page=100"
+    for _ in range(MAX_PAGES):
         response = _get(client, url, headers=headers)
         releases.extend(response.json())
         url = response.links.get("next", {}).get("url")
-    return releases
+        if url is None:
+            return releases
+    raise _too_many_pages(f"{repository} releases")
 
 
 def fetch_tags(client: httpx.Client) -> list[dict]:
     tags: list[dict] = []
-    url: str | None = f"{TAGS_URL}?page_size=100"
-    for _ in range(10):
-        if url is None:
-            break
+    url = f"{TAGS_URL}?page_size=100"
+    for _ in range(MAX_PAGES):
         payload = _get(client, url).json()
         tags.extend(payload["results"])
         url = payload.get("next")
-    return tags
+        if url is None:
+            return tags
+    raise _too_many_pages("stagecodes/otr-processor tags")
+
+
+def _too_many_pages(listing: str) -> ReplayError:
+    return ReplayError(
+        "discovery",
+        f"the {listing} ran to more than {MAX_PAGES} pages",
+        "Reading part of the list could pick the wrong processor release. "
+        "Report this to the o!TR team.",
+    )
 
 
 def tag_key(tag: str) -> tuple[int, int, int, int] | None:
