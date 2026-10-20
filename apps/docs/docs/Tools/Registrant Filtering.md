@@ -30,13 +30,20 @@ The tool limits how much each user can filter, because every player o!TR does no
 
 - Each user can create 2 filter reports in any 24 hours.
 - Each report can check up to 1,000 osu! player IDs.
-- Each player o!TR does not have yet costs one request of the user's API rate limit of 60 requests a minute. Players o!TR already has cost nothing. If lookups use more than a minute's worth, the user's API calls wait until the limit refills.
 
-o!TR admins have no daily limit, lookup cost, or approval step, and can check up to 5,000 osu! player IDs a report.
+o!TR admins have no daily limit or approval step, and can check up to 5,000 osu! player IDs a report.
+
+### Player lookups
+
+o!TR looks up each player it does not have yet on osu! on the user's behalf, with the osu! account they log in with, at up to 60 requests a minute. That speed belongs to the user alone, apart from o!TR's own osu! requests and from the user's o!TR API rate limit. A player takes up to 4 requests, one per ruleset, so about 15 players are looked up a minute. The report does not wait for the lookups, since a player new to o!TR has no rating yet.
+
+If osu! stops accepting the user's account, for example after they revoke o!TR's access on osu!, the lookups wait and the filter page asks the user to log in with osu! again, which resumes them. Players still waiting after 7 days are looked up in o!TR's regular refresh of player data instead.
+
+Players in an admin's own reports are looked up with o!TR's own osu! client.
 
 ### Admin approval
 
-If more than 30% of the players in a request are not in o!TR yet, the tool asks the user for a justification and holds the request for an o!TR admin instead of running it. Nothing is looked up until an admin approves it. Approval runs the filter and creates the report; the user finds it, and any denial, under Your filter requests on the filter page. A held request counts toward the daily limit when it is sent.
+If more than 30% of the players in a request are not in o!TR yet, the tool asks the user for a justification and holds the request for an o!TR admin instead of running it. Nothing is looked up until an admin approves it. Approval runs the filter and creates the report, and its players are looked up with the user's osu! account as if they had run it; the user finds the report, and any denial, under Your filter requests on the filter page. A held request counts toward the daily limit when it is sent.
 
 ## Notice to Tournament Hosts
 

@@ -5,18 +5,15 @@ import {
   describe,
   expect,
   it,
-  spyOn,
 } from 'bun:test';
-import { call } from '@orpc/server';
 import { eq, inArray, sql } from 'drizzle-orm';
 
-import { auth } from '@/lib/auth/auth';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
+import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { MessagePriority } from '@otr/core';
 import { ApprovalStatus, FilteringFailReason, Ruleset } from '@otr/core/osu';
 
-import { publicProcedure } from '../base';
 import { filterRegistrantsHandler } from '../filteringProcedures';
 import {
   approveFilterRequestHandler,
@@ -28,6 +25,7 @@ import {
   createTestDb,
   deleteJobs,
   queuedFetches,
+  queuedLookups,
   removePlayers,
   seedAdminUser,
   seedUser,
@@ -67,7 +65,7 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
         .where(eq(schema.filterReports.userId, userId));
       await db
         .update(schema.users)
-        .set({ apiAllowanceFullAt: null })
+        .set({ osuSignInNeededAt: null })
         .where(eq(schema.users.id, userId));
     }
     await removePlayers(db, ALL_OSU_IDS);
@@ -125,45 +123,22 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       .map((row) => row.osuId)
       .sort();
 
-  /** Seconds until the user's allowance is full again. */
-  const secondsUntilFull = async (userId: number) => {
-    const { rows } = await db.execute<{ seconds: string | null }>(sql`
-      SELECT EXTRACT(EPOCH FROM (api_allowance_full_at - CURRENT_TIMESTAMP)) AS seconds
-      FROM users WHERE id = ${userId}`);
-    return rows[0]?.seconds === null ? null : Number(rows[0]?.seconds);
-  };
+  /** Each player's fetch status, by osu! id. */
+  const fetchStatuses = async (osuIds: number[]) =>
+    Object.fromEntries(
+      (
+        await db
+          .select({
+            osuId: schema.players.osuId,
+            status: schema.players.dataFetchStatus,
+          })
+          .from(schema.players)
+          .where(inArray(schema.players.osuId, osuIds))
+      ).map((row) => [row.osuId, row.status])
+    );
 
-  /**
-   * Seconds the allowance is full again after the report was made. The charge
-   * and the report share the transaction's clock, so this is exactly what the
-   * lookups cost when the allowance started full.
-   */
-  const secondsChargedBy = async (userId: number, filterReportId: number) => {
-    const { rows } = await db.execute<{ seconds: string }>(sql`
-      SELECT EXTRACT(EPOCH FROM (u.api_allowance_full_at - r.created)) AS seconds
-      FROM users u, filter_reports r
-      WHERE u.id = ${userId} AND r.id = ${filterReportId}`);
-    return Number(rows[0]?.seconds);
-  };
-
-  /** Uses up a minute and a half of the user's allowance: 90 requests owed. */
-  const useAllowance = (userId: number) =>
-    db
-      .update(schema.users)
-      .set({
-        apiAllowanceFullAt: sql`CURRENT_TIMESTAMP + interval '90 seconds'`,
-      })
-      .where(eq(schema.users.id, userId))
-      .returning({ fullAt: schema.users.apiAllowanceFullAt })
-      .then((rows) => rows[0]!.fullAt);
-
-  const allowanceFullAt = async (userId: number) =>
-    (
-      await db
-        .select({ fullAt: schema.users.apiAllowanceFullAt })
-        .from(schema.users)
-        .where(eq(schema.users.id, userId))
-    )[0]?.fullAt;
+  const lookupPayloads = (osuIds: number[]) =>
+    osuIds.map((osuPlayerId) => ({ osuPlayerId }));
 
   const heldRequests = (userId: number) =>
     db
@@ -227,7 +202,7 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       });
       expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual([]);
       expect(await queuedFetches(db, requesterId)).toEqual([]);
-      expect(await secondsUntilFull(requesterId)).toBeNull();
+      expect(await queuedLookups(db, requesterId)).toEqual([]);
       expect(
         await db
           .select({ id: schema.filterReports.id })
@@ -236,48 +211,44 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       ).toEqual([]);
     });
 
-    it("runs an admin's request at once, with no lookup cost, even after the admin's allowance was used", async () => {
-      const fullAt = await useAllowance(adminId);
-
+    it("runs an admin's request at once, looking players up with o!TR's own osu! client", async () => {
       await expect(
         filter(FLAGGED, { session: adminSession(adminId) })
       ).resolves.toMatchObject({ status: 'completed' });
 
       expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual(UNKNOWN_OSU_IDS);
-      expect(await allowanceFullAt(adminId)).toBe(fullAt);
       expect(
-        (
-          await listMyFilterRequestsHandler({
-            context: { db, session: adminSession(adminId) },
-          })
-        ).usage.lookupRetryAfterSeconds
-      ).toBe(0);
+        (await queuedFetches(db, adminId)).map((job) => job.payload)
+      ).toEqual(
+        UNKNOWN_OSU_IDS.map((osuPlayerId) => ({ type: 'player', osuPlayerId }))
+      );
+      expect(await queuedLookups(db, adminId)).toEqual([]);
     });
   });
 
-  it('runs a request with exactly 30% unknown, charging each lookup to the allowance', async () => {
+  it("runs a request with exactly 30% unknown, looking each one up with the requester's osu! account", async () => {
     const result = await filter(AT_THRESHOLD);
+    const unknown = UNKNOWN_OSU_IDS.slice(0, 3);
 
     expect(result.status).toBe('completed');
     expect(
-      (await queuedFetches(db, requesterId)).map((job) => job.payload)
-    ).toEqual(
-      UNKNOWN_OSU_IDS.slice(0, 3).map((osuPlayerId) => ({
-        type: 'player',
-        osuPlayerId,
-      }))
+      (await queuedLookups(db, requesterId)).map((job) => job.payload)
+    ).toEqual(lookupPayloads(unknown));
+    // Not with o!TR's own client
+    expect(await queuedFetches(db, requesterId)).toEqual([]);
+    // The lookup holds each player's fetch lease, so o!TR's own refresh
+    // leaves the player to it
+    expect(await fetchStatuses(unknown)).toEqual(
+      Object.fromEntries(
+        unknown.map((osuId) => [osuId, DataFetchStatus.Fetching])
+      )
     );
-    // 3 lookups at 60 a minute, a second each: full again 3 s after the report
-    if (result.status !== 'completed') return;
-    expect(
-      await secondsChargedBy(requesterId, result.filterReportId)
-    ).toBeCloseTo(3, 6);
   });
 
-  it('queues its lookups behind tournament fetches', async () => {
-    await filter(AT_THRESHOLD);
+  it("queues an admin's lookups behind tournament fetches", async () => {
+    await filter(AT_THRESHOLD, { session: adminSession(adminId) });
 
-    const fetches = await queuedFetches(db, requesterId);
+    const fetches = await queuedFetches(db, adminId);
     expect(fetches).toHaveLength(3);
     // Below Normal, where tournament fetches queue; higher runs first
     expect(fetches.map((job) => job.priority)).toEqual([
@@ -306,29 +277,6 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       expect(result).toMatchObject({ status: 'completed' });
       if (result.status !== 'completed') return;
       expect(result.filteringResults).toHaveLength(1001);
-    });
-  });
-
-  it('refuses lookups while earlier lookups have used the allowance, but runs a request that needs none', async () => {
-    // 120 requests owed: the next one is free in 61 seconds
-    await db
-      .update(schema.users)
-      .set({
-        apiAllowanceFullAt: sql`CURRENT_TIMESTAMP + interval '120 seconds'`,
-      })
-      .where(eq(schema.users.id, requesterId));
-
-    await expect(filter(AT_THRESHOLD)).rejects.toMatchObject({
-      status: 429,
-      data: {
-        code: 'LOOKUP_ALLOWANCE_USED',
-        retryAfter: expect.any(Number),
-      },
-    });
-    expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual([]);
-
-    await expect(filter(KNOWN_OSU_IDS)).resolves.toMatchObject({
-      status: 'completed',
     });
   });
 
@@ -398,7 +346,6 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       expect(mine.usage).toMatchObject({
         reportsLeft: 0,
         nextReportAt: expect.any(String),
-        lookupRetryAfterSeconds: 0,
       });
       expect(mine.requests).toEqual([
         expect.objectContaining({ status: ApprovalStatus.Pending }),
@@ -437,7 +384,7 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
       session: adminSession(adminId),
     });
 
-    it("runs it for the requester and charges the lookups to the requester's allowance", async () => {
+    it("runs it for the requester and looks its players up with the requester's osu! account", async () => {
       const id = await holdRequest();
 
       const { filterReportId } = await approveFilterRequestHandler({
@@ -451,12 +398,11 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
         .where(eq(schema.filterReports.id, filterReportId));
       expect(report).toEqual({ userId: requesterId });
       expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual(UNKNOWN_OSU_IDS);
-      expect(await queuedFetches(db, requesterId)).toHaveLength(4);
-      // 4 lookups at a second each
-      expect(await secondsChargedBy(requesterId, filterReportId)).toBeCloseTo(
-        4,
-        6
-      );
+      expect(
+        (await queuedLookups(db, requesterId)).map((job) => job.payload)
+      ).toEqual(lookupPayloads(UNKNOWN_OSU_IDS));
+      expect(await queuedFetches(db, requesterId)).toEqual([]);
+      expect(await queuedFetches(db, adminId)).toEqual([]);
       expect((await heldRequests(requesterId))[0]).toMatchObject({
         status: ApprovalStatus.Approved,
         filterReportId,
@@ -477,7 +423,7 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
         ).rejects.toThrow(message);
 
         expect(await savedOsuIds(UNKNOWN_OSU_IDS)).toEqual([]);
-        expect(await queuedFetches(db, requesterId)).toEqual([]);
+        expect(await queuedLookups(db, requesterId)).toEqual([]);
         expect((await heldRequests(requesterId))[0]?.status).toBe(
           ApprovalStatus.Pending
         );
@@ -504,51 +450,33 @@ describe.skipIf(!testDatabaseUrl)('registrant filter limits', () => {
     });
   });
 
-  it("refuses the requester's API key calls while lookups have used their allowance", async () => {
-    const [player] = await db
-      .select({ id: schema.players.id })
-      .from(schema.players)
-      .where(eq(schema.players.osuId, REQUESTER_OSU_ID));
-    const authUserId = `filter-limits-${requesterId}`;
-    await db
-      .delete(schema.auth_users)
-      .where(eq(schema.auth_users.id, authUserId));
-    await db.insert(schema.auth_users).values({
-      id: authUserId,
-      name: 'filter-limits',
-      email: `${authUserId}@example.invalid`,
-      playerId: player!.id,
-    });
-    const verifyApiKey = spyOn(auth.api, 'verifyApiKey').mockResolvedValue({
-      valid: true,
-      key: { id: 'key-1', referenceId: authUserId, name: null, enabled: true },
-      error: null,
-    } as never);
-    const probe = publicProcedure.handler(() => 'ran');
-    const callWithKey = () =>
-      call(probe, undefined, {
-        context: { headers: new Headers({ authorization: 'Bearer k' }) },
-      });
-
-    try {
-      await expect(callWithKey()).resolves.toBe('ran');
-
-      await db
-        .update(schema.users)
-        .set({
-          apiAllowanceFullAt: sql`CURRENT_TIMESTAMP + interval '120 seconds'`,
+  it('tells the user how many players wait to be looked up with their osu! account, and when they must sign in again', async () => {
+    const usage = async () =>
+      (
+        await listMyFilterRequestsHandler({
+          context: { db, session: userSession(requesterId) },
         })
-        .where(eq(schema.users.id, requesterId));
+      ).usage;
 
-      await expect(callWithKey()).rejects.toMatchObject({
-        status: 429,
-        data: { code: 'LOOKUP_ALLOWANCE_USED' },
-      });
-    } finally {
-      verifyApiKey.mockRestore();
-      await db
-        .delete(schema.auth_users)
-        .where(eq(schema.auth_users.id, authUserId));
-    }
+    expect(await usage()).toMatchObject({
+      pendingLookups: 0,
+      osuSignInNeeded: false,
+    });
+
+    await filter(AT_THRESHOLD);
+    expect(await usage()).toMatchObject({
+      pendingLookups: 3,
+      osuSignInNeeded: false,
+    });
+
+    // As the data worker notes it when osu! refuses the user's token
+    await db
+      .update(schema.users)
+      .set({ osuSignInNeededAt: sql`CURRENT_TIMESTAMP` })
+      .where(eq(schema.users.id, requesterId));
+    expect(await usage()).toMatchObject({
+      pendingLookups: 3,
+      osuSignInNeeded: true,
+    });
   });
 });

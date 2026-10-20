@@ -116,6 +116,23 @@ export const queuedFetches = async (
 };
 
 /**
+ * The lookups queued to run with `userId`'s osu! account, ordered by dedup
+ * key: payload, and when each may run.
+ */
+export const queuedLookups = async (db: DatabaseClient, userId: number) => {
+  const { rows } = await db.execute<Record<string, unknown>>(sql`
+    SELECT payload, run_after
+    FROM jobs
+    WHERE queue = ${JobQueue.OsuLookup} AND requested_by_user_id = ${userId}
+    ORDER BY dedup_key`);
+
+  return rows.map((row) => ({
+    payload: row.payload as Record<string, unknown>,
+    runAfter: new Date(row.run_after as string),
+  }));
+};
+
+/**
  * Deletes the user's jobs, and jobs left by test users an interrupted run
  * never cleaned up, which would otherwise absorb later runs' requests.
  */

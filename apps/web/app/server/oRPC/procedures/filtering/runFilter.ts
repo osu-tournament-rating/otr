@@ -2,6 +2,7 @@ import { ORPCError } from '@orpc/server';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
+import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import { MessagePriority } from '@otr/core';
 import {
@@ -43,6 +44,12 @@ export interface RunFilterOptions {
   userId: number | null;
   /** Who the player fetches are queued for. */
   requestedByUserId: number;
+  /**
+   * Whose osu! account looks up the players o!TR has never seen, on their
+   * behalf and at their own speed. Null looks them up with o!TR's own osu!
+   * client, behind tournament fetches.
+   */
+  lookupUserId: number | null;
   ruleset: Ruleset;
   minRating: number | null;
   maxRating: number | null;
@@ -54,14 +61,16 @@ export interface RunFilterOptions {
 
 /**
  * Runs the registrant filter in the caller's transaction: adds a placeholder
- * player and queues a fetch for each ID o!TR has never seen, checks every
- * player's current rating against the bounds, and stores the report.
+ * player and queues a lookup for each ID o!TR has never seen, checks every
+ * player's current rating against the bounds, and stores the report. A new
+ * player has no rating yet, so the report never waits for its lookup.
  */
 export async function runFilter(
   tx: TransactionClient,
   {
     userId,
     requestedByUserId,
+    lookupUserId,
     ruleset,
     minRating,
     maxRating,
@@ -93,24 +102,50 @@ export async function runFilter(
     );
 
     if (missingOsuIds.length > 0) {
-      // Placeholder rows, so filters can record results before ingestion
+      // Placeholder rows, so filters can record results before ingestion.
+      // A lookup with the user's account takes the fetch lease, so o!TR's
+      // own refetch scheduler and stranded fetch sweep leave the player to it.
       await tx
         .insert(schema.players)
-        .values(missingOsuIds.map((osuId) => ({ osuId })))
+        .values(
+          missingOsuIds.map((osuId) =>
+            lookupUserId === null
+              ? { osuId }
+              : {
+                  osuId,
+                  dataFetchStatus: DataFetchStatus.Fetching,
+                  osuLastFetch: sql`CURRENT_TIMESTAMP`,
+                }
+          )
+        )
         .onConflictDoNothing({ target: schema.players.osuId });
 
-      // Behind tournament fetches, which queue at Normal (#1162)
-      await enqueueJobs(
-        tx,
-        JobQueue.OsuFetch,
-        missingOsuIds.map((osuPlayerId) => ({
-          payload: { type: 'player', osuPlayerId },
-          priority: MessagePriority.Low,
-          correlationId,
-          requestedByUserId,
-          explicit: true,
-        }))
-      );
+      if (lookupUserId === null) {
+        // Behind tournament fetches, which queue at Normal (#1162)
+        await enqueueJobs(
+          tx,
+          JobQueue.OsuFetch,
+          missingOsuIds.map((osuPlayerId) => ({
+            payload: { type: 'player', osuPlayerId },
+            priority: MessagePriority.Low,
+            correlationId,
+            requestedByUserId,
+            explicit: true,
+          }))
+        );
+      } else {
+        // Carries only the user's id; the worker reads their token itself
+        await enqueueJobs(
+          tx,
+          JobQueue.OsuLookup,
+          missingOsuIds.map((osuPlayerId) => ({
+            payload: { osuPlayerId },
+            correlationId,
+            requestedByUserId: lookupUserId,
+            explicit: true,
+          }))
+        );
+      }
 
       players = await selectPlayers();
     }

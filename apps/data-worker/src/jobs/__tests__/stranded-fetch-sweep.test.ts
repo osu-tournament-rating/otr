@@ -291,6 +291,20 @@ describe.skipIf(!testDatabaseUrl)('StrandedFetchSweep players', () => {
     ]);
   });
 
+  it("leaves alone a Fetching player whose lookup with a user's osu! account waits, even for days", async () => {
+    await player(QUEUED, DataFetchStatus.Fetching);
+    await enqueueJob(db, JobQueue.OsuLookup, {
+      payload: { osuPlayerId: QUEUED },
+      requestedByUserId: 1,
+      runAfter: new Date(Date.now() + 7 * 86_400_000),
+    });
+
+    expect((await sweep(true).run()).players).toBe(0);
+    expect(
+      (await jobRows(db)).filter((row) => row.queue === JobQueue.OsuFetch)
+    ).toEqual([]);
+  });
+
   it('queues no player while player sweeps are off', async () => {
     await player(STRANDED, DataFetchStatus.Fetching);
 

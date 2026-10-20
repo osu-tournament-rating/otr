@@ -269,7 +269,7 @@ export class OsuApiFetchWorker {
  * loses the status when a 429 or 503 body isn't JSON, but a captured wait
  * only ever comes from one of those responses.
  */
-const asJobError = (error: unknown) => {
+export const asJobError = (error: unknown) => {
   // The osu! client's APIError carries the response status.
   const status = (error as { response?: { status_code?: unknown } } | null)
     ?.response?.status_code;

@@ -193,6 +193,7 @@ export const RANKED_STATUS_LABELS: EnumLabels = {
 /** Background job queues (`jobs.queue`), by the work each one does. */
 export const JOB_QUEUE_LABELS: Readonly<Record<JobQueue, string>> = {
   [JobQueue.OsuFetch]: 'osu! fetches',
+  [JobQueue.OsuLookup]: "osu! lookups with users' accounts",
   [JobQueue.OsuTrackFetch]: 'osu!track fetches',
   [JobQueue.TournamentChecks]: 'Automated checks',
   [JobQueue.TournamentStats]: 'Tournament stats',

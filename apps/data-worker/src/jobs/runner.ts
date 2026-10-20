@@ -23,6 +23,7 @@ import {
   jobWaitSeconds,
 } from '../metrics';
 import {
+  DeferJobError,
   DiscardJobError,
   PermanentJobError,
   RetryableJobError,
@@ -67,6 +68,7 @@ interface Loop {
 type Settlement =
   | { kind: 'succeeded' }
   | { kind: 'retried'; delayMs: number; error: string }
+  | { kind: 'deferred'; delayMs: number; error: string }
   | { kind: 'failed'; error: string }
   | { kind: 'discarded'; error: string };
 
@@ -177,7 +179,13 @@ export class JobRunner {
   }
 
   private startLoop(queue: JobQueue, loop: Loop) {
-    for (const status of ['success', 'error', 'parked', 'discarded']) {
+    for (const status of [
+      'success',
+      'error',
+      'parked',
+      'discarded',
+      'deferred',
+    ]) {
       queueMessagesProcessed.labels({ queue, status }).inc(0);
     }
     jobsReclaimed.labels({ queue }).inc(0);
@@ -410,13 +418,21 @@ export class JobRunner {
       settlement = { kind: 'succeeded' };
     } catch (error) {
       settlement = this.classify(job, error);
-      const log = settlement.kind === 'failed' ? 'error' : 'warn';
-      logger[log](`Job ${settlement.kind}`, {
-        error,
-        ...(settlement.kind === 'retried'
-          ? { retryInMs: settlement.delayMs }
-          : {}),
-      });
+      if (settlement.kind === 'deferred') {
+        // Waiting is the expected outcome, not a failure.
+        logger.info('Job deferred', {
+          reason: settlement.error,
+          retryInMs: settlement.delayMs,
+        });
+      } else {
+        const log = settlement.kind === 'failed' ? 'error' : 'warn';
+        logger[log](`Job ${settlement.kind}`, {
+          error,
+          ...(settlement.kind === 'retried'
+            ? { retryInMs: settlement.delayMs }
+            : {}),
+        });
+      }
     } finally {
       queueMessagesInFlight.labels({ queue }).dec();
     }
@@ -441,6 +457,13 @@ export class JobRunner {
 
     if (error instanceof DiscardJobError) {
       return { kind: 'discarded', error: text };
+    }
+    if (error instanceof DeferJobError) {
+      return {
+        kind: 'deferred',
+        delayMs: Math.max(0, error.delayMs),
+        error: text,
+      };
     }
     if (error instanceof PermanentJobError || job.attempts >= job.maxAttempts) {
       return { kind: 'failed', error: text };
@@ -494,6 +517,27 @@ export class JobRunner {
     durationMs: number
   ): Promise<boolean> {
     const owned = sql`id = ${job.id} AND locked_by = ${this.workerId} AND status = ${JobStatus.Running}`;
+
+    if (settlement.kind === 'deferred') {
+      // Gives back the attempt the claim used, and counts in no daily total:
+      // nothing was attempted. A request made while it ran, such as the user
+      // signing in again, may have removed the reason to wait, so it runs
+      // again at once to find out.
+      const { rowCount } = await this.db.execute(sql`
+        UPDATE jobs SET
+          status = ${JobStatus.Pending},
+          attempts = GREATEST(attempts - 1, 0),
+          run_after = CASE WHEN rerun_requested THEN now()
+            ELSE now() + ${settlement.delayMs}::integer * interval '1 millisecond' END,
+          last_error = ${settlement.error},
+          rerun_requested = false,
+          locked_by = NULL,
+          locked_until = NULL,
+          updated = now()
+        WHERE ${owned}`);
+      return Boolean(rowCount);
+    }
+
     const outcome: AttemptOutcome = settlement.kind;
 
     if (settlement.kind === 'failed' || settlement.kind === 'discarded') {
@@ -740,4 +784,5 @@ const METRIC_STATUS: Record<Settlement['kind'], string> = {
   retried: 'error',
   failed: 'parked',
   discarded: 'discarded',
+  deferred: 'deferred',
 };

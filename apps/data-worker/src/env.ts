@@ -140,9 +140,22 @@ const playerOsuTrackAutoRefetch = {
   ),
 } as const;
 
+/**
+ * The site's osu! OAuth client, which issued the tokens users saved by
+ * signing in, and which alone can refresh them for lookups made with their
+ * accounts. Optional: without it those lookups wait in their queue.
+ */
+const parseSignInClient = () => {
+  const clientId = process.env.WEB_OSU_CLIENT_ID?.trim();
+  const clientSecret = process.env.WEB_OSU_CLIENT_SECRET?.trim();
+
+  return clientId && clientSecret ? { clientId, clientSecret } : null;
+};
+
 export const dataWorkerEnv = {
   osuClientId,
   osuClientSecret: requireEnv('DATA_WORKER_OSU_CLIENT_SECRET'),
+  osuSignInClient: parseSignInClient(),
   osuApiRateLimit,
   osuTrackRateLimit,
   maintenanceWindowEnabled: parseBooleanEnvWithDefault(

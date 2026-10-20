@@ -16,6 +16,7 @@ import { legacyOAuthCallbackURL } from './osu-callback';
 import { recordLastLogin, recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
+import { resumeOsuLookups } from '@otr/core/jobs';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { API as OsuApi } from 'osu-api-v2-js';
 import type { User } from 'osu-api-v2-js';
@@ -476,6 +477,35 @@ const ensureOsuAccountLink = async (
   }
 };
 
+/**
+ * A sign-in with osu! saved new tokens, so lookups that waited for the user
+ * to sign in again can run. A failure is logged, not thrown, so it never
+ * blocks the sign-in; the lookups then run when they next check, within a
+ * week.
+ */
+const resumeLookupsAfterSignIn = async (account: AuthAccount) => {
+  if (account.providerId !== OSU_PROVIDER_ID) {
+    return;
+  }
+
+  try {
+    const [user] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .innerJoin(
+        schema.auth_users,
+        eq(schema.auth_users.playerId, schema.users.playerId)
+      )
+      .where(eq(schema.auth_users.id, account.userId));
+
+    if (user) {
+      await resumeOsuLookups(db, user.id);
+    }
+  } catch (error) {
+    logger.error('Failed to resume osu! lookups after sign-in', { error });
+  }
+};
+
 export const auth = betterAuth({
   logger: betterAuthLogger,
   database: drizzleAdapter(db, {
@@ -569,6 +599,13 @@ export const auth = betterAuth({
       create: {
         after: async (account) => {
           await ensureOsuAccountLink(account);
+          await resumeLookupsAfterSignIn(account);
+        },
+      },
+      update: {
+        // Each sign-in saves the new tokens it got from osu! here
+        after: async (account) => {
+          await resumeLookupsAfterSignIn(account);
         },
       },
     },

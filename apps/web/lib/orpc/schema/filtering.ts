@@ -148,8 +148,13 @@ export const FilterUsageSchema = z.object({
   reportsLeft: z.number().int().nonnegative().nullable(),
   /** When the next report becomes available, while none are left. */
   nextReportAt: z.string().nullable(),
-  /** Seconds until lookups of unknown players can run; 0 now. */
-  lookupRetryAfterSeconds: z.number().int().nonnegative(),
+  /** Players still to be looked up on osu! with the user's osu! account. */
+  pendingLookups: z.number().int().nonnegative(),
+  /**
+   * Those lookups wait for the user to sign in with osu! again, because
+   * their saved osu! credentials no longer work.
+   */
+  osuSignInNeeded: z.boolean(),
 });
 
 export type FilterUsage = z.infer<typeof FilterUsageSchema>;

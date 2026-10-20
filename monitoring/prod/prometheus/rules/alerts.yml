@@ -94,12 +94,16 @@ groups:
     rules:
       # Delayed jobs count: during an osu! outage, jobs waiting out a retry
       # backoff are still backlog. The osu! queue routinely holds about 1,000
-      # jobs, so it alerts higher.
+      # jobs, so it alerts higher. Lookups with users' osu! accounts wait on
+      # purpose, for each user's speed or for the user to log in again, so
+      # only their ready and running jobs count.
       - alert: JobQueueDepthHigh
         expr: |
           sum by (queue) (data_worker_jobs{queue="data.osu", state=~"ready|delayed|running"}) > 2500
           or
-          sum by (queue) (data_worker_jobs{queue!="data.osu", state=~"ready|delayed|running"}) > 1000
+          sum by (queue) (data_worker_jobs{queue="data.osu.lookup", state=~"ready|running"}) > 1000
+          or
+          sum by (queue) (data_worker_jobs{queue!="data.osu", queue!="data.osu.lookup", state=~"ready|delayed|running"}) > 1000
         for: 10m
         labels:
           severity: warning

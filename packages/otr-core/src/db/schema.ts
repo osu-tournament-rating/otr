@@ -2208,10 +2208,12 @@ export const users = pgTable(
       mode: 'string',
     }),
     /**
-     * When the user's API allowance is full again after the registrant
-     * filter looked up players for them. Null or past means full.
+     * When the data worker found it couldn't look up players with the user's
+     * osu! account: no saved token, one osu! refused or wouldn't refresh, or
+     * one without the scope lookups need. Their lookups wait until they sign
+     * in with osu! again, which clears it.
      */
-    apiAllowanceFullAt: timestamp('api_allowance_full_at', {
+    osuSignInNeededAt: timestamp('osu_sign_in_needed_at', {
       withTimezone: true,
       mode: 'string',
     }),

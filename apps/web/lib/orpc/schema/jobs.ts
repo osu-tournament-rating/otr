@@ -7,6 +7,7 @@ export const MAX_MANAGED_JOBS = 100;
 /** Every queue, in the order the admin pages list them. */
 export const JOB_QUEUES = [
   JobQueue.OsuFetch,
+  JobQueue.OsuLookup,
   JobQueue.OsuTrackFetch,
   JobQueue.TournamentChecks,
   JobQueue.TournamentStats,

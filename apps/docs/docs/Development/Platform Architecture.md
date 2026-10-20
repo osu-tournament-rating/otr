@@ -7,6 +7,7 @@ This page details the high-level architecture of the platform and each applicati
 The data worker runs every background job. Each job is a row in the `jobs` table, in one of these queues:
 
 - `data.osu` fetches matches, beatmaps, players, and forum topics from the osu! API.
+- `data.osu.lookup` looks up players for the registrant filter with the osu! account of the user who asked, at up to 60 requests a minute for each user.
 - `data.osutrack` fetches a player's rank history from osu!track.
 - `processing.checks.tournaments` runs [[Automated Checks|automated checks]] for a tournament.
 - `processing.stats.tournaments` calculates a tournament's stats.

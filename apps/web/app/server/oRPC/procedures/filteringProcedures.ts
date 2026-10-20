@@ -30,11 +30,6 @@ import {
   toFilterRequest,
 } from './filtering/limits';
 import { getCorrelationId } from './logging';
-import {
-  allowanceUsedError,
-  apiAllowanceRetryAfter,
-  chargeApiAllowance,
-} from './shared/apiAllowance';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
 type FilterReportPlayerRow = typeof schema.filterReportPlayers.$inferSelect & {
@@ -62,9 +57,10 @@ export interface FilterRegistrantsArgs {
  * {@link MAX_FILTER_PLAYER_IDS} players a request and make
  * {@link FILTER_REPORTS_PER_DAY} reports in a rolling 24 hours. A request
  * where more than 30% of the players are unknown to o!TR is held, with the
- * user's justification, until an admin approves it, and each unknown player
- * the filter looks up costs the user one request of their API allowance.
- * Admins have none of these limits.
+ * user's justification, until an admin approves it. Unknown players are
+ * looked up on osu! with the user's own osu! account, in the background at
+ * the user's own speed. Admins have none of these limits: their lookups use
+ * o!TR's own osu! client.
  */
 export async function filterRegistrantsHandler({
   input,
@@ -143,20 +139,10 @@ export async function filterRegistrantsHandler({
       return { status: 'pending', request: toFilterRequest(request) };
     }
 
-    // Admins' lookups cost nothing
-    if (!isAdmin && unknownPlayerCount > 0) {
-      const retryAfter = await apiAllowanceRetryAfter(tx, userId);
-
-      if (retryAfter > 0) {
-        throw allowanceUsedError(retryAfter);
-      }
-
-      await chargeApiAllowance(tx, userId, unknownPlayerCount);
-    }
-
     const result = await runFilter(tx, {
       userId,
       requestedByUserId: userId,
+      lookupUserId: isAdmin ? null : userId,
       ruleset: input.ruleset,
       minRating: input.minRating ?? null,
       maxRating: input.maxRating ?? null,

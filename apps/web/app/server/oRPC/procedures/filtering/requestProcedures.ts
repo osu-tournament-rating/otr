@@ -3,6 +3,7 @@ import { asc, desc, eq, sql } from 'drizzle-orm';
 
 import { ApprovalStatus, type Ruleset } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
+import { JobQueue, JobStatus } from '@otr/core/jobs';
 import { hasAdminScope } from '@/lib/auth/roles';
 import type { DatabaseClient } from '@/lib/db';
 import { ApprovalIdInputSchema } from '@/lib/orpc/schema/approval';
@@ -16,19 +17,11 @@ import {
 
 import { adminMutationProcedure, protectedProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
-import {
-  apiAllowanceRetryAfter,
-  chargeApiAllowance,
-} from '../shared/apiAllowance';
 import { loadApprovalUsers } from '../shared/approvalUsers';
 import { assertOutsideMaintenanceWindow } from '../shared/maintenanceWindow';
 import { getCorrelationId } from '../logging/helpers';
 import { lockUser, readDailyFilterUsage, toFilterRequest } from './limits';
-import {
-  countUnknownPlayers,
-  runFilter,
-  type TransactionClient,
-} from './runFilter';
+import { runFilter, type TransactionClient } from './runFilter';
 
 interface SessionContext {
   db: DatabaseClient;
@@ -98,8 +91,9 @@ export async function listFilterRequestsAdminHandler({
 
 /**
  * Runs a held filter request for its requester, in the same transaction that
- * marks it approved. The players it looks up are charged to the requester's
- * API allowance, as if they had run it themselves.
+ * marks it approved. Its unknown players are looked up with the requester's
+ * osu! account, as if they had run it themselves; once the requester has
+ * deleted their account, with o!TR's own osu! client.
  */
 export async function approveFilterRequestHandler({
   input,
@@ -120,16 +114,12 @@ export async function approveFilterRequestHandler({
 
     if (request.userId !== null) {
       await lockUser(tx, request.userId);
-      await chargeApiAllowance(
-        tx,
-        request.userId,
-        await countUnknownPlayers(tx, osuIds)
-      );
     }
 
     const result = await runFilter(tx, {
       userId: request.userId,
       requestedByUserId: request.userId ?? adminUserId,
+      lookupUserId: request.userId,
       ruleset: request.ruleset as Ruleset,
       minRating: request.minRating,
       maxRating: request.maxRating,
@@ -177,6 +167,43 @@ export async function denyFilterRequestHandler({
   return { success: true as const };
 }
 
+/**
+ * How many players are still to be looked up with the user's osu! account,
+ * and whether those lookups wait for the user to sign in with osu! again.
+ */
+async function readLookups(
+  db: Pick<DatabaseClient, 'execute'>,
+  userId: number
+) {
+  const { rows } = await db.execute<{
+    pending: string;
+    sign_in_needed: boolean;
+  }>(sql`
+    SELECT
+      -- Each status on its own, so each uses its partial index on jobs
+      (
+        SELECT count(*) FROM jobs
+        WHERE queue = ${JobQueue.OsuLookup}
+          AND status = ${JobStatus.Pending}
+          AND requested_by_user_id = ${userId}
+      ) + (
+        SELECT count(*) FROM jobs
+        WHERE queue = ${JobQueue.OsuLookup}
+          AND status = ${JobStatus.Running}
+          AND requested_by_user_id = ${userId}
+      ) AS pending,
+      EXISTS (
+        SELECT 1 FROM ${schema.users}
+        WHERE ${schema.users.id} = ${userId}
+          AND ${schema.users.osuSignInNeededAt} IS NOT NULL
+      ) AS sign_in_needed`);
+
+  return {
+    pendingLookups: Number(rows[0]?.pending ?? 0),
+    osuSignInNeeded: rows[0]?.sign_in_needed === true,
+  };
+}
+
 /** The user's held requests, newest first, and what is left of their limits. */
 export async function listMyFilterRequestsHandler({
   context,
@@ -193,7 +220,7 @@ export async function listMyFilterRequestsHandler({
 
   const isAdmin = hasAdminScope(context.session?.dbUser?.scopes);
 
-  const [rows, daily, lookupRetryAfterSeconds] = await Promise.all([
+  const [rows, daily, lookups] = await Promise.all([
     context.db
       .select()
       .from(schema.filterRequests)
@@ -203,8 +230,7 @@ export async function listMyFilterRequestsHandler({
         desc(schema.filterRequests.id)
       ),
     isAdmin ? null : readDailyFilterUsage(context.db, userId),
-    // Admins' lookups are never charged or refused
-    isAdmin ? 0 : apiAllowanceRetryAfter(context.db, userId),
+    readLookups(context.db, userId),
   ]);
 
   return {
@@ -214,7 +240,7 @@ export async function listMyFilterRequestsHandler({
         ? Math.max(0, FILTER_REPORTS_PER_DAY - daily.used)
         : null,
       nextReportAt: daily?.nextReportAt ?? null,
-      lookupRetryAfterSeconds,
+      ...lookups,
     },
   };
 }

@@ -7,8 +7,8 @@ import { Callout } from '@/components/kit/feedback/Callout';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageHeader } from '@/components/kit/layout/PageHeader';
 import FilteringForm from '@/components/filtering/FilteringForm';
-import { API_REQUESTS_PER_MINUTE } from '@/lib/api/api-allowance';
 import { formatCount } from '@/lib/kit/format/number';
+import { OSU_LOOKUP_REQUESTS_PER_MINUTE } from '@otr/core/jobs/enums';
 import {
   FILTER_REPORTS_PER_DAY,
   FLAGGED_UNKNOWN_PERCENT,
@@ -65,11 +65,9 @@ function FilterLimitsCallout() {
           to {formatCount(MAX_FILTER_PLAYER_IDS)} osu! player IDs each.
         </li>
         <li>
-          o!TR looks up each player it doesn&apos;t have yet on osu!. Each
-          lookup counts against your API rate limit of{' '}
-          {formatCount(API_REQUESTS_PER_MINUTE)} requests a minute. If lookups
-          use more than a minute&apos;s worth, your API calls wait until the
-          limit refills.
+          o!TR looks up each player it doesn&apos;t have yet on osu! with your
+          osu! account, at up to {OSU_LOOKUP_REQUESTS_PER_MINUTE} requests a
+          minute.
         </li>
         <li>
           If more than {FLAGGED_UNKNOWN_PERCENT}% of the players aren&apos;t in

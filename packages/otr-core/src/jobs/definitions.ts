@@ -5,6 +5,8 @@ import { JobQueue } from './enums';
 
 export interface JobPayloads {
   [JobQueue.OsuFetch]: OsuApiPayload;
+  /** The job's requested_by_user_id names whose osu! account looks the player up. */
+  [JobQueue.OsuLookup]: { osuPlayerId: number };
   [JobQueue.OsuTrackFetch]: { osuPlayerId: number };
   [JobQueue.TournamentChecks]: {
     tournamentId: number;
@@ -44,6 +46,9 @@ export const jobDedupKeys: {
   [Q in JobQueue]: (payload: JobPayload<Q>) => string | null;
 } = {
   [JobQueue.OsuFetch]: osuFetchKey,
+  // The same key as an osu! fetch of the player, so a check for either job
+  // can look for one key in both queues.
+  [JobQueue.OsuLookup]: (payload) => `player:${payload.osuPlayerId}`,
   [JobQueue.OsuTrackFetch]: (payload) => `player:${payload.osuPlayerId}`,
   [JobQueue.TournamentChecks]: (payload) =>
     `tournament:${payload.tournamentId}${payload.overrideVerifiedState ? ':override' : ''}`,

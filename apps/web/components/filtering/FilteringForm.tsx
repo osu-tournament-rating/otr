@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import LoginButton from '@/components/profile/LoginButton';
 import { hasAdminScope } from '@/lib/auth/roles';
 import { useFormDraft } from '@/lib/hooks/useFormDraft';
 import { useSession } from '@/lib/hooks/useSession';
@@ -188,6 +189,27 @@ function usageNote(usage: FilterUsage | undefined): string | undefined {
   return usage.nextReportAt
     ? `Next report available ${formatTimestamp(usage.nextReportAt)}`
     : 'No reports left today';
+}
+
+/**
+ * Asks the user to log in with osu! again while lookups from their reports
+ * wait for it, because o!TR can no longer use their osu! account.
+ */
+function LookupSignInNotice({ usage }: { usage: FilterUsage | undefined }) {
+  if (!usage?.osuSignInNeeded || usage.pendingLookups === 0) return null;
+
+  return (
+    <Callout
+      tone="warning"
+      title="Log in with osu! again"
+      action={<LoginButton size="sm" />}
+      data-testid="filter-lookups-sign-in"
+    >
+      o!TR can no longer look up players with your osu! account, so{' '}
+      {formatCountOf(usage.pendingLookups, 'player')} from your filter reports
+      are waiting.
+    </Callout>
+  );
 }
 
 /** The required-field mark the section's note refers to. */
@@ -413,6 +435,7 @@ export default function FilteringForm({
           </FormSection>
 
           <FormSection icon={Users} title="Player IDs">
+            <LookupSignInNotice usage={myRequests.data?.usage} />
             <FormField
               control={form.control}
               name="osuPlayerIds"

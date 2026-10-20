@@ -13,6 +13,7 @@ import { enqueueJob, JobQueue, JobStatus } from '@otr/core/jobs';
 import type { DatabaseClient } from '../../db';
 
 import {
+  DeferJobError,
   DiscardJobError,
   PermanentJobError,
   RetryableJobError,
@@ -267,6 +268,45 @@ describe.skipIf(!testDatabaseUrl)('JobRunner', () => {
     await waitFor(async () => (await statusOf(1)) === JobStatus.Cancelled);
     expect(hooks).toBe(0);
     expect(await dailyTotals(db, QUEUE)).toMatchObject({ discarded: 1 });
+  });
+
+  it('defers a job without using an attempt or counting it in the daily totals', async () => {
+    await enqueue(1);
+    const before = Date.now();
+
+    startRunner({
+      handler: async () => {
+        throw new DeferJobError('waiting for a sign-in', 60 * 60_000);
+      },
+    });
+
+    await waitFor(async () => (await jobRows(db))[0]?.last_error !== null);
+    const [row] = await jobRows(db);
+    expect(row!.status).toBe(JobStatus.Pending);
+    expect(row!.attempts).toBe(0);
+    expect(row!.last_error).toContain('waiting for a sign-in');
+    expect(row!.run_after.getTime() - before).toBeGreaterThanOrEqual(
+      60 * 60_000 - 1_000
+    );
+    expect(await dailyTotals(db, QUEUE)).toBeNull();
+  });
+
+  it('runs a deferred job again at once when someone asks for it while it runs', async () => {
+    await enqueue(1);
+    let runs = 0;
+
+    startRunner({
+      handler: async () => {
+        runs += 1;
+        if (runs === 1) {
+          await db.execute(sql`UPDATE jobs SET rerun_requested = true`);
+          throw new DeferJobError('waiting for a sign-in', 60 * 60_000);
+        }
+      },
+    });
+
+    await waitFor(async () => (await statusOf(1)) === JobStatus.Succeeded);
+    expect(runs).toBe(2);
   });
 
   it('runs a job again when someone asks for it while it runs', async () => {

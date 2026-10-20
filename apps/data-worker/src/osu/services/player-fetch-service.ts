@@ -46,11 +46,28 @@ const normalizePreviousUsernames = (
   return names;
 };
 
+/** The most osu! requests one player fetch makes: one per ruleset. */
+export const PLAYER_FETCH_REQUESTS = FETCHABLE_RULESETS.length;
+
+/** osu! refused the token a player fetch used, with a 401 or 403. */
+export class OsuTokenRefusedError extends Error {
+  constructor() {
+    super('osu! refused the token (401 or 403)');
+    this.name = 'OsuTokenRefusedError';
+  }
+}
+
 interface PlayerFetchServiceOptions {
   db: DatabaseClient;
   api: API;
   rateLimiter: RateLimiter;
   logger: Logger;
+  /**
+   * Throw {@link OsuTokenRefusedError} when osu! refuses the token, leaving
+   * the player as it was, instead of marking the player errored. For a
+   * user's token, which signing in again can fix.
+   */
+  throwOnRefusedToken?: boolean;
 }
 
 export class PlayerFetchService {
@@ -58,12 +75,14 @@ export class PlayerFetchService {
   private readonly api: API;
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
+  private readonly throwOnRefusedToken: boolean;
 
   constructor(options: PlayerFetchServiceOptions) {
     this.db = options.db;
     this.api = options.api;
     this.rateLimiter = options.rateLimiter;
     this.logger = options.logger;
+    this.throwOnRefusedToken = options.throwOnRefusedToken ?? false;
   }
 
   async fetchAndPersist(osuPlayerId: number): Promise<boolean> {
@@ -96,6 +115,10 @@ export class PlayerFetchService {
           withApiErrorHandling(() => this.api.getUser(osuPlayerId, apiRuleset))
         )
       );
+
+      if (result.status === 'unauthorized' && this.throwOnRefusedToken) {
+        throw new OsuTokenRefusedError();
+      }
 
       if (result.status === 'unauthorized') {
         this.logger.error(

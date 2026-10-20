@@ -14,7 +14,7 @@ type Executor = Pick<DatabaseClient, 'execute'>;
 
 /**
  * Locks the user's row for the rest of the transaction, so two requests from
- * one user can't both pass the daily limit or both spend the same allowance.
+ * one user can't both pass the daily limit.
  */
 export async function lockUser(db: Executor, userId: number): Promise<void> {
   await db.execute(sql`

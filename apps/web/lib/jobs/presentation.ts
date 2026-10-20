@@ -71,6 +71,7 @@ export function describeJob(
       }
       break;
     }
+    case JobQueue.OsuLookup:
     case JobQueue.OsuTrackFetch: {
       const playerId = idOf(payload, 'osuPlayerId');
       if (playerId !== null) return subject(`Player ${formatId(playerId)}`);
