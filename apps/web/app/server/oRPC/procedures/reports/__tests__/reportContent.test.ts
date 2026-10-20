@@ -62,6 +62,25 @@ describe('ReportCreateInputSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  // The legacy shape stores both fields, names and values alike
+  it.each([
+    ['a justification', {}, 'a'.repeat(2001), false],
+    ['suggested changes', { name: 'a'.repeat(2000) }, 'b', false],
+    ['both, at the limit', { name: 'a'.repeat(1000) }, 'b'.repeat(996), true],
+  ])(
+    'limits the legacy shape to 2000 characters in all: %s',
+    (_, suggestedChanges, justification, accepted) => {
+      expect(
+        ReportCreateInputSchema.safeParse({
+          entityType: ReportEntityType.Tournament,
+          entityId: 1,
+          suggestedChanges,
+          justification,
+        }).success
+      ).toBe(accepted);
+    }
+  );
 });
 
 describe('ReportResolveInputSchema', () => {
