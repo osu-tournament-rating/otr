@@ -235,20 +235,21 @@ describe.skipIf(!url)('leaderboard activity and restrictions', () => {
     ]);
   });
 
-  it('keeps restricted and inactive players off the friends list too', async () => {
-    const osuIdsOf = async (includeInactive: boolean) => {
-      const result = await runLeaderboard({
-        input: { includeInactive },
-        context: { db },
-        friendUserId: playerIds.active,
-      });
-      return result.leaderboard.map((entry) => entry.player.osuId);
-    };
+  it('lists inactive friends whatever the option says, never restricted ones', async () => {
+    const friendsOf = async (includeInactive: boolean) =>
+      listed(
+        await runLeaderboard({
+          input: { includeInactive },
+          context: { db },
+          friendUserId: playerIds.active,
+        })
+      );
+    const friends = [
+      { osuId: activityPlayers.inactive.osuId, globalRank: 1, inactive: true },
+      { osuId: activityPlayers.active.osuId, globalRank: 2, inactive: false },
+    ];
 
-    expect(await osuIdsOf(false)).toEqual([activityPlayers.active.osuId]);
-    expect(await osuIdsOf(true)).toEqual([
-      activityPlayers.inactive.osuId,
-      activityPlayers.active.osuId,
-    ]);
+    expect(await friendsOf(false)).toEqual(friends);
+    expect(await friendsOf(true)).toEqual(friends);
   });
 });

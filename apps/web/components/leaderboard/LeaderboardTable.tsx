@@ -88,8 +88,8 @@ const INACTIVE_TOOLTIP = 'Inactive: no verified match in the last year';
 
 /**
  * Marks a player with no verified match in the ruleset for a year, whom the
- * leaderboard lists only when asked to. The tooltip opens on hover, keyboard
- * focus and tap.
+ * leaderboard lists only when asked to and the friends tab always lists.
+ * The tooltip opens on hover, keyboard focus and tap.
  */
 function InactiveMark() {
   return (

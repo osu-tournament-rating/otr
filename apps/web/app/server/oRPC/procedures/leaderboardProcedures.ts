@@ -156,12 +156,15 @@ export async function runLeaderboard({
         : undefined;
     // Filters players before the per-player aggregation, not after it
     const usernameFilter = buildLeaderboardSearchCondition(input.searchQuery);
-    // Restricted players are on no leaderboard. Ranks stay the processor's,
-    // so hiding a player leaves a gap in them.
+    // Restricted players are on no leaderboard, friends included. Inactive
+    // players are hidden unless asked for, but the friends tab always lists
+    // them. Ranks stay the processor's, so hiding a player leaves a gap in
+    // them.
     const unrestrictedFilter = eq(schema.players.restricted, false);
-    const activityFilter = input.includeInactive
-      ? undefined
-      : isActiveSql(schema.playerRatings.id);
+    const activityFilter =
+      input.includeInactive || friendUserId != null
+        ? undefined
+        : isActiveSql(schema.playerRatings.id);
     const baseWhere = and(
       ratingRulesetFilter,
       unrestrictedFilter,
