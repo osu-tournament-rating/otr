@@ -33,6 +33,10 @@ import {
   formatUserDescriptor,
   formatProcedurePath,
 } from './logging/helpers';
+import {
+  allowanceUsedError,
+  apiAllowanceRetryAfterForPlayer,
+} from './shared/apiAllowance';
 import { assertCurrentBuild } from './shared/currentBuild';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
@@ -516,6 +520,20 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
         id
       )} error=${description}`
     );
+  }
+
+  // Registrant filter lookups are charged to the owner's allowance (#1162)
+  if (apiKeyActor?.playerId) {
+    const retryAfter = await apiAllowanceRetryAfterForPlayer(
+      db,
+      apiKeyActor.playerId
+    );
+
+    if (retryAfter > 0) {
+      apiKeyRejections.labels({ reason: 'rate_limited' }).inc();
+      context.resHeaders?.set('retry-after', String(retryAfter));
+      throw allowanceUsedError(retryAfter);
+    }
   }
 
   return next({

@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { SlidersHorizontal, Users } from 'lucide-react';
+import { MessageSquareText, SlidersHorizontal, Users } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import useSWR from 'swr';
+import { ORPCError } from '@orpc/client';
 import { Ruleset } from '@otr/core/osu';
 
 import { Button } from '@/components/kit/controls/Button';
+import { Callout } from '@/components/kit/feedback/Callout';
 import {
   FormActions,
   FormGrid,
@@ -35,19 +38,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { useFormDraft } from '@/lib/hooks/useFormDraft';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { RATED_RULESETS, RULESET_NAMES } from '@/lib/kit/format/ruleset';
-import { RANGE_SEPARATOR } from '@/lib/kit/format/date';
+import { RANGE_SEPARATOR, formatTimestamp } from '@/lib/kit/format/date';
 import { orpc } from '@/lib/orpc/orpc';
-import type { FilteringResult } from '@/lib/orpc/schema/filtering';
+import {
+  FLAGGED_UNKNOWN_PERCENT,
+  MAX_FILTER_PLAYER_IDS as MAX_PLAYER_IDS,
+  MAX_JUSTIFICATION_LENGTH,
+  type FilterUsage,
+  type FilteringResult,
+} from '@/lib/orpc/schema/filtering';
 import FilterComplianceNotice from './FilterComplianceNotice';
 import FilterReportSummary from './FilterReportSummary';
 import FilteringResultsTable from './FilteringResultsTable';
+import MyFilterRequests, { MY_FILTER_REQUESTS_KEY } from './MyFilterRequests';
+import { unknownPercent } from './unknownShare';
 import { csvDay, downloadFilterCsv } from './filterCsv';
 
 /** The bounds the filter accepts for a rating. */
 const MIN_RATING = 100;
 const MAX_RATING = 5000;
-/** The most players one filter can check (`FilteringRequestSchema`). */
-const MAX_PLAYER_IDS = 5000;
 
 const RATING_HINT = `${formatCount(MIN_RATING)}${RANGE_SEPARATOR}${formatCount(MAX_RATING)}`;
 
@@ -98,6 +107,13 @@ const filteringFormSchema = z
         (value) => parsePlayerIds(value).length <= MAX_PLAYER_IDS,
         `osu! player IDs cannot exceed ${formatCount(MAX_PLAYER_IDS)}`
       ),
+    // Asked for only once the filter holds the request for an admin
+    justification: z
+      .string()
+      .max(
+        MAX_JUSTIFICATION_LENGTH,
+        `Justification cannot exceed ${formatCount(MAX_JUSTIFICATION_LENGTH)} characters`
+      ),
   })
   // A filter on the ruleset alone would pass every rated player.
   .refine(
@@ -126,7 +142,48 @@ const EMPTY_VALUES: FilteringFormInput = {
   minRating: '',
   maxRating: '',
   osuPlayerIds: '',
+  justification: '',
 };
+
+/** How many of a held request's players o!TR does not have. */
+type FlaggedRequest = { unknownPlayerCount: number; playerCount: number };
+
+/** The filter's refusal that asks for a justification, if `error` is one. */
+function flaggedRequest(error: unknown): FlaggedRequest | null {
+  if (!(error instanceof ORPCError)) return null;
+
+  const data = error.data as
+    | { code?: unknown; unknownPlayerCount?: unknown; playerCount?: unknown }
+    | undefined;
+
+  return data?.code === 'JUSTIFICATION_REQUIRED' &&
+    typeof data.unknownPlayerCount === 'number' &&
+    typeof data.playerCount === 'number'
+    ? {
+        unknownPlayerCount: data.unknownPlayerCount,
+        playerCount: data.playerCount,
+      }
+    : null;
+}
+
+/** Why a request waits for an admin, with its share of unknown players. */
+function flaggedNotice({ unknownPlayerCount, playerCount }: FlaggedRequest) {
+  const percent = unknownPercent(unknownPlayerCount, playerCount);
+  return `${formatCount(unknownPlayerCount)} of these ${formatCount(playerCount)} players (${percent}%) are not in o!TR yet. When more than ${FLAGGED_UNKNOWN_PERCENT}% are, an admin reviews the request before it runs. It counts toward your daily limit when you send it.`;
+}
+
+/** "1 report left today", or when the next one is available. */
+function usageNote(usage: FilterUsage | undefined): string | undefined {
+  if (!usage || usage.reportsLeft === null) return undefined;
+
+  if (usage.reportsLeft > 0) {
+    return `${formatCountOf(usage.reportsLeft, 'report')} left today`;
+  }
+
+  return usage.nextReportAt
+    ? `Next report available ${formatTimestamp(usage.nextReportAt)}`
+    : 'No reports left today';
+}
 
 /** The required-field mark the section's note refers to. */
 function RequiredMark() {
@@ -148,20 +205,29 @@ type SubmittedFilter = {
 };
 
 interface FilteringFormProps {
-  onFilteringComplete: (results: FilteringResult) => void;
+  /** The report a run made; null after a request is held for an admin. */
+  onFilteringComplete: (results: FilteringResult | null) => void;
   filteringResults: FilteringResult | null;
 }
 
 /**
  * The registrant filter: ruleset and rating bounds, then the players to
  * check, on one form panel. After a run it shows the forum post text, the
- * report's summary and the results table.
+ * report's summary and the results table. When too many players are new to
+ * o!TR, the filter asks for a justification and holds the request for an
+ * admin; the user's held requests and daily limit show under the form.
  */
 export default function FilteringForm({
   onFilteringComplete,
   filteringResults,
 }: FilteringFormProps) {
   const [submitted, setSubmitted] = useState<SubmittedFilter | null>(null);
+  const [flagged, setFlagged] = useState<FlaggedRequest | null>(null);
+  const myRequests = useSWR(
+    MY_FILTER_REQUESTS_KEY,
+    () => orpc.filtering.myRequests({}),
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
 
   const form = useForm<FilteringFormInput, unknown, FilteringFormValues>({
     resolver: zodResolver(filteringFormSchema),
@@ -176,6 +242,14 @@ export default function FilteringForm({
       parseInt(id, 10)
     );
     const ruleset = Number(values.ruleset) as Ruleset;
+    const justification = values.justification.trim();
+
+    if (flagged && !justification) {
+      form.setError('justification', {
+        message: 'Justification is required',
+      });
+      return;
+    }
 
     try {
       const result = await orpc.filtering.filter({
@@ -183,7 +257,20 @@ export default function FilteringForm({
         minRating: values.minRating,
         maxRating: values.maxRating,
         osuPlayerIds,
+        justification: flagged ? justification : undefined,
       });
+
+      void myRequests.mutate();
+
+      // The request is saved and listed below; nothing is left to change
+      if (result.status === 'pending') {
+        setFlagged(null);
+        setSubmitted(null);
+        form.reset(EMPTY_VALUES);
+        onFilteringComplete(null);
+        toast.success('Filter request sent for approval');
+        return;
+      }
 
       setSubmitted({
         results: result,
@@ -194,6 +281,13 @@ export default function FilteringForm({
       onFilteringComplete(result);
       toast.success(`Filtered ${formatCountOf(osuPlayerIds.length, 'player')}`);
     } catch (error) {
+      const held = flaggedRequest(error);
+
+      if (held) {
+        setFlagged(held);
+        return;
+      }
+
       toast.error(
         error instanceof Error ? error.message : 'Players could not be filtered'
       );
@@ -331,11 +425,49 @@ export default function FilteringForm({
             />
           </FormSection>
 
-          <FormActions>
+          {flagged ? (
+            <FormSection
+              icon={MessageSquareText}
+              title="Justification"
+              data-testid="filter-justification"
+            >
+              <Callout tone="warning" title="Admin approval needed">
+                {flaggedNotice(flagged)}
+              </Callout>
+              <FormField
+                control={form.control}
+                name="justification"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormFieldLabel>
+                      Justification
+                      <RequiredMark />
+                    </FormFieldLabel>
+                    <FormControl>
+                      <Textarea
+                        data-testid="filter-justification-input"
+                        aria-required="true"
+                        placeholder="Tell the admins why so many registrants are new to o!TR"
+                        maxLength={MAX_JUSTIFICATION_LENGTH}
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
+          ) : null}
+
+          <FormActions start={usageNote(myRequests.data?.usage)}>
             <Button
               variant="outline"
               disabled={isLoading}
-              onClick={() => form.reset(EMPTY_VALUES)}
+              onClick={() => {
+                form.reset(EMPTY_VALUES);
+                setFlagged(null);
+              }}
             >
               Reset
             </Button>
@@ -344,11 +476,24 @@ export default function FilteringForm({
               data-testid="filter-submit-button"
               pending={isLoading}
             >
-              {isLoading ? 'Filtering…' : 'Filter players'}
+              {isLoading
+                ? flagged
+                  ? 'Sending…'
+                  : 'Filtering…'
+                : flagged
+                  ? 'Send for approval'
+                  : 'Filter players'}
             </Button>
           </FormActions>
         </FormPanel>
       </Form>
+
+      <MyFilterRequests
+        requests={myRequests.data?.requests}
+        error={myRequests.error}
+        retrying={myRequests.isValidating}
+        onRetry={() => void myRequests.mutate()}
+      />
 
       {results ? (
         <div data-testid="filter-results" className="flex flex-col gap-4">

@@ -94,6 +94,12 @@ import {
   getFilterReport,
 } from './procedures/filteringProcedures';
 import {
+  approveFilterRequestAdmin,
+  denyFilterRequestAdmin,
+  listFilterRequestsAdmin,
+  listMyFilterRequests,
+} from './procedures/filtering/requestProcedures';
+import {
   deleteUserApiKey,
   generateUserApiKey,
   getUserApiKeys,
@@ -235,6 +241,12 @@ export const router = base.router({
   filtering: {
     filter: filterRegistrants,
     report: getFilterReport,
+    myRequests: listMyFilterRequests,
+    admin: {
+      requests: listFilterRequestsAdmin,
+      approveRequest: approveFilterRequestAdmin,
+      denyRequest: denyFilterRequestAdmin,
+    },
   },
   apiClients: {
     getKeys: getUserApiKeys,

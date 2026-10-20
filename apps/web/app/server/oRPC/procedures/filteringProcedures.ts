@@ -1,24 +1,39 @@
 import { ORPCError } from '@orpc/server';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { FilteringFailReason, Ruleset } from '@otr/core/osu';
+import * as schema from '@otr/core/db/schema';
+import { hasAdminScope } from '@/lib/auth/roles';
+import type { DatabaseClient } from '@/lib/db';
 import {
-  FilteringFailReason,
-  Ruleset,
-  VerificationStatus,
-} from '@otr/core/osu';
-import { protectedMutationProcedure, publicProcedure } from './base';
-import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
-import {
+  FILTER_REPORTS_PER_DAY,
+  FLAGGED_UNKNOWN_PERCENT,
   FilterReportSchema,
   FilteringRequestSchema,
+  FilteringResponseSchema,
   FilteringResultSchema,
   StoredFilteringRequestSchema,
-  type PlayerFilteringResult,
+  isFlaggedFilterRequest,
+  type FilteringRequest,
+  type FilteringResponse,
 } from '@/lib/orpc/schema/filtering';
-import * as schema from '@otr/core/db/schema';
-import { enqueueJobs, JobQueue } from '@otr/core/jobs';
+
+import { protectedMutationProcedure, publicProcedure } from './base';
+import { countUnknownPlayers, runFilter } from './filtering/runFilter';
+import {
+  dailyLimitError,
+  lockUser,
+  readDailyFilterUsage,
+  toFilterRequest,
+} from './filtering/limits';
 import { getCorrelationId } from './logging';
+import {
+  allowanceUsedError,
+  apiAllowanceRetryAfter,
+  chargeApiAllowance,
+} from './shared/apiAllowance';
+import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
 type FilterReportPlayerRow = typeof schema.filterReportPlayers.$inferSelect & {
   player: typeof schema.players.$inferSelect | null;
@@ -28,306 +43,129 @@ const FilterReportIdSchema = z.object({
   id: z.number().int().positive(),
 });
 
+export interface FilterRegistrantsArgs {
+  input: FilteringRequest;
+  context: {
+    db: DatabaseClient;
+    headers: Headers;
+    session: {
+      dbUser?: { id: number; scopes?: string[] | null } | null;
+    };
+    logging?: unknown;
+  };
+}
+
+/**
+ * Filters registrants for a signed-in user. Outside admins, a user may make
+ * {@link FILTER_REPORTS_PER_DAY} reports in a rolling 24 hours, and a request
+ * where more than 30% of the players are unknown to o!TR is held, with the
+ * user's justification, until an admin approves it. Each unknown player the
+ * filter looks up costs the user one request of their API allowance.
+ */
+export async function filterRegistrantsHandler({
+  input,
+  context,
+}: FilterRegistrantsArgs): Promise<FilteringResponse> {
+  const userId = context.session.dbUser?.id;
+
+  if (!userId) {
+    throw new ORPCError('UNAUTHORIZED', {
+      message: 'User account is not linked to an internal profile',
+    });
+  }
+
+  const isAdmin = hasAdminScope(context.session.dbUser?.scopes);
+
+  await assertOutsideMaintenanceWindow(context.headers, { db: context.db });
+
+  const osuIds = Array.from(new Set(input.osuPlayerIds));
+  const correlationId = getCorrelationId(context);
+
+  return context.db.transaction(async (tx) => {
+    await lockUser(tx, userId);
+
+    if (!isAdmin) {
+      const usage = await readDailyFilterUsage(tx, userId);
+
+      if (usage.used >= FILTER_REPORTS_PER_DAY) {
+        throw dailyLimitError(usage.nextReportAt);
+      }
+    }
+
+    const unknownPlayerCount = await countUnknownPlayers(tx, osuIds);
+
+    if (!isAdmin && isFlaggedFilterRequest(unknownPlayerCount, osuIds.length)) {
+      if (!input.justification) {
+        throw new ORPCError('UNPROCESSABLE_CONTENT', {
+          status: 422,
+          message: `More than ${FLAGGED_UNKNOWN_PERCENT}% of these players are not in o!TR yet. Enter a justification, and an admin will review the request before it runs.`,
+          data: {
+            code: 'JUSTIFICATION_REQUIRED',
+            unknownPlayerCount,
+            playerCount: osuIds.length,
+          },
+        });
+      }
+
+      const [request] = await tx
+        .insert(schema.filterRequests)
+        .values({
+          userId,
+          ruleset: input.ruleset,
+          minRating: input.minRating ?? null,
+          maxRating: input.maxRating ?? null,
+          osuPlayerIds: osuIds,
+          unknownPlayerCount,
+          justification: input.justification,
+        })
+        .returning();
+
+      if (!request) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', {
+          message: 'Failed to save the filter request',
+        });
+      }
+
+      return { status: 'pending', request: toFilterRequest(request) };
+    }
+
+    if (unknownPlayerCount > 0) {
+      const retryAfter = await apiAllowanceRetryAfter(tx, userId);
+
+      if (retryAfter > 0) {
+        throw allowanceUsedError(retryAfter);
+      }
+
+      await chargeApiAllowance(tx, userId, unknownPlayerCount);
+    }
+
+    const result = await runFilter(tx, {
+      userId,
+      requestedByUserId: userId,
+      ruleset: input.ruleset,
+      minRating: input.minRating ?? null,
+      maxRating: input.maxRating ?? null,
+      osuIds,
+      correlationId,
+      headers: context.headers,
+    });
+
+    return { status: 'completed', ...result };
+  });
+}
+
 export const filterRegistrants = protectedMutationProcedure
   .input(FilteringRequestSchema)
-  .output(FilteringResultSchema)
+  .output(FilteringResponseSchema)
   .route({
     summary: 'Filter tournament registrants',
     tags: ['authenticated'],
     method: 'POST',
     path: '/filtering/registrants:filter',
   })
-  .handler(async ({ input, context }) => {
-    const userId = context.session.dbUser?.id;
-
-    if (!userId) {
-      throw new ORPCError('UNAUTHORIZED', {
-        message: 'User account is not linked to an internal profile',
-      });
-    }
-
-    await assertOutsideMaintenanceWindow(context.headers, { db: context.db });
-
-    const uniqueOsuIds = Array.from(new Set(input.osuPlayerIds));
-
-    let players = await context.db
-      .select({
-        id: schema.players.id,
-        osuId: schema.players.osuId,
-        username: schema.players.username,
-      })
-      .from(schema.players)
-      .where(inArray(schema.players.osuId, uniqueOsuIds));
-
-    if (players.length !== uniqueOsuIds.length) {
-      const foundOsuIds = new Set(players.map((player) => player.osuId));
-      const missingOsuIds = uniqueOsuIds.filter(
-        (osuId) => !foundOsuIds.has(osuId)
-      );
-
-      if (missingOsuIds.length > 0) {
-        const correlationId = getCorrelationId(context);
-
-        // Placeholder rows, so filters can record results before ingestion
-        await context.db.transaction(async (tx) => {
-          await tx
-            .insert(schema.players)
-            .values(missingOsuIds.map((osuId) => ({ osuId })))
-            .onConflictDoNothing({ target: schema.players.osuId });
-
-          await enqueueJobs(
-            tx,
-            JobQueue.OsuFetch,
-            missingOsuIds.map((osuPlayerId) => ({
-              payload: { type: 'player', osuPlayerId },
-              correlationId,
-              requestedByUserId: userId,
-              explicit: true,
-            }))
-          );
-        });
-
-        players = await context.db
-          .select({
-            id: schema.players.id,
-            osuId: schema.players.osuId,
-            username: schema.players.username,
-          })
-          .from(schema.players)
-          .where(inArray(schema.players.osuId, uniqueOsuIds));
-      }
-    }
-
-    const playerIdByOsuId = new Map<number, number>();
-    const usernameByPlayerId = new Map<number, string>();
-
-    for (const player of players) {
-      const osuId = player.osuId;
-      playerIdByOsuId.set(osuId, player.id);
-      usernameByPlayerId.set(player.id, player.username);
-    }
-
-    const playerIds = players.map((player) => player.id);
-
-    const ratings = await context.db
-      .select({
-        playerId: schema.playerRatings.playerId,
-        rating: schema.playerRatings.rating,
-      })
-      .from(schema.playerRatings)
-      .where(
-        and(
-          eq(schema.playerRatings.ruleset, input.ruleset),
-          inArray(schema.playerRatings.playerId, playerIds)
-        )
-      );
-
-    const ratingByPlayerId = new Map<number, number>();
-    for (const row of ratings) {
-      ratingByPlayerId.set(row.playerId, Number(row.rating));
-    }
-
-    const peakRows = await context.db
-      .select({
-        playerId: schema.ratingAdjustments.playerId,
-        peakRating:
-          sql<number>`MAX(${schema.ratingAdjustments.ratingAfter})`.mapWith(
-            Number
-          ),
-      })
-      .from(schema.ratingAdjustments)
-      .where(
-        and(
-          eq(schema.ratingAdjustments.ruleset, input.ruleset),
-          inArray(schema.ratingAdjustments.playerId, playerIds)
-        )
-      )
-      .groupBy(schema.ratingAdjustments.playerId);
-
-    const peakByPlayerId = new Map<number, number>();
-    for (const row of peakRows) {
-      if (row.peakRating !== undefined && row.peakRating !== null) {
-        peakByPlayerId.set(row.playerId, Number(row.peakRating));
-      }
-    }
-
-    const participationRows = await context.db
-      .select({
-        playerId: schema.playerTournamentStats.playerId,
-        tournamentsPlayed:
-          sql<number>`COUNT(DISTINCT ${schema.playerTournamentStats.tournamentId})`.mapWith(
-            Number
-          ),
-        matchesPlayed:
-          sql<number>`COALESCE(SUM(${schema.playerTournamentStats.matchesPlayed}), 0)`.mapWith(
-            Number
-          ),
-      })
-      .from(schema.playerTournamentStats)
-      .innerJoin(
-        schema.tournaments,
-        eq(schema.tournaments.id, schema.playerTournamentStats.tournamentId)
-      )
-      .where(
-        and(
-          inArray(schema.playerTournamentStats.playerId, playerIds),
-          eq(schema.tournaments.ruleset, input.ruleset),
-          eq(schema.tournaments.verificationStatus, VerificationStatus.Verified)
-        )
-      )
-      .groupBy(schema.playerTournamentStats.playerId);
-
-    const tournamentsByPlayerId = new Map<number, number>();
-    const matchesByPlayerId = new Map<number, number>();
-
-    for (const row of participationRows) {
-      tournamentsByPlayerId.set(row.playerId, row.tournamentsPlayed ?? 0);
-      matchesByPlayerId.set(row.playerId, row.matchesPlayed ?? 0);
-    }
-
-    const playerResults: PlayerFilteringResult[] = uniqueOsuIds.map((osuId) => {
-      const playerId = playerIdByOsuId.get(osuId) ?? null;
-      const username = playerId
-        ? (usernameByPlayerId.get(playerId) ?? null)
-        : null;
-
-      const rating = playerId ? (ratingByPlayerId.get(playerId) ?? null) : null;
-      const peakRating = playerId
-        ? (peakByPlayerId.get(playerId) ?? rating ?? null)
-        : null;
-
-      const tournamentsPlayed = playerId
-        ? (tournamentsByPlayerId.get(playerId) ?? 0)
-        : 0;
-      const matchesPlayed = playerId
-        ? (matchesByPlayerId.get(playerId) ?? 0)
-        : 0;
-
-      let failureReason = FilteringFailReason.None;
-
-      if (input.minRating != null) {
-        if (rating == null || rating < input.minRating) {
-          failureReason |= FilteringFailReason.MinRating;
-        }
-      }
-
-      if (input.maxRating != null) {
-        if (rating != null && rating > input.maxRating) {
-          failureReason |= FilteringFailReason.MaxRating;
-        }
-      }
-
-      if (input.peakRating != null) {
-        if (peakRating == null || peakRating > input.peakRating) {
-          failureReason |= FilteringFailReason.PeakRatingTooHigh;
-        }
-      }
-
-      if (input.tournamentsPlayed != null) {
-        if (tournamentsPlayed < input.tournamentsPlayed) {
-          failureReason |= FilteringFailReason.NotEnoughTournaments;
-        }
-      }
-
-      if (input.maxTournamentsPlayed != null) {
-        if (tournamentsPlayed > input.maxTournamentsPlayed) {
-          failureReason |= FilteringFailReason.TooManyTournaments;
-        }
-      }
-
-      if (input.matchesPlayed != null) {
-        if (matchesPlayed < input.matchesPlayed) {
-          failureReason |= FilteringFailReason.NotEnoughMatches;
-        }
-      }
-
-      if (input.maxMatchesPlayed != null) {
-        if (matchesPlayed > input.maxMatchesPlayed) {
-          failureReason |= FilteringFailReason.TooManyMatches;
-        }
-      }
-
-      const isSuccess = failureReason === FilteringFailReason.None;
-
-      return {
-        playerId,
-        osuId,
-        username,
-        isSuccess,
-        failureReason,
-        currentRating: rating,
-        peakRating,
-        tournamentsPlayed,
-        matchesPlayed,
-      } satisfies PlayerFilteringResult;
-    });
-
-    const playersPassed = playerResults.filter(
-      (result) => result.isSuccess
-    ).length;
-    const playersFailed = playerResults.length - playersPassed;
-
-    const insertedReport = await context.db.transaction(async (tx) => {
-      // Re-asserted on the transaction clock to match the report's `created`
-      await assertOutsideMaintenanceWindow(context.headers, { db: tx });
-
-      const [report] = await tx
-        .insert(schema.filterReports)
-        .values({
-          userId,
-          ruleset: input.ruleset,
-          minRating: input.minRating ?? null,
-          maxRating: input.maxRating ?? null,
-          tournamentsPlayed: input.tournamentsPlayed ?? null,
-          peakRating: input.peakRating ?? null,
-          matchesPlayed: input.matchesPlayed ?? null,
-          playersPassed,
-          playersFailed,
-          maxMatchesPlayed: input.maxMatchesPlayed ?? null,
-          maxTournamentsPlayed: input.maxTournamentsPlayed ?? null,
-        })
-        .returning({
-          id: schema.filterReports.id,
-          created: schema.filterReports.created,
-        });
-
-      if (!report) {
-        throw new ORPCError('INTERNAL_SERVER_ERROR', {
-          message: 'Failed to persist filter report',
-        });
-      }
-
-      const storableResults = playerResults.filter(
-        (result): result is PlayerFilteringResult & { playerId: number } =>
-          result.playerId != null
-      );
-
-      if (storableResults.length > 0) {
-        await tx.insert(schema.filterReportPlayers).values(
-          storableResults.map((result) => ({
-            filterReportId: report.id,
-            playerId: result.playerId,
-            isSuccess: result.isSuccess,
-            failureReason: result.failureReason ?? FilteringFailReason.None,
-            currentRating: result.currentRating,
-            peakRating: result.peakRating,
-            tournamentsPlayed: result.tournamentsPlayed,
-            matchesPlayed: result.matchesPlayed,
-          }))
-        );
-      }
-
-      return report;
-    });
-
-    return {
-      filterReportId: insertedReport.id,
-      created: insertedReport.created,
-      playersPassed,
-      playersFailed,
-      filteringResults: playerResults,
-    };
-  });
+  .handler(({ input, context }) =>
+    filterRegistrantsHandler({ input, context })
+  );
 
 export const getFilterReport = publicProcedure
   .input(FilterReportIdSchema)

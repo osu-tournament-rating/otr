@@ -14,6 +14,7 @@ import * as schema from '@otr/core/db/schema';
 import { Ruleset } from '@otr/core/osu';
 
 import {
+  adminSession,
   createTestDb,
   deleteJobs,
   queuedFetches,
@@ -71,7 +72,9 @@ describe.skipIf(!testDatabaseUrl)('filterRegistrants', () => {
       context: {
         db: client,
         headers: new Headers(),
-        session: { dbUser: { id: userId } },
+        // Two of the three registrants are unknown, which holds a
+        // non-admin's request for approval; an admin's runs at once.
+        session: adminSession(userId),
       },
       input: { ruleset: Ruleset.Osu, osuPlayerIds: REGISTRANTS },
     } as never);
