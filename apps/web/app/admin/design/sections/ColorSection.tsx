@@ -287,7 +287,7 @@ const CALLOUT_DEMO: Record<
   },
   danger: {
     icon: OctagonAlert,
-    text: 'Permanently delete your account and remove your data from o!TR. Your player profile will remain public.',
+    text: 'Permanently delete your account and remove your data from o!TR. Your player profile and the filter reports you created will remain public.',
   },
 };
 

@@ -1180,7 +1180,8 @@ export default function FeedbackSection() {
             }
           >
             Permanently delete your account and remove your data from o!TR. Your
-            player profile will remain public.
+            player profile and the filter reports you created will remain
+            public.
           </Callout>
           {/* The filter tool's forum post text: hosts paste this exact
               format, so it keeps its ISO time. */}

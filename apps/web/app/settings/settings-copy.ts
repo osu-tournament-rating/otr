@@ -8,5 +8,5 @@ export const SETTINGS_COPY = {
   apiKeysReminder:
     'Remember not to leave your keys in sheet templates or other places by mistake.',
   deleteAccount:
-    'Permanently delete your account and remove your data from o!TR. Your player profile will remain public.',
+    'Permanently delete your account and remove your data from o!TR. Your player profile and the filter reports you created will remain public.',
 } as const;

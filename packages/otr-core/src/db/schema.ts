@@ -248,7 +248,9 @@ export const filterReports = pgTable(
       maxValue: 2147483647,
       cache: 1,
     }),
-    userId: integer('user_id').notNull(),
+    // Null once the creator deletes their account: hosts post the report ID
+    // as their screening record, so the report outlives the account.
+    userId: integer('user_id'),
     ruleset: integer().notNull(),
     minRating: integer('min_rating'),
     maxRating: integer('max_rating'),
@@ -272,7 +274,7 @@ export const filterReports = pgTable(
       columns: [table.userId],
       foreignColumns: [users.id],
       name: 'fk_filter_reports_users_user_id',
-    }).onDelete('cascade'),
+    }).onDelete('set null'),
   ]
 );
 
