@@ -7,6 +7,10 @@ import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
 import * as schema from '@otr/core/db/schema';
+import {
+  playerProfileValues,
+  savePlayerRulesetData,
+} from '@otr/core/db/player-profile';
 import { Ruleset } from '@otr/core/osu/enums';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 
@@ -16,34 +20,6 @@ const FETCHABLE_RULESETS = [
   Ruleset.Catch,
   Ruleset.ManiaOther,
 ] as const;
-
-const MANIA_VARIANT_MAP: Record<string, Ruleset> = {
-  '4k': Ruleset.Mania4k,
-  '7k': Ruleset.Mania7k,
-};
-
-type RulesetConfig = (typeof FETCHABLE_RULESETS)[number];
-
-const normalizePreviousUsernames = (
-  values: readonly string[] | null | undefined,
-  currentUsername: string
-): string[] => {
-  const seen = new Set([currentUsername.trim().toLowerCase()]);
-  const names: string[] = [];
-
-  for (const value of values ?? []) {
-    const name = value?.trim();
-    if (!name) continue;
-
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    names.push(name);
-  }
-
-  return names;
-};
 
 interface PlayerFetchServiceOptions {
   db: DatabaseClient;
@@ -138,7 +114,13 @@ export class PlayerFetchService {
         continue;
       }
 
-      await this.updateRulesetData(playerId, ruleset, apiUser, nowIso);
+      await savePlayerRulesetData(
+        this.db,
+        playerId,
+        ruleset,
+        apiUser.statistics,
+        nowIso
+      );
     }
 
     if (!processed) {
@@ -169,117 +151,13 @@ export class PlayerFetchService {
     apiUser: Awaited<ReturnType<API['getUser']>>,
     nowIso: string
   ) {
-    const updatedCountry = apiUser.country?.code ?? apiUser.country_code ?? '';
-    const username = apiUser.username ?? '';
-
     await this.db
       .update(schema.players)
       .set({
-        username,
-        previousUsernames: normalizePreviousUsernames(
-          apiUser.previous_usernames,
-          username
-        ),
-        country: updatedCountry,
+        ...playerProfileValues(apiUser),
         osuLastFetch: nowIso,
         updated: nowIso,
       })
       .where(eq(schema.players.id, playerId));
-  }
-
-  private async updateRulesetData(
-    playerId: number,
-    ruleset: RulesetConfig,
-    apiUser: Awaited<ReturnType<API['getUser']>>,
-    nowIso: string
-  ) {
-    const stats = apiUser.statistics;
-
-    if (ruleset === Ruleset.ManiaOther) {
-      await this.upsertRulesetData({
-        playerId,
-        ruleset,
-        pp: stats?.pp ?? 0,
-        globalRank: stats?.global_rank ?? null,
-        updated: nowIso,
-      });
-
-      const variants = (
-        stats as unknown as {
-          variants?: Array<Record<string, unknown>>;
-        }
-      )?.variants;
-
-      if (Array.isArray(variants)) {
-        for (const variant of variants) {
-          const hasRanking =
-            (variant as { is_ranked?: boolean }).is_ranked ||
-            (variant as { global_rank?: unknown }).global_rank !== undefined;
-
-          if (!hasRanking) {
-            continue;
-          }
-
-          const mappedRuleset =
-            MANIA_VARIANT_MAP[
-              String(
-                (variant as { variant?: string }).variant ?? ''
-              ).toLowerCase()
-            ];
-
-          if (!mappedRuleset) {
-            continue;
-          }
-
-          await this.upsertRulesetData({
-            playerId,
-            ruleset: mappedRuleset,
-            pp: Number((variant as { pp?: number }).pp ?? 0),
-            globalRank:
-              (variant as { global_rank?: number | null }).global_rank ?? null,
-            updated: nowIso,
-          });
-        }
-      }
-
-      return;
-    }
-
-    await this.upsertRulesetData({
-      playerId,
-      ruleset,
-      pp: stats?.pp ?? 0,
-      globalRank: stats?.global_rank ?? null,
-      updated: nowIso,
-    });
-  }
-
-  private async upsertRulesetData(options: {
-    playerId: number;
-    ruleset: Ruleset;
-    pp: number;
-    globalRank: number | null;
-    updated: string;
-  }) {
-    await this.db
-      .insert(schema.playerOsuRulesetData)
-      .values({
-        playerId: options.playerId,
-        ruleset: options.ruleset,
-        pp: options.pp,
-        globalRank: options.globalRank,
-        updated: options.updated,
-      })
-      .onConflictDoUpdate({
-        target: [
-          schema.playerOsuRulesetData.playerId,
-          schema.playerOsuRulesetData.ruleset,
-        ],
-        set: {
-          pp: options.pp,
-          globalRank: options.globalRank,
-          updated: options.updated,
-        },
-      });
   }
 }
