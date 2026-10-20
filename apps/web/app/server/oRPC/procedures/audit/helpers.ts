@@ -333,6 +333,11 @@ export type AssembledEvent = {
   childActionBreakdown: AuditEventActionCount[] | null;
   isCascade: boolean;
   parentEntityId: number | null;
+  /**
+   * The tournament that bounds the cascade's counts. Null when any row has
+   * left it, since the tournament then holds only what survived.
+   */
+  countParentEntityId: number | null;
   changedFields: string[];
   sampleChanges: Record<string, unknown> | null;
 };
@@ -562,6 +567,11 @@ export function assembleEvents(rows: GroupedAuditRow[]): AssembledEvent[] {
     }
 
     const parentEntityId = eventTournament(groupRows);
+    const countParentEntityId = groupRows.every(
+      (row) => row.parentEntityId === parentEntityId
+    )
+      ? parentEntityId
+      : null;
 
     const childType = getImmediateChildType(topRow.entityType);
     const childRows =
@@ -591,6 +601,7 @@ export function assembleEvents(rows: GroupedAuditRow[]): AssembledEvent[] {
       childActionBreakdown,
       isCascade,
       parentEntityId,
+      countParentEntityId,
       changedFields: [...changedFields].sort(),
       sampleChanges: normalizedChanges,
     });

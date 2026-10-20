@@ -1071,7 +1071,7 @@ export const getAuditEventFeed = publicProcedure
         event.topEntityType,
         event.topEntityId,
         event.topEntityCount,
-        event.parentEntityId
+        event.countParentEntityId
       );
       if (countParent !== null) {
         cascadeCountParents.set(event.eventKey, countParent);

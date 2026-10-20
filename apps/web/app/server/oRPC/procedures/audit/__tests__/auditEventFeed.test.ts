@@ -51,7 +51,8 @@ describe.skipIf(!testDatabaseUrl)('audit event feed', () => {
     seeded = await seedTournamentTree(db, {
       name: `${NAME}tournament`,
       osuIdBase: OSU_ID_BASE,
-      matches: 2,
+      // One game each, on consecutive days from 1 Jan 2026.
+      matches: 6,
       playerId: await playerIdOfUser(db, adminUserId),
     });
 
@@ -160,6 +161,58 @@ describe.skipIf(!testDatabaseUrl)('audit event feed', () => {
       action: 'deletion',
       topEntity: { entityType: AuditEntityType.Match, entityId: firstMatchId },
       parentTournament: { id: seeded.tournamentId },
+    });
+  });
+
+  it('counts a cascade against the tournament its matches stay in', async () => {
+    await asAdmin(async (tx) => {
+      await tx
+        .update(schema.matches)
+        .set({ verificationStatus: VerificationStatus.Rejected })
+        .where(inArray(schema.matches.id, seeded.matchIds.slice(0, 2)));
+      await tx
+        .update(schema.games)
+        .set({ verificationStatus: VerificationStatus.Rejected })
+        .where(inArray(schema.games.id, seeded.gameIds.slice(0, 2)));
+    });
+
+    const { events } = await feed();
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      topEntity: { entityType: AuditEntityType.Match, count: 2 },
+      childLevel: {
+        entityType: AuditEntityType.Game,
+        affectedCount: 2,
+        totalCount: 6,
+      },
+    });
+  });
+
+  it('counts no game total for removed matches against the games left behind', async () => {
+    await manageTournamentMatchesAdminHandler({
+      input: {
+        tournamentId: seeded.tournamentId,
+        addMatchOsuIds: [],
+        removeMatchIds: seeded.matchIds.slice(0, 2),
+      },
+      context: { db, session: adminSession(adminUserId) },
+    });
+
+    const { events } = await feed();
+
+    // The 4 games still in the tournament are not the games the 2 removed
+    // matches held, so "2 of 4 games" would be wrong.
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      action: 'deletion',
+      topEntity: { entityType: AuditEntityType.Match, count: 2 },
+      parentTournament: { id: seeded.tournamentId },
+      childLevel: {
+        entityType: AuditEntityType.Game,
+        affectedCount: 2,
+        totalCount: null,
+      },
     });
   });
 });
