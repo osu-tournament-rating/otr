@@ -33,7 +33,6 @@ CREATE TABLE "tournament_submissions" (
 	"created" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "api_allowance_full_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "filter_requests" ADD CONSTRAINT "fk_filter_requests_users_user_id" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "filter_requests" ADD CONSTRAINT "fk_filter_requests_users_reviewed_by_user_id" FOREIGN KEY ("reviewed_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "filter_requests" ADD CONSTRAINT "fk_filter_requests_filter_reports_filter_report_id" FOREIGN KEY ("filter_report_id") REFERENCES "public"."filter_reports"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
