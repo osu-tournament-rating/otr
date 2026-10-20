@@ -1,6 +1,6 @@
 use clap::Parser;
 use otr_processor::{
-    args::{first_env, unset_blank_env, Args, ARGS_ENV_VARS, DATABASE_URL_VARS},
+    args::{first_env, unset_blank_env, worktree_without_stack, Args, ARGS_ENV_VARS, DATABASE_URL_VARS},
     database::db::DbClient,
     model::{otr_model::OtrModel, rating_utils::create_initial_ratings},
     utils::country_mapping::build_country_mapping
@@ -19,8 +19,26 @@ async fn main() {
     // Used for time tracking
     let start = Instant::now();
 
-    // Initialize env vars
-    let _ = dotenvy::dotenv();
+    // Initialize env vars. dotenvy never overrides a variable, so a database
+    // set before it runs came from the shell and is used as given.
+    let database_from_shell = first_env(&DATABASE_URL_VARS).is_some();
+    let env_file = dotenvy::dotenv().ok();
+
+    // In a worktree whose stack has not started, the .env still names the
+    // developer's database, and a run would rewrite every rating in it.
+    if !database_from_shell {
+        let worktree = std::env::current_dir()
+            .ok()
+            .and_then(|dir| worktree_without_stack(&dir, env_file.as_deref()));
+        if let Some(worktree) = worktree {
+            eprintln!(
+                "{} has no otr stack, so its .env may name the developer's database. \
+                 Run apps/scripts/otr up --no-web first, or set DATABASE_URL.",
+                worktree.display()
+            );
+            std::process::exit(1);
+        }
+    }
 
     // Parse args, treating a blank variable as unset
     unset_blank_env(&ARGS_ENV_VARS);

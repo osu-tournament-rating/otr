@@ -108,3 +108,64 @@ fn test_application_exits_on_missing_connection_string() {
         stderr
     );
 }
+
+/// Test that a run from a worktree whose stack has not started refuses its
+/// copied .env, which names the developer's database
+#[test]
+#[serial]
+fn test_application_refuses_a_worktree_without_a_stack() {
+    init_test_env();
+    let build_output = Command::new("cargo")
+        .args(["build", "--bin", "otr-processor"])
+        .output()
+        .expect("Failed to execute cargo build");
+
+    if !build_output.status.success() {
+        panic!(
+            "Failed to build processor: {}\n{}",
+            String::from_utf8_lossy(&build_output.stdout),
+            String::from_utf8_lossy(&build_output.stderr)
+        );
+    }
+
+    let binary_path = if cfg!(debug_assertions) {
+        std::env::current_dir().unwrap().join("target/debug/otr-processor")
+    } else {
+        std::env::current_dir().unwrap().join("target/release/otr-processor")
+    };
+
+    // A linked worktree's root holds a .git file. Its .env names a port that
+    // nothing listens on, so a run that ignored the guard fails to connect.
+    let worktree = std::env::temp_dir().join(format!("otr_processor_worktree_{}", uuid::Uuid::new_v4()));
+    let processor_dir = worktree.join("apps/processor");
+    std::fs::create_dir_all(&processor_dir).unwrap();
+    std::fs::write(worktree.join(".git"), "gitdir: /checkout/.git/worktrees/a\n").unwrap();
+    std::fs::write(
+        worktree.join(".env"),
+        "DATABASE_URL=postgresql://postgres:password@127.0.0.1:1/postgres\n"
+    )
+    .unwrap();
+
+    let output = Command::new(&binary_path)
+        .current_dir(&processor_dir)
+        .env_clear()
+        .env("RUST_LOG", "warn")
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .output()
+        .expect("Failed to execute processor");
+
+    std::fs::remove_dir_all(&worktree).ok();
+
+    assert!(!output.status.success(), "Process should refuse the worktree's .env");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("has no otr stack"),
+        "Should say the worktree has no stack. Got: {}",
+        stderr
+    );
+    assert!(
+        !stderr.contains("Failed to connect to database"),
+        "Should stop before connecting. Got: {}",
+        stderr
+    );
+}
