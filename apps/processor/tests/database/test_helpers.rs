@@ -1,5 +1,9 @@
 use serde::Deserialize;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::Path,
+    process::{Command, Stdio}
+};
 use testcontainers::{runners::AsyncRunner, ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 use tokio_postgres::{Client, NoTls};
@@ -218,6 +222,41 @@ pub async fn row_count(client: &Client, table: &str) -> i64 {
         .await
         .expect("Failed to count rows")
         .get(0)
+}
+
+/// Builds the processor binary and returns its path.
+pub fn processor_binary() -> &'static str {
+    let build_output = Command::new("cargo")
+        .args(["build", "--bin", "otr-processor"])
+        .output()
+        .expect("Failed to execute cargo build");
+
+    if !build_output.status.success() {
+        panic!(
+            "Failed to build processor: {}\n{}",
+            String::from_utf8_lossy(&build_output.stdout),
+            String::from_utf8_lossy(&build_output.stderr)
+        );
+    }
+
+    if cfg!(debug_assertions) {
+        "target/debug/otr-processor"
+    } else {
+        "target/release/otr-processor"
+    }
+}
+
+/// A processor run against the test database. `DATABASE_URL` is set because
+/// dotenvy would otherwise load it from otr's root .env and reach the local
+/// database.
+pub fn processor(binary: &str, test_db: &TestDatabase) -> Command {
+    let mut command = Command::new(binary);
+    command
+        .env("DATABASE_URL", &test_db.connection_string)
+        .env("RUST_LOG", "warn")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    command
 }
 
 /// Builds the schema from otr's drizzle migrations, as `drizzle-kit migrate`
