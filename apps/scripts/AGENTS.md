@@ -71,7 +71,9 @@ configured application database.
   the restored seed itself.
 - `processor` runs the configured image against configured PostgreSQL. Do not
   treat it as a test command. It passes `DATABASE_URL` and no RabbitMQ URL, so
-  it requires an image that queues stats jobs in the database.
+  it requires an image that queues stats jobs in the database. The container
+  runs as `otr-processor` and is removed when it exits, so a second run cannot
+  start while one is running.
 - `template-db seed` explicitly restores an archive into `otr_template`.
   `create` fetches the supplied web checkout's `origin` default-branch revision,
   runs those migrations on the source template, clones it, and runs the task

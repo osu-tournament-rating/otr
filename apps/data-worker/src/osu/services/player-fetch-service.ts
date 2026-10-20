@@ -3,6 +3,7 @@ import type { API } from 'osu-api-v2-js';
 
 import { withApiErrorHandling, withApiMetrics } from '../api-helpers';
 import { ensurePlayerPlaceholder, updatePlayerStatus } from '../player-store';
+import { requeueOsuTrackForNewRulesetData } from '../../osu-track/requeue';
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
@@ -143,7 +144,30 @@ export class PlayerFetchService {
       nowIso
     );
 
+    await this.requeueOsuTrack(osuPlayerId);
+
     return true;
+  }
+
+  /**
+   * Queues osu!track again when its last fetch ran before this profile
+   * data existed. A failure is logged, not thrown: retrying the job would
+   * fetch the profile from osu! again, and the next profile fetch checks
+   * again anyway.
+   */
+  private async requeueOsuTrack(osuPlayerId: number) {
+    try {
+      if (await requeueOsuTrackForNewRulesetData(this.db, osuPlayerId)) {
+        this.logger.info('Queued osu!track for new ruleset data', {
+          osuPlayerId,
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed to queue osu!track for new ruleset data', {
+        osuPlayerId,
+        error,
+      });
+    }
   }
 
   private async updatePlayerCore(

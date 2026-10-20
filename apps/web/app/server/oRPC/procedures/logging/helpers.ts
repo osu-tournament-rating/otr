@@ -53,15 +53,17 @@ function maskApiKey(value: string): string {
 }
 
 export function resolveActor(context: ActorResolutionContext): ActorInfo {
-  if (context.apiKey && context.apiKeyActor) {
+  // The key was accepted even when looking up its owner failed, so the call
+  // still counts as the key's, under its user ID
+  if (context.apiKey) {
+    const owner = context.apiKeyActor;
+
     return {
       accessMethod: 'api-key',
       userId: context.apiKey.userId,
-      playerId: context.apiKeyActor.playerId,
-      osuId: context.apiKeyActor.osuId
-        ? String(context.apiKeyActor.osuId)
-        : null,
-      osuUsername: context.apiKeyActor.osuUsername,
+      playerId: owner?.playerId ?? null,
+      osuId: owner?.osuId ? String(owner.osuId) : null,
+      osuUsername: owner?.osuUsername ?? null,
       apiKeyId: maskApiKey(context.apiKey.id),
       apiKeyName: context.apiKey.name,
     };
