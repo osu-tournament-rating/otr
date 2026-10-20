@@ -309,6 +309,13 @@
       "when": 1792455362482,
       "tag": "0043_audit_action_type_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792456052218,
+      "tag": "0044_admin_notes_outlive_records",
+      "breakpoints": true
     }
   ]
 }
