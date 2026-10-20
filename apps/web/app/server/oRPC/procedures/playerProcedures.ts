@@ -48,7 +48,11 @@ import { buildTierProgress } from '@/lib/utils/tierProgress';
 
 import { publicProcedure } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
-import { KeyTypeSchema, resolvePlayerId } from './shared/keyType';
+import {
+  KeyTypeSchema,
+  playerIdErrors,
+  resolvePlayerId,
+} from './shared/keyType';
 
 export const getPlayer = publicProcedure
   .input(
@@ -58,6 +62,7 @@ export const getPlayer = publicProcedure
     })
   )
   .output(PlayerSchema)
+  .errors(playerIdErrors)
   .route({
     summary: 'Get player details',
     description:
@@ -691,6 +696,7 @@ export async function listPlayerTournamentHistory(
 export const getPlayerTournaments = publicProcedure
   .input(PlayerTournamentsInputSchema)
   .output(PlayerTournamentListItemSchema.array())
+  .errors(playerIdErrors)
   .route({
     summary: 'List player tournaments',
     description:
@@ -719,6 +725,7 @@ export const getPlayerTournaments = publicProcedure
 export const getPlayerTournamentHistory = publicProcedure
   .input(PlayerTournamentsInputSchema)
   .output(PlayerTournamentHistoryItemSchema.array())
+  .errors(playerIdErrors)
   .route({
     summary: "List a player's tournament history for the profile",
     tags: ['players'],
@@ -734,6 +741,7 @@ export const getPlayerTournamentHistory = publicProcedure
 export const getPlayerBeatmaps = publicProcedure
   .input(PlayerBeatmapsRequestSchema)
   .output(PlayerBeatmapsResponseSchema)
+  .errors(playerIdErrors)
   .route({
     summary: 'List player beatmaps',
     description:
@@ -940,6 +948,7 @@ export const getPlayerStats = publicProcedure
     })
   )
   .output(PlayerStatsSchema)
+  .errors(playerIdErrors)
   .route({
     summary: 'Get player stats',
     description:

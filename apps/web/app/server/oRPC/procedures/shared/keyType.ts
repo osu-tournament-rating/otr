@@ -8,6 +8,17 @@ import * as schema from '@otr/core/db/schema';
 export const KeyTypeSchema = z.enum(['otr', 'osu', 'username']).default('otr');
 export type KeyType = z.infer<typeof KeyTypeSchema>;
 
+const INVALID_PLAYER_ID_MESSAGE =
+  'Player ID is not a number. To look up a player by username, pass keyType=username.';
+
+/**
+ * The client error `resolvePlayerId` throws. A procedure that calls it
+ * declares these with `.errors()`, so the API reference documents the 400.
+ */
+export const playerIdErrors = {
+  INVALID_PLAYER_ID: { status: 400, message: INVALID_PLAYER_ID_MESSAGE },
+} as const;
+
 export async function resolvePlayerId(
   db: DatabaseClient,
   id: number | string,
@@ -25,7 +36,16 @@ export async function resolvePlayerId(
     return player.id;
   }
 
+  // The public API passes every ID as text. Without this, a username reaches
+  // Postgres as NaN and fails as a server error.
   const numericId = Number(id);
+  if (!Number.isSafeInteger(numericId)) {
+    throw new ORPCError('INVALID_PLAYER_ID', {
+      status: 400,
+      message: INVALID_PLAYER_ID_MESSAGE,
+    });
+  }
+
   if (keyType === 'otr') {
     const player = await db.query.players.findFirst({
       where: (players, { eq }) => eq(players.id, numericId),
