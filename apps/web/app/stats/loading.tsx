@@ -4,11 +4,13 @@ import {
   RulesetSwitchSkeleton,
   SectionHeaderSkeleton,
   SkeletonText,
+  StatTileGridSkeleton,
 } from '@/components/kit/feedback/Skeletons';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageSection } from '@/components/kit/layout/PageSection';
 import {
   BY_RULESET_SECTION,
+  OVERVIEW_LABELS,
   STATS_PANELS,
 } from '@/components/stats/chart-panels';
 
@@ -26,6 +28,12 @@ export default function StatsLoading() {
   return (
     <PageFrame role="status" aria-label="Loading statistics">
       <StatsPageHeader />
+      <PanelSkeleton>
+        <SectionHeaderSkeleton {...STATS_PANELS.overview} meta={false} />
+        <div className="p-4">
+          <StatTileGridSkeleton labels={OVERVIEW_LABELS} columns={4} sub />
+        </div>
+      </PanelSkeleton>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {CHART_PANELS.map(({ copy, metaWidth }) => (
           <PanelSkeleton key={copy.title}>

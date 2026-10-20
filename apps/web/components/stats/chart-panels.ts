@@ -3,6 +3,7 @@ import {
   ChartNoAxesColumn,
   CircleCheck,
   Gamepad2,
+  LayoutGrid,
   Users,
 } from 'lucide-react';
 
@@ -50,7 +51,20 @@ export const STATS_PANELS = {
     icon: ChartNoAxesColumn,
     title: 'Rating distribution',
   },
+  overview: {
+    icon: LayoutGrid,
+    title: 'Overview',
+    infoText: 'Counts only verified tournaments, matches, games and scores',
+  },
 } as const satisfies Record<string, StatsPanelCopy>;
+
+/** The overview's tile labels, shared with the loading screen. */
+export const OVERVIEW_LABELS = [
+  'Tournaments',
+  'Matches',
+  'Scores',
+  'Rated players',
+] as const;
 
 /** The heading over the panels that follow the page's ruleset. */
 export const BY_RULESET_SECTION = {
