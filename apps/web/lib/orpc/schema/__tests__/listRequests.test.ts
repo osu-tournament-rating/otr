@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 
 import { Ruleset } from '@otr/core/osu';
 
+import { MAX_SEARCH_LENGTH } from '@/lib/kit/lists/search';
+
 import { BeatmapListRequestSchema } from '../beatmapList';
 import { LeaderboardRequestSchema } from '../leaderboard';
 import { ReportListInputSchema } from '../report';
@@ -35,6 +37,15 @@ describe.each([
     expect(schema.safeParse({ rulesets: [Ruleset.Osu, 9] }).success).toBe(
       false
     );
+  });
+
+  // Matching work grows with the term, so direct API callers get the
+  // list page's limit too
+  test('searches for a term as long as the list page sends, and no longer', () => {
+    const term = (length: number) => ({ searchQuery: 'a'.repeat(length) });
+
+    expect(schema.safeParse(term(MAX_SEARCH_LENGTH)).success).toBe(true);
+    expect(schema.safeParse(term(MAX_SEARCH_LENGTH + 1)).success).toBe(false);
   });
 });
 

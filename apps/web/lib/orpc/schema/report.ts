@@ -9,12 +9,29 @@ export const ReportReasonSchema = z.object({
   label: z.string().min(1),
 });
 
+/** The most text one report stores, as the report form allows. */
+const MAX_REPORT_DETAILS_LENGTH = 2000;
+
+/** Characters the legacy shape stores: changed fields' names and values, and the justification. */
+const legacyDetailsLength = (input: {
+  suggestedChanges?: Record<string, string>;
+  justification?: string;
+}) =>
+  Object.entries(input.suggestedChanges ?? {}).reduce(
+    (length, [field, value]) => length + field.length + value.length,
+    input.justification?.length ?? 0
+  );
+
 export const ReportCreateInputSchema = z
   .object({
     entityType: z.nativeEnum(ReportEntityType),
     entityId: z.number().int().positive(),
     reasonKey: z.string().trim().min(1).optional(),
-    additionalInformation: z.string().trim().max(2000).optional(),
+    additionalInformation: z
+      .string()
+      .trim()
+      .max(MAX_REPORT_DETAILS_LENGTH)
+      .optional(),
     suggestedChanges: z.record(z.string(), z.string()).optional(),
     justification: z.string().min(1).optional(),
   })
@@ -27,6 +44,14 @@ export const ReportCreateInputSchema = z
         code: 'custom',
         message: 'Reason is required',
         path: ['reasonKey'],
+      });
+    }
+
+    if (legacyDetailsLength(input) > MAX_REPORT_DETAILS_LENGTH) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Report details cannot exceed 2,000 characters',
+        path: ['justification'],
       });
     }
   });

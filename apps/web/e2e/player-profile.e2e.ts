@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { MOD_PERFORMANCE_INFO } from '../components/player/section-info';
+import { waitForHydration } from './fixtures/hydration';
 import { TEST_PLAYER_ID, ROUTES, Ruleset } from './fixtures/test-config';
 
 test.describe('Player Profile Page', () => {
@@ -174,7 +175,9 @@ test.describe('Player Profile Page', () => {
       const chart = page.locator('[data-testid="player-rating-chart"]');
       await expect(chart).toBeVisible({ timeout: 15000 });
 
-      await chart.getByRole('radio', { name: 'Volatility' }).click();
+      const volatility = chart.getByRole('radio', { name: 'Volatility' });
+      await waitForHydration(volatility);
+      await volatility.click();
       await chart.getByRole('radio', { name: 'Table' }).click();
       await expect(page).toHaveURL(/metric=volatility/);
       await expect(page).toHaveURL(/view=table/);
