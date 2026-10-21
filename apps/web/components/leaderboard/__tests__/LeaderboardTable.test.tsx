@@ -121,8 +121,7 @@ describe('LeaderboardTable', () => {
       entry(4, 'active', 'PL', 7),
       { ...entry(5, 'idle', 'PL', 9), inactive: true },
     ]);
-    const mark =
-      /<button[^>]*aria-label="Inactive: no verified match in the last year"/;
+    const mark = /<button[^>]*aria-label="Inactive"/;
 
     for (const [attribute, closing] of [
       ['data-testid="leaderboard-row-', '</tr>'],

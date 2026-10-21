@@ -84,7 +84,7 @@ function TierMark({ entry, size }: { entry: LeaderboardEntry; size: number }) {
   );
 }
 
-const INACTIVE_TOOLTIP = 'Inactive: no verified match in the last year';
+const INACTIVE_TOOLTIP = 'Inactive';
 
 /**
  * Marks a player with no verified match in the ruleset for a year, whom the
