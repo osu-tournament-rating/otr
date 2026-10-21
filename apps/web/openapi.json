@@ -2306,6 +2306,14 @@
               "subTierFillPercentage",
               "majorTierFillPercentage"
             ]
+          },
+          "lastMatchTime": {
+            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "description": "When the player's last verified match in the ruleset ended (ISO 8601), as of the last rating run."
+          },
+          "inactive": {
+            "type": "boolean",
+            "description": "True when the player has no verified match in the ruleset in the last 365 days."
           }
         },
         "required": [
@@ -2320,7 +2328,9 @@
           "matchesPlayed",
           "winRate",
           "tier",
-          "tierProgress"
+          "tierProgress",
+          "lastMatchTime",
+          "inactive"
         ]
       },
       "PlayerBeatmap": {
@@ -2390,9 +2400,20 @@
                 "enum": [0, 1, 2, 3, 4, 5],
                 "type": "integer",
                 "description": "The ruleset the player chose for their profile in their settings. Without one, the ruleset they have played the most verified tournaments in, then the most verified matches, then most recently, and osu! when they have none. 0=Osu, 1=Taiko, 2=Catch, 3=ManiaOther, 4=Mania4k, 5=Mania7k"
+              },
+              "restricted": {
+                "type": "boolean",
+                "description": "True when the player is restricted on osu!. Restricted players are on no leaderboard."
               }
             },
-            "required": ["id", "osuId", "username", "country", "defaultRuleset"]
+            "required": [
+              "id",
+              "osuId",
+              "username",
+              "country",
+              "defaultRuleset",
+              "restricted"
+            ]
           },
           "ruleset": { "$ref": "#/components/schemas/Ruleset" },
           "rating": {
@@ -2598,7 +2619,15 @@
                       ]
                     }
                   },
-                  "isProvisional": { "type": "boolean" }
+                  "isProvisional": { "type": "boolean" },
+                  "lastMatchTime": {
+                    "anyOf": [{ "type": "string" }, { "type": "null" }],
+                    "description": "When the player's last verified match in the ruleset ended (ISO 8601), as of the last rating run."
+                  },
+                  "inactive": {
+                    "type": "boolean",
+                    "description": "True when the player has no verified match in the ruleset in the last 365 days."
+                  }
                 },
                 "required": [
                   "ruleset",
@@ -2611,7 +2640,9 @@
                   "winRate",
                   "tierProgress",
                   "adjustments",
-                  "isProvisional"
+                  "isProvisional",
+                  "lastMatchTime",
+                  "inactive"
                 ]
               },
               { "type": "null" }
@@ -3315,6 +3346,16 @@
             "schema": {
               "type": "boolean",
               "description": "Sort direction; defaults to true (highest first). Ties fall back to global rank."
+            },
+            "allowEmptyValue": true,
+            "allowReserved": true
+          },
+          {
+            "name": "includeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "description": "Lists inactive players, with no verified match in the ruleset in the last 365 days. Defaults to true; false lists only active players. Players restricted on osu! are never listed."
             },
             "allowEmptyValue": true,
             "allowReserved": true
@@ -4369,7 +4410,35 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Player" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "osuId": { "type": "integer" },
+                    "username": { "type": "string", "maxLength": 32 },
+                    "country": { "type": "string", "maxLength": 4 },
+                    "defaultRuleset": {
+                      "enum": [0, 1, 2, 3, 4, 5],
+                      "type": "integer",
+                      "description": "The ruleset the player chose for their profile in their settings. Without one, the ruleset they have played the most verified tournaments in, then the most verified matches, then most recently, and osu! when they have none. 0=Osu, 1=Taiko, 2=Catch, 3=ManiaOther, 4=Mania4k, 5=Mania7k"
+                    },
+                    "userId": {
+                      "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                    },
+                    "restricted": {
+                      "type": "boolean",
+                      "description": "True when the player is restricted on osu!. Restricted players are on no leaderboard."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "osuId",
+                    "username",
+                    "country",
+                    "defaultRuleset",
+                    "restricted"
+                  ]
+                }
               }
             }
           },

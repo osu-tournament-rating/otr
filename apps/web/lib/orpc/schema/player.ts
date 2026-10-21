@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { playerSelectSchema } from './base';
 import { DefaultRulesetSchema } from './constants';
 
+/**
+ * A player as other responses embed them: a match's players, a tournament's
+ * submitter, a note's author. Whether they are restricted is left out.
+ */
 export const PlayerSchema = playerSelectSchema
   .pick({
     id: true,
@@ -16,6 +20,15 @@ export const PlayerSchema = playerSelectSchema
   });
 
 export type Player = z.infer<typeof PlayerSchema>;
+
+/** A player on their own, as `/players/{id}` returns them. */
+export const PlayerDetailSchema = PlayerSchema.extend({
+  restricted: z
+    .boolean()
+    .describe(
+      'True when the player is restricted on osu!. Restricted players are on no leaderboard.'
+    ),
+});
 
 export const PlayerLookupInputSchema = z.object({
   query: z.string().trim().min(1).max(100),

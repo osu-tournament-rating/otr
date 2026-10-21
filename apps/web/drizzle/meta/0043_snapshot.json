@@ -1,5 +1,5 @@
 {
-  "id": "1c6d1b78-75b3-4338-90c9-9ca4141bbe49",
+  "id": "d8067d3b-04ec-4dfb-b750-9a3730c8292e",
   "prevId": "b3b4e389-865c-4678-88cb-2fb6d5e047de",
   "version": "7",
   "dialect": "postgresql",
@@ -1941,118 +1941,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.fetch_exclusions": {
-      "name": "fetch_exclusions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "fetch_exclusions_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "match_id": {
-          "name": "match_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "osu_game_id": {
-          "name": "osu_game_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "player_id": {
-          "name": "player_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "merged_into_game_id": {
-          "name": "merged_into_game_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created": {
-          "name": "created",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "ix_fetch_exclusions_merged_into_game_id": {
-          "name": "ix_fetch_exclusions_merged_into_game_id",
-          "columns": [
-            {
-              "expression": "merged_into_game_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "fk_fetch_exclusions_matches_match_id": {
-          "name": "fk_fetch_exclusions_matches_match_id",
-          "tableFrom": "fetch_exclusions",
-          "tableTo": "matches",
-          "columnsFrom": ["match_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "fk_fetch_exclusions_players_player_id": {
-          "name": "fk_fetch_exclusions_players_player_id",
-          "tableFrom": "fetch_exclusions",
-          "tableTo": "players",
-          "columnsFrom": ["player_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "fk_fetch_exclusions_games_merged_into_game_id": {
-          "name": "fk_fetch_exclusions_games_merged_into_game_id",
-          "tableFrom": "fetch_exclusions",
-          "tableTo": "games",
-          "columnsFrom": ["merged_into_game_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "uq_fetch_exclusions_match_id_osu_game_id_player_id": {
-          "name": "uq_fetch_exclusions_match_id_osu_game_id_player_id",
-          "nullsNotDistinct": true,
-          "columns": ["match_id", "osu_game_id", "player_id"]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.filter_report_players": {
       "name": "filter_report_players",
       "schema": "",
@@ -3329,13 +3217,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "edited_fields": {
-          "name": "edited_fields",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
         "game_id": {
           "name": "game_id",
           "type": "integer",
@@ -3559,13 +3440,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "edited_fields": {
-          "name": "edited_fields",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
         },
         "match_id": {
           "name": "match_id",
@@ -4865,13 +4739,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "edited_fields": {
-          "name": "edited_fields",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
         },
         "is_lazer": {
           "name": "is_lazer",
@@ -6382,6 +6249,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created": {
           "name": "created",
