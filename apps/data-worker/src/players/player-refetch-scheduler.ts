@@ -10,7 +10,7 @@ import {
   claimPlayerFetchLease,
   type PlayerFetchSource,
   type PlayerFetchState,
-} from '../osu/player-store';
+} from '@otr/core/db/player-fetch-lease';
 import {
   fetchLeaseCutoff,
   selectPlayersDueForOsuRefetch,

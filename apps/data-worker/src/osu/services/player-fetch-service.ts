@@ -3,11 +3,11 @@ import type { API } from 'osu-api-v2-js';
 
 import { withApiErrorHandling, withApiMetrics } from '../api-helpers';
 import { ensurePlayerPlaceholder, updatePlayerStatus } from '../player-store';
-import { requeueOsuTrackForNewRulesetData } from '../../osu-track/requeue';
 import type { DatabaseClient } from '../../db';
 import type { Logger } from '../../logging/logger';
 import type { RateLimiter } from '../../rate-limiter';
 import * as schema from '@otr/core/db/schema';
+import { requeueOsuTrackForNewRulesetData } from '@otr/core/db/player-fetch-lease';
 import {
   playerProfileValues,
   savePlayerRulesetData,
