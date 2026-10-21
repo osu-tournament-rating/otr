@@ -1,6 +1,6 @@
 {
-  "id": "605e82dc-7a27-48c3-90a2-7f80f59ffd00",
-  "prevId": "f8161e98-825f-4d3c-b9ec-0d5c4cfb4e45",
+  "id": "ea5989c6-83b8-4ace-86c5-b5f6e9a704ba",
+  "prevId": "0eb6b23a-2ed8-4dec-b9e4-2e1c72c5573c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -6422,6 +6422,13 @@
           "notNull": true,
           "default": 0
         },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created": {
           "name": "created",
           "type": "timestamp with time zone",
@@ -6672,6 +6679,30 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ix_rating_adjustments_player_rating_id_match_timestamp": {
+          "name": "ix_rating_adjustments_player_rating_id_match_timestamp",
+          "columns": [
+            {
+              "expression": "player_rating_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            },
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "adjustment_type = 2",
           "concurrently": false,
           "method": "btree",
           "with": {}

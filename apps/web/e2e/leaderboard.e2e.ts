@@ -1,11 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ROUTES, Ruleset } from './fixtures/test-config';
+import { waitForHydration } from './fixtures/hydration';
 
 /** Opens the filter panel and returns it. */
 async function openFilters(page: Page) {
   const panel = page.getByRole('dialog', { name: 'Filter players' });
   if (!(await panel.isVisible())) {
-    await page.getByRole('button', { name: /^Filters/ }).click();
+    const filters = page.getByRole('button', { name: /^Filters/ });
+    await waitForHydration(filters);
+    await filters.click();
   }
   await expect(panel).toBeVisible({ timeout: 10000 });
   return panel;
@@ -138,6 +141,7 @@ test.describe('Leaderboard Page', () => {
       await page.waitForLoadState('networkidle');
 
       const search = page.getByRole('searchbox', { name: 'Search players' });
+      await waitForHydration(search);
       await search.fill('mr');
       await search.press('Enter');
 
@@ -298,10 +302,11 @@ test.describe('Leaderboard Page', () => {
       );
       await page.waitForLoadState('networkidle');
 
-      await page
+      const clearAll = page
         .getByRole('group', { name: 'Active filters' })
-        .getByRole('button', { name: 'Clear all' })
-        .click();
+        .getByRole('button', { name: 'Clear all' });
+      await waitForHydration(clearAll);
+      await clearAll.click();
 
       await page.waitForURL((url) => !url.searchParams.has('tiers'), {
         timeout: 10000,

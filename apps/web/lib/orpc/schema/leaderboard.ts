@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { INACTIVE_AFTER_DAYS } from '@otr/core/db/player-activity';
+
 import { playerRatingSelectSchema, playerSelectSchema } from './base';
 import { RulesetSchema } from './constants';
 
@@ -66,15 +68,32 @@ const leaderboardRatingBaseSchema = playerRatingSelectSchema
     ruleset: RulesetSchema,
   });
 
-export const LeaderboardEntrySchema = leaderboardRatingBaseSchema.extend({
-  player: LeaderboardPlayerSchema,
-  countryRank: z.number().int().nonnegative(),
-  tournamentsPlayed: z.number().int().nonnegative(),
-  matchesPlayed: z.number().int().nonnegative(),
-  winRate: z.number().min(0).max(1),
-  tier: LeaderboardTierKeySchema,
-  tierProgress: TierProgressSchema,
+/** A rated player's activity in the ruleset, for the leaderboard and profiles. */
+export const PlayerActivitySchema = z.object({
+  lastMatchTime: z
+    .string()
+    .nullable()
+    .describe(
+      "When the player's last verified match in the ruleset ended (ISO 8601), as of the last rating run."
+    ),
+  inactive: z
+    .boolean()
+    .describe(
+      `True when the player has no verified match in the ruleset in the last ${INACTIVE_AFTER_DAYS} days.`
+    ),
 });
+
+export const LeaderboardEntrySchema = leaderboardRatingBaseSchema
+  .extend({
+    player: LeaderboardPlayerSchema,
+    countryRank: z.number().int().nonnegative(),
+    tournamentsPlayed: z.number().int().nonnegative(),
+    matchesPlayed: z.number().int().nonnegative(),
+    winRate: z.number().min(0).max(1),
+    tier: LeaderboardTierKeySchema,
+    tierProgress: TierProgressSchema,
+  })
+  .extend(PlayerActivitySchema.shape);
 
 export const LeaderboardRequestSchema = z.object({
   page: z.number().int().min(1).optional(),
@@ -107,6 +126,12 @@ export const LeaderboardRequestSchema = z.object({
     .optional()
     .describe(
       'Sort direction; defaults to true (highest first). Ties fall back to global rank.'
+    ),
+  includeInactive: z
+    .boolean()
+    .optional()
+    .describe(
+      `Lists inactive players, with no verified match in the ruleset in the last ${INACTIVE_AFTER_DAYS} days. Defaults to true; false lists only active players. Players restricted on osu! are never listed.`
     ),
   friend: z.boolean().optional(),
   userId: z.number().int().min(1).optional(),

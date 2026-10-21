@@ -3,6 +3,7 @@
 import type { Ruleset } from '@otr/core/osu';
 
 import {
+  countLeaderboardFilters,
   LEADERBOARD_LIST_PARAMS,
   LEADERBOARD_MATCHES_SCALE,
   LEADERBOARD_RANGES,
@@ -14,6 +15,7 @@ import {
   ChoiceFilter,
   FilterField,
   FilterPanel,
+  SwitchFilter,
 } from '@/components/kit/lists/FilterPanel';
 import { RangeFilter } from '@/components/kit/lists/RangeFilter';
 import { ListToolbar } from '@/components/kit/lists/ListToolbar';
@@ -56,6 +58,9 @@ const WIN_RATE_LABEL = fieldLabel('winRate');
 
 const formatWinRate = (value: number) => `${formatFilterNumber(value)}%`;
 
+const INCLUDE_INACTIVE_LABEL = 'Include inactive players';
+const ACTIVE_ONLY_LABEL = 'Active players only';
+
 /**
  * The strip at the top of the leaderboard's panel: player search, sort and
  * filters, then All / Friends, the ruleset and the player count. Everything
@@ -92,6 +97,9 @@ export default function LeaderboardToolbar({
     ? (countries.find((country) => country.code === state.country)?.name ??
       getCountryName(state.country))
     : '';
+  // The friends tab always lists inactive friends, so the switch would do
+  // nothing there.
+  const showInactiveSwitch = !state.friend;
 
   return (
     <ListToolbar
@@ -116,7 +124,7 @@ export default function LeaderboardToolbar({
       filters={
         <FilterPanel
           title="Filter players"
-          activeCount={list.activeFilterCount}
+          activeCount={countLeaderboardFilters(state)}
           onClearAll={list.clearFilters}
         >
           <RangeFilter
@@ -168,6 +176,16 @@ export default function LeaderboardToolbar({
               data-testid="leaderboard-filter-country-button"
             />
           </FilterField>
+          {showInactiveSwitch && (
+            <SwitchFilter
+              label={INCLUDE_INACTIVE_LABEL}
+              description="No verified match in the last year"
+              checked={state.includeInactive}
+              onCheckedChange={(includeInactive) =>
+                setState({ includeInactive })
+              }
+            />
+          )}
         </FilterPanel>
       }
       scope={
@@ -240,6 +258,14 @@ export default function LeaderboardToolbar({
               key: 'country',
               label: countryName ? `Country: ${countryName}` : '',
               onRemove: () => setState({ country: '' }),
+            },
+            {
+              key: 'includeInactive',
+              label:
+                showInactiveSwitch && !state.includeInactive
+                  ? ACTIVE_ONLY_LABEL
+                  : '',
+              onRemove: () => setState({ includeInactive: true }),
             },
           ]}
         />

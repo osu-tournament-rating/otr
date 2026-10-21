@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { betterAuthLogger } from './library-logs';
 import { legacyOAuthCallbackURL } from './osu-callback';
+import { saveOwnOsuProfile, type OwnOsuProfile } from './osu-profile';
 import { recordLastLogin, recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
@@ -87,7 +88,7 @@ const createUserOsuApiClient = (accessToken: string) => {
 
 const fetchOsuProfile = async (
   accessToken?: string | null
-): Promise<User.Extended.WithStatisticsrulesets | null> => {
+): Promise<OwnOsuProfile | null> => {
   if (!accessToken) {
     return null;
   }
@@ -95,7 +96,11 @@ const fetchOsuProfile = async (
   try {
     const api = createUserOsuApiClient(accessToken);
 
-    return await api.getResourceOwner();
+    // `/me/mania` is the same profile as `/me`, with every ruleset's
+    // statistics, but its own statistics are mania's, the only ones that
+    // list 4K and 7K. Still one request. `getResourceOwner(ruleset)` puts
+    // the ruleset in a query parameter, not in the path osu! reads.
+    return (await api.request('get', ['me', 'mania'])) as OwnOsuProfile;
   } catch (error) {
     logger.error('Failed to fetch osu! profile', { error });
     return null;
@@ -107,11 +112,12 @@ type EnsurePlayerParams = {
   profile?: OsuProfileLike | null;
 };
 
-// Sign-in saves only the name and country, not ranks or pp, so it is not an
-// osu! fetch and never writes the last-fetch time. A new player keeps the
-// never-fetched default, which the data worker's refetch scheduler picks up.
-// While a fetch is pending, the time records when it started, and moving it
-// would stop the worker from ever retrying a lost fetch.
+// This saves only the name and country, not ranks or pp, so it is not an osu!
+// fetch and never writes the last-fetch time. A new player keeps the
+// never-fetched default until saveOwnOsuProfile or the data worker's refetch
+// scheduler records a fetch. While a fetch is pending, the time records when
+// it started, and moving it alone would stop the worker from ever retrying a
+// lost fetch.
 const ensurePlayer = async ({
   osuId,
   profile,
@@ -145,6 +151,9 @@ const ensurePlayer = async ({
         where: eq(schema.players.osuId, osuId),
       }));
   } else if (profile) {
+    // Not the last fetch time: this saves a name and country, not a fetch,
+    // and moving the time would keep a player waiting on a refetch from ever
+    // timing out. saveOwnOsuProfile records a fetch at sign-in.
     const updatePayload = {
       username: sanitizedUsername || player.username,
       country: sanitizedCountry || player.country,
@@ -666,6 +675,8 @@ export const auth = betterAuth({
             if (!ensured) {
               return null;
             }
+
+            await saveOwnOsuProfile(ensured.player.id, profile);
 
             await syncPlayerFriends({
               playerId: ensured.player.id,

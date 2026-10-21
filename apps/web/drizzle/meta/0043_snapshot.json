@@ -1,5 +1,5 @@
 {
-  "id": "6b552956-5522-4ca3-bdae-b7ffc722c64b",
+  "id": "d8067d3b-04ec-4dfb-b750-9a3730c8292e",
   "prevId": "b3b4e389-865c-4678-88cb-2fb6d5e047de",
   "version": "7",
   "dialect": "postgresql",
@@ -2126,7 +2126,7 @@
           "name": "user_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "ruleset": {
           "name": "ruleset",
@@ -2221,7 +2221,7 @@
           "tableTo": "users",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onDelete": "set null",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -6249,6 +6249,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created": {
           "name": "created",
