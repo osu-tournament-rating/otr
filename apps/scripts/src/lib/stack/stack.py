@@ -18,6 +18,7 @@ import re
 import shutil
 import socket
 import subprocess
+import tempfile
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,6 +40,21 @@ SLOTS = range(1, 100)
 SERVICES = ("monitoring",)
 PROCESSES = ("web", "worker")
 COMPONENTS = ("web", "worker", "monitoring")
+
+# An empty database beside the copy, migrated like the one CI's checks job
+# runs the database tests against. `otr test` points those tests at it.
+TEST_DATABASE = "otr_test"
+MIGRATIONS = Path("apps") / "web" / "drizzle"
+
+# Settings only the stack's web app gets, kept out of the worktree's .env,
+# which Bun also loads into `bun test`.
+WEB_ONLY_ENV = {
+    # Sends osu! sign-in to the fake osu! server the e2e suite starts
+    # (FAKE_OSU_URL in apps/web/e2e/fixtures/fake-osu.ts), so the suite's
+    # sign-in specs run against the stack. The unit tests fake osu! their own
+    # way, which this would bypass.
+    "E2E_OSU_URL": "http://localhost:3002",
+}
 
 
 def stacks_root() -> Path:
@@ -215,10 +231,8 @@ def managed_env(
     files to the production bucket."""
     ports = stack.ports
     web = f"http://{HOST}:{ports.web}"
-    pg_auth = f"{quote(creds.pg_user, safe='')}:{quote(creds.pg_password, safe='')}"
     return {
-        "DATABASE_URL": f"postgresql://{pg_auth}@{HOST}:{ports.db}/"
-        + quote(creds.pg_db, safe=""),
+        "DATABASE_URL": database_url(stack, creds, creds.pg_db),
         "NEXT_PUBLIC_APP_BASE_URL": web,
         "BETTER_AUTH_URL": web,
         "INTERNAL_APP_BASE_URL": web,
@@ -239,6 +253,11 @@ def managed_env(
         "BEATMAP_FILES_ACCESS_KEY_ID": "",
         "BEATMAP_FILES_SECRET_ACCESS_KEY": "",
     }
+
+
+def database_url(stack: Stack, creds: Credentials, name: str) -> str:
+    pg_auth = f"{quote(creds.pg_user, safe='')}:{quote(creds.pg_password, safe='')}"
+    return f"postgresql://{pg_auth}@{HOST}:{stack.ports.db}/{quote(name, safe='')}"
 
 
 def compose(stack: Stack, creds: Credentials, *args: str) -> str:
@@ -277,16 +296,22 @@ def process_env(managed: dict[str, str | None]) -> dict[str, str]:
 
 
 def reset_web_cache(worktree: Path) -> None:
-    """Clears the web app's dev cache the first time otr starts it in a
-    worktree. A cache built before the web config pinned the monorepo root
-    belongs to the outer checkout, and Turbopack reuses it and then fails to
-    find packages."""
-    marker = worktree / ".tmp" / "otr" / "web-cache-reset"
-    if marker.exists():
-        return
+    """Clears the web app's dev cache before otr starts it. Turbopack keeps
+    that cache across restarts, and a server started over one an earlier
+    server wrote, on another port or with other settings, can answer every
+    page load with an "HMR hash mismatch" that reloads the page, over and
+    over. A stack's port changes whenever it is disposed and made again. The
+    cost is that each page compiles from scratch on its first load after a
+    start."""
     shutil.rmtree(worktree / "apps" / "web" / ".next" / "dev", ignore_errors=True)
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.touch()
+
+
+def process_settings(
+    process: str, managed: dict[str, str | None]
+) -> dict[str, str | None]:
+    """The settings otr gives `process`: the .env block's, plus the web app's
+    own. A running process restarts when these change."""
+    return {**managed, **WEB_ONLY_ENV} if process == "web" else managed
 
 
 def start_process(stack: Stack, process: str, managed: dict[str, str | None]) -> None:
@@ -304,12 +329,13 @@ def start_process(stack: Stack, process: str, managed: dict[str, str | None]) ->
 
     print(f"otr: starting {process}")
     log = stack.log(process)
+    settings = process_settings(process, managed)
     record = procs.start(
         stack.record(process),
         argv,
         cwd,
-        process_env(managed),
-        procs.env_digest(managed),
+        process_env(settings),
+        procs.env_digest(settings),
         log,
     )
     try:
@@ -323,9 +349,9 @@ def sync_processes(
 ) -> None:
     """Starts each wanted process that is not running, and restarts any running
     one whose settings changed, such as when monitoring comes or goes."""
-    digest = procs.env_digest(managed)
     for process in PROCESSES:
         record = procs.load(stack.record(process))
+        digest = procs.env_digest(process_settings(process, managed))
         if record and record.env != digest:
             print(f"otr: restarting {process} with the new settings")
             procs.stop(stack.record(process))
@@ -352,6 +378,69 @@ def migrate(worktree: Path, database_url: str) -> None:
         )
     except StackError as error:
         raise StackError(f"The worktree's migrations failed. {error}") from None
+
+
+def copy_migrations_for_empty_database(source: Path, target: Path) -> None:
+    """Copies the migrations in `source` to `target` for a database that starts
+    empty. The first migration ships commented out, because it creates the
+    tables an existing database already has, so the copy uncomments it the way
+    CI's checks job does: it drops the three-line notice and each `-- `."""
+    shutil.copytree(source, target)
+    first = min(target.glob("0000_*.sql"))
+    lines = first.read_text().splitlines(keepends=True)[3:]
+    first.write_text("".join(line.removeprefix("-- ") for line in lines))
+
+
+def migrate_empty(worktree: Path, database_url: str) -> None:
+    """Applies the worktree's migrations to a database that started empty."""
+    with tempfile.TemporaryDirectory(prefix="otr-test-db-") as directory:
+        migrations = Path(directory) / "drizzle"
+        copy_migrations_for_empty_database(worktree / MIGRATIONS, migrations)
+        # A standalone config, so the worktree's .env cannot name the database.
+        config = Path(directory) / "drizzle.config.ts"
+        config.write_text(
+            "export default { dialect: 'postgresql', out: "
+            + json.dumps(str(migrations))
+            + ", dbCredentials: { url: process.env.DATABASE_URL } };\n"
+        )
+        drizzle = worktree / "node_modules" / "drizzle-kit" / "bin.cjs"
+        try:
+            run(
+                [
+                    "bun",
+                    "--no-env-file",
+                    str(drizzle),
+                    "migrate",
+                    "--config",
+                    str(config),
+                ],
+                cwd=Path(directory),
+                env={"DATABASE_URL": database_url},
+            )
+        except StackError as error:
+            raise StackError(
+                f"The test database's migrations failed. {error}"
+            ) from None
+
+
+def prepare_test_database(
+    stack: Stack, creds: Credentials, worktree: Path, fresh: bool
+) -> None:
+    """Gives the stack an empty test database with the worktree's migrations.
+    Tests that seed and clear their own rows assume a database that starts
+    empty; against the copy of the local database they also sweep its data and
+    run past their time limits. `fresh` starts it over."""
+    container = compose(stack, creds, "ps", "-q", "db").strip()
+    if fresh:
+        snapshot.psql(
+            container, creds, f"DROP DATABASE IF EXISTS {TEST_DATABASE} WITH (FORCE)"
+        )
+    exists = snapshot.psql(
+        container, creds, f"SELECT 1 FROM pg_database WHERE datname = '{TEST_DATABASE}'"
+    )
+    if not exists:
+        snapshot.psql(container, creds, f"CREATE DATABASE {TEST_DATABASE}")
+    migrate_empty(worktree, database_url(stack, creds, TEST_DATABASE))
 
 
 def provision(stack: Stack, creds: Credentials, fresh: bool) -> Stack:
@@ -429,6 +518,7 @@ def up(start: Path, components: set[str], web: bool, fresh: bool) -> None:
         # Before migrating, so jobs the branch's own migrations queue survive.
         clear_copied_jobs(stack, creds)
         migrate(checkout.root, managed["DATABASE_URL"])
+        prepare_test_database(stack, creds, checkout.root, fresh)
         sync_processes(stack, managed, wanted)
 
     print()
@@ -478,6 +568,28 @@ def down(start: Path, components: set[str]) -> None:
             sync_processes(stack, managed, wanted=set())
 
 
+def database_test_env(start: Path) -> tuple[Path, dict[str, str]]:
+    """The checkout root and the environment `otr test` runs `bun test` in:
+    the shell's, with SEARCH_TEST_DATABASE_URL and DATABASE_URL both on the
+    stack's empty test database, as CI's checks job sets them. Some database
+    tests read through DATABASE_URL, and the sign-up test runs only when the
+    two match."""
+    checkout = find_checkout(start)
+    stack = find(stacks_root(), checkout.root)
+    if stack is None:
+        raise StackError("this worktree has no stack; run `otr up` first")
+    env_path = checkout.root / ".env"
+    creds = Credentials.from_env(
+        envfile.parse(env_path.read_text()) if env_path.exists() else {}
+    )
+    url = database_url(stack, creds, TEST_DATABASE)
+    return checkout.root, {
+        **os.environ,
+        "SEARCH_TEST_DATABASE_URL": url,
+        "DATABASE_URL": url,
+    }
+
+
 def orphans() -> None:
     """Disposes every stack whose worktree no longer exists."""
     disposed = 0
@@ -520,6 +632,8 @@ def describe(stack: Stack, creds: Credentials, current: bool = False) -> None:
         if db
         else "  db         stopped (otr up)"
     )
+    if db:
+        print(f"  test db    {HOST}:{ports.db}/{TEST_DATABASE}   empty (otr test)")
     print(
         line(
             "worker",

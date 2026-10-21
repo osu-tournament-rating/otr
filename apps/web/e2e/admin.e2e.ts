@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { ReportEntityType } from '@otr/core/osu';
 import { STORAGE_STATE, TEST_ADMIN_PLAYER_ID } from './fixtures/auth';
+import { waitForHydration } from './fixtures/hydration';
 import { createOrpcClientForRole } from './fixtures/orpc';
 import { ROUTES, TEST_TOURNAMENT_ID } from './fixtures/test-config';
 import { ADMIN_REPORTS_PAGE_SIZE } from '../app/admin/reports/list-params';
@@ -169,7 +170,9 @@ test.describe('Admin pages', () => {
         }
         await expect(filter.getByRole('radio', { name: 'All' })).toBeChecked();
 
-        await filter.getByRole('radio', { name: 'Pending' }).click();
+        const pending = filter.getByRole('radio', { name: 'Pending' });
+        await waitForHydration(pending);
+        await pending.click();
         await expect(page).toHaveURL(/[?&]status=0\b/, { timeout: 10000 });
         await expect(
           filter.getByRole('radio', { name: 'Pending' })
