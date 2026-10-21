@@ -3,9 +3,15 @@ import { Ruleset } from '@otr/core/osu';
 import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-import { CreatedUpdatedOmit, RulesetSchema } from './constants';
+import { RulesetSchema } from './constants';
 
-export const UserSchema = createSelectSchema(users).omit(CreatedUpdatedOmit);
+export const UserSchema = createSelectSchema(users).pick({
+  id: true,
+  lastLogin: true,
+  scopes: true,
+  playerId: true,
+  lastViewedReportsAt: true,
+});
 
 export const PublicUserSchema = z.object({
   id: z.number().int(),
@@ -31,6 +37,9 @@ export const CurrentUserSchema = z.object({
 });
 
 export type CurrentUser = z.infer<typeof CurrentUserSchema>;
+
+/** The code `users.deleteMe` refuses with when the sign-in is over a day old. */
+export const SESSION_NOT_FRESH_ERROR_CODE = 'SESSION_NOT_FRESH';
 
 /** A ruleset a player can choose in their settings: one they can be rated in. */
 export const RatedRulesetSchema = z

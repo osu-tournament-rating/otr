@@ -11,11 +11,11 @@ import {
   parseSearchTerm,
 } from '@/lib/orpc/queries/search';
 
-import { protectedProcedure } from '../base';
+import { adminProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 
 /** Admin player picker. Matches site-wide search, plus a bare osu! id. */
-export const lookupPlayers = protectedProcedure
+export const lookupPlayers = adminProcedure
   .input(PlayerLookupInputSchema)
   .output(PlayerLookupResponseSchema)
   .route({

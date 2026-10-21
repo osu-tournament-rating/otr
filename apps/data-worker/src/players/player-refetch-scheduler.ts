@@ -10,7 +10,7 @@ import {
   claimPlayerFetchLease,
   type PlayerFetchSource,
   type PlayerFetchState,
-} from '../osu/player-store';
+} from '@otr/core/db/player-fetch-lease';
 import {
   fetchLeaseCutoff,
   selectPlayersDueForOsuRefetch,
@@ -154,7 +154,10 @@ export class PlayerRefetchScheduler {
         const cadence = Number(player.cadenceDays);
         await enqueueJob(tx, JobQueue.OsuFetch, {
           payload: { type: 'player', osuPlayerId },
-          priority: cadence <= 1 ? MessagePriority.Normal : MessagePriority.Low,
+          // Only the daily tier: the one-off check of not-found players,
+          // due at once, waits behind fetches people asked for.
+          priority:
+            cadence === 1 ? MessagePriority.Normal : MessagePriority.Low,
         });
         enqueuedByCadence.set(
           cadence,

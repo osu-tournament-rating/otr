@@ -9,10 +9,13 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey } from '@better-auth/api-key';
 import { customSession, genericOAuth } from 'better-auth/plugins';
+import { limitApiKeysPerUser } from './api-key-limit';
+import { API_KEY_RATE_LIMIT } from './api-key-policy';
 import { logger } from '@/lib/logger';
 import { e2eTestAuthPlugin, isE2eAuthEnabled } from './e2e-test-auth-plugin';
 import { betterAuthLogger } from './library-logs';
 import { legacyOAuthCallbackURL } from './osu-callback';
+import { saveOwnOsuProfile, type OwnOsuProfile } from './osu-profile';
 import { recordLastLogin, recordUserActivity } from './user-activity';
 import { nextCookies } from 'better-auth/next-js';
 import * as schema from '@otr/core/db/schema';
@@ -84,7 +87,7 @@ const createUserOsuApiClient = (accessToken: string) => {
 
 const fetchOsuProfile = async (
   accessToken?: string | null
-): Promise<User.Extended.WithStatisticsrulesets | null> => {
+): Promise<OwnOsuProfile | null> => {
   if (!accessToken) {
     return null;
   }
@@ -92,7 +95,11 @@ const fetchOsuProfile = async (
   try {
     const api = createUserOsuApiClient(accessToken);
 
-    return await api.getResourceOwner();
+    // `/me/mania` is the same profile as `/me`, with every ruleset's
+    // statistics, but its own statistics are mania's, the only ones that
+    // list 4K and 7K. Still one request. `getResourceOwner(ruleset)` puts
+    // the ruleset in a query parameter, not in the path osu! reads.
+    return (await api.request('get', ['me', 'mania'])) as OwnOsuProfile;
   } catch (error) {
     logger.error('Failed to fetch osu! profile', { error });
     return null;
@@ -104,11 +111,12 @@ type EnsurePlayerParams = {
   profile?: OsuProfileLike | null;
 };
 
-// Sign-in saves only the name and country, not ranks or pp, so it is not an
-// osu! fetch and never writes the last-fetch time. A new player keeps the
-// never-fetched default, which the data worker's refetch scheduler picks up.
-// While a fetch is pending, the time records when it started, and moving it
-// would stop the worker from ever retrying a lost fetch.
+// This saves only the name and country, not ranks or pp, so it is not an osu!
+// fetch and never writes the last-fetch time. A new player keeps the
+// never-fetched default until saveOwnOsuProfile or the data worker's refetch
+// scheduler records a fetch. While a fetch is pending, the time records when
+// it started, and moving it alone would stop the worker from ever retrying a
+// lost fetch.
 const ensurePlayer = async ({
   osuId,
   profile,
@@ -142,6 +150,9 @@ const ensurePlayer = async ({
         where: eq(schema.players.osuId, osuId),
       }));
   } else if (profile) {
+    // Not the last fetch time: this saves a name and country, not a fetch,
+    // and moving the time would keep a player waiting on a refetch from ever
+    // timing out. saveOwnOsuProfile records a fetch at sign-in.
     const updatePayload = {
       username: sanitizedUsername || player.username,
       country: sanitizedCountry || player.country,
@@ -478,18 +489,23 @@ const ensureOsuAccountLink = async (
 
 export const auth = betterAuth({
   logger: betterAuthLogger,
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    usePlural: true,
-    schema: {
-      ...schema,
-      user: schema.auth_users,
-      account: schema.auth_accounts,
-      verification: schema.auth_verifications,
-      session: schema.auth_sessions,
-      apikeys: schema.apiKeys,
-    },
-  }),
+  database: limitApiKeysPerUser(db, (client) =>
+    drizzleAdapter(client, {
+      provider: 'pg',
+      usePlural: true,
+      schema: {
+        ...schema,
+        user: schema.auth_users,
+        account: schema.auth_accounts,
+        verification: schema.auth_verifications,
+        session: schema.auth_sessions,
+        apikeys: schema.apiKeys,
+      },
+    })
+  ),
+  // Keys are created through the site's own procedure, which names them
+  // and keeps their secret for the settings page.
+  disabledPaths: ['/api-key/create'],
   session: {
     modelName: 'auth_session',
     expiresIn: 60 * 60 * 24 * 30, // 30 days
@@ -584,10 +600,13 @@ export const auth = betterAuth({
   plugins: [
     bannedLoginRedirectPlugin(),
     apiKey({
+      // The plugin's counter starts over only after a full window with no
+      // requests, so withOptionalApiKey counts each key's requests instead,
+      // against the limit stored on the key from these values.
       rateLimit: {
-        enabled: true,
-        maxRequests: 60,
-        timeWindow: 60 * 1000,
+        enabled: false,
+        maxRequests: API_KEY_RATE_LIMIT.maxRequests,
+        timeWindow: API_KEY_RATE_LIMIT.timeWindowMs,
       },
     }),
     genericOAuth({
@@ -619,6 +638,8 @@ export const auth = betterAuth({
             if (!ensured) {
               return null;
             }
+
+            await saveOwnOsuProfile(ensured.player.id, profile);
 
             await syncPlayerFriends({
               playerId: ensured.player.id,

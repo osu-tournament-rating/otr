@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useOptimistic,
@@ -126,6 +127,22 @@ export function useListState<P extends ListParams>(
       setShallowState(syncShallowState(params, shallowState, searchParams));
     }
   }
+
+  // Back and forward follow the address the browser moved to. Next.js passes
+  // them to `useSearchParams` too, but a Back right after a shallow change can
+  // reach it in the same render as the change itself, so the search it reports
+  // never changes and the list would keep the state Back undid.
+  useEffect(() => {
+    if (!shallow) return;
+    const followHistory = () => {
+      setPending([]);
+      setShallowState((held) =>
+        syncShallowState(params, held, window.location.search)
+      );
+    };
+    window.addEventListener('popstate', followHistory);
+    return () => window.removeEventListener('popstate', followHistory);
+  }, [params, shallow]);
 
   const state = shallow ? shallowState : optimisticState;
 

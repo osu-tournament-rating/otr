@@ -10,7 +10,7 @@ import {
   RatingAdjustmentTypeSchema,
   RulesetSchema,
 } from './constants';
-import { TierProgressSchema } from './leaderboard';
+import { PlayerActivitySchema, TierProgressSchema } from './leaderboard';
 
 const playerCompactBaseSchema = playerSelectSchema
   .pick({
@@ -24,6 +24,15 @@ const playerCompactBaseSchema = playerSelectSchema
   });
 
 export const PlayerCompactSchema = playerCompactBaseSchema;
+
+/** The player a profile shows. */
+export const PlayerInfoSchema = PlayerCompactSchema.extend({
+  restricted: z
+    .boolean()
+    .describe(
+      'True when the player is restricted on osu!. Restricted players are on no leaderboard.'
+    ),
+});
 
 export const PlayerFrequencySchema = z.object({
   player: PlayerCompactSchema,
@@ -79,15 +88,17 @@ const playerRatingBaseSchema = playerRatingSelectSchema
     ruleset: RulesetSchema,
   });
 
-export const PlayerRatingStatsSchema = playerRatingBaseSchema.extend({
-  player: PlayerCompactSchema,
-  tournamentsPlayed: z.number().int().nonnegative().default(0),
-  matchesPlayed: z.number().int().nonnegative().default(0),
-  winRate: z.number().min(0).max(1).nullable(),
-  tierProgress: TierProgressSchema,
-  adjustments: PlayerRatingAdjustmentSchema.array(),
-  isProvisional: z.boolean(),
-});
+export const PlayerRatingStatsSchema = playerRatingBaseSchema
+  .extend({
+    player: PlayerCompactSchema,
+    tournamentsPlayed: z.number().int().nonnegative().default(0),
+    matchesPlayed: z.number().int().nonnegative().default(0),
+    winRate: z.number().min(0).max(1).nullable(),
+    tierProgress: TierProgressSchema,
+    adjustments: PlayerRatingAdjustmentSchema.array(),
+    isProvisional: z.boolean(),
+  })
+  .extend(PlayerActivitySchema.shape);
 
 export const AggregatePlayerMatchStatsSchema = z.object({
   averageMatchCostAggregate: z.number().nonnegative(),
@@ -112,7 +123,7 @@ export const AggregatePlayerMatchStatsSchema = z.object({
 });
 
 export const PlayerStatsSchema = z.object({
-  playerInfo: PlayerCompactSchema,
+  playerInfo: PlayerInfoSchema,
   ruleset: RulesetSchema,
   rating: PlayerRatingStatsSchema.nullable(),
   matchStats: AggregatePlayerMatchStatsSchema.nullable(),

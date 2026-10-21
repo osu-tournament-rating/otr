@@ -51,7 +51,7 @@ export const processOsuTrackPlayerResults = async ({
 
   // Taken before the ruleset data is read, so ruleset data created after the
   // read is newer than the recorded fetch, and the next profile fetch queues
-  // osu!track again (see requeueOsuTrackForNewRulesetData).
+  // osu!track again (see requeueOsuTrackForNewRulesetData in @otr/core).
   const nowIso = new Date().toISOString();
 
   const player = await db.query.players.findFirst({

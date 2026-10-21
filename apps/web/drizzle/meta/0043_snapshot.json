@@ -1,5 +1,5 @@
 {
-  "id": "325f99a7-4be6-4476-85d9-80f552480af8",
+  "id": "d8067d3b-04ec-4dfb-b750-9a3730c8292e",
   "prevId": "b3b4e389-865c-4678-88cb-2fb6d5e047de",
   "version": "7",
   "dialect": "postgresql",
@@ -6249,6 +6249,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created": {
           "name": "created",
