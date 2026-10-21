@@ -596,13 +596,19 @@ jobs:
             directory="$1/pr-$3"
             if [[ -d "$directory" ]]; then
               cd "$directory"
-              # No -v: the compose file names shared volumes.
+              # The sidecar keeps its node across restarts, so stopping it
+              # leaves the node offline in the tailnet until Tailscale deletes
+              # it. Logging the ephemeral node out deletes it now, so a later
+              # preview for this pull request gets the same hostname. A
+              # sidecar that is not running has nothing to log out.
+              docker compose -p "otr-pr-$3" exec -T tailscale tailscale logout </dev/null || true
               docker compose -p "otr-pr-$3" down --remove-orphans
               cd /
               rm -rf "$directory"
             fi
+            # Without its saved state, a later preview registers a new node.
+            docker volume rm -f "otr-pr-$3_tailscale-state"
             docker image rm "stagecodes/otr-web:pr-$3" || true
-            # The tailnet node is ephemeral and removes itself with the stack.
             cd "$2"
             ./scripts/preview/dev-db.sh drop "otr_pr_$3"
           EOF
