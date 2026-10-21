@@ -59,6 +59,7 @@ const WIN_RATE_LABEL = fieldLabel('winRate');
 const formatWinRate = (value: number) => `${formatFilterNumber(value)}%`;
 
 const INCLUDE_INACTIVE_LABEL = 'Include inactive players';
+const ACTIVE_ONLY_LABEL = 'Active players only';
 
 /**
  * The strip at the top of the leaderboard's panel: player search, sort and
@@ -261,10 +262,10 @@ export default function LeaderboardToolbar({
             {
               key: 'includeInactive',
               label:
-                showInactiveSwitch && state.includeInactive
-                  ? INCLUDE_INACTIVE_LABEL
+                showInactiveSwitch && !state.includeInactive
+                  ? ACTIVE_ONLY_LABEL
                   : '',
-              onRemove: () => setState({ includeInactive: false }),
+              onRemove: () => setState({ includeInactive: true }),
             },
           ]}
         />

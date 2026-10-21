@@ -170,14 +170,20 @@ describe('toLeaderboardRequest', () => {
     expect(LeaderboardRequestSchema.safeParse(request).success).toBe(true);
   });
 
-  it('asks for inactive players only while the address includes them', () => {
-    const state = parse('inactive=true');
-    expect(toLeaderboardRequest(state, Ruleset.Osu).includeInactive).toBe(true);
+  it('hides inactive players only while the address says so', () => {
+    expect(
+      toLeaderboardRequest(parse(''), Ruleset.Osu).includeInactive
+    ).toBeUndefined();
+
+    const state = parse('inactive=false');
+    expect(toLeaderboardRequest(state, Ruleset.Osu).includeInactive).toBe(
+      false
+    );
     expect(leaderboardHref(state, { page: 2 })).toBe(
-      '/leaderboard?inactive=true&page=2'
+      '/leaderboard?inactive=false&page=2'
     );
 
-    // A filter: Clear all hides inactive players again.
+    // A filter: Clear all lists inactive players again.
     expect(countActiveFilters(LEADERBOARD_LIST_PARAMS, state)).toBe(1);
     const cleared = clearListFilters(LEADERBOARD_LIST_PARAMS, state);
     expect(
@@ -186,12 +192,14 @@ describe('toLeaderboardRequest', () => {
   });
 
   // The friends tab lists inactive friends whatever the switch says, so a
-  // switch left on from All must not offer "Clear filters" there.
+  // switch turned off on All must not offer "Clear filters" there.
   it('counts the inactive switch as a filter on All only', () => {
-    expect(countLeaderboardFilters(parse('inactive=true'))).toBe(1);
-    expect(countLeaderboardFilters(parse('friend=true&inactive=true'))).toBe(0);
+    expect(countLeaderboardFilters(parse('inactive=false'))).toBe(1);
+    expect(countLeaderboardFilters(parse('friend=true&inactive=false'))).toBe(
+      0
+    );
     expect(
-      countLeaderboardFilters(parse('friend=true&inactive=true&country=KR'))
+      countLeaderboardFilters(parse('friend=true&inactive=false&country=KR'))
     ).toBe(1);
   });
 

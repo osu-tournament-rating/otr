@@ -81,8 +81,8 @@ export const LEADERBOARD_LIST_PARAMS = defineListParams({
   osuRank: rangeParam(LEADERBOARD_RANGES.osuRank),
   matches: rangeParam(LEADERBOARD_RANGES.matches),
   winRate: rangeParam(LEADERBOARD_RANGES.winRate),
-  // Off by default: the leaderboard lists players who still compete.
-  includeInactive: booleanParam({ key: 'inactive' }),
+  // On by default: turning it off lists only players who still compete.
+  includeInactive: booleanParam({ key: 'inactive', default: true }),
   page: pageParam(),
 });
 
@@ -110,11 +110,11 @@ export function leaderboardHref(
  * How many filters are on, for the Filters button and the empty state's
  * "Clear filters". The friends tab always lists inactive friends, so it hides
  * the inactive switch and leaves it out of the count. The address keeps the
- * switch, so All shows inactive players again when the visitor goes back.
+ * switch, so All hides inactive players again when the visitor goes back.
  */
 export function countLeaderboardFilters(state: LeaderboardListState): number {
   const count = countActiveFilters(LEADERBOARD_LIST_PARAMS, state);
-  return state.friend && state.includeInactive ? count - 1 : count;
+  return state.friend && !state.includeInactive ? count - 1 : count;
 }
 
 /** The tier filter's chips, in tier order. */
@@ -170,6 +170,7 @@ export function toLeaderboardRequest(
     maxMatches: state.matches.max,
     minWinRate: toFraction(state.winRate.min),
     maxWinRate: toFraction(state.winRate.max),
-    includeInactive: state.includeInactive || undefined,
+    // The server lists inactive players unless told not to.
+    includeInactive: state.includeInactive ? undefined : false,
   };
 }

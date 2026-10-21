@@ -205,9 +205,22 @@ describe.skipIf(!url)('leaderboard activity and restrictions', () => {
       inactive: entry.inactive,
     }));
 
-  it('lists only active, unrestricted players by default', async () => {
+  it('lists active and inactive players, never restricted ones, by default', async () => {
     const result = await runLeaderboard({
       input: { country: ACTIVITY_COUNTRY },
+      context: { db },
+    });
+
+    expect(listed(result)).toEqual([
+      { osuId: activityPlayers.inactive.osuId, globalRank: 1, inactive: true },
+      { osuId: activityPlayers.active.osuId, globalRank: 2, inactive: false },
+    ]);
+    expect(result.total).toBe(2);
+  });
+
+  it('lists only active players when asked to hide inactive ones', async () => {
+    const result = await runLeaderboard({
+      input: { country: ACTIVITY_COUNTRY, includeInactive: false },
       context: { db },
     });
 
@@ -221,18 +234,6 @@ describe.skipIf(!url)('leaderboard activity and restrictions', () => {
     expect(
       Math.abs(lastMatchAgo - activityPlayers.active.lastMatchAgo)
     ).toBeLessThan(60_000);
-  });
-
-  it('adds inactive players, marked inactive, when asked', async () => {
-    const result = await runLeaderboard({
-      input: { country: ACTIVITY_COUNTRY, includeInactive: true },
-      context: { db },
-    });
-
-    expect(listed(result)).toEqual([
-      { osuId: activityPlayers.inactive.osuId, globalRank: 1, inactive: true },
-      { osuId: activityPlayers.active.osuId, globalRank: 2, inactive: false },
-    ]);
   });
 
   it('lists inactive friends whatever the option says, never restricted ones', async () => {

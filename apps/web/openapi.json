@@ -3325,7 +3325,7 @@
             "in": "query",
             "schema": {
               "type": "boolean",
-              "description": "Also lists inactive players, with no verified match in the ruleset in the last 365 days. Defaults to false. Players restricted on osu! are never listed."
+              "description": "Lists inactive players, with no verified match in the ruleset in the last 365 days. Defaults to true; false lists only active players. Players restricted on osu! are never listed."
             },
             "allowEmptyValue": true,
             "allowReserved": true

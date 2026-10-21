@@ -131,7 +131,7 @@ export const LeaderboardRequestSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      `Also lists inactive players, with no verified match in the ruleset in the last ${INACTIVE_AFTER_DAYS} days. Defaults to false. Players restricted on osu! are never listed.`
+      `Lists inactive players, with no verified match in the ruleset in the last ${INACTIVE_AFTER_DAYS} days. Defaults to true; false lists only active players. Players restricted on osu! are never listed.`
     ),
   friend: z.boolean().optional(),
   userId: z.number().int().min(1).optional(),

@@ -6,8 +6,8 @@ import * as schema from './schema';
 
 /**
  * A player with no verified match in a ruleset for this many days, a year,
- * is inactive in it, and the leaderboard hides them by default. The site's
- * copy calls it "the last year". It is not the processor's decay rule, which
+ * is inactive in it, and the leaderboard can hide them. The site's copy
+ * calls it "the last year". It is not the processor's decay rule, which
  * starts sooner.
  */
 export const INACTIVE_AFTER_DAYS = 365;
