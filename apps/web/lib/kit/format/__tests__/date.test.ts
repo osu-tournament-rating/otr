@@ -5,6 +5,7 @@ import {
   formatDateRange,
   formatDuration,
   formatRelativeTime,
+  formatRunTime,
   formatTimeRange,
   formatTimestamp,
   parseDuration,
@@ -323,6 +324,33 @@ describe('formatDuration', () => {
     expect(formatDuration(Number.NaN)).toBe(EM_DASH);
     expect(formatDuration(-5)).toBe(EM_DASH);
     expect(formatDuration(null, { empty: 'Unknown' })).toBe('Unknown');
+  });
+});
+
+describe('formatRunTime', () => {
+  it('writes milliseconds under a second', () => {
+    expect(formatRunTime(0)).toBe('0 ms');
+    expect(formatRunTime(849.6)).toBe('850 ms');
+    expect(formatRunTime(999.4)).toBe('999 ms');
+  });
+
+  it('writes seconds to one decimal under a minute', () => {
+    expect(formatRunTime(999.5)).toBe('1 s');
+    expect(formatRunTime(12_450)).toBe('12.5 s');
+    expect(formatRunTime(59_940)).toBe('59.9 s');
+  });
+
+  it('writes a length from a minute', () => {
+    expect(formatRunTime(59_950)).toBe('1:00');
+    expect(formatRunTime(124_000)).toBe('2:04');
+    expect(formatRunTime(3_724_000)).toBe('1:02:04');
+  });
+
+  it('prints the empty text for missing, negative or unreadable input', () => {
+    expect(formatRunTime(null)).toBe(EM_DASH);
+    expect(formatRunTime(Number.NaN)).toBe(EM_DASH);
+    expect(formatRunTime(-1)).toBe(EM_DASH);
+    expect(formatRunTime(undefined, { empty: 'Unknown' })).toBe('Unknown');
   });
 });
 

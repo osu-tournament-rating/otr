@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { CurrentUserSchema, type CurrentUser } from '@/lib/orpc/schema/user';
 
 export type SessionUser = CurrentUser;
@@ -37,7 +38,7 @@ export const mapAppSessionToUser = (session: unknown): SessionUser | null => {
   });
 
   if (!parsed.success) {
-    console.error('[session] Failed to map session', parsed.error);
+    logger.error('[session] Failed to map session', { error: parsed.error });
     return null;
   }
 

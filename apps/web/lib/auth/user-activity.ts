@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm';
 
 import { auth_users, userActivityDaily, users } from '@otr/core/db/schema';
 import { db } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 // Players already recorded today by this process, so a session lookup writes
 // at most once a day per player. Cleared when the UTC day changes.
@@ -34,7 +35,7 @@ export const recordUserActivity = async (playerId: number) => {
       .onConflictDoNothing();
   } catch (error) {
     recordedPlayers.delete(playerId);
-    console.error('Failed to record user activity', error);
+    logger.error('Failed to record user activity', { error });
   }
 };
 

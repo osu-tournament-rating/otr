@@ -1,4 +1,4 @@
-import { Mods, Ruleset, ScoreRejectionReason } from '@otr/core/osu';
+import { Ruleset, ScoreRejectionReason } from '@otr/core/osu';
 
 import type { AutomationScore } from './types';
 import { combineRejection, hasInvalidMods } from './utils';
@@ -59,11 +59,3 @@ export class ScoreAutomationChecks {
     return rejection;
   }
 }
-
-export const INVALID_SCORE_MODS: Mods[] = [
-  Mods.SuddenDeath,
-  Mods.Perfect,
-  Mods.Relax,
-  Mods.Autoplay,
-  Mods.Relax2,
-];

@@ -1,6 +1,6 @@
 {
-  "id": "a659ce1d-c599-401a-9a6a-0ad278d32184",
-  "prevId": "8adaa226-41cf-453e-b072-2a2345780e82",
+  "id": "0eb6b23a-2ed8-4dec-b9e4-2e1c72c5573c",
+  "prevId": "d8067d3b-04ec-4dfb-b750-9a3730c8292e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2319,6 +2319,15 @@
         }
       },
       "foreignKeys": {
+        "fk_game_admin_notes_games_reference_id": {
+          "name": "fk_game_admin_notes_games_reference_id",
+          "tableFrom": "game_admin_notes",
+          "tableTo": "games",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "fk_game_admin_notes_users_admin_user_id": {
           "name": "fk_game_admin_notes_users_admin_user_id",
           "tableFrom": "game_admin_notes",
@@ -2452,37 +2461,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ix_game_audits_action_type_created": {
-          "name": "ix_game_audits_action_type_created",
-          "columns": [
-            {
-              "expression": "action_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            },
-            {
-              "expression": "created",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "timestamptz_ops"
-            },
-            {
-              "expression": "action_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2777,6 +2755,15 @@
         }
       },
       "foreignKeys": {
+        "fk_game_score_admin_notes_game_scores_reference_id": {
+          "name": "fk_game_score_admin_notes_game_scores_reference_id",
+          "tableFrom": "game_score_admin_notes",
+          "tableTo": "game_scores",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "fk_game_score_admin_notes_users_admin_user_id": {
           "name": "fk_game_score_admin_notes_users_admin_user_id",
           "tableFrom": "game_score_admin_notes",
@@ -2910,37 +2897,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ix_game_score_audits_action_type_created": {
-          "name": "ix_game_score_audits_action_type_created",
-          "columns": [
-            {
-              "expression": "action_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            },
-            {
-              "expression": "created",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "timestamptz_ops"
-            },
-            {
-              "expression": "action_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4225,6 +4181,15 @@
         }
       },
       "foreignKeys": {
+        "fk_match_admin_notes_matches_reference_id": {
+          "name": "fk_match_admin_notes_matches_reference_id",
+          "tableFrom": "match_admin_notes",
+          "tableTo": "matches",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "fk_match_admin_notes_users_admin_user_id": {
           "name": "fk_match_admin_notes_users_admin_user_id",
           "tableFrom": "match_admin_notes",
@@ -6285,6 +6250,13 @@
           "notNull": true,
           "default": 0
         },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created": {
           "name": "created",
           "type": "timestamp with time zone",
@@ -6538,6 +6510,30 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "ix_rating_adjustments_player_rating_id_match_timestamp": {
+          "name": "ix_rating_adjustments_player_rating_id_match_timestamp",
+          "columns": [
+            {
+              "expression": "player_rating_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            },
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "adjustment_type = 2",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -6663,6 +6659,15 @@
         }
       },
       "foreignKeys": {
+        "fk_tournament_admin_notes_tournaments_reference_id": {
+          "name": "fk_tournament_admin_notes_tournaments_reference_id",
+          "tableFrom": "tournament_admin_notes",
+          "tableTo": "tournaments",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "fk_tournament_admin_notes_users_admin_user_id": {
           "name": "fk_tournament_admin_notes_users_admin_user_id",
           "tableFrom": "tournament_admin_notes",

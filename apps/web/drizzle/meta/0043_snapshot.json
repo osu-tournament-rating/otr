@@ -1,5 +1,5 @@
 {
-  "id": "8adaa226-41cf-453e-b072-2a2345780e82",
+  "id": "d8067d3b-04ec-4dfb-b750-9a3730c8292e",
   "prevId": "b3b4e389-865c-4678-88cb-2fb6d5e047de",
   "version": "7",
   "dialect": "postgresql",
@@ -2465,37 +2465,6 @@
           "method": "btree",
           "with": {}
         },
-        "ix_game_audits_action_type_created": {
-          "name": "ix_game_audits_action_type_created",
-          "columns": [
-            {
-              "expression": "action_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            },
-            {
-              "expression": "created",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "timestamptz_ops"
-            },
-            {
-              "expression": "action_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "where": "action_type <> 1",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "ix_game_audits_reference_id": {
           "name": "ix_game_audits_reference_id",
           "columns": [
@@ -2928,37 +2897,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ix_game_score_audits_action_type_created": {
-          "name": "ix_game_score_audits_action_type_created",
-          "columns": [
-            {
-              "expression": "action_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            },
-            {
-              "expression": "created",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "timestamptz_ops"
-            },
-            {
-              "expression": "action_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -6311,6 +6249,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created": {
           "name": "created",

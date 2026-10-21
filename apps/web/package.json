@@ -6,14 +6,16 @@
     "dev": "bun run next dev --turbopack",
     "build": "bun run next build --turbopack",
     "start": "bun run next start",
-    "lint": "bun run eslint . --cache --cache-location node_modules/.cache/eslint/",
+    "lint": "bun run eslint . --cache --cache-location node_modules/.cache/eslint/ && bun run openapi:check",
     "format": "bun run prettier . --write --ignore-unknown",
     "prepare": "husky",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "design-system": "bun design-system/build.ts",
-    "design-system:check": "bun design-system/check.ts"
+    "design-system:check": "bun design-system/check.ts",
+    "openapi": "bun app/server/openapi-reference.ts write",
+    "openapi:check": "bun app/server/openapi-reference.ts check"
   },
   "dependencies": {
     "@better-auth/api-key": "^1.7.7",

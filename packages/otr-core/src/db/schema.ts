@@ -1421,6 +1421,15 @@ export const ratingAdjustments = pgTable(
       'btree',
       table.playerRatingId.asc().nullsLast().op('int4_ops')
     ),
+    // A player's last match in a ruleset, which decides whether they are
+    // inactive (player-activity.ts). 2 is RatingAdjustmentType.Match.
+    index('ix_rating_adjustments_player_rating_id_match_timestamp')
+      .using(
+        'btree',
+        table.playerRatingId.asc().nullsLast().op('int4_ops'),
+        table.timestamp.asc().nullsLast().op('timestamptz_ops')
+      )
+      .where(sql`adjustment_type = 2`),
     foreignKey({
       columns: [table.matchId],
       foreignColumns: [matches.id],
@@ -1475,6 +1484,10 @@ export const players = pgTable(
       .default(0)
       .notNull(),
     dataFetchStatus: integer('data_fetch_status').default(0).notNull(),
+    // osu! never says another user is restricted, so the data worker sets
+    // this when osu! returns not found for the player and clears it on a
+    // successful fetch. Sign-in sets it from the player's own profile.
+    restricted: boolean().default(false).notNull(),
     created: timestamp({ withTimezone: true, mode: 'string' })
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),

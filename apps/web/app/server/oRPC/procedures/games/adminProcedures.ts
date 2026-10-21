@@ -19,7 +19,7 @@ import {
 import type { DatabaseClient } from '@/lib/db';
 import { GameWarningFlags, VerificationStatus } from '@otr/core/osu';
 
-import { adminMutationProcedure, protectedProcedure } from '../base';
+import { adminMutationProcedure, adminProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
@@ -299,7 +299,7 @@ export const mergeGameAdmin = adminMutationProcedure
     );
   });
 
-export const lookupGamesAdmin = protectedProcedure
+export const lookupGamesAdmin = adminProcedure
   .input(GameAdminLookupInputSchema)
   .output(GameAdminPreviewSchema.array())
   .route({

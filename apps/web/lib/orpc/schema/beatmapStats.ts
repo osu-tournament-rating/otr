@@ -4,8 +4,8 @@ import { RANK_RANGE_BUCKET_KEYS } from '@/lib/beatmaps/rankRange';
 import { tierNames } from '@/lib/utils/tierData';
 
 import { beatmapSelectSchema, beatmapsetSelectSchema } from './base';
+import { beatmapPublicColumns, beatmapsetPublicColumns } from './beatmap';
 import {
-  CreatedUpdatedOmit,
   RulesetSchema,
   ScoreGradeSchema,
   VerificationStatusSchema,
@@ -86,13 +86,13 @@ export const BeatmapStatsSummarySchema = z.object({
 });
 
 const BeatmapsetForStatsSchema = beatmapsetSelectSchema
-  .omit(CreatedUpdatedOmit)
+  .pick(beatmapsetPublicColumns)
   .extend({
     creator: PlayerCompactSchema.nullable(),
   });
 
 const BeatmapForStatsSchema = beatmapSelectSchema
-  .omit(CreatedUpdatedOmit)
+  .pick(beatmapPublicColumns)
   .extend({
     ruleset: RulesetSchema,
     beatmapset: BeatmapsetForStatsSchema.nullable(),
@@ -237,7 +237,7 @@ export const BeatmapClosenessSummarySchema = z.object({
     .int()
     .nonnegative()
     .describe(
-      'Two-roster TeamVs games on this beatmap that are not verified at every level (tournament, match and game). A history figure only: it explains why gameCount can be small, and is never an input to any statistic in this object.'
+      'TeamVs games on this beatmap with scores from exactly two teams that are not verified at every level (tournament, match and game). A history figure only: it explains why gameCount can be small, and is never an input to any statistic in this object.'
     ),
   cohort: z
     .object({

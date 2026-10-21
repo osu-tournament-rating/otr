@@ -34,6 +34,14 @@ const REFETCH_TIERS = {
   ],
 } as const;
 
+// A player osu! last answered not found for is restricted, or their account
+// is gone, whatever their rank. They are refetched this often, so one who is
+// unrestricted shows up again. A not-found player not yet marked restricted
+// was last fetched before the flag existed, so they are due at once, and
+// that fetch decides whether they are restricted.
+const RESTRICTED_DAYS = 30;
+const UNCONFIRMED_RESTRICTED_DAYS = 0;
+
 /** Leases that started before this time have expired. */
 export const fetchLeaseCutoff = () =>
   new Date(Date.now() - FETCH_LEASE_DAYS * MS_PER_DAY).toISOString();
@@ -62,15 +70,19 @@ const cadenceDaysExpression = (cadence: OsuRefetchCadence) => {
   // branch, so min() is null and coalesce() gives the unrated cadence.
   const isRated = sql`${schema.playerRatings.playerId} is not null`;
 
-  return sql<number>`coalesce(min(case ${sql.join(branches, sql` `)} when ${isRated} then ${literal(cadence.outdatedDays)} end), ${literal(cadence.unratedDays)})`;
+  const byRank = sql`coalesce(min(case ${sql.join(branches, sql` `)} when ${isRated} then ${literal(cadence.outdatedDays)} end), ${literal(cadence.unratedDays)})`;
+  const isNotFound = sql`${schema.players.dataFetchStatus} = ${literal(DataFetchStatus.NotFound)}`;
+
+  return sql<number>`case when ${isNotFound} and ${schema.players.restricted} then ${literal(RESTRICTED_DAYS)} when ${isNotFound} then ${literal(UNCONFIRMED_RESTRICTED_DAYS)} else ${byRank} end`;
 };
 
 /**
  * Players due an osu! profile refetch: those last fetched longer ago than
- * their cadence, and those whose fetch lease has expired. A player who was
- * never fetched keeps the 2007 default, so they are always due. Pass
- * `osuPlayerIds` to check only those players. Rows come shortest cadence
- * first, then longest since fetched.
+ * their cadence, and those whose fetch lease has expired. Restricted players
+ * use their own cadence instead of their rank's. A player who was never
+ * fetched keeps the 2007 default, so they are always due. Pass `osuPlayerIds`
+ * to check only those players. Rows come shortest cadence first, then longest
+ * since fetched.
  */
 export const selectPlayersDueForOsuRefetch = async (
   db: Pick<DatabaseClient, 'select'>,

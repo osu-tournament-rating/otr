@@ -98,6 +98,24 @@ describe('startTracing', () => {
     expect(span.resource.attributes['service.name']).toBe('otr-test');
   });
 
+  // Next.js records each request's address as http.target on its own server
+  // span, and a query string can carry a search term or a call's whole input
+  it.each([
+    [
+      '/rpc/search/query?data=%7B%22searchKey%22%3A%22Stage%22%7D',
+      '/rpc/search/query',
+    ],
+    ['/players?q=Stage', '/players'],
+    ['/players', '/players'],
+  ])('records the request target %p as %p', (target, recorded) => {
+    const span = start()
+      .getTracer('test')
+      .startSpan('GET', {
+        attributes: { 'http.target': target },
+      }) as unknown as ReadableSpan;
+    expect(span.attributes['http.target']).toBe(recorded);
+  });
+
   // Otherwise the API refuses the second registration as a duplicate, and
   // spans keep going to the provider that was shut down.
   it('registers a provider started after shutdown as the global one', async () => {

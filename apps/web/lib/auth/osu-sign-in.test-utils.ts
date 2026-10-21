@@ -59,8 +59,14 @@ export const getSession = async (cookies: CookieJar) => {
 /**
  * A new osu! user for the suite it is called in. While the suite runs, calls
  * to osu! are answered as this user, and afterwards the user is deleted.
+ * `profile` adds fields to the user's own profile, such as its statistics,
+ * or returns them for the path the profile was asked for (`/api/v2/me/mania`).
  */
-export const useFakeOsuUser = () => {
+export const useFakeOsuUser = (
+  profile:
+    | Record<string, unknown>
+    | ((pathname: string) => Record<string, unknown>) = {}
+) => {
   // Real osu! ids are far below this, so the user is new to the database.
   const osuId = 2_000_000_000 + Math.floor(Math.random() * 1_000_000_000);
   const username = `signup-${osuId}`;
@@ -85,6 +91,7 @@ export const useFakeOsuUser = () => {
         playmode: 'osu',
         is_bot: false,
         avatar_url: 'https://a.ppy.sh/',
+        ...(typeof profile === 'function' ? profile(pathname) : profile),
       });
     }
 
