@@ -11,6 +11,7 @@ import {
 import { LeaderboardRequestSchema } from '@/lib/orpc/schema/leaderboard';
 
 import {
+  countLeaderboardFilters,
   LEADERBOARD_LIST_PARAMS,
   LEADERBOARD_RANGES,
   leaderboardHref,
@@ -167,6 +168,39 @@ describe('toLeaderboardRequest', () => {
       maxWinRate: 0.75,
     });
     expect(LeaderboardRequestSchema.safeParse(request).success).toBe(true);
+  });
+
+  it('hides inactive players only while the address says so', () => {
+    expect(
+      toLeaderboardRequest(parse(''), Ruleset.Osu).includeInactive
+    ).toBeUndefined();
+
+    const state = parse('inactive=false');
+    expect(toLeaderboardRequest(state, Ruleset.Osu).includeInactive).toBe(
+      false
+    );
+    expect(leaderboardHref(state, { page: 2 })).toBe(
+      '/leaderboard?inactive=false&page=2'
+    );
+
+    // A filter: Clear all lists inactive players again.
+    expect(countActiveFilters(LEADERBOARD_LIST_PARAMS, state)).toBe(1);
+    const cleared = clearListFilters(LEADERBOARD_LIST_PARAMS, state);
+    expect(
+      toLeaderboardRequest(cleared, Ruleset.Osu).includeInactive
+    ).toBeUndefined();
+  });
+
+  // The friends tab lists inactive friends whatever the switch says, so a
+  // switch turned off on All must not offer "Clear filters" there.
+  it('counts the inactive switch as a filter on All only', () => {
+    expect(countLeaderboardFilters(parse('inactive=false'))).toBe(1);
+    expect(countLeaderboardFilters(parse('friend=true&inactive=false'))).toBe(
+      0
+    );
+    expect(
+      countLeaderboardFilters(parse('friend=true&inactive=false&country=KR'))
+    ).toBe(1);
   });
 
   it('leaves the default sort to the server, and sends any other direction', () => {

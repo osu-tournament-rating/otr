@@ -1,7 +1,8 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { DatabaseClient } from '../db';
 import * as schema from '@otr/core/db/schema';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import type { PlayerFetchState } from '@otr/core/db/player-fetch-lease';
 
 type DbExecutor = Pick<DatabaseClient, 'query' | 'insert' | 'update'>;
 type UpdateExecutor = Pick<DatabaseClient, 'update'>;
@@ -107,6 +108,24 @@ export const ensurePlayerPlaceholder = async (
   return fallback;
 };
 
+/**
+ * Whether a fetch that ended in `status` says the player is restricted on
+ * osu!. osu! answers not found for a restricted player and never says so
+ * outright, so not found marks them restricted and a successful fetch clears
+ * it. Any other status leaves the flag as it was.
+ */
+const restrictedAfter = (status: number): { restricted?: boolean } => {
+  if (status === DataFetchStatus.NotFound) {
+    return { restricted: true };
+  }
+
+  if (status === DataFetchStatus.Fetched) {
+    return { restricted: false };
+  }
+
+  return {};
+};
+
 export const updatePlayerStatus = async (
   db: UpdateExecutor,
   playerId: number,
@@ -119,21 +138,10 @@ export const updatePlayerStatus = async (
       dataFetchStatus: status,
       osuLastFetch: updatedIso,
       updated: updatedIso,
+      ...restrictedAfter(status),
     })
     .where(eq(schema.players.id, playerId));
 };
-
-export type PlayerFetchSource = 'osu' | 'osuTrack';
-
-/**
- * A player's fetch status for one source, and that source's last-fetch time.
- * While the status is Fetching, the last-fetch time is when the fetch lease
- * started.
- */
-export interface PlayerFetchState {
-  status: number;
-  lastFetch: string | null;
-}
 
 export const getPlayerOsuFetchState = async (
   db: QueryExecutor,
@@ -150,71 +158,4 @@ export const getPlayerOsuFetchState = async (
   return player
     ? { status: player.dataFetchStatus, lastFetch: player.osuLastFetch }
     : null;
-};
-
-const fetchStateMatches = (
-  source: PlayerFetchSource,
-  osuPlayerId: number,
-  state: PlayerFetchState
-) => {
-  const statusColumn =
-    source === 'osu'
-      ? schema.players.dataFetchStatus
-      : schema.players.osuTrackDataFetchStatus;
-  const lastFetchColumn =
-    source === 'osu'
-      ? schema.players.osuLastFetch
-      : schema.players.osuTrackLastFetch;
-
-  return and(
-    eq(schema.players.osuId, osuPlayerId),
-    eq(statusColumn, state.status),
-    state.lastFetch === null
-      ? isNull(lastFetchColumn)
-      : eq(lastFetchColumn, state.lastFetch)
-  );
-};
-
-const fetchStateValues = (
-  source: PlayerFetchSource,
-  state: PlayerFetchState,
-  updatedIso: string
-) =>
-  source === 'osu'
-    ? {
-        dataFetchStatus: state.status,
-        osuLastFetch: state.lastFetch ?? undefined,
-        updated: updatedIso,
-      }
-    : {
-        osuTrackDataFetchStatus: state.status,
-        osuTrackLastFetch: state.lastFetch,
-        updated: updatedIso,
-      };
-
-/**
- * Marks the player Fetching for `source` and records `leaseIso` as the lease
- * start. Applies only while the row still matches `previous`, so a fetch that
- * started or finished after `previous` was read is never overwritten.
- */
-export const claimPlayerFetchLease = async (
-  db: UpdateExecutor,
-  source: PlayerFetchSource,
-  osuPlayerId: number,
-  previous: PlayerFetchState,
-  leaseIso: string
-): Promise<boolean> => {
-  const claimed = await db
-    .update(schema.players)
-    .set(
-      fetchStateValues(
-        source,
-        { status: DataFetchStatus.Fetching, lastFetch: leaseIso },
-        leaseIso
-      )
-    )
-    .where(fetchStateMatches(source, osuPlayerId, previous))
-    .returning({ id: schema.players.id });
-
-  return claimed.length > 0;
 };

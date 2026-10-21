@@ -17,14 +17,11 @@ import { hasFriends } from '@/lib/db/player-friends';
 import { getBrowsingRuleset } from '@/lib/db/ruleset-settings';
 import { getCountryOptions } from '@/lib/kit/format/country';
 import { formatCountOf } from '@/lib/kit/format/number';
-import {
-  clearListFilters,
-  countActiveFilters,
-  parseListState,
-} from '@/lib/kit/lists/params';
+import { clearListFilters, parseListState } from '@/lib/kit/lists/params';
 import { orpc } from '@/lib/orpc/orpc';
 
 import {
+  countLeaderboardFilters,
   DEFAULT_LEADERBOARD_RULESET,
   LEADERBOARD_LIST_PARAMS,
   leaderboardHref,
@@ -70,7 +67,7 @@ export default async function Page(props: {
     redirect(leaderboardHref(state, { page: data.page }));
   }
 
-  const filtered = countActiveFilters(LEADERBOARD_LIST_PARAMS, state) > 0;
+  const filtered = countLeaderboardFilters(state) > 0;
 
   return (
     <PageFrame>
