@@ -6480,7 +6480,7 @@
           {
             "name": "searchQuery",
             "in": "query",
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": { "type": "string", "minLength": 1, "maxLength": 200 },
             "allowEmptyValue": true,
             "allowReserved": true
           },
