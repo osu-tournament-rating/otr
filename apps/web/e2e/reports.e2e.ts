@@ -3,6 +3,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { ReportEntityType, ReportStatus } from '@otr/core/osu';
 
 import { STORAGE_STATE } from './fixtures/auth';
+import { waitForHydration } from './fixtures/hydration';
 import { createOrpcClientForRole } from './fixtures/orpc';
 import {
   ROUTES,
@@ -21,8 +22,6 @@ type ReportTarget = {
 /**
  * Opens the report dialog for an entity: its flag button, or the "Report an
  * issue" item in the card's actions menu where the page keeps it there.
- * Retries until the dialog shows, since the dev server can still be
- * hydrating the page when the first click lands.
  */
 async function openReportDialog(
   page: Page,
@@ -33,11 +32,8 @@ async function openReportDialog(
     `[data-testid="report-dialog"][data-entity-type="${entityType}"][data-entity-id="${target.entityId}"]`
   );
 
-  await expect(async () => {
-    if (await dialog.isVisible()) return;
-    await clickReportTrigger(page, entityType, target);
-    await expect(dialog).toBeVisible({ timeout: 3000 });
-  }).toPass({ timeout: 30000 });
+  await clickReportTrigger(page, entityType, target);
+  await expect(dialog).toBeVisible({ timeout: 10000 });
 
   return dialog;
 }
@@ -72,10 +68,13 @@ async function clickReportTrigger(
   await expect(trigger.or(actions).first()).toBeVisible({ timeout: 5000 });
   if ((await trigger.count()) > 0) {
     await expect(trigger).toHaveCount(1);
+    await waitForHydration(trigger);
     await trigger.click();
     return;
   }
 
+  // The menu button is server-rendered; a click before hydration does nothing.
+  await waitForHydration(actions);
   await actions.click();
   await page.getByRole('menuitem', { name: 'Report an issue' }).click();
 }

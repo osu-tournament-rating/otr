@@ -134,6 +134,68 @@ def test_managed_env_escapes_credentials_and_toggles_tracing(tmp_path):
     assert off["PLAYER_OSU_AUTO_REFETCH_ENABLED"] == "false"
 
 
+def test_only_the_web_app_sends_osu_sign_in_to_the_e2e_suites_fake_osu(
+    tmp_path, monkeypatch
+):
+    fixture = (
+        Path(__file__).resolve().parents[2] / "web/e2e/fixtures/fake-osu.ts"
+    ).read_text()
+    port = re.search(r"FAKE_OSU_PORT = (\d+);", fixture).group(1)
+    fake_osu = re.search(r"FAKE_OSU_URL = `(.+)`;", fixture).group(1)
+    fake_osu = fake_osu.replace("${FAKE_OSU_PORT}", port)
+    entry = stack.Stack(tmp_path / "stacks", "otr-wt-123456", tmp_path / "wt", 1)
+    envs = {}
+
+    def start(record, argv, cwd, env, digest, log):
+        envs[record.stem] = env
+        return procs.Record(1, 1, digest)
+
+    monkeypatch.delenv("E2E_OSU_URL", raising=False)
+    monkeypatch.setattr(stack.procs, "start", start)
+    monkeypatch.setattr(stack.procs, "wait_healthy", lambda *args: None)
+    managed = stack.managed_env(entry, CREDS, monitoring=False)
+
+    stack.start_process(entry, "web", managed)
+    stack.start_process(entry, "worker", managed)
+
+    assert envs["web"]["E2E_OSU_URL"] == fake_osu
+    assert "E2E_OSU_URL" not in envs["worker"]
+    # Bun loads the .env into `bun test`, whose sign-in tests fake osu! alone.
+    assert "E2E_OSU_URL" not in managed
+
+
+def test_a_running_web_app_restarts_when_its_own_settings_change(tmp_path, monkeypatch):
+    entry = stack.Stack(tmp_path / "stacks", "otr-wt-123456", tmp_path / "wt", 1)
+    managed = stack.managed_env(entry, CREDS, monitoring=False)
+    records, events = {}, []
+
+    def start(record, argv, cwd, env, digest, log):
+        events.append(("start", record.stem, env.get("E2E_OSU_URL")))
+        records[record.stem] = procs.Record(1, 1, digest)
+        return records[record.stem]
+
+    def stop(record):
+        events.append(("stop", record.stem))
+        return records.pop(record.stem, None) is not None
+
+    monkeypatch.setattr(stack.procs, "start", start)
+    monkeypatch.setattr(stack.procs, "stop", stop)
+    monkeypatch.setattr(stack.procs, "load", lambda record: records.get(record.stem))
+    monkeypatch.setattr(stack.procs, "wait_healthy", lambda *args: None)
+    monkeypatch.setattr(stack, "WEB_ONLY_ENV", {"E2E_OSU_URL": "http://old"})
+    stack.sync_processes(entry, managed, {"web", "worker"})
+    events.clear()
+
+    monkeypatch.setattr(stack, "WEB_ONLY_ENV", {"E2E_OSU_URL": "http://new"})
+    stack.sync_processes(entry, managed, {"web", "worker"})
+    restarted = list(events)
+    events.clear()
+    stack.sync_processes(entry, managed, {"web", "worker"})
+
+    assert restarted == [("stop", "web"), ("start", "web", "http://new")]
+    assert events == []
+
+
 def test_managed_env_blanks_the_beatmap_files_bucket(tmp_path, monkeypatch):
     monkeypatch.setenv("BEATMAP_FILES_BUCKET", "otr-beatmaps")
     entry = stack.Stack(tmp_path, "otr-a-123456", Path("/w/a"), 1)
@@ -165,6 +227,27 @@ def test_process_env_overrides_the_shell(monkeypatch):
 
     assert env["DATABASE_URL"] == "postgresql://stack"
     assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in env
+
+
+def test_every_web_start_begins_without_a_dev_cache(tmp_path, monkeypatch):
+    worktree = tmp_path / "wt"
+    entry = stack.Stack(tmp_path / "stacks", "otr-wt-123456", worktree, 1)
+    cache = worktree / "apps" / "web" / ".next" / "dev"
+    found_cache = []
+
+    def start(record, argv, cwd, env, digest, log):
+        found_cache.append(cache.exists())
+        # The dev server writes its cache as it compiles.
+        (cache / "cache").mkdir(parents=True, exist_ok=True)
+        return procs.Record(1, 1, digest)
+
+    monkeypatch.setattr(stack.procs, "start", start)
+    monkeypatch.setattr(stack.procs, "wait_healthy", lambda *args: None)
+
+    stack.start_process(entry, "web", {})
+    stack.start_process(entry, "web", {})
+
+    assert found_cache == [False, False]
 
 
 def test_registry_round_trips(tmp_path):
@@ -234,6 +317,13 @@ def otr(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(stack.procs, "stop", stop)
     monkeypatch.setattr(stack, "migrate", lambda path, url: steps.append("migrate"))
+    # Kept apart from `steps`, which the job-clearing tests compare whole.
+    test_db = []
+    monkeypatch.setattr(
+        stack,
+        "prepare_test_database",
+        lambda entry, creds, path, fresh: test_db.append({"fresh": fresh}),
+    )
     monkeypatch.setattr(
         stack,
         "sync_processes",
@@ -246,7 +336,7 @@ def otr(tmp_path, monkeypatch):
         stack.up(worktree, set(), web=False, fresh=fresh)
         return list(steps)
 
-    return SimpleNamespace(up=up, running=running)
+    return SimpleNamespace(up=up, running=running, test_db=test_db)
 
 
 CLEAR_JOBS = ("sql", "db-container", stack.CLEAR_COPIED_JOBS)
@@ -304,3 +394,96 @@ def test_a_fresh_copy_restarts_a_running_worker_only_after_clearing_jobs(otr):
         "migrate",
         ("processes", ["worker"]),
     ]
+
+
+def test_otr_test_points_both_database_settings_at_the_test_database(
+    tmp_path, monkeypatch
+):
+    worktree, root = tmp_path / "wt", tmp_path / "stacks"
+    worktree.mkdir()
+    (worktree / ".env").write_text(
+        "DOCKER_POSTGRES_USER=post gres\nDOCKER_POSTGRES_PASSWORD=p@ss:word/#\n"
+        "DOCKER_POSTGRES_DB=otr\nDATABASE_URL=postgresql://the-stack-copy\n"
+    )
+    monkeypatch.setenv("OTR_STACKS_DIR", str(root))
+    monkeypatch.setattr(
+        stack, "find_checkout", lambda start: stack.Checkout(worktree, tmp_path)
+    )
+    with pytest.raises(StackError):
+        stack.database_test_env(worktree)
+    stack.allocate(root, worktree, free=lambda port: True)
+
+    cwd, env = stack.database_test_env(worktree)
+
+    test_database = (
+        "postgresql://post%20gres:p%40ss%3Aword%2F%23@127.0.0.1:20011/otr_test"
+    )
+    assert cwd == worktree
+    assert env["SEARCH_TEST_DATABASE_URL"] == test_database
+    assert env["DATABASE_URL"] == test_database
+
+
+def test_up_prepares_the_test_database_and_fresh_starts_it_over(otr):
+    otr.up()
+    otr.up(fresh=True)
+
+    assert otr.test_db == [{"fresh": False}, {"fresh": True}]
+
+
+def test_the_test_database_is_made_once_and_dropped_for_a_fresh_start(
+    tmp_path, monkeypatch
+):
+    entry = stack.Stack(tmp_path, "otr-wt-123456", tmp_path / "wt", 1)
+    databases = set()
+    statements = []
+    migrated = []
+
+    def psql(container, creds, sql):
+        statements.append(sql)
+        if sql.startswith("DROP DATABASE"):
+            databases.discard("otr_test")
+        elif sql.startswith("CREATE DATABASE"):
+            databases.add("otr_test")
+        elif "pg_database" in sql:
+            return "1" if "otr_test" in databases else ""
+        return ""
+
+    monkeypatch.setattr(stack, "compose", lambda *args: "db-container\n")
+    monkeypatch.setattr(stack.snapshot, "psql", psql)
+    monkeypatch.setattr(stack, "migrate_empty", lambda path, url: migrated.append(url))
+
+    def made():
+        made_now = [s for s in statements if s.startswith(("CREATE", "DROP"))]
+        statements.clear()
+        return made_now
+
+    stack.prepare_test_database(entry, CREDS, entry.worktree, fresh=False)
+    assert made() == ["CREATE DATABASE otr_test"]
+
+    stack.prepare_test_database(entry, CREDS, entry.worktree, fresh=False)
+    assert made() == []
+
+    stack.prepare_test_database(entry, CREDS, entry.worktree, fresh=True)
+    assert made() == [
+        "DROP DATABASE IF EXISTS otr_test WITH (FORCE)",
+        "CREATE DATABASE otr_test",
+    ]
+    assert migrated == [stack.database_url(entry, CREDS, "otr_test")] * 3
+
+
+def test_migrations_for_an_empty_database_uncomment_the_first_one(tmp_path):
+    source = Path(__file__).resolve().parents[2] / "web" / "drizzle"
+    first = min(source.glob("0000_*.sql"))
+    target = tmp_path / "drizzle"
+
+    stack.copy_migrations_for_empty_database(source, target)
+
+    copied = (target / first.name).read_text()
+    assert copied.lstrip().startswith('CREATE TABLE "__EFMigrationsHistory" (\n')
+    # Only drizzle's `--> statement-breakpoint` markers stay.
+    assert not [line for line in copied.splitlines() if line.startswith("-- ")]
+    # The other migrations, and the journal drizzle-kit reads, copy unchanged.
+    others = [path for path in source.rglob("*") if path.is_file() and path != first]
+    assert others
+    for path in others:
+        assert (target / path.relative_to(source)).read_bytes() == path.read_bytes()
