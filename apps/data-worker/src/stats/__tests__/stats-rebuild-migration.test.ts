@@ -20,7 +20,7 @@ const SEED_OSU_ID = 990_000_320;
 const SEED_NAME = 'stats-rebuild-migration-';
 const MIGRATION = join(
   import.meta.dir,
-  '../../../../web/drizzle/0043_rebuild_tournament_stats.sql'
+  '../../../../web/drizzle/0045_rebuild_tournament_stats.sql'
 );
 
 describe.skipIf(!testDatabaseUrl)(
