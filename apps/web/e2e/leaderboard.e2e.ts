@@ -1,11 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ROUTES, Ruleset } from './fixtures/test-config';
+import { waitForHydration } from './fixtures/hydration';
 
 /** Opens the filter panel and returns it. */
 async function openFilters(page: Page) {
   const panel = page.getByRole('dialog', { name: 'Filter players' });
   if (!(await panel.isVisible())) {
-    await page.getByRole('button', { name: /^Filters/ }).click();
+    const filters = page.getByRole('button', { name: /^Filters/ });
+    await waitForHydration(filters);
+    await filters.click();
   }
   await expect(panel).toBeVisible({ timeout: 10000 });
   return panel;
@@ -138,6 +141,7 @@ test.describe('Leaderboard Page', () => {
       await page.waitForLoadState('networkidle');
 
       const search = page.getByRole('searchbox', { name: 'Search players' });
+      await waitForHydration(search);
       await search.fill('mr');
       await search.press('Enter');
 
@@ -298,10 +302,11 @@ test.describe('Leaderboard Page', () => {
       );
       await page.waitForLoadState('networkidle');
 
-      await page
+      const clearAll = page
         .getByRole('group', { name: 'Active filters' })
-        .getByRole('button', { name: 'Clear all' })
-        .click();
+        .getByRole('button', { name: 'Clear all' });
+      await waitForHydration(clearAll);
+      await clearAll.click();
 
       await page.waitForURL((url) => !url.searchParams.has('tiers'), {
         timeout: 10000,
@@ -512,6 +517,58 @@ test.describe('Leaderboard Page', () => {
       const country = name?.replace(/^#[\d,]+ in /, '');
       expect(country).toBeTruthy();
       await expect(page.getByRole('tooltip')).toHaveText(country!);
+    });
+  });
+
+  test.describe('Avatars', () => {
+    /** The image optimizer's requests for osu! avatars. */
+    const isAvatar = (url: URL) =>
+      url.pathname === '/_next/image' &&
+      (url.searchParams.get('url') ?? '').startsWith('https://a.ppy.sh/');
+
+    // A 1x1 PNG, so the test never waits on osu!'s servers.
+    const PIXEL = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      'base64'
+    );
+
+    const firstAvatar = (page: Page) =>
+      page
+        .locator('[data-testid="leaderboard-table"] [data-slot="avatar"]')
+        .first();
+
+    // A slow or stalled avatar fires no error, so the slot used to stay
+    // empty until it loaded (#919).
+    test('an avatar shows a placeholder until it loads', async ({ page }) => {
+      let release = () => {};
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(isAvatar, async (route) => {
+        await released;
+        await route.fulfill({ contentType: 'image/png', body: PIXEL });
+      });
+
+      await page.goto(ROUTES.leaderboard);
+      const avatar = firstAvatar(page);
+      const placeholder = avatar.locator('[data-slot="avatar-fallback"]');
+      await expect(placeholder).toBeVisible({ timeout: 10000 });
+
+      release();
+      await expect(placeholder).toHaveCount(0, { timeout: 10000 });
+      await expect(avatar.locator('img')).toHaveJSProperty('naturalWidth', 1);
+    });
+
+    test('an avatar that fails to load shows the placeholder', async ({
+      page,
+    }) => {
+      await page.route(isAvatar, (route) => route.abort('failed'));
+
+      await page.goto(ROUTES.leaderboard);
+      const avatar = firstAvatar(page);
+      const placeholder = avatar.locator('[data-slot="avatar-fallback"]');
+      await expect(avatar.locator('img')).toHaveCount(0, { timeout: 10000 });
+      await expect(placeholder).toBeVisible();
     });
   });
 

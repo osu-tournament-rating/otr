@@ -89,11 +89,13 @@ Under Testing in the pull request, say which tests you saw fail first.
 
 A skipped test proves nothing, and Bun passes a test that makes no
 assertions. The `skip` and `expect() calls` counts in the summary show both.
-Tests that read `SEARCH_TEST_DATABASE_URL` skip unless it is set. Point it at
-an empty database on your own stack, never at `localhost:5432`, and migrate
-that database the way the `checks` job in `.github/workflows/ci.yml` migrates
-its test database. Set `DATABASE_URL` to the same value, because the sign-up
-test needs the two to match.
+Tests that read `SEARCH_TEST_DATABASE_URL` skip unless it is set. Run them
+with `apps/scripts/otr test`, which passes its arguments to `bun test` and
+sets `SEARCH_TEST_DATABASE_URL` and `DATABASE_URL` to your stack's empty test
+database. `otr up` migrates that database the way the `checks` job in
+`.github/workflows/ci.yml` migrates its own, and `otr up --fresh` empties it.
+Never point these tests at the stack's copy of the local database, where they
+sweep real rows and run past their time limits, or at `localhost:5432`.
 
 ## What each app must test
 
@@ -158,9 +160,16 @@ Each of these passes while the code it names is broken:
 The Playwright suite runs nightly on `master` in `e2e-tests.yml`, against the
 redacted dev archive, and by hand on any branch through `workflow_dispatch`. It
 runs on no pull request, so run the specs you change yourself, from
-`apps/web` with your stack up: `bun run test:e2e <spec>`. It serves the site on port 3001 and a fake osu!
-server on 3002. If another worktree already serves on those ports, the run
-tests that worktree's site instead, so stop it first.
+`apps/web` with your stack up: `bun run test:e2e <spec>`. It builds the site
+and serves it on port 3001, as the nightly run does, and starts a fake osu!
+server on 3002. If another worktree already serves on port 3001, the run tests
+that worktree's site instead, so stop it first, or run against your stack's
+own site with `E2E_BASE_URL=<the stack's web URL> bun run test:e2e <spec>`.
+The fake osu! server keeps no state, so worktrees can share it, and a stack
+sends osu! sign-in to it. A stack's site is a dev server, which compiles each
+page on its first visit and hydrates later than a build, so a spec that fails
+only there may still be waiting on the wrong thing; check it against the
+build before you call it the site's fault.
 
 - Check the outcome the test's name promises, such as results narrowed, a row
   saved, or a 403 returned. A URL change or a page that renders is not enough.
@@ -190,7 +199,7 @@ section has no other bullet when the pull request does any of these:
 - Deletes a test file, or moves it out of the paths its runner reads.
 - Changes a line inside a `#[cfg(test)]` module in `apps/processor/src`.
 
-Test files are the ones under `__tests__/`, `apps/web/e2e/`, `apps/*/tests/`,
-and `apps/processor/test_data/`. So are `*.test.*`, `*.spec.*`, `*.e2e.*`,
-`test-utils` and `test_utils` helpers, and the processor's `tests.rs`
-modules. The `reviewer` agent checks that each change was required.
+Test files are the ones under `__tests__/`, `apps/web/e2e/`, and
+`apps/*/tests/`. So are `*.test.*`, `*.spec.*`, `*.e2e.*`, `test-utils` and
+`test_utils` helpers, and the processor's `tests.rs` modules. The `reviewer`
+agent checks that each change was required.

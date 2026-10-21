@@ -82,6 +82,7 @@ describe('getNavEntries', () => {
     expect(admin.links.map((link) => [link.title, link.href])).toEqual([
       ['Admin', '/admin'],
       ['Reports', '/admin/reports'],
+      ['Jobs', '/admin/jobs'],
     ]);
     expect(admin.notification).toBeUndefined();
   });

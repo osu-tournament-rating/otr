@@ -9,9 +9,17 @@ import {
   calculateBeatmapAttributes,
   type CalculationResult,
 } from './calculator';
-import type { BeatmapFileDownloader } from './downloader';
+import type { BeatmapFileDownload, BeatmapFileDownloader } from './downloader';
 import { beatmapFileKey, type BeatmapFileStore } from './file-store';
 import { loadNeededAttributeMods } from './needed-mods';
+
+// A malformed response can be a one-off, or come from the map's own headers
+// and repeat on every download. This many in a row is handled like an invalid
+// file: the job falls back to an older stored file, or records the file as
+// unusable so no sweep queues the beatmap again.
+const MALFORMED_RESPONSES_BEFORE_UNUSABLE = 3;
+
+type UsableDownload = Exclude<BeatmapFileDownload, { status: 'malformed' }>;
 
 interface BeatmapAttributesServiceOptions {
   db: DatabaseClient;
@@ -63,12 +71,48 @@ export class BeatmapAttributesService {
   private readonly logger: Logger;
   private readonly store: BeatmapFileStore;
   private readonly downloader: Pick<BeatmapFileDownloader, 'download'>;
+  // Malformed responses in a row per beatmap. Kept in memory, so a restart
+  // only costs a few more downloads before the file counts as unusable.
+  private readonly malformedResponses = new Map<number, number>();
 
   constructor(options: BeatmapAttributesServiceOptions) {
     this.db = options.db;
     this.logger = options.logger;
     this.store = options.store;
     this.downloader = options.downloader;
+  }
+
+  /**
+   * Throws on a malformed response, so the job is retried or left to the next
+   * sweep, until the beatmap has had MALFORMED_RESPONSES_BEFORE_UNUSABLE in a
+   * row. That one is reported as invalid. A download that throws for another
+   * reason says nothing about the map and leaves the count alone.
+   */
+  private async download(
+    beatmapId: number,
+    osuId: number
+  ): Promise<UsableDownload> {
+    const download = await this.downloader.download(osuId);
+
+    if (download.status !== 'malformed') {
+      this.malformedResponses.delete(beatmapId);
+      return download;
+    }
+
+    const count = (this.malformedResponses.get(beatmapId) ?? 0) + 1;
+
+    if (count < MALFORMED_RESPONSES_BEFORE_UNUSABLE) {
+      this.malformedResponses.set(beatmapId, count);
+      throw new Error(
+        `osu! sent a malformed response, ${count} of ${MALFORMED_RESPONSES_BEFORE_UNUSABLE} in a row: ${download.reason}`
+      );
+    }
+
+    this.malformedResponses.delete(beatmapId);
+    return {
+      status: 'invalid',
+      reason: `malformed response ${count} times in a row: ${download.reason}`,
+    };
   }
 
   /**
@@ -148,7 +192,7 @@ export class BeatmapAttributesService {
     }
 
     if (wantDownload) {
-      const download = await this.downloader.download(osuId);
+      const download = await this.download(beatmapId, osuId);
 
       if (download.status === 'ok') {
         if (checksum !== undefined && download.checksum !== checksum) {

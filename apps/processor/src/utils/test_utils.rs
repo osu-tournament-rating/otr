@@ -1,7 +1,5 @@
 use crate::{
-    database::db_structs::{
-        Game, GameScore, Match, Player, PlayerPlacement, PlayerRating, RatingAdjustment, RulesetData
-    },
+    database::db_structs::{Game, GameScore, Match, PlayerPlacement, PlayerRating, RatingAdjustment, RulesetData},
     model::structures::{rating_adjustment_type::RatingAdjustmentType, ruleset::Ruleset}
 };
 use chrono::{DateTime, Duration, FixedOffset, Utc};
@@ -127,15 +125,6 @@ pub fn generate_country_mapping_player_ratings(player_ratings: &[PlayerRating], 
     let mut mapping = HashMap::new();
     for p in player_ratings {
         mapping.insert(p.player_id, country.to_string());
-    }
-
-    mapping
-}
-
-pub fn generate_country_mapping_players(players: &[Player]) -> HashMap<i32, String> {
-    let mut mapping: HashMap<i32, String> = HashMap::new();
-    for p in players {
-        mapping.insert(p.id, p.country.clone().unwrap_or_default());
     }
 
     mapping

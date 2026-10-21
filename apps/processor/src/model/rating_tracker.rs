@@ -70,18 +70,6 @@ impl RatingTracker {
             .collect()
     }
 
-    /// Returns the current leaderboard for a specific ruleset
-    ///
-    /// The returned ratings are ordered by their current rating value,
-    /// but may not have accurate rankings until `sort()` is called
-    pub fn get_leaderboard(&self, ruleset: Ruleset) -> Vec<PlayerRating> {
-        self.leaderboard
-            .iter()
-            .filter(|(_, player_rating)| player_rating.ruleset == ruleset)
-            .map(|(_, player_rating)| player_rating.clone())
-            .collect()
-    }
-
     /// Sets the mapping of player IDs to country codes
     ///
     /// This mapping is used to:
@@ -547,29 +535,6 @@ mod tests {
             0.0,
             epsilon = 0.0001
         );
-    }
-
-    #[test]
-    fn test_leaderboard_sorting_consistency() {
-        let mut tracker = RatingTracker::new();
-
-        // Create a set of players with same rating but different volatility
-        let ratings = vec![
-            generate_player_rating(1, Ruleset::Osu, 1000.0, 100.0, 1, None, None),
-            generate_player_rating(2, Ruleset::Osu, 1000.0, 90.0, 1, None, None),
-            generate_player_rating(3, Ruleset::Osu, 1000.0, 110.0, 1, None, None),
-        ];
-
-        tracker.insert_or_update(&ratings);
-        tracker.sort();
-
-        // Verify consistent ordering for equal ratings
-        let leaderboard = tracker.get_leaderboard(Ruleset::Osu);
-        for window in leaderboard.windows(2) {
-            if (window[0].rating - window[1].rating).abs() < f64::EPSILON {
-                assert!(window[0].global_rank < window[1].global_rank);
-            }
-        }
     }
 
     #[test]

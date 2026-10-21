@@ -3,6 +3,19 @@ discovery.docker "docker" {
 	refresh_interval = "5s"
 }
 
+// Other services share the production host, and every Grafana user can read
+// Loki, so only containers named otr-*, as docker-compose.yml names all of
+// o!TR's, have their logs collected.
+discovery.relabel "otr_containers" {
+	targets = discovery.docker.docker.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/otr-.*"
+		action        = "keep"
+	}
+}
+
 discovery.relabel "docker_logs" {
 	targets = []
 
@@ -31,7 +44,7 @@ discovery.relabel "docker_logs" {
 
 loki.source.docker "docker" {
 	host             = "unix:///var/run/docker.sock"
-	targets          = discovery.docker.docker.targets
+	targets          = discovery.relabel.otr_containers.output
 	forward_to       = [loki.write.default.receiver]
 	relabel_rules    = discovery.relabel.docker_logs.rules
 	refresh_interval = "5s"

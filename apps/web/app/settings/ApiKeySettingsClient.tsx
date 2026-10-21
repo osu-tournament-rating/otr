@@ -325,6 +325,10 @@ export default function ApiKeySettingsClient({
             <code className="font-sans font-medium text-foreground">
               Authorization: Bearer &lt;key&gt;
             </code>{' '}
+            or{' '}
+            <code className="font-sans font-medium text-foreground">
+              x-api-key: &lt;key&gt;
+            </code>{' '}
             when making API calls.
           </p>
         ) : null}

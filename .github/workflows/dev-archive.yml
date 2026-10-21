@@ -17,9 +17,8 @@ name: Dev archive
 #   fails, about a week remains before the copy it would have replaced is 14
 #   days old.
 # - On Tuesdays the public archive, the maintenance window, and the rating run
-#   start between 11:45 and 13:00 UTC, an hour later while US daylight saving
-#   is off. Wednesday morning stays well clear of them, and the copy carries
-#   the ratings that run computed.
+#   start between 11:45 and 12:00 UTC. Wednesday morning stays well clear of
+#   them, and the copy carries the ratings that run computed.
 # - It finishes hours before the dev tier's nightly restore at 14:00 UTC, so
 #   the dev tier serves the new copy the same day.
 # - It starts at 17 minutes past, because GitHub delays scheduled runs most at

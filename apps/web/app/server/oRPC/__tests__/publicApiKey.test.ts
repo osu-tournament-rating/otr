@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { call, isProcedure, ORPCError, type AnyProcedure } from '@orpc/server';
 
 import { auth } from '@/lib/auth/auth';
+import { db } from '@/lib/db';
 import {
   anonymousSources,
   apiKeyRejections,
@@ -146,6 +147,36 @@ describe('API key and caller metrics', () => {
       expect(await counterValue(orpcProcedureCalls, {})).toBe(callsBefore);
     } finally {
       verifyApiKey.mockRestore();
+    }
+  });
+
+  // Every key belongs to a user, so only a database error fails the lookup
+  it("labels a key's call as api-key when looking up the key's owner fails (#1099)", async () => {
+    const verifyApiKey = spyOn(auth.api, 'verifyApiKey').mockResolvedValue({
+      valid: true,
+      key: { id: 'key-123', referenceId: 'user-1', name: 'k', enabled: true },
+      error: null,
+    } as never);
+    const findOwner = spyOn(db.query.auth_users, 'findFirst').mockRejectedValue(
+      new Error('connection terminated')
+    );
+    const logError = spyOn(console, 'error').mockImplementation(
+      () => undefined
+    );
+    const labels = { procedure: 'probe', accessMethod: 'api-key' };
+    const before = await counterValue(orpcProcedureCalls, labels);
+
+    try {
+      await call(probe, undefined, {
+        path: ['probe'],
+        context: { headers: new Headers({ authorization: 'Bearer k' }) },
+      });
+
+      expect(await counterValue(orpcProcedureCalls, labels)).toBe(before + 1);
+    } finally {
+      verifyApiKey.mockRestore();
+      findOwner.mockRestore();
+      logError.mockRestore();
     }
   });
 

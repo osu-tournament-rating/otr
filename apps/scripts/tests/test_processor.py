@@ -39,6 +39,9 @@ def test_run_passes_the_new_variable_names_to_the_container(monkeypatch):
     assert run == [
         "docker",
         "run",
+        "--rm",
+        "--name",
+        "otr-processor",
         "--network",
         "host",
         "-e",

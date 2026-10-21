@@ -98,6 +98,8 @@ type SeededPlayer = {
   lastFetch: number;
   ratings: Array<[Ruleset, number]>;
   fetching?: boolean;
+  // osu! last answered not found, and whether that marked them restricted.
+  notFound?: { restricted: boolean };
   // Cadence the player should be published under, or null when this run skips them.
   expected: number | null;
 };
@@ -229,6 +231,29 @@ const seed: SeededPlayer[] = [
     ratings: [[Ruleset.Taiko, 501]],
     expected: null,
   },
+  // Restricted players wait 30 days, whatever their rank.
+  {
+    osuId: 999_300_022,
+    lastFetch: 29,
+    ratings: [[Ruleset.Osu, 100]],
+    notFound: { restricted: true },
+    expected: null,
+  },
+  {
+    osuId: 999_300_023,
+    lastFetch: 31,
+    ratings: [[Ruleset.Osu, 100]],
+    notFound: { restricted: true },
+    expected: 30,
+  },
+  // Not found before the restricted flag existed: checked at once.
+  {
+    osuId: 999_300_024,
+    lastFetch: 0.5,
+    ratings: [[Ruleset.Osu, 100]],
+    notFound: { restricted: false },
+    expected: 0,
+  },
 ];
 
 describe.skipIf(!url)('osu! auto-refetch tiers', () => {
@@ -258,7 +283,10 @@ describe.skipIf(!url)('osu! auto-refetch tiers', () => {
           osuLastFetch: daysAgo(player.lastFetch),
           dataFetchStatus: player.fetching
             ? DataFetchStatus.Fetching
-            : DataFetchStatus.Fetched,
+            : player.notFound
+              ? DataFetchStatus.NotFound
+              : DataFetchStatus.Fetched,
+          restricted: player.notFound?.restricted ?? false,
         })
         .returning({ id: schema.players.id });
 

@@ -1,7 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { MessagePriority } from '@otr/core';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import { enqueueJobs, JobQueue, JobStatus } from '@otr/core/jobs';
+import {
+  beatmapFetchKeysSql,
+  enqueueJobs,
+  JobQueue,
+  JobStatus,
+  matchFetchKeySql,
+} from '@otr/core/jobs';
 import { isWithinMaintenanceWindow } from '@otr/core/maintenance';
 import { withoutTracing } from '@otr/core/tracing';
 
@@ -97,17 +103,18 @@ export class StrandedFetchSweep {
       SELECT m.osu_id, m.is_lazer, m.tournament_id
       FROM matches m
       WHERE m.data_fetch_status IN ${unfinished}
-        AND NOT ${activeOsuJob(sql`'match:' || m.osu_id || ':' || CASE WHEN m.is_lazer THEN 'lazer' ELSE 'stable' END`)}
+        AND NOT ${activeOsuJob(matchFetchKeySql(sql`m.osu_id`, sql`m.is_lazer`))}
       ORDER BY m.id
       LIMIT ${BATCH_SIZE}`);
 
+    const [withChecks, withoutChecks] = beatmapFetchKeysSql(sql`b.osu_id`);
     const { rows: beatmaps } = await db.execute<{ osu_id: string }>(sql`
       SELECT b.osu_id
       FROM beatmaps b
       WHERE b.data_fetch_status IN ${unfinished}
         AND NOT b.manual_override
-        AND NOT ${activeOsuJob(sql`'beatmap:' || b.osu_id`)}
-        AND NOT ${activeOsuJob(sql`'beatmap:' || b.osu_id || ':nochecks'`)}
+        AND NOT ${activeOsuJob(withChecks)}
+        AND NOT ${activeOsuJob(withoutChecks)}
       ORDER BY b.id
       LIMIT ${BATCH_SIZE}`);
 

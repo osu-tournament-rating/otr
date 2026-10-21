@@ -26,7 +26,11 @@ const FETCHED_BEATMAP_ID = 991_201_801;
 const NOT_FOUND_BEATMAP_ID = 991_201_802;
 const UNKNOWN_BEATMAP_ID = 991_201_803;
 const MATCH_ID = 991_201_811;
+const NEVER_FETCHED_PLAYER_ID = 991_201_821;
+const NOT_FOUND_PLAYER_ID = 991_201_822;
+const UNKNOWN_PLAYER_ID = 991_201_823;
 const BEATMAP_IDS = [FETCHED_BEATMAP_ID, NOT_FOUND_BEATMAP_ID];
+const PLAYER_IDS = [NEVER_FETCHED_PLAYER_ID, NOT_FOUND_PLAYER_ID];
 
 describe.skipIf(!testDatabaseUrl)('massEnqueueHandler', () => {
   const { pool, db } = createTestDb(testDatabaseUrl!);
@@ -43,6 +47,7 @@ describe.skipIf(!testDatabaseUrl)('massEnqueueHandler', () => {
     await db
       .delete(schema.beatmaps)
       .where(inArray(schema.beatmaps.osuId, BEATMAP_IDS));
+    await removePlayers(db, PLAYER_IDS);
   };
 
   beforeEach(async () => {
@@ -78,6 +83,15 @@ describe.skipIf(!testDatabaseUrl)('massEnqueueHandler', () => {
       isLazer: true,
       dataFetchStatus: DataFetchStatus.Fetched,
     });
+
+    // A beatmap creator saved but never fetched, and a restricted player.
+    await db.insert(schema.players).values([
+      { osuId: NEVER_FETCHED_PLAYER_ID },
+      {
+        osuId: NOT_FOUND_PLAYER_ID,
+        dataFetchStatus: DataFetchStatus.NotFound,
+      },
+    ]);
   });
 
   afterAll(async () => {
@@ -88,14 +102,14 @@ describe.skipIf(!testDatabaseUrl)('massEnqueueHandler', () => {
 
   const run = async (
     client: DatabaseClient = db,
-    ids: { beatmapIds: number[]; matchIds: number[] } = {
+    ids: { beatmapIds: number[]; matchIds: number[]; playerIds?: number[] } = {
       beatmapIds: [...BEATMAP_IDS, UNKNOWN_BEATMAP_ID],
       matchIds: [MATCH_ID],
     }
   ) => {
     const events = [];
     for await (const event of massEnqueueHandler({
-      input: { ...ids, priority: 'Low' },
+      input: { playerIds: [], ...ids, priority: 'Low' },
       context: { db: client, session: adminSession(userId) },
     })) {
       events.push(event);
@@ -128,6 +142,8 @@ describe.skipIf(!testDatabaseUrl)('massEnqueueHandler', () => {
       beatmapsSkipped: 2,
       matchesUpdated: 1,
       matchesSkipped: 0,
+      playersUpdated: 0,
+      playersSkipped: 0,
     });
     expect(await statuses()).toEqual({
       beatmaps: [DataFetchStatus.NotFetched, DataFetchStatus.NotFound],
@@ -147,6 +163,30 @@ describe.skipIf(!testDatabaseUrl)('massEnqueueHandler', () => {
         payload: { type: 'match', osuMatchId: MATCH_ID, isLazer: true },
         priority: MessagePriority.Low,
         tournamentId,
+      }),
+    ]);
+  });
+
+  it('queues a fetch for every player in the database osu! still serves', async () => {
+    const events = await run(db, {
+      beatmapIds: [],
+      matchIds: [],
+      playerIds: [...PLAYER_IDS, UNKNOWN_PLAYER_ID],
+    });
+
+    expect(events.at(-1)).toEqual({
+      type: 'complete',
+      beatmapsUpdated: 0,
+      beatmapsSkipped: 0,
+      matchesUpdated: 0,
+      matchesSkipped: 0,
+      playersUpdated: 1,
+      playersSkipped: 2,
+    });
+    expect(await queuedFetches(db, userId)).toEqual([
+      expect.objectContaining({
+        payload: { type: 'player', osuPlayerId: NEVER_FETCHED_PLAYER_ID },
+        priority: MessagePriority.Low,
       }),
     ]);
   });

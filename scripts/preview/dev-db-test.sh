@@ -434,6 +434,19 @@ contains "clone restores a broken seed first" "$out" "clone: restoring first"
 contains "clone then creates the database" "$out" "action=create"
 equals "the clone has the foreign key" "$(fk_count otr_pr_3)" 1
 
+# a pull request with its own migration, while the seed is broken: the
+# restore migrates the seed with the default branch's archive, so the seed is
+# checked against that journal, not the pull request's
+make_archive four 4
+STUB_RESTORE_FAIL=true dev_db restore >/dev/null 2>&1 || true
+status=0
+out="$(SEED_JOURNAL="$journal_three" EXPECTED_JOURNAL="$(journal_of "$work/fixtures/four")" \
+  dev_db clone otr_pr_4 2>&1)" || status=$?
+equals "a migration pull request's clone restores a broken seed" "$status" 0
+contains "the seed is checked against the default branch's journal" "$out" \
+  "verified otr_test_seed against 3 expected migrations"
+contains "the clone is created from the restored seed" "$out" "action=create"
+
 # a second mutating operation waits, then gives up
 STUB_RESTORE_SLEEP=10 dev_db restore >/dev/null 2>&1 &
 holder=$!

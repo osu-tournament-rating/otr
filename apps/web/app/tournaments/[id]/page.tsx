@@ -10,6 +10,7 @@ import TournamentHero, {
 } from '@/components/tournaments/TournamentHero';
 import TournamentMatchesAdminView from '@/components/tournaments/TournamentMatchesAdminView';
 import TournamentPlayerStatsView from '@/components/tournaments/TournamentPlayerStatsView';
+import TournamentProgressPanel from '@/components/tournaments/TournamentProgressPanel';
 import TournamentRatingsView from '@/components/tournaments/TournamentRatingsView';
 import TournamentStatsPanel from '@/components/tournaments/TournamentStatsPanel';
 import type { MatchRow } from '@/components/tournaments/matchRow';
@@ -19,11 +20,13 @@ import {
 } from '@/components/tournaments/tabs';
 import { isDeletedTournamentBeatmap } from '@/lib/beatmaps/presentation';
 import { parseHeroTab } from '@/lib/kit/layout/hero-tabs';
+import { orpc } from '@/lib/orpc/orpc';
 import { getTournamentCached } from '@/lib/orpc/queries/tournament';
 import type {
   TournamentDetail,
   TournamentMatch,
 } from '@/lib/orpc/schema/tournament';
+import type { TournamentProgress } from '@/lib/orpc/schema/tournamentProgress';
 import {
   fetchOrpcOptional,
   fetchOrpcOrNotFound,
@@ -112,6 +115,19 @@ function toHeroData(tournament: TournamentDetail): TournamentHeroData {
   };
 }
 
+/**
+ * The tournament's fetch and processing progress. The page stands without
+ * it, so a failure leaves the panel out instead of failing the page.
+ */
+async function getProgress(id: number): Promise<TournamentProgress | null> {
+  try {
+    return await orpc.tournaments.progress({ id });
+  } catch (error) {
+    console.error('[tournament] progress could not load', error);
+    return null;
+  }
+}
+
 export default async function Page({ params, searchParams }: PageProps) {
   const { id } = parseParamsOrNotFound(
     tournamentPageParamsSchema,
@@ -123,9 +139,10 @@ export default async function Page({ params, searchParams }: PageProps) {
     DEFAULT_TOURNAMENT_TAB
   );
 
-  const tournament: TournamentDetail = await fetchOrpcOrNotFound(() =>
-    getTournamentCached(id)
-  );
+  const [tournament, progress] = await Promise.all([
+    fetchOrpcOrNotFound(() => getTournamentCached(id)),
+    getProgress(id),
+  ]);
   const matches = tournament.matches ?? [];
   const beatmaps = tournament.pooledBeatmaps ?? [];
   const playerStats = tournament.playerTournamentStats ?? [];
@@ -150,6 +167,11 @@ export default async function Page({ params, searchParams }: PageProps) {
       />
 
       <NotInRatings status={tournament.verificationStatus} variant="notice" />
+
+      <TournamentProgressPanel
+        tournamentId={tournament.id}
+        initialProgress={progress}
+      />
 
       {tab === 'matches' && (
         <div data-testid="tab-content-matches" className="flex flex-col gap-4">

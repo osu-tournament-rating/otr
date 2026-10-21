@@ -31,7 +31,6 @@ describe('changedTests', () => {
       'apps/scripts/tests/test_recovery.py',
       'apps/replay/tests/fixtures/releases.json',
       'apps/processor/tests/database/db_tests.rs',
-      'apps/processor/test_data/owc_2023.json',
       'apps/processor/src/utils/test_utils.rs',
       'apps/processor/src/messaging/tests.rs',
     ];

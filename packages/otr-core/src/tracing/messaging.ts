@@ -1,8 +1,11 @@
 import {
   context,
   propagation,
+  ROOT_CONTEXT,
   SpanKind,
+  trace,
   type Attributes,
+  type Link,
 } from '@opentelemetry/api';
 
 import { withSpan } from './tracer';
@@ -41,8 +44,9 @@ export function injectTraceContext(): Record<string, string> {
 }
 
 /**
- * Continues the trace a job row carries, so the job shows up under whatever
- * enqueued it rather than as an unrelated root span.
+ * Starts a new trace for a job, linked to the trace a job row carries. Joining
+ * that trace instead let one tournament submission collect every span of its
+ * fetches and automated checks, past Tempo's size limit per trace.
  */
 export function traceConsume<T>(
   queue: string,
@@ -50,19 +54,22 @@ export function traceConsume<T>(
   run: () => Promise<T>,
   extraAttributes?: Attributes
 ): Promise<T> {
-  const parent = propagation.extract(context.active(), traceContext ?? {});
+  const queued = trace.getSpanContext(
+    propagation.extract(ROOT_CONTEXT, traceContext ?? {})
+  );
+  const links: Link[] = queued ? [{ context: queued }] : [];
 
-  return context.with(parent, () =>
-    withSpan(
-      `process ${queue}`,
-      {
-        kind: SpanKind.CONSUMER,
-        attributes: queueAttributes(queue, {
-          'messaging.operation.name': 'process',
-          ...extraAttributes,
-        }),
-      },
-      run
-    )
+  return withSpan(
+    `process ${queue}`,
+    {
+      kind: SpanKind.CONSUMER,
+      root: true,
+      links,
+      attributes: queueAttributes(queue, {
+        'messaging.operation.name': 'process',
+        ...extraAttributes,
+      }),
+    },
+    run
   );
 }

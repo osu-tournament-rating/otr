@@ -9,6 +9,7 @@ import {
 import { buildTierProgress } from '@/lib/utils/tierProgress';
 
 import { publicProcedure } from './base';
+import { logger } from '@/lib/logger';
 
 export const getPlayerRatings = publicProcedure
   .input(PlayerRatingsInputSchema)
@@ -114,7 +115,7 @@ export const getPlayerRatings = publicProcedure
         throw error;
       }
 
-      console.error('[orpc] players.ratings failed', error);
+      logger.error('players.ratings failed', { error });
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
         message:
           error instanceof Error

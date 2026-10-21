@@ -24,7 +24,7 @@ const url = process.env.SEARCH_TEST_DATABASE_URL;
 
 const REPAIR_MIGRATION = join(
   import.meta.dir,
-  '../../../../web/drizzle/0043_repair_unchecked_verified_scores.sql'
+  '../../../../web/drizzle/0045_repair_unchecked_verified_scores.sql'
 );
 
 const NAME = 'repair-unchecked-verified-scores';
@@ -46,7 +46,7 @@ type ScoreSeed = {
 };
 
 describe.skipIf(!url)(
-  'migration 0043, repair unchecked verified scores',
+  'migration 0045, repair unchecked verified scores',
   () => {
     const pool = new Pool({ connectionString: url });
     const db = drizzle(pool, { schema: dbSchema }) as unknown as DatabaseClient;
