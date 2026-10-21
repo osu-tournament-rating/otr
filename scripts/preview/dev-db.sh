@@ -494,18 +494,26 @@ reap() { # reap [--dry-run] [--force]
 }
 
 remove_stack() { # remove_stack <pr number>
-  local directory="$PREVIEW_REMOTE_PATH/pr-$1"
+  local directory="$PREVIEW_REMOTE_PATH/pr-$1" project="otr-pr-$1" sidecar
+  # As in the preview workflow's teardown: log the tailnet node out so its
+  # hostname is free at once, with the restart policy off so the sidecar
+  # does not sign back in.
+  sidecar="$(docker ps -q --filter "label=com.docker.compose.project=$project" \
+    --filter label=com.docker.compose.service=tailscale)"
+  if [[ -n "$sidecar" ]] && docker update --restart=no "$sidecar" >/dev/null; then
+    docker exec "$sidecar" tailscale logout </dev/null || true
+  fi
   if [[ -n "$PREVIEW_REMOTE_PATH" && -d "$directory" ]]; then
     (
       cd "$directory"
-      # No -v: the compose file names shared volumes.
-      docker compose -p "otr-pr-$1" down --remove-orphans </dev/null
+      docker compose -p "$project" down --remove-orphans </dev/null
     ) || true
     rm -rf "$directory"
   else
-    docker ps -aq --filter "label=com.docker.compose.project=otr-pr-$1" |
+    docker ps -aq --filter "label=com.docker.compose.project=$project" |
       xargs -r docker rm -f >/dev/null
   fi
+  docker volume rm -f "${project}_tailscale-state" >/dev/null
 }
 
 usage() {

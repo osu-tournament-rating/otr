@@ -58,24 +58,39 @@ services:
       - otr-dev
 
   tailscale:
-    image: tailscale/tailscale:latest
+    # Pinned so a redeploy's pull does not recreate the sidecar for a new
+    # Tailscale release.
+    image: tailscale/tailscale:v1.104.1@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d
     restart: unless-stopped
     environment:
-      # OAuth client credentials mint an ephemeral node, so the tailnet entry
-      # removes itself when the stack comes down.
+      # OAuth client credentials mint an ephemeral node. Tailscale deletes it
+      # some time after it goes offline; the teardown job logs it out at once.
       TS_CLIENT_ID: ${TS_CLIENT_ID}
       TS_CLIENT_SECRET: ${TS_CLIENT_SECRET}
       TS_HOSTNAME: ${PREVIEW_HOSTNAME}
       TS_EXTRA_ARGS: --advertise-tags=tag:preview
       TS_SERVE_CONFIG: /config/serve.json
-      TS_STATE_DIR: /tmp/tailscale
+      # The node's identity outlives the container, so a recreated sidecar
+      # comes back as the same node. A fresh one would find its hostname
+      # still held by the old, offline node and take the name with -1
+      # appended, which the URL in the preview comment does not reach.
+      TS_STATE_DIR: /var/lib/tailscale
+      # Log in only when the saved node needs it, such as after Tailscale
+      # deleted it while the host was down.
+      TS_AUTH_ONCE: 'true'
     volumes:
       # Must be a directory; Tailscale watches it for changes.
       - ./ts-config:/config
+      - tailscale-state:/var/lib/tailscale
     depends_on:
       - web
     networks:
       - default
+
+volumes:
+  # Compose prefixes it with the project, so each preview has its own. The
+  # teardown job removes it by that name.
+  tailscale-state:
 
 networks:
   otr-dev:
