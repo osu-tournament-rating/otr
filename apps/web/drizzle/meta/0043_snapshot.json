@@ -1,5 +1,5 @@
 {
-  "id": "b96d856c-fb87-4625-857a-7b6d9b2c8a82",
+  "id": "d8067d3b-04ec-4dfb-b750-9a3730c8292e",
   "prevId": "b3b4e389-865c-4678-88cb-2fb6d5e047de",
   "version": "7",
   "dialect": "postgresql",
@@ -5107,55 +5107,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.platform_stats": {
-      "name": "platform_stats",
-      "schema": "",
-      "columns": {
-        "name": {
-          "name": "name",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ruleset": {
-          "name": "ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "payload": {
-          "name": "payload",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "computed_at": {
-          "name": "computed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "uq_platform_stats_name_ruleset": {
-          "name": "uq_platform_stats_name_ruleset",
-          "nullsNotDistinct": true,
-          "columns": ["name", "ruleset"]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.player_admin_notes": {
       "name": "player_admin_notes",
       "schema": "",
@@ -6298,6 +6249,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "restricted": {
+          "name": "restricted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created": {
           "name": "created",

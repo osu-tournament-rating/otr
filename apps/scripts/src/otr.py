@@ -4,11 +4,13 @@
     otr down [web|worker|monitoring ...]
     otr down --orphans
     otr status
+    otr test [bun test arguments ...]
 
 See the "Agent stacks" section of apps/scripts/AGENTS.md.
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -20,6 +22,15 @@ HERE = Path(__file__).resolve().parent
 
 
 def parse(argv: list[str]) -> argparse.Namespace:
+    # `otr test` passes every argument after it to `bun test` unread, because
+    # argparse would take a leading flag, such as `-t name`, for one of its
+    # own. A leading `--` is dropped, so `otr test -- -t name` works too.
+    if argv[:1] == ["test"]:
+        rest = argv[1:]
+        if rest[:1] == ["--"]:
+            rest = rest[1:]
+        return argparse.Namespace(command="test", args=rest)
+
     parser = argparse.ArgumentParser(
         prog="otr",
         description="Run a disposable o!TR stack for this worktree.",
@@ -60,6 +71,13 @@ def parse(argv: list[str]) -> argparse.Namespace:
     )
 
     commands.add_parser("status", help="list every stack on this machine")
+
+    # Here only for `otr --help`. The check at the top reads `otr test` itself.
+    commands.add_parser(
+        "test",
+        help="run bun test with the database tests on the stack's empty test "
+        "database, as CI does; every argument after `test` goes to bun test",
+    )
     return parser.parse_args(argv)
 
 
@@ -72,6 +90,10 @@ def main(argv: list[str]) -> int:
             stack.orphans()
         elif args.command == "down":
             stack.down(HERE, set(args.components))
+        elif args.command == "test":
+            root, env = stack.database_test_env(HERE)
+            os.chdir(root)
+            os.execvpe("bun", ["bun", "test", *args.args], env)
         else:
             stack.status(HERE)
     except (StackError, OSError) as error:

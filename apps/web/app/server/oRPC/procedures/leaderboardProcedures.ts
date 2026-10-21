@@ -1,6 +1,7 @@
 import { ORPCError } from '@orpc/server';
 import { SQL, and, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 
+import { isActiveSql, lastMatchTimeSql } from '@otr/core/db/player-activity';
 import * as schema from '@otr/core/db/schema';
 import {
   LeaderboardRequestSchema,
@@ -99,6 +100,11 @@ export async function runLeaderboard({
     const osuGlobalRankExpr = sql<number | null>`
       ${schema.playerOsuRulesetData.globalRank}
     `.as('osuGlobalRank');
+    // Aliased: the players' id is selected too, and a CTE's columns need
+    // distinct names.
+    const playerRatingIdExpr = sql<number>`${schema.playerRatings.id}`.as(
+      'playerRatingId'
+    );
 
     const selectFields = {
       playerId: schema.players.id,
@@ -114,6 +120,7 @@ export async function runLeaderboard({
       matchesPlayed: matchesPlayedExpr,
       winRate: winRateExpr,
       osuGlobalRank: osuGlobalRankExpr,
+      playerRatingId: playerRatingIdExpr,
     } as const;
 
     const leaderboardBaseQuery = context.db
@@ -149,10 +156,22 @@ export async function runLeaderboard({
         : undefined;
     // Filters players before the per-player aggregation, not after it
     const usernameFilter = buildLeaderboardSearchCondition(input.searchQuery);
-    const baseWhere =
-      playerScopeFilter || usernameFilter
-        ? and(playerScopeFilter, usernameFilter, ratingRulesetFilter)
-        : ratingRulesetFilter;
+    // Restricted players are on no leaderboard, friends included. Inactive
+    // players are listed unless asked to hide them, and the friends tab
+    // always lists them. Ranks stay the processor's, so hiding a player
+    // leaves a gap in them.
+    const unrestrictedFilter = eq(schema.players.restricted, false);
+    const activityFilter =
+      (input.includeInactive ?? true) || friendUserId != null
+        ? undefined
+        : isActiveSql(schema.playerRatings.id);
+    const baseWhere = and(
+      ratingRulesetFilter,
+      unrestrictedFilter,
+      activityFilter,
+      playerScopeFilter,
+      usernameFilter
+    );
     const groupByColumns = [
       schema.playerRatings.id,
       schema.playerRatings.rating,
@@ -277,6 +296,8 @@ export async function runLeaderboard({
         tournamentsPlayed: leaderboardBase.tournamentsPlayed,
         matchesPlayed: leaderboardBase.matchesPlayed,
         winRate: leaderboardBase.winRate,
+        lastMatchTime: lastMatchTimeSql(leaderboardBase.playerRatingId),
+        active: isActiveSql(leaderboardBase.playerRatingId).mapWith(Boolean),
       })
       .from(leaderboardBase);
 
@@ -315,6 +336,8 @@ export async function runLeaderboard({
         winRate: Number.isFinite(winRate) && winRate >= 0 ? winRate : 0,
         tier: tierKey,
         tierProgress,
+        lastMatchTime: row.lastMatchTime,
+        inactive: !row.active,
       };
     });
 
