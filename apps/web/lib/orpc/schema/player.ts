@@ -1,14 +1,19 @@
 import { z } from 'zod';
 
 import { playerSelectSchema } from './base';
-import { CreatedUpdatedOmit, DefaultRulesetSchema } from './constants';
+import { DefaultRulesetSchema } from './constants';
 
 /**
  * A player as other responses embed them: a match's players, a tournament's
  * submitter, a note's author. Whether they are restricted is left out.
  */
 export const PlayerSchema = playerSelectSchema
-  .omit({ ...CreatedUpdatedOmit, restricted: true })
+  .pick({
+    id: true,
+    osuId: true,
+    username: true,
+    country: true,
+  })
   .extend({
     defaultRuleset: DefaultRulesetSchema,
     userId: z.number().int().nullable().optional(),

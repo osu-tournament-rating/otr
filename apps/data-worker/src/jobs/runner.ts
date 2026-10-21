@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import { sql, type SQL } from 'drizzle-orm';
-import { JobStatus, type JobPayload, type JobQueue } from '@otr/core/jobs';
+import {
+  JobStatus,
+  recordAttemptSql,
+  recordCountSql,
+  type AttemptOutcome,
+  type JobPayload,
+  type JobQueue,
+} from '@otr/core/jobs';
 import { traceConsume, withoutTracing } from '@otr/core/tracing';
 
 import type { DatabaseClient } from '../db';
@@ -15,11 +22,6 @@ import {
   queueMessagesProcessed,
   jobWaitSeconds,
 } from '../metrics';
-import {
-  recordAttemptSql,
-  recordCountSql,
-  type AttemptOutcome,
-} from './daily-stats';
 import {
   DiscardJobError,
   PermanentJobError,
