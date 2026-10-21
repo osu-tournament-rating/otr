@@ -594,20 +594,26 @@ jobs:
             bash -s -- "$PREVIEW_REMOTE_PATH" "$DEV_REMOTE_PATH" "$PR_NUMBER" <<'EOF'
             set -euo pipefail
             directory="$1/pr-$3"
+            project="otr-pr-$3"
+            # The sidecar keeps its node across restarts, so stopping it
+            # leaves the node offline in the tailnet until Tailscale deletes
+            # it. Logging the ephemeral node out deletes it now, so a later
+            # preview for this pull request gets the same hostname. The
+            # sidecar exits after a logout, and its restart policy would sign
+            # it straight back in, so the policy goes first.
+            sidecar="$(docker ps -q --filter "label=com.docker.compose.project=$project" \
+              --filter label=com.docker.compose.service=tailscale)"
+            if [[ -n "$sidecar" ]] && docker update --restart=no "$sidecar" >/dev/null; then
+              docker exec "$sidecar" tailscale logout </dev/null || true
+            fi
             if [[ -d "$directory" ]]; then
               cd "$directory"
-              # The sidecar keeps its node across restarts, so stopping it
-              # leaves the node offline in the tailnet until Tailscale deletes
-              # it. Logging the ephemeral node out deletes it now, so a later
-              # preview for this pull request gets the same hostname. A
-              # sidecar that is not running has nothing to log out.
-              docker compose -p "otr-pr-$3" exec -T tailscale tailscale logout </dev/null || true
-              docker compose -p "otr-pr-$3" down --remove-orphans
+              docker compose -p "$project" down --remove-orphans
               cd /
               rm -rf "$directory"
             fi
             # Without its saved state, a later preview registers a new node.
-            docker volume rm -f "otr-pr-$3_tailscale-state"
+            docker volume rm -f "${project}_tailscale-state" >/dev/null
             docker image rm "stagecodes/otr-web:pr-$3" || true
             cd "$2"
             ./scripts/preview/dev-db.sh drop "otr_pr_$3"
