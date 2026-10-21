@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
 import * as schema from '@otr/core/db/schema';
+import { JobQueue } from '@otr/core/jobs';
 import { Ruleset } from '@otr/core/osu';
 import { db } from '@/lib/db';
 
@@ -108,6 +109,55 @@ describe.skipIf(!enabled)('sign-in with a full osu! profile', () => {
       { ruleset: Ruleset.Mania4k, pp: 4100, globalRank: 4000 },
       { ruleset: Ruleset.Mania7k, pp: 900, globalRank: 60_000 },
     ]);
+  });
+});
+
+describe.skipIf(!enabled)('sign-in after osu!track fetched the player', () => {
+  const osuUser = useFakeOsuUser((pathname) => ({
+    statistics_rulesets: STATISTICS_RULESETS,
+    ...(pathname === '/api/v2/me/mania'
+      ? { statistics: MANIA_STATISTICS }
+      : {}),
+  }));
+  let playerId = 0;
+
+  const isOsuTrackFetch = () =>
+    and(
+      eq(schema.jobs.queue, JobQueue.OsuTrackFetch),
+      sql`(${schema.jobs.payload}->>'osuPlayerId')::bigint = ${osuUser.osuId}`
+    );
+  const queuedOsuTrackFetches = () =>
+    db
+      .select({ id: schema.jobs.id })
+      .from(schema.jobs)
+      .where(isOsuTrackFetch());
+
+  // osu!track saved ranks onto the ruleset data that existed then: none.
+  beforeAll(async () => {
+    const [player] = await db
+      .insert(schema.players)
+      .values({
+        osuId: osuUser.osuId,
+        username: 'before-sign-in',
+        osuTrackDataFetchStatus: DataFetchStatus.Fetched,
+        osuTrackLastFetch: new Date(Date.now() - DAY_MS).toISOString(),
+      })
+      .returning({ id: schema.players.id });
+    playerId = player!.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(schema.jobs).where(isOsuTrackFetch());
+  });
+
+  test('queues osu!track again for the rulesets it saved', async () => {
+    const { location } = await osuUser.signIn();
+    expect(location).not.toContain('error=');
+
+    expect(await queuedOsuTrackFetches()).toHaveLength(1);
+    expect((await readPlayer(playerId)).osuTrackDataFetchStatus).toBe(
+      DataFetchStatus.Fetching
+    );
   });
 });
 

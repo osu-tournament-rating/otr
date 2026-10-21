@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { User } from 'osu-api-v2-js';
 
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
+import { requeueOsuTrackForNewRulesetData } from '@otr/core/db/player-fetch-lease';
 import {
   OSU_API_RULESETS,
   playerProfileValues,
@@ -11,6 +12,7 @@ import {
 import * as schema from '@otr/core/db/schema';
 import { Ruleset } from '@otr/core/osu';
 import { db } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 /** The signed-in player's own osu! profile, from `/me/mania`. */
 export type OwnOsuProfile = User.Extended.WithStatisticsrulesets;
@@ -29,7 +31,10 @@ export type OwnOsuProfile = User.Extended.WithStatisticsrulesets;
  * time stay as they were; moving the time alone would keep a player who is
  * waiting on a refetch from ever timing out.
  *
- * It runs in one transaction, so a failure saves nothing. A failure is
+ * Like a fetch, it then queues osu!track again when its last fetch predates
+ * ruleset data this save created, so the new rulesets get rank history.
+ *
+ * The save runs in one transaction, so a failure saves nothing. A failure is
  * logged and never fails the sign-in.
  */
 export const saveOwnOsuProfile = async (
@@ -85,6 +90,17 @@ export const saveOwnOsuProfile = async (
         .where(eq(schema.players.id, playerId));
     });
   } catch (error) {
-    console.error('Failed to save the osu! profile at sign-in', error);
+    logger.error('Failed to save the osu! profile at sign-in', { error });
+    return;
+  }
+
+  if (!complete) {
+    return;
+  }
+
+  try {
+    await requeueOsuTrackForNewRulesetData(db, profile.id);
+  } catch (error) {
+    logger.error('Failed to queue osu!track at sign-in', { error });
   }
 };
