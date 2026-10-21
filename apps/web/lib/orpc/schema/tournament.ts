@@ -7,7 +7,6 @@ import {
 import { BeatmapAttributeSchema, BeatmapSchema } from './beatmap';
 import { BeatmapListTopModSchema } from './beatmapList';
 import {
-  CreatedUpdatedOmit,
   RulesetSchema,
   VerificationChildrenChoiceSchema,
   VerificationStatusSchema,
@@ -129,8 +128,23 @@ export const TournamentMatchSchema = MatchSchema.extend({
 });
 
 export const TournamentPlayerStatsSchema = playerTournamentStatsSelectSchema
-  .omit({
-    created: true,
+  .pick({
+    id: true,
+    averageRatingDelta: true,
+    averageMatchCost: true,
+    averageScore: true,
+    averagePlacement: true,
+    averageAccuracy: true,
+    matchesPlayed: true,
+    matchesWon: true,
+    matchesLost: true,
+    gamesPlayed: true,
+    gamesWon: true,
+    gamesLost: true,
+    teammateIds: true,
+    playerId: true,
+    tournamentId: true,
+    matchWinRate: true,
   })
   .extend({
     player: PlayerSchema,
@@ -145,7 +159,22 @@ export const TournamentBeatmapSchema = BeatmapSchema.extend({
 });
 
 const tournamentDetailBaseSchema = tournamentSelectSchema
-  .omit(CreatedUpdatedOmit)
+  .pick({
+    id: true,
+    name: true,
+    abbreviation: true,
+    forumUrl: true,
+    rankRangeLowerBound: true,
+    ruleset: true,
+    lobbySize: true,
+    verificationStatus: true,
+    rejectionReason: true,
+    isLazer: true,
+    submittedByUserId: true,
+    verifiedByUserId: true,
+    startTime: true,
+    endTime: true,
+  })
   .extend({
     ruleset: RulesetSchema,
     verificationStatus: VerificationStatusSchema,
