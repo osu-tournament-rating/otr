@@ -15,7 +15,7 @@ export type AdminEditTable = 'matches' | 'games' | 'game_scores';
  * purpose: admin cascades, the automated checks and the weekly processor run
  * must keep writing them.
  *
- * Migration 0045 passes these groups to the `keep_admin_edits` trigger on each
+ * Migration 0046 passes these groups to the `keep_admin_edits` trigger on each
  * table, one argument per group with its columns separated by spaces. To
  * protect another field, add its group here and recreate that table's trigger
  * with the new arguments in a migration; a test compares the two. A migration

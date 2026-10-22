@@ -207,4 +207,24 @@ impl DbClient {
         info!(count = players.len(), "Fetched players");
         Ok(players)
     }
+
+    /// Maps every player id to its country code, empty when the player has
+    /// none.
+    ///
+    /// Unlike [`Self::get_players`], this includes players without ruleset
+    /// data. They are still rated, from a fallback rating, so they must also
+    /// be ranked in their country, or every compatriot rated below them shows
+    /// a country rank one place too good.
+    pub async fn get_player_countries(&self) -> DbResult<HashMap<i32, String>> {
+        let mut countries = HashMap::new();
+
+        self.for_each_row("SELECT id, country FROM players", &[], |row| {
+            let country: Option<String> = row.try_get("country")?;
+            countries.insert(row.try_get("id")?, country.unwrap_or_default());
+            Ok(())
+        })
+        .await?;
+
+        Ok(countries)
+    }
 }

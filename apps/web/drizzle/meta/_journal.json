@@ -320,15 +320,22 @@
     {
       "idx": 45,
       "version": "7",
-      "when": 1792624915272,
-      "tag": "0045_refetch_keeps_admin_edits",
+      "when": 1792624343510,
+      "tag": "0045_rebuild_tournament_stats",
       "breakpoints": true
     },
     {
       "idx": 46,
       "version": "7",
-      "when": 1792624918868,
-      "tag": "0046_games_osu_id_index",
+      "when": 1792627685956,
+      "tag": "0046_refetch_keeps_admin_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792627690383,
+      "tag": "0047_games_osu_id_index",
       "breakpoints": true
     }
   ]

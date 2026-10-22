@@ -43,6 +43,10 @@ const average = (values: number[]) => {
   return sanitizeNumber(total / values.length);
 };
 
+/**
+ * The team with the highest total, or null when no team leads on its own: a
+ * tied game goes to neither team.
+ */
 const determineWinningTeam = (scores: StatsScore[]) => {
   const totals = new Map<Team, number>();
 
@@ -51,17 +55,26 @@ const determineWinningTeam = (scores: StatsScore[]) => {
     totals.set(score.team, current + score.score);
   }
 
-  let bestTeam: Team | null = null;
-  let bestScore = Number.NEGATIVE_INFINITY;
+  return soleLeader(totals);
+};
 
-  for (const [team, totalScore] of totals.entries()) {
-    if (totalScore > bestScore) {
-      bestScore = totalScore;
-      bestTeam = team;
+/** The key with the highest value, or null when the highest value is shared. */
+const soleLeader = <K>(values: Map<K, number>): K | null => {
+  let leader: K | null = null;
+  let best = Number.NEGATIVE_INFINITY;
+  let shared = false;
+
+  for (const [key, value] of values.entries()) {
+    if (value > best) {
+      best = value;
+      leader = key;
+      shared = false;
+    } else if (value === best) {
+      shared = true;
     }
   }
 
-  return bestTeam;
+  return shared ? null : leader;
 };
 
 const generateGameRosters = (game: StatsGame, scores: StatsScore[]) => {
@@ -121,6 +134,25 @@ const generateMatchRosters = (
   }));
 };
 
+/**
+ * Whether the player lost the match: they did not win it, and another team won
+ * more games than a team they played for. A drawn match is neither a win nor a
+ * loss. Player profiles count losses from the stored rosters by the same rule,
+ * so the two agree for a player who played for more than one team.
+ */
+const lostMatch = (
+  matchRosters: MatchProcessingResult['matchRosters'],
+  stat: PlayerMatchStatRecord
+) =>
+  !stat.won &&
+  matchRosters.some(
+    (own) =>
+      own.roster.includes(stat.playerId) &&
+      matchRosters.some(
+        (other) => other.team !== own.team && other.score > own.score
+      )
+  );
+
 export class TournamentStatsCalculator {
   calculateAllStatistics(tournament: StatsTournament): StatsCalculationResult {
     if (tournament.verificationStatus !== VerificationStatus.Verified) {
@@ -140,25 +172,24 @@ export class TournamentStatsCalculator {
     }
 
     const matchResults: MatchProcessingResult[] = [];
+    const skippedMatchIds: number[] = [];
     let totalPlayerMatchStats = 0;
 
     for (const match of verifiedMatches) {
       const matchResult = this.processMatch(match);
       if (!matchResult) {
-        return {
-          success: false,
-          errorMessage: `Failed to process match statistics for match ${match.id} in tournament ${tournament.id}`,
-        };
+        skippedMatchIds.push(match.id);
+        continue;
       }
 
       matchResults.push(matchResult);
       totalPlayerMatchStats += matchResult.playerMatchStats.length;
     }
 
-    if (!this.validateProcessorData(verifiedMatches)) {
+    if (matchResults.length === 0) {
       return {
         success: false,
-        errorMessage: `Missing processor data for tournament ${tournament.id}`,
+        errorMessage: `No verified match in tournament ${tournament.id} has verified scores and rating changes`,
       };
     }
 
@@ -171,6 +202,7 @@ export class TournamentStatsCalculator {
     return {
       success: true,
       verifiedMatchesCount: verifiedMatches.length,
+      skippedMatchIds,
       playerMatchStatsCount: totalPlayerMatchStats,
       playerTournamentStatsCount: playerTournamentStats.length,
       matches: matchResults,
@@ -178,31 +210,42 @@ export class TournamentStatsCalculator {
     };
   }
 
+  /**
+   * The match's rosters and player stats, or null when the rating run skips
+   * it too: no verified game with verified scores, or no rating changes.
+   * Verified games without verified scores are left out, as the rating run
+   * leaves them out.
+   */
   private processMatch(match: StatsMatch): MatchProcessingResult | null {
     if (match.verificationStatus !== VerificationStatus.Verified) {
       return null;
     }
 
-    const verifiedGames = ensureVerified(match.games);
-    if (verifiedGames.length === 0) {
+    if (match.playerRatingAdjustments.length === 0) {
       return null;
     }
 
+    const countedGames: StatsGame[] = [];
     const gameResults: GameProcessingResult[] = [];
 
-    for (const game of verifiedGames) {
+    for (const game of ensureVerified(match.games)) {
       const result = this.processGame(game);
-      if (!result || result.rosters.length === 0) {
-        return null;
+      if (!result) {
+        continue;
       }
+      countedGames.push(game);
       gameResults.push(result);
+    }
+
+    if (gameResults.length === 0) {
+      return null;
     }
 
     const matchRosters = generateMatchRosters(match.id, gameResults);
 
     const playerMatchStats = this.generatePlayerMatchStatistics(
       match,
-      verifiedGames,
+      countedGames,
       gameResults,
       matchRosters
     );
@@ -263,10 +306,10 @@ export class TournamentStatsCalculator {
       }
     }
 
-    const maxMatchScore =
-      matchRosters.length > 0
-        ? Math.max(...matchRosters.map((roster) => roster.score))
-        : 0;
+    // A drawn match has no winner, so nobody in it won.
+    const winningTeam = soleLeader(
+      new Map(matchRosters.map((roster) => [roster.team, roster.score]))
+    );
 
     const stats: PlayerMatchStatRecord[] = [];
 
@@ -311,7 +354,7 @@ export class TournamentStatsCalculator {
         .filter((id) => id !== playerId);
 
       const matchCost = sanitizeNumber(matchCosts.get(playerId) ?? 0);
-      const won = matchRoster ? matchRoster.score === maxMatchScore : false;
+      const won = winningTeam !== null && matchRoster?.team === winningTeam;
 
       stats.push({
         playerId,
@@ -333,10 +376,6 @@ export class TournamentStatsCalculator {
     return stats;
   }
 
-  private validateProcessorData(matches: StatsMatch[]) {
-    return matches.every((match) => match.playerRatingAdjustments.length > 0);
-  }
-
   private aggregateTournamentStats(
     tournament: StatsTournament,
     matches: StatsMatch[],
@@ -349,6 +388,7 @@ export class TournamentStatsCalculator {
       number,
       {
         matchStats: PlayerMatchStatRecord[];
+        matchesLost: number;
         ratingDeltas: number[];
         teammateIds: Set<number>;
       }
@@ -371,11 +411,15 @@ export class TournamentStatsCalculator {
 
         const entry = aggregateMap.get(stat.playerId) ?? {
           matchStats: [],
+          matchesLost: 0,
           ratingDeltas: [],
           teammateIds: new Set<number>(),
         };
 
         entry.matchStats.push(stat);
+        if (lostMatch(matchResult.matchRosters, stat)) {
+          entry.matchesLost += 1;
+        }
         adjustments.forEach((adjustment) => {
           entry.ratingDeltas.push(
             adjustment.ratingAfter - adjustment.ratingBefore
@@ -396,7 +440,7 @@ export class TournamentStatsCalculator {
 
       const matchesPlayed = data.matchStats.length;
       const matchesWon = data.matchStats.filter((stat) => stat.won).length;
-      const matchesLost = matchesPlayed - matchesWon;
+      const { matchesLost } = data;
       const gamesPlayed = data.matchStats.reduce(
         (sum, stat) => sum + stat.gamesPlayed,
         0

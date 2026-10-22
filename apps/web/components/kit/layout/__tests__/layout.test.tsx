@@ -16,6 +16,7 @@ import { Panel, PanelBody } from '@/components/kit/layout/Panel';
 import { RowList, RowListItem } from '@/components/kit/layout/RowList';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
 import { StatTile, StatTileGrid } from '@/components/kit/layout/StatTile';
+import { TermTooltip } from '@/components/kit/layout/TermTooltip';
 import { Tile } from '@/components/kit/layout/Tile';
 import { typeScale } from '@/components/kit/layout/Typography';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -159,6 +160,17 @@ describe('InfoButton', () => {
 
     expect(html).toContain('text-white/80 hover:text-white');
     expect(html).not.toContain('text-muted-foreground');
+  });
+});
+
+describe('TermTooltip', () => {
+  // A button opens its explanation by keyboard and by tap, not only on hover.
+  it('is a button named by its label', () => {
+    const html = render(
+      <TermTooltip hint="How it is calculated">Match cost</TermTooltip>
+    );
+
+    expect(html).toMatch(/^<button type="button"[^>]*>Match cost<\/button>$/);
   });
 });
 
