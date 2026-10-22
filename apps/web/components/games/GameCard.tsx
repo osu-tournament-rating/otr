@@ -105,7 +105,12 @@ export default function GameCard({
         highlighted && 'ring-2 ring-primary'
       )}
     >
-      <GameCardHeader game={game} number={number} mods={headerMods} />
+      <GameCardHeader
+        game={game}
+        number={number}
+        mods={headerMods}
+        oneVsOne={oneVsOne}
+      />
       {game.scores.length === 0 ? (
         <div className="rounded-lg border bg-score-card p-4 text-center text-sm text-muted-foreground">
           No scores available

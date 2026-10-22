@@ -9,10 +9,8 @@ import RulesetIcon from '@/components/icons/RulesetIcon';
 import { TimeRangeText } from '@/components/kit/format/TimeRangeText';
 import { VerificationStatusIcon } from '@/components/kit/status/VerificationStatusIcon';
 import TapTooltip from '@/components/tap-tooltip';
-import {
-  SCORING_TYPE_LABELS,
-  TEAM_TYPE_LABELS,
-} from '@/lib/kit/format/enum-labels';
+import { getGameTeamTypeLabel } from '@/components/matches/oneVsOne';
+import { SCORING_TYPE_LABELS } from '@/lib/kit/format/enum-labels';
 import { formatId } from '@/lib/kit/format/number';
 import { getRulesetFullName } from '@/lib/kit/format/ruleset';
 import {
@@ -31,18 +29,22 @@ const ON_ART_LINK =
 /**
  * The top of a game card: the beatmap's cover under a dark matte with the
  * game's status, ruleset, scoring and team type, times and actions menu,
- * then the beatmap's name, its creators and the game's mods.
+ * then the beatmap's name, its creators and the game's mods. A 1v1 game's
+ * card leaves out Team Vs, which may be o!TR's own.
  */
 export default function GameCardHeader({
   game,
   number,
   mods,
+  oneVsOne = false,
 }: {
   game: Game;
   /** The game's place in the match, which names its status icon and menu. */
   number: number;
   /** The mods to show, from `resolveGameDisplayMods`. */
   mods: { mods: Mods; lazerMods: LazerMod[] | null; freemod: boolean };
+  /** From a 1v1 tournament, whose sides are players. */
+  oneVsOne?: boolean;
 }) {
   const isDeletedBeatmap =
     !game.beatmap || !game.beatmap.beatmapset || game.beatmap.osuId === 0;
@@ -51,6 +53,7 @@ export default function GameCardHeader({
   // Names the report and the notes, as the old buttons did.
   const gameName = hasTitle ? beatmapLabel : `Game ${formatId(game.id)}`;
   const rulesetName = getRulesetFullName(game.ruleset);
+  const teamTypeLabel = getGameTeamTypeLabel(game.teamType, oneVsOne);
 
   return (
     <div className="relative flex h-32 flex-col overflow-hidden rounded-xl">
@@ -91,9 +94,11 @@ export default function GameCardHeader({
             <span className="hidden truncate text-sm font-medium text-white/90 sm:inline sm:text-base">
               {SCORING_TYPE_LABELS[game.scoringType]}
             </span>
-            <span className="hidden truncate text-sm font-medium text-white/90 sm:inline sm:text-base">
-              {TEAM_TYPE_LABELS[game.teamType]}
-            </span>
+            {teamTypeLabel ? (
+              <span className="hidden truncate text-sm font-medium text-white/90 sm:inline sm:text-base">
+                {teamTypeLabel}
+              </span>
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <TimeRangeText

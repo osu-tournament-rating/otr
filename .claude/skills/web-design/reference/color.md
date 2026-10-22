@@ -278,7 +278,7 @@ import {
 - `getTeamTintClass(team)` / `MATCH_TEAM_TINT_CLASS`: the card tint, `bg-match-red/6` and so on. `MATCH_TEAM_TINT` (6%) is the strength the tests check.
 - Classes: `bg-match-red`, `text-match-red-foreground`, `bg-game-frame`, `bg-score-card`. `MATCH_SURFACES` holds the two surfaces' values for tests.
 - Foreground, muted and team text clear 4.5:1 on the game frame, the score card and the tinted score card, in both themes.
-- A 1v1 match (its tournament's `lobbySize` is 1, `isOneVsOneMatch` in `components/matches/oneVsOne.ts`) shows player against player and takes no team colour anywhere: score cards take the no-team grey (`<ScoreCard team={Team.NoTeam} />`), the result line names the player in foreground ("Kahli wins by 12,345"), the score chart draws a line per player in the categorical palette, by name order, and the tournament's match rows tint no scoreline. Until October 2026 o!TR converted head-to-head 1v1 lobbies to Team Vs and picked red and blue itself, and those games can't be told apart from real ones.
+- A 1v1 match (its tournament's `lobbySize` is 1, `isOneVsOneMatch` in `components/matches/oneVsOne.ts`) shows player against player and takes no team colour anywhere: score cards take the no-team grey (`<ScoreCard team={Team.NoTeam} />`), the result line names the player in foreground ("Kahli wins by 12,345"), the score chart draws a line per player in the categorical palette, by name order, game card headers leave out Team Vs (`getGameTeamTypeLabel`), and the tournament's match rows tint no scoreline. Until October 2026 o!TR converted head-to-head 1v1 lobbies to Team Vs and picked red and blue itself, and those games can't be told apart from real ones.
 
 Do:
 
