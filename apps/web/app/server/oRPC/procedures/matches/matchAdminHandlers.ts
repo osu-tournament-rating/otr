@@ -55,6 +55,17 @@ export async function updateMatchAdminHandler({
     });
   }
 
+  // osu! returned no data for a match with no start time, and the rating run
+  // cannot rate a verified match without one
+  if (
+    input.verificationStatus === VerificationStatus.Verified &&
+    !input.startTime
+  ) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'A match with no data cannot be verified',
+    });
+  }
+
   const verificationStatusChanged =
     input.verificationStatus !== existing.verificationStatus;
 

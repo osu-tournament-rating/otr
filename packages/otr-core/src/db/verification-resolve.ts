@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import {
@@ -57,7 +57,9 @@ async function resolveMatches(
     .where(
       and(
         eq(schema.matches.tournamentId, tournamentId),
-        eq(schema.matches.verificationStatus, VerificationStatus.PreVerified)
+        eq(schema.matches.verificationStatus, VerificationStatus.PreVerified),
+        // A match with no data has no start time, which the rating run needs
+        isNotNull(schema.matches.startTime)
       )
     )
     .returning({ id: schema.matches.id });
