@@ -1,5 +1,5 @@
 {
-  "id": "5ac33dc7-3a64-4b99-879e-c2603a7c7c7d",
+  "id": "73edbb0c-ead2-46f0-aaeb-daed2899eec8",
   "prevId": "7f6bb6a8-08ae-46d3-be14-8a06003df78d",
   "version": "7",
   "dialect": "postgresql",
@@ -2126,7 +2126,7 @@
           "name": "user_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "ruleset": {
           "name": "ruleset",
@@ -2221,179 +2221,7 @@
           "tableTo": "users",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.filter_requests": {
-      "name": "filter_requests",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "filter_requests_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "status": {
-          "name": "status",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ruleset": {
-          "name": "ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "min_rating": {
-          "name": "min_rating",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "max_rating": {
-          "name": "max_rating",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "osu_player_ids": {
-          "name": "osu_player_ids",
-          "type": "bigint[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "unknown_player_count": {
-          "name": "unknown_player_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "justification": {
-          "name": "justification",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filter_report_id": {
-          "name": "filter_report_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewed_by_user_id": {
-          "name": "reviewed_by_user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewed_at": {
-          "name": "reviewed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created": {
-          "name": "created",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "ix_filter_requests_status": {
-          "name": "ix_filter_requests_status",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ix_filter_requests_user_id_created": {
-          "name": "ix_filter_requests_user_id_created",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            },
-            {
-              "expression": "created",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "timestamptz_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "fk_filter_requests_users_user_id": {
-          "name": "fk_filter_requests_users_user_id",
-          "tableFrom": "filter_requests",
-          "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "fk_filter_requests_users_reviewed_by_user_id": {
-          "name": "fk_filter_requests_users_reviewed_by_user_id",
-          "tableFrom": "filter_requests",
-          "tableTo": "users",
-          "columnsFrom": ["reviewed_by_user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "fk_filter_requests_filter_reports_filter_report_id": {
-          "name": "fk_filter_requests_filter_reports_filter_report_id",
-          "tableFrom": "filter_requests",
-          "tableTo": "filter_reports",
-          "columnsFrom": ["filter_report_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2491,15 +2319,6 @@
         }
       },
       "foreignKeys": {
-        "fk_game_admin_notes_games_reference_id": {
-          "name": "fk_game_admin_notes_games_reference_id",
-          "tableFrom": "game_admin_notes",
-          "tableTo": "games",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_game_admin_notes_users_admin_user_id": {
           "name": "fk_game_admin_notes_users_admin_user_id",
           "tableFrom": "game_admin_notes",
@@ -2633,6 +2452,37 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ix_game_audits_action_type_created": {
+          "name": "ix_game_audits_action_type_created",
+          "columns": [
+            {
+              "expression": "action_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            },
+            {
+              "expression": "created",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            },
+            {
+              "expression": "action_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2927,15 +2777,6 @@
         }
       },
       "foreignKeys": {
-        "fk_game_score_admin_notes_game_scores_reference_id": {
-          "name": "fk_game_score_admin_notes_game_scores_reference_id",
-          "tableFrom": "game_score_admin_notes",
-          "tableTo": "game_scores",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_game_score_admin_notes_users_admin_user_id": {
           "name": "fk_game_score_admin_notes_users_admin_user_id",
           "tableFrom": "game_score_admin_notes",
@@ -3069,6 +2910,37 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ix_game_score_audits_action_type_created": {
+          "name": "ix_game_score_audits_action_type_created",
+          "columns": [
+            {
+              "expression": "action_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            },
+            {
+              "expression": "created",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            },
+            {
+              "expression": "action_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4353,15 +4225,6 @@
         }
       },
       "foreignKeys": {
-        "fk_match_admin_notes_matches_reference_id": {
-          "name": "fk_match_admin_notes_matches_reference_id",
-          "tableFrom": "match_admin_notes",
-          "tableTo": "matches",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_match_admin_notes_users_admin_user_id": {
           "name": "fk_match_admin_notes_users_admin_user_id",
           "tableFrom": "match_admin_notes",
@@ -6831,15 +6694,6 @@
         }
       },
       "foreignKeys": {
-        "fk_tournament_admin_notes_tournaments_reference_id": {
-          "name": "fk_tournament_admin_notes_tournaments_reference_id",
-          "tableFrom": "tournament_admin_notes",
-          "tableTo": "tournaments",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_tournament_admin_notes_users_admin_user_id": {
           "name": "fk_tournament_admin_notes_users_admin_user_id",
           "tableFrom": "tournament_admin_notes",
@@ -7136,191 +6990,6 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.tournament_submissions": {
-      "name": "tournament_submissions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "tournament_submissions_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "status": {
-          "name": "status",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "submitted_by_user_id": {
-          "name": "submitted_by_user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "abbreviation": {
-          "name": "abbreviation",
-          "type": "varchar(32)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "forum_url": {
-          "name": "forum_url",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rank_range_lower_bound": {
-          "name": "rank_range_lower_bound",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ruleset": {
-          "name": "ruleset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "lobby_size": {
-          "name": "lobby_size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_lazer": {
-          "name": "is_lazer",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "match_ids": {
-          "name": "match_ids",
-          "type": "bigint[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "beatmap_ids": {
-          "name": "beatmap_ids",
-          "type": "bigint[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "tournament_id": {
-          "name": "tournament_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewed_by_user_id": {
-          "name": "reviewed_by_user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewed_at": {
-          "name": "reviewed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created": {
-          "name": "created",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "ix_tournament_submissions_status": {
-          "name": "ix_tournament_submissions_status",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ix_tournament_submissions_submitted_by_user_id": {
-          "name": "ix_tournament_submissions_submitted_by_user_id",
-          "columns": [
-            {
-              "expression": "submitted_by_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "fk_tournament_submissions_users_submitted_by_user_id": {
-          "name": "fk_tournament_submissions_users_submitted_by_user_id",
-          "tableFrom": "tournament_submissions",
-          "tableTo": "users",
-          "columnsFrom": ["submitted_by_user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "fk_tournament_submissions_users_reviewed_by_user_id": {
-          "name": "fk_tournament_submissions_users_reviewed_by_user_id",
-          "tableFrom": "tournament_submissions",
-          "tableTo": "users",
-          "columnsFrom": ["reviewed_by_user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "fk_tournament_submissions_tournaments_tournament_id": {
-          "name": "fk_tournament_submissions_tournaments_tournament_id",
-          "tableFrom": "tournament_submissions",
-          "tableTo": "tournaments",
-          "columnsFrom": ["tournament_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -7814,12 +7483,6 @@
         },
         "last_viewed_reports_at": {
           "name": "last_viewed_reports_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "osu_sign_in_needed_at": {
-          "name": "osu_sign_in_needed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

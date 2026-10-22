@@ -4,16 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   GameRejectionReason,
   GameWarningFlags,
-  Mods,
   VerificationStatus,
 } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
 import {
-  ALL_RULESET_LABELS,
   LabelSelectContent,
   VERIFY_CHILDREN_DESCRIPTION,
   VERIFY_CHILDREN_TITLE,
@@ -21,11 +19,13 @@ import {
   VerifyChildrenChoices,
   changedFieldClass,
   combineFlags,
+  editedValues,
   flagOptions,
 } from '@/components/admin-forms/adminFormFields';
 import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
 import { MultipleSelect } from '@/components/select/multiple-select';
+import { RulesetSelectContent } from '@/components/tournaments/TournamentFieldOptions';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
@@ -52,7 +52,7 @@ import type { Game } from '@/lib/orpc/schema/match';
 import { errorSaveToast, saveToast } from '@/lib/utils/toasts';
 import { gameEditFormSchema } from '@/lib/validation-schema';
 
-import { modOptions } from './modOptions';
+import { modOptions, selectedMods } from './modOptions';
 
 type GameEditValues = z.infer<typeof gameEditFormSchema>;
 
@@ -80,9 +80,8 @@ export default function GameEditDialog({
   const [savingChoice, setSavingChoice] =
     useState<VerificationChildrenChoice | null>(null);
 
-  const form = useForm<GameEditValues>({
-    resolver: zodResolver(gameEditFormSchema) as Resolver<GameEditValues>,
-    defaultValues: {
+  const defaults = useMemo<GameEditValues>(
+    () => ({
       ruleset: game.ruleset,
       mods: game.mods,
       verificationStatus: game.verificationStatus,
@@ -93,7 +92,17 @@ export default function GameEditDialog({
       isFreeMod: game.isFreeMod,
       startTime: game.startTime ? new Date(game.startTime) : undefined,
       endTime: game.endTime ? new Date(game.endTime) : undefined,
-    },
+    }),
+    [game]
+  );
+
+  const form = useForm<GameEditValues>({
+    resolver: zodResolver(gameEditFormSchema) as Resolver<GameEditValues>,
+    // The dialog stays mounted, so the form takes the newer values a
+    // refresh brings and keeps only the fields the admin has changed. A
+    // save then compares against what the page shows now.
+    values: defaults,
+    resetOptions: { keepDirtyValues: true },
     mode: 'all',
   });
 
@@ -101,37 +110,23 @@ export default function GameEditDialog({
     values: GameEditValues,
     children?: VerificationChildrenChoice
   ) {
-    try {
-      const startTimeIso = values.startTime
-        ? values.startTime.toISOString()
-        : (game.startTime ?? null);
-      const endTimeIso = values.endTime
-        ? values.endTime.toISOString()
-        : (game.endTime ?? null);
+    const edited = editedValues(values, defaults);
 
+    try {
       await orpc.games.admin.update({
         id: game.id,
-        ruleset: values.ruleset,
-        scoringType: values.scoringType,
-        teamType: values.teamType,
-        mods: values.mods,
-        verificationStatus:
-          values.verificationStatus as VerificationStatusValue,
-        rejectionReason: values.rejectionReason,
-        warningFlags: values.warningFlags,
-        startTime: startTimeIso,
-        endTime: endTimeIso,
+        ruleset: edited.ruleset,
+        scoringType: edited.scoringType,
+        teamType: edited.teamType,
+        mods: edited.mods,
+        verificationStatus: edited.verificationStatus as
+          VerificationStatusValue | undefined,
+        rejectionReason: edited.rejectionReason,
+        warningFlags: edited.warningFlags,
         children,
       });
 
-      form.reset({
-        ...values,
-        startTime:
-          values.startTime ??
-          (startTimeIso ? new Date(startTimeIso) : undefined),
-        endTime:
-          values.endTime ?? (endTimeIso ? new Date(endTimeIso) : undefined),
-      });
+      form.reset(values);
       saveToast();
       setPendingValues(null);
       onOpenChange(false);
@@ -282,7 +277,7 @@ export default function GameEditDialog({
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <LabelSelectContent labels={ALL_RULESET_LABELS} />
+                      <RulesetSelectContent includeManiaOther />
                     </Select>
                   </FormItem>
                 )}
@@ -343,7 +338,7 @@ export default function GameEditDialog({
                     <MultipleSelect
                       className={changedFieldClass(fieldState)}
                       placeholder="No mods"
-                      selected={getEnumFlags(value, Mods).map(String)}
+                      selected={selectedMods(value)}
                       options={modOptions}
                       onChange={(values: string[]) =>
                         onChange(combineFlags(values))
