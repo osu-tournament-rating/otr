@@ -327,15 +327,22 @@
     {
       "idx": 46,
       "version": "7",
-      "when": 1792627685956,
-      "tag": "0046_refetch_keeps_admin_edits",
+      "when": 1792627270849,
+      "tag": "0046_repair_unchecked_verified_scores",
       "breakpoints": true
     },
     {
       "idx": 47,
       "version": "7",
-      "when": 1792627690383,
-      "tag": "0047_games_osu_id_index",
+      "when": 1792629166606,
+      "tag": "0047_refetch_keeps_admin_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792629171076,
+      "tag": "0048_games_osu_id_index",
       "breakpoints": true
     }
   ]
