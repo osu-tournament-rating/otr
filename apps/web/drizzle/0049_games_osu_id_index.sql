@@ -1,0 +1,1 @@
+CREATE INDEX "ix_games_osu_id" ON "games" USING btree ("osu_id" int8_ops);

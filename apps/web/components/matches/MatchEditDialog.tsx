@@ -12,6 +12,7 @@ import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
 import {
+  EDITED_FIELD_HINT,
   VERIFY_CHILDREN_DESCRIPTION,
   VERIFY_CHILDREN_TITLE,
   VerificationStatusSelectContent,
@@ -23,6 +24,7 @@ import {
 } from '@/components/admin-forms/adminFormFields';
 import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
+import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 import { MultipleSelect } from '@/components/select/multiple-select';
 import {
   Form,
@@ -61,6 +63,7 @@ type EditableMatch = Pick<
   | 'warningFlags'
   | 'startTime'
   | 'endTime'
+  | 'editedFields'
 >;
 
 const rejectionReasonOptions = flagOptions(MATCH_REJECTION_REASON_LABELS);
@@ -219,7 +222,15 @@ export default function MatchEditDialog({
               name="name"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormFieldLabel
+                    hint={
+                      match.editedFields?.includes('name')
+                        ? EDITED_FIELD_HINT
+                        : undefined
+                    }
+                  >
+                    Name
+                  </FormFieldLabel>
                   <FormControl>
                     <Input
                       className={changedFieldClass(fieldState)}

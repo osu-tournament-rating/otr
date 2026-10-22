@@ -28,6 +28,14 @@ const AdminNoteContentSchema = z.string().trim().min(1);
 /** Every mod of a lazer game or score; null for stable data. */
 const LazerModsSchema = z.array(LazerModSchema).nullable();
 
+/** Only the match details carry it. */
+const EditedFieldsSchema = z
+  .array(z.string())
+  .optional()
+  .describe(
+    'The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values.'
+  );
+
 const matchTournamentBaseSchema = tournamentSelectSchema.pick({
   id: true,
   name: true,
@@ -119,6 +127,7 @@ export const GameScoreSchema = gameScoreSelectSchema
     ruleset: RulesetSchema,
     verificationStatus: VerificationStatusSchema,
     lazerMods: LazerModsSchema,
+    editedFields: EditedFieldsSchema,
     adminNotes: z.array(AdminNoteSchema).default([]),
   });
 
@@ -145,6 +154,7 @@ const gameBaseSchema = gameSelectSchema
     teamType: TeamTypeSchema,
     verificationStatus: VerificationStatusSchema,
     lazerMods: LazerModsSchema,
+    editedFields: EditedFieldsSchema,
     isFreeMod: z.boolean(),
     beatmap: MatchBeatmapSchema.nullable(),
     adminNotes: z.array(AdminNoteSchema).default([]),
@@ -221,6 +231,7 @@ const matchBaseSchema = matchSelectSchema
     dataFetchStatus: true,
   })
   .extend({
+    editedFields: EditedFieldsSchema,
     games: z.array(GameSchema).default([]),
     players: z.array(MatchPlayerSchema).default([]),
     playerMatchStats: z.array(PlayerMatchStatsSchema).default([]),
@@ -367,6 +378,18 @@ export const GameScoreAdminMutationResponseSchema = z.object({
 });
 
 export const MatchAdminDeleteInputSchema = MatchIdInputSchema;
+
+/**
+ * Resets fields an admin edited on a match, game or score to osu!'s values:
+ * they unlock, and the match is fetched again. Fields are named as
+ * `editedFields` names them, one per group (`mods` covers the lazer mods).
+ */
+export const AdminEditResetInputSchema = z.object({
+  id: z.number().int().positive(),
+  fields: z.array(z.string().min(1)).min(1),
+});
+
+export type AdminEditResetInput = z.infer<typeof AdminEditResetInputSchema>;
 
 export const MatchAdminDeletePlayerScoresInputSchema = z.object({
   matchId: PositiveIntSchema,

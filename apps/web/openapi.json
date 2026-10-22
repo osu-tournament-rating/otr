@@ -117,6 +117,11 @@
             "anyOf": [{ "type": "integer" }, { "type": "null" }]
           },
           "dataFetchStatus": { "type": "integer" },
+          "editedFields": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
+          },
           "games": {
             "type": "array",
             "items": {
@@ -158,6 +163,11 @@
                 "matchId": { "type": "integer" },
                 "beatmapId": {
                   "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                },
+                "editedFields": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
                 },
                 "isFreeMod": { "type": "boolean" },
                 "beatmap": {
@@ -468,6 +478,11 @@
                       "rejectionReason": { "type": "integer" },
                       "gameId": { "type": "integer" },
                       "playerId": { "type": "integer" },
+                      "editedFields": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
+                      },
                       "adminNotes": {
                         "type": "array",
                         "items": {
@@ -928,6 +943,11 @@
                   "anyOf": [{ "type": "integer" }, { "type": "null" }]
                 },
                 "dataFetchStatus": { "type": "integer" },
+                "editedFields": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
+                },
                 "games": {
                   "type": "array",
                   "items": {
@@ -971,6 +991,11 @@
                       "matchId": { "type": "integer" },
                       "beatmapId": {
                         "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                      },
+                      "editedFields": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
                       },
                       "isFreeMod": { "type": "boolean" },
                       "beatmap": {
@@ -1371,6 +1396,11 @@
                             "rejectionReason": { "type": "integer" },
                             "gameId": { "type": "integer" },
                             "playerId": { "type": "integer" },
+                            "editedFields": {
+                              "type": "array",
+                              "items": { "type": "string" },
+                              "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
+                            },
                             "adminNotes": {
                               "type": "array",
                               "items": {
@@ -3420,6 +3450,11 @@
                       "anyOf": [{ "type": "integer" }, { "type": "null" }]
                     },
                     "dataFetchStatus": { "type": "integer" },
+                    "editedFields": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
+                    },
                     "games": {
                       "type": "array",
                       "items": {
@@ -3465,6 +3500,11 @@
                           "matchId": { "type": "integer" },
                           "beatmapId": {
                             "anyOf": [{ "type": "integer" }, { "type": "null" }]
+                          },
+                          "editedFields": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
                           },
                           "isFreeMod": { "type": "boolean" },
                           "beatmap": {
@@ -3867,6 +3907,11 @@
                                 "rejectionReason": { "type": "integer" },
                                 "gameId": { "type": "integer" },
                                 "playerId": { "type": "integer" },
+                                "editedFields": {
+                                  "type": "array",
+                                  "items": { "type": "string" },
+                                  "description": "The osu! fields an admin corrected, by database column, such as `mods`. A refetch from osu! keeps their values."
+                                },
                                 "adminNotes": {
                                   "type": "array",
                                   "items": {

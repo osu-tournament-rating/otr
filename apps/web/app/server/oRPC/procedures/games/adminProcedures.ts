@@ -2,11 +2,12 @@ import { ORPCError } from '@orpc/server';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import * as schema from '@otr/core/db/schema';
-import { withAuditUserId } from '@otr/core/db';
+import { excludeMergedGames, withAuditUserId } from '@otr/core/db';
 import { cascadeGameRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeGameVerification } from '@otr/core/db/verification-cascade';
 import { resolveGameVerification } from '@otr/core/db/verification-resolve';
 import {
+  AdminEditResetInputSchema,
   GameAdminDeleteInputSchema,
   GameAdminLookupInputSchema,
   GameAdminMergeInputSchema,
@@ -21,6 +22,7 @@ import { GameWarningFlags, VerificationStatus } from '@otr/core/osu';
 
 import { adminMutationProcedure, adminProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
+import { resetEditedFieldsHandler } from '../shared/resetEditedFields';
 
 const NOW = sql`CURRENT_TIMESTAMP`;
 
@@ -178,6 +180,7 @@ export const mergeGameAdmin = adminMutationProcedure
         const [parentGame] = await tx
           .select({
             id: schema.games.id,
+            osuId: schema.games.osuId,
             matchId: schema.games.matchId,
             beatmapId: schema.games.beatmapId,
           })
@@ -194,6 +197,7 @@ export const mergeGameAdmin = adminMutationProcedure
         const childGames = await tx
           .select({
             id: schema.games.id,
+            osuId: schema.games.osuId,
             matchId: schema.games.matchId,
             beatmapId: schema.games.beatmapId,
           })
@@ -288,6 +292,8 @@ export const mergeGameAdmin = adminMutationProcedure
           .where(inArray(schema.gameScores.gameId, childIds))
           .returning({ id: schema.gameScores.id });
 
+        // A refetch sends the children's scores to the parent instead.
+        await excludeMergedGames(tx, parentGame, childGames);
         await tx.delete(schema.games).where(inArray(schema.games.id, childIds));
 
         return {
@@ -379,3 +385,16 @@ export const lookupGamesAdmin = adminProcedure
       });
     });
   });
+
+export const resetGameEditsAdmin = adminMutationProcedure
+  .input(AdminEditResetInputSchema)
+  .output(GameAdminMutationResponseSchema)
+  .route({
+    summary: "Reset a game's edited fields to osu!'s values",
+    tags: ['admin'],
+    method: 'POST',
+    path: '/games/{id}/edits:reset',
+  })
+  .handler(({ input, context }) =>
+    resetEditedFieldsHandler({ table: 'games', input, context })
+  );

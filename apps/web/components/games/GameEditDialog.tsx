@@ -2,6 +2,10 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  editedFieldGroups,
+  type AdminEditField,
+} from '@otr/core/db/admin-edits';
+import {
   GameRejectionReason,
   GameWarningFlags,
   VerificationStatus,
@@ -12,6 +16,7 @@ import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
 import {
+  EDITED_FIELD_HINT,
   LabelSelectContent,
   VERIFY_CHILDREN_DESCRIPTION,
   VERIFY_CHILDREN_TITLE,
@@ -24,6 +29,7 @@ import {
 } from '@/components/admin-forms/adminFormFields';
 import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
+import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 import { MultipleSelect } from '@/components/select/multiple-select';
 import { RulesetSelectContent } from '@/components/tournaments/TournamentFieldOptions';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -74,6 +80,11 @@ export default function GameEditDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const editedFields = new Set(
+    editedFieldGroups('games', game.editedFields ?? [])
+  );
+  const editedHint = (field: AdminEditField<'games'>) =>
+    editedFields.has(field) ? EDITED_FIELD_HINT : undefined;
   const [pendingValues, setPendingValues] = useState<GameEditValues | null>(
     null
   );
@@ -221,7 +232,9 @@ export default function GameEditDialog({
                 name="scoringType"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Scoring type</FormLabel>
+                    <FormFieldLabel hint={editedHint('scoring_type')}>
+                      Scoring type
+                    </FormFieldLabel>
                     <Select
                       onValueChange={(next) => onChange(Number(next))}
                       value={value.toString()}
@@ -243,7 +256,9 @@ export default function GameEditDialog({
                 name="teamType"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Team type</FormLabel>
+                    <FormFieldLabel hint={editedHint('team_type')}>
+                      Team type
+                    </FormFieldLabel>
                     <Select
                       onValueChange={(next) => onChange(Number(next))}
                       value={value.toString()}
@@ -265,7 +280,9 @@ export default function GameEditDialog({
                 name="ruleset"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Ruleset</FormLabel>
+                    <FormFieldLabel hint={editedHint('ruleset')}>
+                      Ruleset
+                    </FormFieldLabel>
                     <Select
                       onValueChange={(next) => onChange(Number(next))}
                       value={value.toString()}
@@ -333,7 +350,9 @@ export default function GameEditDialog({
               name="mods"
               render={({ field: { value, onChange }, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Mods</FormLabel>
+                  <FormFieldLabel hint={editedHint('mods')}>
+                    Mods
+                  </FormFieldLabel>
                   <FormControl>
                     <MultipleSelect
                       className={changedFieldClass(fieldState)}

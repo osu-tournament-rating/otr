@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  MATCH_LINKS_NEED_STABLE_MESSAGE,
+  MIXED_MATCH_LINKS_MESSAGE,
+  ROOM_LINKS_NEED_LAZER_MESSAGE,
+} from '../tournamentMessages';
+import {
   MAX_SUBMISSION_IDS,
   TournamentSubmissionInputSchema,
   tournamentSubmissionFormSchema,
@@ -149,5 +154,40 @@ describe.each([
     expect(issueMessages(result, 'lobbySize')).toEqual([
       'Lobby size cannot exceed 8',
     ]);
+  });
+});
+
+// Each match is fetched as "Played on osu!lazer" says, whatever its link is.
+describe('form schema match links', () => {
+  const ROOM = 'https://osu.ppy.sh/multiplayer/rooms/1537300';
+  const MATCH = 'https://osu.ppy.sh/community/matches/12345';
+
+  test.each([
+    ['a room link unticked', [ROOM], false, ROOM_LINKS_NEED_LAZER_MESSAGE],
+    ['a match link ticked', [MATCH], true, MATCH_LINKS_NEED_STABLE_MESSAGE],
+    ['both kinds of link', [ROOM, MATCH], true, MIXED_MATCH_LINKS_MESSAGE],
+  ] as const)('refuses %s', (_, links, isLazer, message) => {
+    const result = tournamentSubmissionFormSchema.safeParse({
+      ...submission([], []),
+      ids: links,
+      isLazer,
+    });
+
+    expect(issueMessages(result, 'ids')).toEqual([message]);
+  });
+
+  test.each([
+    ['room links ticked', [ROOM, '2048512'], true, [1537300, 2048512]],
+    ['match links unticked', [MATCH, '67890'], false, [12345, 67890]],
+  ] as const)('accepts %s, keeping only the IDs', (_, links, isLazer, ids) => {
+    const result = tournamentSubmissionFormSchema.safeParse({
+      ...submission([], []),
+      ids: links,
+      isLazer,
+    });
+
+    expect(result.error?.issues ?? []).toEqual([]);
+    expect(result.data).toMatchObject({ ids, isLazer });
+    expect(result.data).not.toHaveProperty('matchLinkMismatch');
   });
 });

@@ -4,6 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import * as schema from '@otr/core/db/schema';
 import { syncTournamentDateRange, withAuditUserId } from '@otr/core/db';
 import {
+  AdminEditResetInputSchema,
   MatchAdminDeleteInputSchema,
   MatchAdminDeletePlayerScoresInputSchema,
   MatchAdminDeletePlayerScoresResponseSchema,
@@ -15,6 +16,7 @@ import {
 
 import { adminMutationProcedure } from '../base';
 import { ensureAdminSession } from '../shared/adminGuard';
+import { resetEditedFieldsHandler } from '../shared/resetEditedFields';
 import {
   mergeMatchAdminHandler,
   updateMatchAdminHandler,
@@ -120,3 +122,16 @@ export const deleteMatchPlayerScoresAdmin = adminMutationProcedure
       })
     );
   });
+
+export const resetMatchEditsAdmin = adminMutationProcedure
+  .input(AdminEditResetInputSchema)
+  .output(MatchAdminMutationResponseSchema)
+  .route({
+    summary: "Reset a match's edited fields to osu!'s values",
+    tags: ['admin'],
+    method: 'POST',
+    path: '/matches/{id}/edits:reset',
+  })
+  .handler(({ input, context }) =>
+    resetEditedFieldsHandler({ table: 'matches', input, context })
+  );

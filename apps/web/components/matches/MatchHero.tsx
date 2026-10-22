@@ -13,6 +13,7 @@ import {
   History,
   NotebookPen,
   PencilLine,
+  RotateCcw,
   Trash2,
   Trophy,
   Users,
@@ -23,6 +24,10 @@ import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 
 import { DELETE_CASCADE_DESCRIPTION } from '@/components/admin-forms/adminFormFields';
+import {
+  ResetEditedFieldsDialog,
+  hasEditedFields,
+} from '@/components/admin-forms/ResetEditedFieldsDialog';
 import { AdminNotesDialog } from '@/components/admin-notes/AdminNotesDialog';
 import { AdminMenu } from '@/components/kit/controls/AdminMenu';
 import { ConfirmDialog } from '@/components/kit/controls/ConfirmDialog';
@@ -75,6 +80,7 @@ export default function MatchHero({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [viewingNotes, setViewingNotes] = useState(false);
 
@@ -179,6 +185,12 @@ export default function MatchHero({
                   group: 'data',
                   onSelect: () => setMerging(true),
                 },
+                hasEditedFields('matches', match.editedFields) && {
+                  label: 'Reset to osu! values',
+                  icon: RotateCcw,
+                  group: 'data',
+                  onSelect: () => setResetting(true),
+                },
                 {
                   label: 'Delete match',
                   icon: Trash2,
@@ -270,6 +282,13 @@ export default function MatchHero({
             match={{ id: match.id, name }}
             open={merging}
             onOpenChange={setMerging}
+          />
+          <ResetEditedFieldsDialog
+            table="matches"
+            id={match.id}
+            editedFields={match.editedFields}
+            open={resetting}
+            onOpenChange={setResetting}
           />
           <ConfirmDialog
             open={deleting}

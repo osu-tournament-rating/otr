@@ -24,6 +24,12 @@ export function changedFieldClass(fieldState: ControllerFieldState) {
   );
 }
 
+/**
+ * The hint on the label of a field an admin edited by hand. A refetch keeps
+ * its value until an admin resets it to osu!'s.
+ */
+export const EDITED_FIELD_HINT = 'Edited';
+
 function isSameValue(a: unknown, b: unknown): boolean {
   if (a instanceof Date && b instanceof Date) {
     return a.getTime() === b.getTime();

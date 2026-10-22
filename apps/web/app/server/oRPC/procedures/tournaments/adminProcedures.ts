@@ -6,7 +6,7 @@ import { cascadeTournamentRejection } from '@otr/core/db/rejection-cascade';
 import { cascadeTournamentVerification } from '@otr/core/db/verification-cascade';
 import { resolveTournamentVerification } from '@otr/core/db/verification-resolve';
 import { DataFetchStatus } from '@otr/core/db/data-fetch-status';
-import { withAuditUserId } from '@otr/core/db';
+import { withAuditUserId, withoutEditLocks } from '@otr/core/db';
 import { parseForumTopicId } from '@otr/core/osu/forum';
 import { enqueueJob, enqueueJobs, JobQueue } from '@otr/core/jobs';
 import {
@@ -379,7 +379,7 @@ const MANIA_RULESETS = [Ruleset.ManiaOther, Ruleset.Mania4k, Ruleset.Mania7k];
  * (other) under any other ruleset. Games played in another ruleset keep it.
  */
 async function alignManiaRulesets(
-  tx: Pick<DatabaseClient, 'select' | 'update'>,
+  tx: Pick<DatabaseClient, 'select' | 'update' | 'execute'>,
   tournamentId: number,
   tournamentRuleset: Ruleset
 ) {
@@ -417,26 +417,30 @@ async function alignManiaRulesets(
 
   const gameIds = gameRows.map((row) => row.id);
 
-  await tx
-    .update(schema.games)
-    .set({ ruleset: maniaRuleset, updated: NOW })
-    .where(
-      and(
-        inArray(schema.games.id, gameIds),
-        ne(schema.games.ruleset, maniaRuleset)
-      )
-    );
+  // The tournament's ruleset is not a correction of each row, so it locks
+  // none of them against refetches.
+  await withoutEditLocks(tx, async () => {
+    await tx
+      .update(schema.games)
+      .set({ ruleset: maniaRuleset, updated: NOW })
+      .where(
+        and(
+          inArray(schema.games.id, gameIds),
+          ne(schema.games.ruleset, maniaRuleset)
+        )
+      );
 
-  await tx
-    .update(schema.gameScores)
-    .set({ ruleset: maniaRuleset, updated: NOW })
-    .where(
-      and(
-        inArray(schema.gameScores.gameId, gameIds),
-        inArray(schema.gameScores.ruleset, MANIA_RULESETS),
-        ne(schema.gameScores.ruleset, maniaRuleset)
-      )
-    );
+    await tx
+      .update(schema.gameScores)
+      .set({ ruleset: maniaRuleset, updated: NOW })
+      .where(
+        and(
+          inArray(schema.gameScores.gameId, gameIds),
+          inArray(schema.gameScores.ruleset, MANIA_RULESETS),
+          ne(schema.gameScores.ruleset, maniaRuleset)
+        )
+      );
+  });
 }
 
 export const resetTournamentAutomatedChecks = adminMutationProcedure

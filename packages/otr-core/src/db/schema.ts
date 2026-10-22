@@ -3,6 +3,7 @@ import {
   varchar,
   index,
   uniqueIndex,
+  unique,
   foreignKey,
   integer,
   bigint,
@@ -467,6 +468,9 @@ export const gameScores = pgTable(
     ruleset: integer().notNull(),
     verificationStatus: integer('verification_status').notNull(),
     rejectionReason: integer('rejection_reason').notNull(),
+    // The osu! fields an admin changed by hand (see ../db/admin-edits.ts). A
+    // fetch keeps their values; resetting one lets the next fetch restore it.
+    editedFields: text('edited_fields').array().default([]).notNull(),
     gameId: integer('game_id').notNull(),
     playerId: integer('player_id').notNull(),
     created: timestamp({ withTimezone: true, mode: 'string' })
@@ -864,6 +868,9 @@ export const games = pgTable(
     verificationStatus: integer('verification_status').default(0).notNull(),
     rejectionReason: integer('rejection_reason').default(0).notNull(),
     warningFlags: integer('warning_flags').default(0).notNull(),
+    // The osu! fields an admin changed by hand (see ../db/admin-edits.ts). A
+    // fetch keeps their values; resetting one lets the next fetch restore it.
+    editedFields: text('edited_fields').array().default([]).notNull(),
     matchId: integer('match_id').notNull(),
     beatmapId: integer('beatmap_id'),
     created: timestamp({ withTimezone: true, mode: 'string' })
@@ -883,6 +890,12 @@ export const games = pgTable(
     uniqueIndex('ix_games_match_id_osu_id').using(
       'btree',
       table.matchId.asc().nullsLast().op('int4_ops'),
+      table.osuId.asc().nullsLast().op('int8_ops')
+    ),
+    // Match fetches look a game up by its osu! id alone, which the
+    // match-first unique index above cannot serve.
+    index('ix_games_osu_id').using(
+      'btree',
       table.osuId.asc().nullsLast().op('int8_ops')
     ),
     index('ix_games_start_time').using(
@@ -1144,6 +1157,9 @@ export const matches = pgTable(
     verificationStatus: integer('verification_status').default(0).notNull(),
     rejectionReason: integer('rejection_reason').default(0).notNull(),
     warningFlags: integer('warning_flags').default(0).notNull(),
+    // The osu! fields an admin changed by hand (see ../db/admin-edits.ts). A
+    // fetch keeps their values; resetting one lets the next fetch restore it.
+    editedFields: text('edited_fields').array().default([]).notNull(),
     isLazer: boolean('is_lazer').default(false).notNull(),
     tournamentId: integer('tournament_id').notNull(),
     submittedByUserId: integer('submitted_by_user_id'),
@@ -1236,6 +1252,62 @@ export const matchMerges = pgTable(
       foreignColumns: [matches.id],
       name: 'fk_match_merges_matches_match_id',
     }).onDelete('cascade'),
+  ]
+);
+
+/**
+ * osu! data a match fetch must not store again: a game an admin deleted or
+ * merged into another game, or one player's score an admin deleted. A row
+ * without a player is the whole game; with one, only that player's score
+ * from that osu! game, wherever the game's scores are now stored. A merged
+ * game's scores are refreshed in the game it was merged into. The database
+ * adds a row whenever an admin deletes a game or score. A deleted score is
+ * excluded from its game's osu! game and from every osu! game merged into
+ * that game, since it may have come from any of them.
+ */
+export const fetchExclusions = pgTable(
+  'fetch_exclusions',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity({
+      name: 'fetch_exclusions_id_seq',
+      startWith: 1,
+      increment: 1,
+      minValue: 1,
+      maxValue: 2147483647,
+      cache: 1,
+    }),
+    matchId: integer('match_id').notNull(),
+    // The osu! ID of the game: a stable game or a lazer playlist item.
+    osuGameId: bigint('osu_game_id', { mode: 'number' }).notNull(),
+    playerId: integer('player_id'),
+    mergedIntoGameId: integer('merged_into_game_id'),
+    created: timestamp({ withTimezone: true, mode: 'string' })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    unique('uq_fetch_exclusions_match_id_osu_game_id_player_id')
+      .on(table.matchId, table.osuGameId, table.playerId)
+      .nullsNotDistinct(),
+    index('ix_fetch_exclusions_merged_into_game_id').using(
+      'btree',
+      table.mergedIntoGameId.asc().nullsLast().op('int4_ops')
+    ),
+    foreignKey({
+      columns: [table.matchId],
+      foreignColumns: [matches.id],
+      name: 'fk_fetch_exclusions_matches_match_id',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.playerId],
+      foreignColumns: [players.id],
+      name: 'fk_fetch_exclusions_players_player_id',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.mergedIntoGameId],
+      foreignColumns: [games.id],
+      name: 'fk_fetch_exclusions_games_merged_into_game_id',
+    }).onDelete('set null'),
   ]
 );
 
