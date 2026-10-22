@@ -54,7 +54,7 @@ import {
   collectRulesets,
 } from './shared/rulesetFilter';
 import { buildTournamentListOrder } from './shared/tournamentListOrder';
-import { deriveTournamentWinRecord } from './shared/winRecord';
+import { deriveVerifiedWinRecord } from './shared/winRecord';
 import { logger } from '@/lib/logger';
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -766,7 +766,7 @@ export const getTournament = publicProcedure
         verifiedByUsername: match.verifiedByUsername ?? null,
         dataFetchStatus: match.dataFetchStatus,
         adminNotes: matchAdminNotesByMatchId.get(match.id) ?? [],
-        winRecord: deriveTournamentWinRecord(
+        winRecord: deriveVerifiedWinRecord(
           match.id,
           match.verificationStatus,
           rostersByMatchId.get(match.id) ?? []

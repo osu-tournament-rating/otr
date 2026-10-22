@@ -53,24 +53,3 @@ export function deriveVerifiedWinRecord(
 
   return deriveWinRecord(matchId, rosters);
 }
-
-export function deriveTournamentWinRecord(
-  matchId: number,
-  verificationStatus: number,
-  rosters: WinRecordRoster[]
-) {
-  const record = deriveVerifiedWinRecord(matchId, verificationStatus, rosters);
-
-  if (!record) {
-    return null;
-  }
-
-  return {
-    matchId: record.matchId,
-    isTied: record.isTied,
-    winnerTeam: record.winnerTeam,
-    loserTeam: record.loserTeam,
-    winnerPoints: record.winnerPoints,
-    loserPoints: record.loserPoints,
-  };
-}

@@ -33,8 +33,9 @@ function getMissingResultText(status: VerificationStatus) {
 }
 
 /**
- * The points each side won, tinted with the winning team's colour. Only a
- * missing result and a draw explain themselves on tap; a score says enough.
+ * The points each side won, tinted with the winning team's colour; a 1v1's
+ * players have no team colour. Only a missing result and a draw explain
+ * themselves on tap; a score says enough.
  */
 function Scoreline({ match }: { match: MatchRow }) {
   const winRecord = match.winRecord;
@@ -55,6 +56,7 @@ function Scoreline({ match }: { match: MatchRow }) {
   }
 
   const winner =
+    !match.oneVsOne &&
     !winRecord.isTied &&
     (winRecord.winnerTeam === Team.Red || winRecord.winnerTeam === Team.Blue)
       ? winRecord.winnerTeam
@@ -64,9 +66,11 @@ function Scoreline({ match }: { match: MatchRow }) {
     <span
       className={cn(
         'block rounded-md py-0.5 text-center text-sm font-semibold tabular-nums',
-        winner === null
-          ? 'bg-muted text-muted-foreground'
-          : getTeamTintClass(winner)
+        winner !== null
+          ? getTeamTintClass(winner)
+          : winRecord.isTied
+            ? 'bg-muted text-muted-foreground'
+            : 'bg-muted text-foreground'
       )}
       style={winner === null ? undefined : { color: getTeamTextColor(winner) }}
     >
@@ -96,40 +100,36 @@ function Scoreline({ match }: { match: MatchRow }) {
 // wrap instead of both truncating; from `lg` they share one line.
 const TEAM_NAME_CLASSES = 'min-w-0 break-words lg:truncate';
 
-/** The match name; with two teams, the winner first and the loser muted. */
+/**
+ * The match name. A decided 1v1 names its winner first and the loser muted,
+ * from the stored result. Otherwise a title of two names shows them in the
+ * title's own order: hosts list either side first, so the order never says
+ * who won.
+ */
 function MatchTitle({ match }: { match: MatchRow }) {
   const name = match.name || `Match ${match.id}`;
-  const teams = parseTeamNames(match.name);
+  const sides = match.playerResult
+    ? { first: match.playerResult.winner, second: match.playerResult.loser }
+    : parseTeamNames(match.name);
 
-  const content = (() => {
-    if (!teams) return <span className={TEAM_NAME_CLASSES}>{name}</span>;
-
-    const winRecord = match.winRecord;
-    const decided =
-      winRecord !== null &&
-      !winRecord.isTied &&
-      (winRecord.winnerTeam === Team.Red || winRecord.winnerTeam === Team.Blue);
-    const blueWon = decided && winRecord.winnerTeam === Team.Blue;
-
-    return (
-      <>
-        <span className={TEAM_NAME_CLASSES}>
-          {blueWon ? teams.blue : teams.red}
-        </span>
-        <span className="shrink-0 text-xs font-normal text-muted-foreground">
-          vs
-        </span>
-        <span
-          className={cn(
-            TEAM_NAME_CLASSES,
-            decided && 'font-normal text-muted-foreground'
-          )}
-        >
-          {blueWon ? teams.red : teams.blue}
-        </span>
-      </>
-    );
-  })();
+  const content = !sides ? (
+    <span className={TEAM_NAME_CLASSES}>{name}</span>
+  ) : (
+    <>
+      <span className={TEAM_NAME_CLASSES}>{sides.first}</span>
+      <span className="shrink-0 text-xs font-normal text-muted-foreground">
+        vs
+      </span>
+      <span
+        className={cn(
+          TEAM_NAME_CLASSES,
+          match.playerResult && 'font-normal text-muted-foreground'
+        )}
+      >
+        {sides.second}
+      </span>
+    </>
+  );
 
   return (
     <Link

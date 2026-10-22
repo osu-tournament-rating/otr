@@ -278,13 +278,18 @@ import {
 - `getTeamTintClass(team)` / `MATCH_TEAM_TINT_CLASS`: the card tint, `bg-match-red/6` and so on. `MATCH_TEAM_TINT` (6%) is the strength the tests check.
 - Classes: `bg-match-red`, `text-match-red-foreground`, `bg-game-frame`, `bg-score-card`. `MATCH_SURFACES` holds the two surfaces' values for tests.
 - Foreground, muted and team text clear 4.5:1 on the game frame, the score card and the tinted score card, in both themes.
+- A 1v1 match (its tournament's `lobbySize` is 1, `isOneVsOneMatch` in `components/matches/oneVsOne.ts`) shows player against player and takes no team colour anywhere: score cards take the no-team grey (`<ScoreCard team={Team.NoTeam} />`), the result line names the player in foreground ("Kahli wins by 12,345"), the score chart draws a line per player in the categorical palette, by name order, and the tournament's match rows tint no scoreline. Until October 2026 o!TR converted head-to-head 1v1 lobbies to Team Vs and picked red and blue itself, and those games can't be told apart from real ones.
 
 Do:
 
 - Keep the score card's team tint, coloured edge and result line (owner decision, 15 Oct), as the match page's score cards have them.
 - Use the standard `border` on both surfaces.
+- Name a 1v1's winner from the stored result (the match's rosters), never from the lobby title: hosts list either side first.
 
 Don't:
+
+- Don't label a 1v1's sides Team Red and Team Blue, or tint them, even when its games are Team Vs.
+- Don't reorder the two names of a team match's lobby title by the result; the title's order says nothing about red or blue.
 
 - Don't hard-code the surfaces (`bg-white dark:bg-neutral-800`, `border-neutral-300`, `bg-secondary`); use `bg-game-frame` and `bg-score-card`.
 - Don't tint more than `MATCH_TEAM_TINT` (6%): at 10% muted text on the light card drops under 4.5:1.
