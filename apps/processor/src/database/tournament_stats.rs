@@ -235,8 +235,14 @@ impl DbClient {
     }
 
     /// Returns the tournaments of `tournament_ids` whose stats need a refresh:
-    /// those with no player_tournament_stats yet, and those with a match,
-    /// game, or score updated after their stats were created.
+    /// those with no player_tournament_stats yet, those with a match, game, or
+    /// score updated after their stats were created, and those whose stats
+    /// count a match that is gone.
+    ///
+    /// A player's stats count each match where they have both a match stat and
+    /// a rating change. Deleting a match deletes both, but changes nothing the
+    /// other checks see when its players play no later match in the
+    /// tournament. The matches the stats count then outnumber those left.
     pub async fn get_tournaments_needing_stats_refresh(&self, tournament_ids: &[i32]) -> DbResult<Vec<i32>> {
         let rows = self
             .client
@@ -257,17 +263,33 @@ impl DbClient {
                 tournament_stats_timestamps AS (
                     SELECT
                         tournament_id,
-                        MAX(created) AS latest_stats_created
+                        MAX(created) AS latest_stats_created,
+                        SUM(matches_played) AS matches_counted
                     FROM player_tournament_stats
                     WHERE tournament_id = ANY($1)
                     GROUP BY tournament_id
+                ),
+                tournament_rated_match_stats AS (
+                    SELECT
+                        m.tournament_id,
+                        COUNT(*) AS matches_counted
+                    FROM player_match_stats pms
+                    JOIN matches m ON m.id = pms.match_id
+                    JOIN rating_adjustments ra
+                        ON ra.match_id = pms.match_id
+                        AND ra.player_id = pms.player_id
+                    WHERE m.tournament_id = ANY($1)
+                    GROUP BY m.tournament_id
                 )
                 SELECT tdt.tournament_id
                 FROM tournament_data_timestamps tdt
                 LEFT JOIN tournament_stats_timestamps tst
                     ON tdt.tournament_id = tst.tournament_id
+                LEFT JOIN tournament_rated_match_stats trms
+                    ON tdt.tournament_id = trms.tournament_id
                 WHERE tst.latest_stats_created IS NULL
                    OR tdt.latest_data_update > tst.latest_stats_created
+                   OR tst.matches_counted <> COALESCE(trms.matches_counted, 0)
                 ",
                 &[&tournament_ids]
             )
