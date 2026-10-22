@@ -24,3 +24,13 @@ Thus, match cost values will range from $0.5$ to $1.95$, with a typical value be
 
 > [!note]
 > Some other match cost formulas include bonus factors for playing in tiebreaker or playing a variety of different mods during a match. We do not include such factors so that our formula primarily reflects relative performance rather than contribution towards winning. In our formula, the winner of a 1v1 match will always have a higher match cost, even if they won their maps by much smaller margins.
+
+## Tournament Match Cost
+
+A tournament's top performers are ranked by a match cost for the whole tournament. It averages the player's match costs across the verified matches they played in, then multiplies that average by a bonus for playing more matches, specifically
+$$
+\begin{equation}
+    \text{tournament match cost} = \text{avg}(\text{match costs}) \cdot \left(0.9 + 0.1 \cdot \min(\text{matches played}, 6)\right).
+\end{equation}
+$$
+The bonus grows from $1$ for a single match to $1.5$ for six or more, so one strong match cannot outrank a strong run through the whole bracket.

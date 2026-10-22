@@ -75,6 +75,16 @@ export class TournamentStatsService {
       };
     }
 
+    if (result.skippedMatchIds.length > 0) {
+      this.logger.warn(
+        `Skipped ${result.skippedMatchIds.length} verified matches of tournament ${tournament.id} with no verified scores or rating changes`,
+        {
+          tournamentId: tournament.id,
+          skippedMatchIds: result.skippedMatchIds,
+        }
+      );
+    }
+
     await this.persistCalculationResults(tournament, result);
 
     this.logger.info(
@@ -230,9 +240,14 @@ export class TournamentStatsService {
     const gameRosters = this.extractGameRosters(result.matches);
     const playerTournamentStats = result.playerTournamentStats;
 
-    const matchIds = result.matches.map((match) => match.matchId);
-    const gameIds = result.matches.flatMap((match) =>
-      match.gameRosters.map((game) => game.gameId)
+    // Every verified match and game is cleared, not only those with results,
+    // so one the calculation skips keeps no rosters or stats from before.
+    const verifiedMatches = tournament.matches.filter(
+      (match) => match.verificationStatus === VerificationStatus.Verified
+    );
+    const matchIds = verifiedMatches.map((match) => match.id);
+    const gameIds = verifiedMatches.flatMap((match) =>
+      match.games.map((game) => game.id)
     );
 
     await this.db.transaction(async (tx) => {
