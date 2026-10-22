@@ -330,6 +330,13 @@
       "when": 1792627270849,
       "tag": "0046_repair_unchecked_verified_scores",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792629059556,
+      "tag": "0047_audit_indexes_and_notes_outlive_records",
+      "breakpoints": true
     }
   ]
 }
