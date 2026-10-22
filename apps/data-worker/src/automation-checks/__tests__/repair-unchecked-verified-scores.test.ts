@@ -24,7 +24,7 @@ const url = process.env.SEARCH_TEST_DATABASE_URL;
 
 const REPAIR_MIGRATION = join(
   import.meta.dir,
-  '../../../../web/drizzle/0045_repair_unchecked_verified_scores.sql'
+  '../../../../web/drizzle/0046_repair_unchecked_verified_scores.sql'
 );
 
 const NAME = 'repair-unchecked-verified-scores';
