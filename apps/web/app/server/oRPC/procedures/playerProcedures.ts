@@ -202,7 +202,27 @@ interface MatchStatsRow {
   stats: PlayerMatchStatsRow;
   matchStartTime: string | null;
   tournamentId: number;
+  /**
+   * The player did not win, and another team won more games than a team they
+   * played for. A draw is neither won nor lost.
+   */
+  lost: boolean;
 }
+
+/**
+ * {@link MatchStatsRow.lost}, from the match's rosters. The stats worker
+ * counts a tournament's losses by the same rule, so the profile agrees with
+ * the tournament stats for a player who played for more than one team.
+ */
+const matchLostSql = sql<boolean>`NOT ${schema.playerMatchStats.won} AND EXISTS (
+  SELECT 1
+  FROM match_rosters own
+  JOIN match_rosters other
+    ON other.match_id = own.match_id AND other.team <> own.team
+  WHERE own.match_id = ${schema.playerMatchStats.matchId}
+    AND ${schema.playerMatchStats.playerId} = ANY(own.roster)
+    AND other.score > own.score
+)`;
 
 const computeBestWinStreak = (rows: MatchStatsRow[]): number => {
   if (!rows.length) {
@@ -259,7 +279,7 @@ const buildMatchAggregates = (
     (accumulator, row) => accumulator + (row.stats.won ? 1 : 0),
     0
   );
-  const matchesLost = matchesPlayed - matchesWon;
+  const matchesLost = rows.filter((row) => row.lost).length;
 
   const gamesWon = rows.reduce(
     (accumulator, row) => accumulator + row.stats.gamesWon,
@@ -1029,6 +1049,7 @@ export const getPlayerStats = publicProcedure
         stats: schema.playerMatchStats,
         matchStartTime: schema.matches.startTime,
         tournamentId: schema.matches.tournamentId,
+        lost: matchLostSql,
       })
       .from(schema.playerMatchStats)
       .innerJoin(
