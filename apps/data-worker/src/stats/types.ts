@@ -1,4 +1,9 @@
-import type { Ruleset, Team, VerificationStatus } from '@otr/core/osu';
+import type {
+  Ruleset,
+  Team,
+  TeamType,
+  VerificationStatus,
+} from '@otr/core/osu';
 
 export interface StatsTournament {
   id: number;
@@ -16,6 +21,7 @@ export interface StatsMatch {
 export interface StatsGame {
   id: number;
   matchId: number;
+  teamType: TeamType;
   verificationStatus: VerificationStatus;
   scores: StatsScore[];
   rosters: StatsGameRoster[];

@@ -6,6 +6,7 @@ import {
   RatingAdjustmentType,
   Ruleset,
   Team,
+  TeamType,
   VerificationStatus,
 } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
@@ -102,6 +103,7 @@ const toDrizzleTournamentRow = (tournament: StatsTournament) => ({
     games: match.games.map((game) => ({
       id: game.id,
       matchId: game.matchId,
+      teamType: game.teamType,
       verificationStatus: game.verificationStatus,
       gameScores: game.scores.map((score) => ({
         id: score.id,
@@ -149,6 +151,7 @@ const createVerifiedTournament = (): StatsTournament => ({
         {
           id: 100,
           matchId: 10,
+          teamType: TeamType.TeamVs,
           verificationStatus: VerificationStatus.Verified,
           rosters: [],
           scores: [

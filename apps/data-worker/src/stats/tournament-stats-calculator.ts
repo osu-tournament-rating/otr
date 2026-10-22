@@ -1,4 +1,4 @@
-import { Team, VerificationStatus } from '@otr/core/osu';
+import { Team, TeamType, VerificationStatus } from '@otr/core/osu';
 
 import { calculateOtrMatchCosts } from './match-cost-calculator';
 import type {
@@ -12,16 +12,27 @@ import type {
   StatsScore,
 } from './types';
 
+/**
+ * The players of a game who play for one result, and their total score. In a
+ * team game a side is a team. osu! gives the scores of a head-to-head game no
+ * team, so there each player is a side of their own, with no team: o!TR
+ * invents no red or blue.
+ */
+interface GameSide {
+  team: Team;
+  players: Set<number>;
+  score: number;
+}
+
 interface GameProcessingResult {
   gameId: number;
-  rosters: Array<{
-    team: Team;
-    roster: number[];
-    score: number;
-  }>;
+  sides: GameSide[];
   verifiedScores: StatsScore[];
-  winningTeam: Team | null;
+  /** The side with the highest total, or null for a tied game. */
+  winningSide: GameSide | null;
 }
+
+type MatchRoster = MatchProcessingResult['matchRosters'][number];
 
 const ensureVerified = <T extends { verificationStatus: VerificationStatus }>(
   items: T[]
@@ -43,20 +54,7 @@ const average = (values: number[]) => {
   return sanitizeNumber(total / values.length);
 };
 
-/**
- * The team with the highest total, or null when no team leads on its own: a
- * tied game goes to neither team.
- */
-const determineWinningTeam = (scores: StatsScore[]) => {
-  const totals = new Map<Team, number>();
-
-  for (const score of scores) {
-    const current = totals.get(score.team) ?? 0;
-    totals.set(score.team, current + score.score);
-  }
-
-  return soleLeader(totals);
-};
+const isHeadToHead = (game: StatsGame) => game.teamType === TeamType.HeadToHead;
 
 /** The key with the highest value, or null when the highest value is shared. */
 const soleLeader = <K>(values: Map<K, number>): K | null => {
@@ -77,80 +75,81 @@ const soleLeader = <K>(values: Map<K, number>): K | null => {
   return shared ? null : leader;
 };
 
-const generateGameRosters = (game: StatsGame, scores: StatsScore[]) => {
-  if (scores.length === 0) {
-    return [];
-  }
-
-  const rosterMap = new Map<Team, { players: Set<number>; total: number }>();
+/** The game's sides, in the order of their best score. */
+const generateGameSides = (game: StatsGame, scores: StatsScore[]) => {
+  const headToHead = isHeadToHead(game);
+  const sides = new Map<string, GameSide>();
 
   for (const score of scores) {
-    const entry = rosterMap.get(score.team) ?? {
+    const key = headToHead ? `player:${score.playerId}` : `team:${score.team}`;
+    const side = sides.get(key) ?? {
+      team: headToHead ? Team.NoTeam : score.team,
       players: new Set<number>(),
-      total: 0,
+      score: 0,
     };
-    entry.players.add(score.playerId);
-    entry.total += score.score;
-    rosterMap.set(score.team, entry);
+    side.players.add(score.playerId);
+    side.score += score.score;
+    sides.set(key, side);
   }
 
-  return Array.from(rosterMap.entries()).map(([team, entry]) => ({
-    team,
-    roster: Array.from(entry.players),
-    score: entry.total,
-    gameId: game.id,
-  }));
-};
-
-const generateMatchRosters = (
-  matchId: number,
-  gameResults: GameProcessingResult[]
-) => {
-  if (gameResults.length === 0) {
-    return [];
-  }
-
-  const rosterMap = new Map<Team, Set<number>>();
-  const points = new Map<Team, number>();
-
-  for (const result of gameResults) {
-    for (const roster of result.rosters) {
-      const existing = rosterMap.get(roster.team) ?? new Set<number>();
-      roster.roster.forEach((playerId) => existing.add(playerId));
-      rosterMap.set(roster.team, existing);
-    }
-
-    if (result.winningTeam != null) {
-      const current = points.get(result.winningTeam) ?? 0;
-      points.set(result.winningTeam, current + 1);
-    }
-  }
-
-  return Array.from(rosterMap.entries()).map(([team, players]) => ({
-    matchId,
-    team,
-    roster: Array.from(players),
-    score: points.get(team) ?? 0,
-  }));
+  return Array.from(sides.values());
 };
 
 /**
- * Whether the player lost the match: they did not win it, and another team won
- * more games than a team they played for. A drawn match is neither a win nor a
+ * The match's rosters: each side's players and the games it won. When any
+ * game was head-to-head, every side of the match is one player with no team,
+ * so a 1v1 that switched modes keeps one side per player. A game won by a
+ * side of several players then scores a point for each of them.
+ */
+const generateMatchRosters = (
+  games: StatsGame[],
+  gameResults: GameProcessingResult[]
+): MatchRoster[] => {
+  const headToHead = games.some(isHeadToHead);
+  const rosters = new Map<string, MatchRoster>();
+  const add = (
+    key: string,
+    team: Team,
+    players: Iterable<number>,
+    won: boolean
+  ) => {
+    const roster = rosters.get(key) ?? { team, roster: [], score: 0 };
+    roster.roster = uniqueNumbers([...roster.roster, ...players]);
+    if (won) {
+      roster.score += 1;
+    }
+    rosters.set(key, roster);
+  };
+
+  for (const result of gameResults) {
+    for (const side of result.sides) {
+      const won = side === result.winningSide;
+
+      if (headToHead) {
+        for (const playerId of side.players) {
+          add(`player:${playerId}`, Team.NoTeam, [playerId], won);
+        }
+      } else {
+        add(`team:${side.team}`, side.team, side.players, won);
+      }
+    }
+  }
+
+  return Array.from(rosters.values());
+};
+
+/**
+ * Whether the player lost the match: they did not win it, and another side won
+ * more games than a side they played for. A drawn match is neither a win nor a
  * loss. Player profiles count losses from the stored rosters by the same rule,
  * so the two agree for a player who played for more than one team.
  */
-const lostMatch = (
-  matchRosters: MatchProcessingResult['matchRosters'],
-  stat: PlayerMatchStatRecord
-) =>
+const lostMatch = (matchRosters: MatchRoster[], stat: PlayerMatchStatRecord) =>
   !stat.won &&
   matchRosters.some(
     (own) =>
       own.roster.includes(stat.playerId) &&
-      matchRosters.some(
-        (other) => other.team !== own.team && other.score > own.score
-      )
+      matchRosters.some((other) => other !== own && other.score > own.score)
   );
 
 export class TournamentStatsCalculator {
@@ -241,7 +240,7 @@ export class TournamentStatsCalculator {
       return null;
     }
 
-    const matchRosters = generateMatchRosters(match.id, gameResults);
+    const matchRosters = generateMatchRosters(countedGames, gameResults);
 
     const playerMatchStats = this.generatePlayerMatchStatistics(
       match,
@@ -255,7 +254,11 @@ export class TournamentStatsCalculator {
       matchRosters,
       gameRosters: gameResults.map((result) => ({
         gameId: result.gameId,
-        rosters: result.rosters,
+        rosters: result.sides.map((side) => ({
+          team: side.team,
+          roster: Array.from(side.players),
+          score: side.score,
+        })),
       })),
       playerMatchStats,
     };
@@ -272,13 +275,13 @@ export class TournamentStatsCalculator {
     }
 
     const orderedScores = [...verifiedScores].sort((a, b) => b.score - a.score);
-    const rosters = generateGameRosters(game, orderedScores);
-    const winningTeam = determineWinningTeam(orderedScores);
+    const sides = generateGameSides(game, orderedScores);
 
     return {
       gameId: game.id,
-      rosters,
-      winningTeam,
+      sides,
+      // A tied game goes to neither side.
+      winningSide: soleLeader(new Map(sides.map((side) => [side, side.score]))),
       verifiedScores: orderedScores,
     };
   }
@@ -287,18 +290,14 @@ export class TournamentStatsCalculator {
     match: StatsMatch,
     verifiedGames: StatsGame[],
     gameResults: GameProcessingResult[],
-    matchRosters: Array<{
-      team: Team;
-      roster: number[];
-      score: number;
-    }>
+    matchRosters: MatchRoster[]
   ): PlayerMatchStatRecord[] {
     const matchCosts = calculateOtrMatchCosts(verifiedGames);
     const playerScores = new Map<number, StatsScore[]>();
-    const winningTeamByGame = new Map<number, Team | null>();
+    const winningSideByGame = new Map<number, GameSide | null>();
 
     for (const result of gameResults) {
-      winningTeamByGame.set(result.gameId, result.winningTeam);
+      winningSideByGame.set(result.gameId, result.winningSide);
       for (const score of result.verifiedScores) {
         const list = playerScores.get(score.playerId) ?? [];
         list.push(score);
@@ -307,8 +306,8 @@ export class TournamentStatsCalculator {
     }
 
     // A drawn match has no winner, so nobody in it won.
-    const winningTeam = soleLeader(
-      new Map(matchRosters.map((roster) => [roster.team, roster.score]))
+    const winningRoster = soleLeader(
+      new Map(matchRosters.map((roster) => [roster, roster.score]))
     );
 
     const stats: PlayerMatchStatRecord[] = [];
@@ -324,18 +323,12 @@ export class TournamentStatsCalculator {
       let gamesWon = 0;
       let gamesLost = 0;
 
-      const uniqueGameIds = new Set(scores.map((score) => score.gameId));
-
-      for (const gameId of uniqueGameIds) {
-        const score = scores.find((s) => s.gameId === gameId);
-        if (!score) {
+      for (const gameId of new Set(scores.map((score) => score.gameId))) {
+        const winningSide = winningSideByGame.get(gameId);
+        if (winningSide == null) {
           continue;
         }
-        const winningTeam = winningTeamByGame.get(gameId);
-        if (winningTeam == null) {
-          continue;
-        }
-        if (winningTeam === score.team) {
+        if (winningSide.players.has(playerId)) {
           gamesWon += 1;
         } else {
           gamesLost += 1;
@@ -349,12 +342,12 @@ export class TournamentStatsCalculator {
         ? uniqueNumbers(matchRoster.roster.filter((id) => id !== playerId))
         : [];
       const opponentIds = matchRosters
-        .filter((roster) => roster.team !== matchRoster?.team)
+        .filter((roster) => roster !== matchRoster)
         .flatMap((roster) => roster.roster)
         .filter((id) => id !== playerId);
 
       const matchCost = sanitizeNumber(matchCosts.get(playerId) ?? 0);
-      const won = winningTeam !== null && matchRoster?.team === winningTeam;
+      const won = winningRoster !== null && matchRoster === winningRoster;
 
       stats.push({
         playerId,
