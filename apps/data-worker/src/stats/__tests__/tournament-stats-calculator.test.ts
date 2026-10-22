@@ -16,6 +16,7 @@ type Mutable<T> = {
 
 const createVerifiedTournament = (): StatsTournament => ({
   id: 1,
+  lobbySize: 2,
   verificationStatus: VerificationStatus.Verified,
   matches: [
     {
@@ -244,8 +245,10 @@ const match = (
   })),
 });
 
+/** A verified 1v1 tournament of `matches`. */
 const tournamentOf = (...matches: StatsMatch[]): StatsTournament => ({
   id: 1,
+  lobbySize: 1,
   verificationStatus: VerificationStatus.Verified,
   matches,
 });
@@ -666,6 +669,55 @@ describe('TournamentStatsCalculator', () => {
       gamesWon: 2,
       gamesLost: 1,
       opponentIds: [2],
+    });
+  });
+
+  it('keeps the stored teams of a head-to-head game an admin verified in a 2v2', () => {
+    // Red (1 and 2) wins the Team Vs game 100 and the head-to-head game 101.
+    const tournament = {
+      ...tournamentOf(
+        match(
+          10,
+          [
+            game(100, 10, [
+              score(100, 1, Team.Red, 400_000),
+              score(100, 2, Team.Red, 400_000),
+              score(100, 3, Team.Blue, 300_000),
+              score(100, 4, Team.Blue, 300_000),
+            ]),
+            game(
+              101,
+              10,
+              [
+                score(101, 1, Team.Red, 500_000),
+                score(101, 2, Team.Red, 500_000),
+                score(101, 3, Team.Blue, 600_000),
+                score(101, 4, Team.Blue, 100_000),
+              ],
+              VerificationStatus.Verified,
+              TeamType.HeadToHead
+            ),
+          ],
+          [1, 2, 3, 4]
+        )
+      ),
+      lobbySize: 2,
+    };
+
+    const result = calculate(tournament);
+    const [matchResult] = result.matches;
+
+    expect(
+      [...matchResult!.matchRosters].sort((a, b) => b.score - a.score)
+    ).toEqual([
+      { team: Team.Red, roster: [1, 2], score: 2 },
+      { team: Team.Blue, roster: [3, 4], score: 0 },
+    ]);
+    expect(playerMatchStat(result, 10, 3)).toMatchObject({
+      won: false,
+      gamesWon: 0,
+      gamesLost: 2,
+      teammateIds: [4],
     });
   });
 });

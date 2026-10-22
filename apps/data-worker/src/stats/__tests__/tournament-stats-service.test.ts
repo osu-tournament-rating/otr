@@ -96,6 +96,7 @@ class StubDatabase {
 
 const toDrizzleTournamentRow = (tournament: StatsTournament) => ({
   id: tournament.id,
+  lobbySize: tournament.lobbySize,
   verificationStatus: tournament.verificationStatus,
   matches: tournament.matches.map((match) => ({
     id: match.id,
@@ -142,6 +143,7 @@ const toDrizzleTournamentRow = (tournament: StatsTournament) => ({
 
 const createVerifiedTournament = (): StatsTournament => ({
   id: 1,
+  lobbySize: 2,
   verificationStatus: VerificationStatus.Verified,
   matches: [
     {

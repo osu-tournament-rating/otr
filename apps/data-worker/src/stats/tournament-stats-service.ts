@@ -107,6 +107,7 @@ export class TournamentStatsService {
       where: eq(schema.tournaments.id, tournamentId),
       columns: {
         id: true,
+        lobbySize: true,
         verificationStatus: true,
       },
       with: {
@@ -182,6 +183,7 @@ export class TournamentStatsService {
 
     return {
       id: tournamentRow.id,
+      lobbySize: tournamentRow.lobbySize,
       verificationStatus:
         tournamentRow.verificationStatus as VerificationStatus,
       matches:

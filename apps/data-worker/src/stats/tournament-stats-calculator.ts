@@ -15,8 +15,8 @@ import type {
 /**
  * The players of a game who play for one result, and their total score. In a
  * team game a side is a team. osu! gives the scores of a head-to-head game no
- * team, so there each player is a side of their own, with no team: o!TR
- * invents no red or blue.
+ * team, so in a 1v1 tournament each player there is a side of their own, with
+ * no team: o!TR invents no red or blue.
  */
 interface GameSide {
   team: Team;
@@ -54,7 +54,14 @@ const average = (values: number[]) => {
   return sanitizeNumber(total / values.length);
 };
 
-const isHeadToHead = (game: StatsGame) => game.teamType === TeamType.HeadToHead;
+/**
+ * Whether each player of the game is a side of their own: a head-to-head game
+ * in a 1v1 tournament. A head-to-head game an admin verified in a team
+ * tournament records no sides, so its scores keep the teams they are stored
+ * with.
+ */
+const hasPlayerSides = (game: StatsGame, oneVsOne: boolean) =>
+  oneVsOne && game.teamType === TeamType.HeadToHead;
 
 /** The key with the highest value, or null when the highest value is shared. */
 const soleLeader = <K>(values: Map<K, number>): K | null => {
@@ -76,8 +83,12 @@ const soleLeader = <K>(values: Map<K, number>): K | null => {
 };
 
 /** The game's sides, in the order of their best score. */
-const generateGameSides = (game: StatsGame, scores: StatsScore[]) => {
-  const headToHead = isHeadToHead(game);
+const generateGameSides = (
+  game: StatsGame,
+  scores: StatsScore[],
+  oneVsOne: boolean
+) => {
+  const headToHead = hasPlayerSides(game, oneVsOne);
   const sides = new Map<string, GameSide>();
 
   for (const score of scores) {
@@ -97,15 +108,16 @@ const generateGameSides = (game: StatsGame, scores: StatsScore[]) => {
 
 /**
  * The match's rosters: each side's players and the games it won. When any
- * game was head-to-head, every side of the match is one player with no team,
- * so a 1v1 that switched modes keeps one side per player. A game won by a
- * side of several players then scores a point for each of them.
+ * game of a 1v1 was head-to-head, every side of the match is one player with
+ * no team, so a 1v1 that switched modes keeps one side per player. A game won
+ * by a side of several players then scores a point for each of them.
  */
 const generateMatchRosters = (
   games: StatsGame[],
-  gameResults: GameProcessingResult[]
+  gameResults: GameProcessingResult[],
+  oneVsOne: boolean
 ): MatchRoster[] => {
-  const headToHead = games.some(isHeadToHead);
+  const headToHead = games.some((game) => hasPlayerSides(game, oneVsOne));
   const rosters = new Map<string, MatchRoster>();
   const add = (
     key: string,
@@ -175,7 +187,7 @@ export class TournamentStatsCalculator {
     let totalPlayerMatchStats = 0;
 
     for (const match of verifiedMatches) {
-      const matchResult = this.processMatch(match);
+      const matchResult = this.processMatch(match, tournament.lobbySize === 1);
       if (!matchResult) {
         skippedMatchIds.push(match.id);
         continue;
@@ -215,7 +227,10 @@ export class TournamentStatsCalculator {
    * Verified games without verified scores are left out, as the rating run
    * leaves them out.
    */
-  private processMatch(match: StatsMatch): MatchProcessingResult | null {
+  private processMatch(
+    match: StatsMatch,
+    oneVsOne: boolean
+  ): MatchProcessingResult | null {
     if (match.verificationStatus !== VerificationStatus.Verified) {
       return null;
     }
@@ -228,7 +243,7 @@ export class TournamentStatsCalculator {
     const gameResults: GameProcessingResult[] = [];
 
     for (const game of ensureVerified(match.games)) {
-      const result = this.processGame(game);
+      const result = this.processGame(game, oneVsOne);
       if (!result) {
         continue;
       }
@@ -240,7 +255,11 @@ export class TournamentStatsCalculator {
       return null;
     }
 
-    const matchRosters = generateMatchRosters(countedGames, gameResults);
+    const matchRosters = generateMatchRosters(
+      countedGames,
+      gameResults,
+      oneVsOne
+    );
 
     const playerMatchStats = this.generatePlayerMatchStatistics(
       match,
@@ -264,7 +283,10 @@ export class TournamentStatsCalculator {
     };
   }
 
-  private processGame(game: StatsGame): GameProcessingResult | null {
+  private processGame(
+    game: StatsGame,
+    oneVsOne: boolean
+  ): GameProcessingResult | null {
     if (game.verificationStatus !== VerificationStatus.Verified) {
       return null;
     }
@@ -275,7 +297,7 @@ export class TournamentStatsCalculator {
     }
 
     const orderedScores = [...verifiedScores].sort((a, b) => b.score - a.score);
-    const sides = generateGameSides(game, orderedScores);
+    const sides = generateGameSides(game, orderedScores, oneVsOne);
 
     return {
       gameId: game.id,

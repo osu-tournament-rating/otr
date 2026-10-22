@@ -7,6 +7,8 @@ import type {
 
 export interface StatsTournament {
   id: number;
+  /** Players per side. */
+  lobbySize: number;
   verificationStatus: VerificationStatus;
   matches: StatsMatch[];
 }
