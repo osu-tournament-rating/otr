@@ -482,16 +482,11 @@ const MATCH_COLUMNS = [
   'warningFlags',
 ] as const;
 const GAME_COLUMNS = [
-  'teamType',
   'verificationStatus',
   'rejectionReason',
   'warningFlags',
 ] as const;
-const SCORE_COLUMNS = [
-  'team',
-  'verificationStatus',
-  'rejectionReason',
-] as const;
+const SCORE_COLUMNS = ['verificationStatus', 'rejectionReason'] as const;
 
 const changedColumns = <T, K extends keyof T>(
   before: T | undefined,
