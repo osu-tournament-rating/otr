@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'bun:test';
 import { Team, VerificationStatus } from '@otr/core/osu';
 
-import type { Game, MatchDetail } from '@/lib/orpc/schema/match';
+import { seriesColor } from '@/lib/kit/color/categorical';
+import type { Game, MatchDetail, MatchPlayer } from '@/lib/orpc/schema/match';
 import {
   calculateHighlightStats,
   formatAverage,
   formatMatchCost,
   processMatchStatistics,
 } from '../MatchStatsUtils';
-import { buildTeamScoreChartData } from '../MatchTeamScoresChart';
+import {
+  buildPlayerScoreChartData,
+  buildTeamScoreChartData,
+} from '../MatchTeamScoresChart';
 
 function createMatch(): MatchDetail {
   return {
@@ -239,6 +243,86 @@ describe('team score chart data', () => {
         beatmapDifficulty: 'Unknown difficulty',
         mods: 'NM',
         scoreDifference: 50_000,
+      },
+    ]);
+  });
+});
+
+describe('1v1 match statistics', () => {
+  // The same match from a 1v1 tournament. Its stored red and blue may be
+  // o!TR's own, from converting a head-to-head lobby.
+  const oneVsOne = () =>
+    ({
+      ...createMatch(),
+      tournament: { lobbySize: 1 },
+    }) as unknown as MatchDetail;
+
+  it('names the winner and gives the players no team', () => {
+    const match = oneVsOne();
+    const players = processMatchStatistics(match, match.players);
+    const [result] = calculateHighlightStats(players, match);
+
+    expect(players.map((player) => player.team)).toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(result).toMatchObject({
+      value: '7–6',
+      sublabel: 'Blue player wins',
+    });
+  });
+
+  it('charts each player’s verified scores, with no team', () => {
+    const players = [
+      { id: 10, username: 'Menty' },
+      { id: 20, username: 'LINKI' },
+    ] as MatchPlayer[];
+    const games = [
+      {
+        verificationStatus: VerificationStatus.Verified,
+        scores: [
+          {
+            playerId: 10,
+            team: Team.NoTeam,
+            score: 400_000,
+            verificationStatus: VerificationStatus.Verified,
+          },
+          {
+            playerId: 20,
+            team: Team.NoTeam,
+            score: 350_000,
+            verificationStatus: VerificationStatus.Verified,
+          },
+          {
+            playerId: 30,
+            team: Team.NoTeam,
+            score: 0,
+            verificationStatus: VerificationStatus.Rejected,
+          },
+        ],
+        beatmap: null,
+        mods: 0,
+      },
+    ] as unknown as Game[];
+
+    const { points, series } = buildPlayerScoreChartData(games, players);
+
+    // In name order, so a colour never follows the result.
+    expect(series).toEqual([
+      { key: 'player-20', label: 'LINKI', color: seriesColor(0) },
+      { key: 'player-10', label: 'Menty', color: seriesColor(1) },
+    ]);
+    expect(points).toEqual([
+      {
+        mapNumber: 1,
+        beatmapTitle: 'Unknown title',
+        beatmapArtist: 'Unknown artist',
+        beatmapDifficulty: 'Unknown difficulty',
+        mods: 'NM',
+        'player-10': 400_000,
+        'player-20': 350_000,
+        winner: 'player-10',
+        result: 'Menty wins by 50,000',
       },
     ]);
   });

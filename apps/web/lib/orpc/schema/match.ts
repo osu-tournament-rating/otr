@@ -33,6 +33,7 @@ const matchTournamentBaseSchema = tournamentSelectSchema.pick({
   name: true,
   abbreviation: true,
   ruleset: true,
+  lobbySize: true,
 });
 
 export const MatchTournamentSchema = matchTournamentBaseSchema

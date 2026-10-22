@@ -194,8 +194,9 @@ test.describe('Match Detail Page', () => {
       await expect(chart.locator('.recharts-wrapper')).toBeVisible({
         timeout: 15000,
       });
+      // The test match is a 1v1, charted player against player.
       await expect(chart.getByRole('img')).toHaveAccessibleName(
-        /Line chart of verified team scores/
+        /Line chart of verified player scores/
       );
     });
 

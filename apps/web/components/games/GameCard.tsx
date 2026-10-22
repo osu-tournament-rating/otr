@@ -2,7 +2,6 @@
 
 import { Team } from '@otr/core/osu';
 
-import { TEAM_LABELS } from '@/lib/kit/format/enum-labels';
 import { formatCount } from '@/lib/kit/format/number';
 import type { Game, GameScore, MatchPlayer } from '@/lib/orpc/schema/match';
 import { cn } from '@/lib/utils';
@@ -13,6 +12,11 @@ import {
 } from '@/lib/utils/mods';
 
 import GameCardHeader from './GameCardHeader';
+import {
+  getPlayerOutcome,
+  getTeamOutcome,
+  rankPlayerScores,
+} from './gameOutcome';
 import ScoreCard from './ScoreCard';
 
 /** The result line's colour: the winning team's text colour. */
@@ -21,46 +25,19 @@ const OUTCOME_TEXT_CLASS: Partial<Record<Team, string>> = {
   [Team.Blue]: 'text-match-blue-foreground',
 };
 
-type Outcome = { text: string; winner: Team | null };
-
-/** Team totals decide the game; scores with no team don't count. */
-function getOutcome(scoresByTeam: Map<Team, GameScore[]>): Outcome | null {
-  const totals = [...scoresByTeam.entries()]
-    .filter(([team]) => team !== Team.NoTeam)
-    .map(([team, scores]) => ({
-      team,
-      total: scores.reduce((sum, score) => sum + score.score, 0),
-    }))
-    .filter(({ total }) => total > 0);
-
-  const [first, second] = totals;
-  if (!first) return null;
-
-  if (!second) {
-    return { text: `Team ${TEAM_LABELS[first.team]} wins`, winner: first.team };
-  }
-  if (first.total === second.total) {
-    return { text: "It's a tie!", winner: null };
-  }
-
-  const [winner, loser] =
-    first.total > second.total ? [first, second] : [second, first];
-  return {
-    text: `Team ${TEAM_LABELS[winner.team]} wins by ${formatCount(winner.total - loser.total)}`,
-    winner: winner.team,
-  };
-}
-
 /**
- * One game of a match: its cover header, then each team's scores (red on
- * the left, blue on the right from desktop width), then the result line,
- * on a recessed frame inside the games panel.
+ * One game of a match: its cover header, then the scores, then the result
+ * line, on a recessed frame inside the games panel. A team game shows each
+ * team's scores, red on the left and blue on the right from desktop width.
+ * A 1v1 shows player against player, the winner on the left, with no
+ * team colours: its red and blue may be o!TR's own.
  */
 export default function GameCard({
   game,
   number,
   players = [],
   countryNames,
+  oneVsOne = false,
   highlighted = false,
   highlightScoreId = null,
 }: {
@@ -70,28 +47,34 @@ export default function GameCard({
   players: MatchPlayer[];
   /** The players' country names by code, from the server. */
   countryNames: Record<string, string>;
+  /** From a 1v1 tournament, whose sides are players. */
+  oneVsOne?: boolean;
   highlighted?: boolean;
   highlightScoreId?: number | null;
 }) {
+  const sortedScores = [...game.scores].sort((a, b) => b.score - a.score);
   const scoresByTeam = new Map<Team, GameScore[]>();
-  for (const score of [...game.scores].sort((a, b) => b.score - a.score)) {
+  for (const score of sortedScores) {
     const team = score.team as Team;
     scoresByTeam.set(team, [...(scoresByTeam.get(team) ?? []), score]);
   }
 
-  const outcome = getOutcome(scoresByTeam);
+  const outcome = oneVsOne
+    ? getPlayerOutcome(game, players)
+    : getTeamOutcome(scoresByTeam);
   const headerMods = resolveGameDisplayMods(game, game.scores);
   const scoreWidth = Math.max(
     0,
     ...game.scores.map((score) => formatCount(score.score).length)
   );
-  const renderScores = (team: Team) =>
-    (scoresByTeam.get(team) ?? []).map((score) => {
+  const renderScores = (scores: GameScore[]) =>
+    scores.map((score) => {
       const player = players.find((player) => player.id === score.playerId);
       return (
         <ScoreCard
           key={score.id}
           score={score}
+          team={oneVsOne ? Team.NoTeam : (score.team as Team)}
           mods={getScoreDisplayMods(score.mods, headerMods.mods)}
           lazerMods={getScoreDisplayLazerMods(
             score.lazerMods,
@@ -108,7 +91,11 @@ export default function GameCard({
         />
       );
     });
-  const hasNoTeamScores = (scoresByTeam.get(Team.NoTeam)?.length ?? 0) > 0;
+  const noTeamScores = scoresByTeam.get(Team.NoTeam) ?? [];
+  const playerScores = oneVsOne ? rankPlayerScores(game) : [];
+  const [left, right] = oneVsOne
+    ? [playerScores.slice(0, 1), playerScores.slice(1)]
+    : [scoresByTeam.get(Team.Red) ?? [], scoresByTeam.get(Team.Blue) ?? []];
 
   return (
     <div
@@ -125,21 +112,21 @@ export default function GameCard({
         </div>
       ) : (
         <div className="flex flex-row flex-wrap gap-1 lg:gap-0">
-          <div data-team="Red" className="team-container flex flex-col gap-1">
-            {renderScores(Team.Red)}
+          <div data-side="left" className="team-container flex flex-col gap-1">
+            {renderScores(left)}
 
-            {hasNoTeamScores ? (
+            {!oneVsOne && noTeamScores.length > 0 ? (
               <div
-                data-team="NoTeam"
+                data-side="none"
                 className="team-container flex flex-col gap-1"
               >
-                {renderScores(Team.NoTeam)}
+                {renderScores(noTeamScores)}
               </div>
             ) : null}
           </div>
 
-          <div data-team="Blue" className="team-container flex flex-col gap-1">
-            {renderScores(Team.Blue)}
+          <div data-side="right" className="team-container flex flex-col gap-1">
+            {renderScores(right)}
           </div>
         </div>
       )}

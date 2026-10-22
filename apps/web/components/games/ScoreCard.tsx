@@ -73,6 +73,7 @@ function PerformanceItem({ label, value }: { label: string; value: string }) {
  */
 export default function ScoreCard({
   score,
+  team = score.team,
   mods,
   lazerMods,
   scoreWidth,
@@ -83,6 +84,8 @@ export default function ScoreCard({
   highlighted = false,
 }: {
   score: GameScore;
+  /** The team whose colour the card takes: the score's own, or none in a 1v1. */
+  team?: Team;
   /** The mods to show: the score's own beyond those its game's header shows. */
   mods: Mods;
   /** The same for a lazer score's lazer mods, from `getScoreDisplayLazerMods`. */
@@ -100,7 +103,7 @@ export default function ScoreCard({
   const playerName = player?.username ?? 'Unknown player';
   const hitJudgments = getHitJudgments(score);
   const gradeLabel = SCORE_GRADE_LABELS[score.grade] ?? 'D';
-  const scoreStyle = { color: getTeamTextColor(score.team) };
+  const scoreStyle = { color: getTeamTextColor(team) };
 
   const status = (
     <VerificationStatusIcon
@@ -153,7 +156,7 @@ export default function ScoreCard({
   return (
     <div
       id={`score-${score.id}`}
-      data-team={Team[score.team]}
+      data-team={Team[team]}
       className={cn(
         'team-flex-row relative flex overflow-clip rounded-lg border bg-score-card transition-all duration-300',
         highlighted && 'ring-2 ring-primary'
@@ -161,10 +164,10 @@ export default function ScoreCard({
     >
       <span
         aria-hidden="true"
-        className={cn('absolute inset-0', getTeamTintClass(score.team))}
+        className={cn('absolute inset-0', getTeamTintClass(team))}
       />
 
-      <ScoreTeamColorBar team={score.team} />
+      <ScoreTeamColorBar team={team} />
 
       {/* Phones: two lines, the hit counts joined into one. */}
       <div className="relative flex min-w-0 flex-1 flex-col gap-1 px-2 py-1 sm:hidden">

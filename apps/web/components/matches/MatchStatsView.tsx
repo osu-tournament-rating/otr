@@ -39,6 +39,7 @@ import {
   type ProcessedPlayerStats,
 } from './MatchStatsUtils';
 import MatchTeamScoresChart from './MatchTeamScoresChart';
+import { isOneVsOneMatch } from './oneVsOne';
 
 const PLAYER_SORT_KEYS = [
   'player',
@@ -92,7 +93,7 @@ function sortPlayers(
 }
 
 /**
- * The match's Stats tab: the headline numbers, the team score chart and the
+ * The match's Stats tab: the headline numbers, the score chart and the
  * player performance table. Only verified matches have statistics.
  */
 export default function MatchStatsView({ match }: { match: MatchDetail }) {
@@ -172,7 +173,11 @@ function VerifiedMatchStats({ match }: { match: MatchDetail }) {
         </PanelBody>
       </Panel>
 
-      <MatchTeamScoresChart games={match.games} />
+      <MatchTeamScoresChart
+        games={match.games}
+        players={match.players}
+        oneVsOne={isOneVsOneMatch(match)}
+      />
 
       <Panel data-testid="player-stats-table">
         <SectionHeader

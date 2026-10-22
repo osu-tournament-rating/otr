@@ -337,8 +337,8 @@ function teamTotal(team: Team) {
 
 /**
  * A game frame holding score cards, with only the library tokens: the team
- * tint, a coloured edge, team text and the result line. Head-to-head scores
- * take the no-team grey (`getTeamColor(Team.NoTeam)`).
+ * tint, a coloured edge, team text and the result line. Scores with no team,
+ * and every score of a 1v1, take the no-team grey (`getTeamColor(Team.NoTeam)`).
  */
 function MatchSurfaceDemo() {
   return (

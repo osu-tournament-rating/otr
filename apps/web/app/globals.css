@@ -500,11 +500,11 @@
       flex-direction: var(--team-flex-row-dir);
     }
 
-    &:not([data-team='NoTeam']) {
+    &:not([data-side='none']) {
       @apply lg:w-1/2;
     }
 
-    &[data-team='Red'] {
+    &[data-side='left'] {
       @apply order-2;
 
       /* --var(--breakpoint-lg) */
@@ -513,7 +513,7 @@
       }
     }
 
-    &[data-team='Blue'] {
+    &[data-side='right'] {
       @apply order-3;
 
       /* --var(--breakpoint-lg) */

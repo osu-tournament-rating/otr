@@ -773,6 +773,7 @@
                     "properties": {
                       "id": { "type": "integer" },
                       "name": { "type": "string", "maxLength": 512 },
+                      "lobbySize": { "type": "integer" },
                       "abbreviation": {
                         "anyOf": [
                           { "type": "string", "maxLength": 32 },
@@ -781,7 +782,13 @@
                       },
                       "ruleset": { "$ref": "#/components/schemas/Ruleset" }
                     },
-                    "required": ["id", "name", "abbreviation", "ruleset"]
+                    "required": [
+                      "id",
+                      "name",
+                      "lobbySize",
+                      "abbreviation",
+                      "ruleset"
+                    ]
                   },
                   { "type": "null" }
                 ]
@@ -1676,6 +1683,7 @@
                           "properties": {
                             "id": { "type": "integer" },
                             "name": { "type": "string", "maxLength": 512 },
+                            "lobbySize": { "type": "integer" },
                             "abbreviation": {
                               "anyOf": [
                                 { "type": "string", "maxLength": 32 },
@@ -1686,7 +1694,13 @@
                               "$ref": "#/components/schemas/Ruleset"
                             }
                           },
-                          "required": ["id", "name", "abbreviation", "ruleset"]
+                          "required": [
+                            "id",
+                            "name",
+                            "lobbySize",
+                            "abbreviation",
+                            "ruleset"
+                          ]
                         },
                         { "type": "null" }
                       ]
@@ -4181,6 +4195,7 @@
                               "properties": {
                                 "id": { "type": "integer" },
                                 "name": { "type": "string", "maxLength": 512 },
+                                "lobbySize": { "type": "integer" },
                                 "abbreviation": {
                                   "anyOf": [
                                     { "type": "string", "maxLength": 32 },
@@ -4194,6 +4209,7 @@
                               "required": [
                                 "id",
                                 "name",
+                                "lobbySize",
                                 "abbreviation",
                                 "ruleset"
                               ]
