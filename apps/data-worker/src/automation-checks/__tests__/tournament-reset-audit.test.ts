@@ -19,6 +19,8 @@ import {
 
 // Far above real osu! ids and other test files' ranges.
 const OSU_ID = 97_000_300_000;
+// The second player of the head-to-head conversion test.
+const OPPONENT_OSU_ID = OSU_ID + 1;
 const ABBREVIATION = 'RESETAUD';
 
 describe.skipIf(!testDatabaseUrl)(
@@ -44,14 +46,17 @@ describe.skipIf(!testDatabaseUrl)(
       await db
         .delete(schema.tournaments)
         .where(eq(schema.tournaments.abbreviation, ABBREVIATION));
+      const osuIds = [OSU_ID, OPPONENT_OSU_ID];
       const players = db
         .select({ id: schema.players.id })
         .from(schema.players)
-        .where(eq(schema.players.osuId, OSU_ID));
+        .where(inArray(schema.players.osuId, osuIds));
       await db
         .delete(schema.users)
         .where(inArray(schema.users.playerId, players));
-      await db.delete(schema.players).where(eq(schema.players.osuId, OSU_ID));
+      await db
+        .delete(schema.players)
+        .where(inArray(schema.players.osuId, osuIds));
     };
 
     beforeEach(async () => {
@@ -168,6 +173,54 @@ describe.skipIf(!testDatabaseUrl)(
         ['score', adminUserId],
         ['tournament', adminUserId],
       ]);
+    });
+
+    // The reset's head-to-head conversion is the checks' own result, not a
+    // correction, so a refetch may still replace what it wrote.
+    it('locks none of the fields the reset changed against refetches', async () => {
+      // An undecided match with two players, so the reset converts its
+      // head-to-head game.
+      await db
+        .update(schema.matches)
+        .set({ verificationStatus: VerificationStatus.None })
+        .where(eq(schema.matches.id, matchId));
+      const [opponent] = await db
+        .insert(schema.players)
+        .values({ osuId: OPPONENT_OSU_ID })
+        .returning({ id: schema.players.id });
+      const [scoreRow] = await db
+        .select()
+        .from(schema.gameScores)
+        .where(eq(schema.gameScores.id, scoreId));
+      const {
+        id: _id,
+        score: _score,
+        created: _created,
+        ...scoreValues
+      } = scoreRow!;
+      await db.insert(schema.gameScores).values({
+        ...scoreValues,
+        rawScore: 90_000,
+        placement: 2,
+        playerId: opponent!.id,
+      });
+
+      await service.processAutomationChecks(tournamentId, true, adminUserId);
+
+      const [game] = await db
+        .select({
+          teamType: schema.games.teamType,
+          editedFields: schema.games.editedFields,
+        })
+        .from(schema.games)
+        .where(eq(schema.games.id, gameId));
+      const [score] = await db
+        .select({ editedFields: schema.gameScores.editedFields })
+        .from(schema.gameScores)
+        .where(eq(schema.gameScores.id, scoreId));
+
+      expect(game).toEqual({ teamType: 2, editedFields: [] });
+      expect(score).toEqual({ editedFields: [] });
     });
   }
 );

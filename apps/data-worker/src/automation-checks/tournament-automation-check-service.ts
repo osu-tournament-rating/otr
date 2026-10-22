@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 
-import { withAuditUserId } from '@otr/core/db';
+import { withAuditUserId, withoutEditLocks } from '@otr/core/db';
 import * as schema from '@otr/core/db/schema';
 import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import {
@@ -476,7 +476,9 @@ export class TournamentAutomationCheckService {
     };
 
     if (auditUserId !== undefined) {
-      await withAuditUserId(tx, auditUserId, write);
+      // The admin asked for the reset but chose none of its values, so they
+      // lock nothing against refetches.
+      await withAuditUserId(tx, auditUserId, () => withoutEditLocks(tx, write));
     } else {
       await write();
     }
