@@ -55,6 +55,7 @@ import { Panel, PanelBody } from '@/components/kit/layout/Panel';
 import { RowList, RowListItem } from '@/components/kit/layout/RowList';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
 import { StatTile, StatTileGrid } from '@/components/kit/layout/StatTile';
+import { TermTooltip } from '@/components/kit/layout/TermTooltip';
 import { Tile } from '@/components/kit/layout/Tile';
 import { Eyebrow, typeScale } from '@/components/kit/layout/Typography';
 import { ListToolbar } from '@/components/kit/lists/ListToolbar';
@@ -676,6 +677,21 @@ export default function LayoutSection() {
               Best global rank allowed, 1 if open
             </InfoButton>
           </div>
+        </div>
+      </Specimen>
+
+      <Specimen
+        id="layout-term-tooltip"
+        name="TermTooltip"
+        importPath={`${KIT}/TermTooltip`}
+        description="A label with a subtle dotted underline that opens how its figure is calculated, on hover, keyboard focus and tap. Only the tournament match cost uses it, by owner decision; every other explanation is an InfoButton."
+      >
+        <div className="flex items-baseline gap-6 text-xs text-muted-foreground">
+          <span>Rank</span>
+          <span>Player</span>
+          <TermTooltip hint="Average of all matches plus up to 50% depending on number of matches played">
+            Match cost
+          </TermTooltip>
         </div>
       </Specimen>
 

@@ -11,6 +11,7 @@ Every value here comes from the beatmap pages, which are the reference. Import e
 - [Panel and PanelBody](#panel-and-panelbody): the one surface
 - [SectionHeader](#sectionheader): the strip at the top of a panel
 - [InfoButton](#infobutton): the one help button
+- [TermTooltip](#termtooltip): the dotted-underline label of the tournament match cost
 - [Tile](#tile): the small bordered box inside a panel
 - [StatTile and StatTileGrid](#stattile-and-stattilegrid): one number with its label
 - [RowList and RowListItem](#rowlist-and-rowlistitem): divided rows inside a panel
@@ -408,6 +409,37 @@ Don't:
 - Don't put it inside another button or link, such as a sortable column header; it is a button itself, so place it beside that control.
 
 Gallery anchor: `/admin/design#layout-info-button`
+
+## TermTooltip
+
+A label with a subtle dotted underline that opens how its figure is calculated, on hover, keyboard focus and tap, like InfoButton. Only the tournament match cost uses it, by owner decision: its column header in the top performers table and the label under each phone row's value.
+
+```tsx
+import { TermTooltip } from '@/components/kit/layout/TermTooltip';
+
+<DataTableHead numeric>
+  <TermTooltip hint="Average of all matches plus up to 50% depending on number of matches played">
+    Match cost
+  </TermTooltip>
+</DataTableHead>;
+```
+
+Props:
+
+- `children`: the label. It is the button's text, so it names the button.
+- `hint`: the explanation, one short fragment.
+- `side`, `align`: where the bubble opens. `side` defaults to `top`.
+
+Do:
+
+- Use the same label and hint everywhere the figure appears on a page, such as a table header and its phone rows.
+
+Don't:
+
+- Don't use it in place of an InfoButton without an owner decision; every other explanation is an InfoButton.
+- Don't put it inside a link or another button, such as a sortable column header.
+
+Gallery anchor: `/admin/design#layout-term-tooltip`
 
 ## Tile
 

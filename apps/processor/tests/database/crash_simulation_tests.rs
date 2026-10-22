@@ -1,12 +1,12 @@
 use serial_test::serial;
 use std::{
     io::Read,
-    process::{Child, Command, Stdio},
+    process::Child,
     time::{Duration, Instant}
 };
 use tokio_postgres::Client;
 
-use super::test_helpers::{row_count, snapshot, TestDatabase};
+use super::test_helpers::{processor, processor_binary, row_count, snapshot, TestDatabase};
 use crate::common::init_test_env;
 
 /// Upper bound on each wait, so a regression fails the test instead of hanging it.
@@ -20,41 +20,6 @@ const REBUILT_TABLES: [&str; 4] = [
     "player_highest_ranks",
     "game_scores"
 ];
-
-/// Builds the processor binary and returns its path.
-fn processor_binary() -> &'static str {
-    let build_output = Command::new("cargo")
-        .args(["build", "--bin", "otr-processor"])
-        .output()
-        .expect("Failed to execute cargo build");
-
-    if !build_output.status.success() {
-        panic!(
-            "Failed to build processor: {}\n{}",
-            String::from_utf8_lossy(&build_output.stdout),
-            String::from_utf8_lossy(&build_output.stderr)
-        );
-    }
-
-    if cfg!(debug_assertions) {
-        "target/debug/otr-processor"
-    } else {
-        "target/release/otr-processor"
-    }
-}
-
-/// A processor run against the test database. `DATABASE_URL` is set because
-/// dotenvy would otherwise load it from otr's root .env and reach the local
-/// database.
-fn processor(binary: &str, test_db: &TestDatabase) -> Command {
-    let mut command = Command::new(binary);
-    command
-        .env("DATABASE_URL", &test_db.connection_string)
-        .env("RUST_LOG", "warn")
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-    command
-}
 
 /// Waits for a backend blocked by `lock_pid`, returning its pid, its statement,
 /// and whether it holds a write transaction. Fails if `child` exits first.
