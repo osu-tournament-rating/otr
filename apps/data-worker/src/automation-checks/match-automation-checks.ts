@@ -3,12 +3,14 @@ import {
   MatchRejectionReason,
   MatchWarningFlags,
   TeamType,
+  VerificationStatus,
 } from '@otr/core/osu';
 
 import type { AutomationMatch, AutomationTournament } from './types';
 import { ensureMatchRosters, rosterOverlaps } from './rosters-helper';
 import {
   addWarningFlag,
+  countValidScores,
   isPlaceholderDate,
   isPreVerifiedOrVerified,
 } from './utils';
@@ -35,6 +37,7 @@ export class MatchAutomationChecks {
     this.applyBeatmapWarning(match);
     this.applyNameFormatWarning(match);
     this.checkRosterIntegrity(match);
+    this.checkHeadToHeadPlayers(match, tournament);
 
     let rejection = MatchRejectionReason.None;
 
@@ -155,6 +158,51 @@ export class MatchAutomationChecks {
         match.warningFlags,
         MatchWarningFlags.UnexpectedNameFormat
       );
+    }
+  }
+
+  /**
+   * In a head-to-head game each player is a side of their own, so a 1v1
+   * match's two sides are its two players. When more than two players have
+   * valid scores in the match's valid games, as with a substitute or two
+   * pairings in one lobby, no head-to-head game says whose side each player
+   * took. The head-to-head games the checks passed are then rejected for
+   * their team type, and the match is judged on its other games.
+   */
+  private checkHeadToHeadPlayers(
+    match: AutomationMatch,
+    tournament: AutomationTournament
+  ) {
+    if (tournament.lobbySize !== 1) {
+      return;
+    }
+
+    const validGames = match.games.filter((game) =>
+      isPreVerifiedOrVerified(game.verificationStatus)
+    );
+    const players = new Set(
+      validGames.flatMap((game) =>
+        countValidScores(game.scores).map((score) => score.playerId)
+      )
+    );
+
+    if (players.size <= 2) {
+      return;
+    }
+
+    for (const game of validGames) {
+      if (
+        game.teamType === TeamType.HeadToHead &&
+        game.verificationStatus === VerificationStatus.PreVerified
+      ) {
+        game.verificationStatus = VerificationStatus.PreRejected;
+        game.rejectionReason |= GameRejectionReason.InvalidTeamType;
+
+        this.logger?.trace(
+          'Match automation check: head-to-head match of more than two players',
+          { matchId: match.id, gameId: game.id, playerCount: players.size }
+        );
+      }
     }
   }
 
