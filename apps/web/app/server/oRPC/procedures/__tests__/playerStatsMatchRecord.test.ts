@@ -14,14 +14,16 @@ const SEED_NAME = 'player-stats-match-record';
 describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
   const { pool, db } = createTestDb(testDatabaseUrl!);
   const osuIds = [SEED_OSU_ID, SEED_OSU_ID + 1, SEED_OSU_ID + 2];
+  const headToHeadOsuId = SEED_OSU_ID + 3;
   let playerId = 0;
   let switcherId = 0;
+  let headToHeadLoserId = 0;
 
   const removeSeed = async () => {
     await db
       .delete(schema.tournaments)
       .where(eq(schema.tournaments.name, SEED_NAME));
-    await removePlayers(db, osuIds);
+    await removePlayers(db, [...osuIds, headToHeadOsuId]);
   };
 
   beforeAll(async () => {
@@ -124,6 +126,55 @@ describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
       teammateIds: [],
       opponentIds: [opponent!.id],
     });
+
+    // A head-to-head 1v1 the opponent won 2-1: each side is one player with
+    // no team.
+    const [headToHeadLoser] = await db
+      .insert(schema.players)
+      .values({
+        osuId: headToHeadOsuId,
+        username: `record-${headToHeadOsuId}`,
+      })
+      .returning({ id: schema.players.id });
+    headToHeadLoserId = headToHeadLoser!.id;
+    const [headToHeadMatch] = await db
+      .insert(schema.matches)
+      .values({
+        osuId: SEED_OSU_ID + results.length + 1,
+        tournamentId: tournament!.id,
+        verificationStatus: VerificationStatus.Verified,
+        startTime: '2026-01-11T00:00:00Z',
+      })
+      .returning({ id: schema.matches.id });
+    await db.insert(schema.matchRosters).values([
+      {
+        matchId: headToHeadMatch!.id,
+        team: Team.NoTeam,
+        roster: [headToHeadLoserId],
+        score: 1,
+      },
+      {
+        matchId: headToHeadMatch!.id,
+        team: Team.NoTeam,
+        roster: [opponent!.id],
+        score: 2,
+      },
+    ]);
+    await db.insert(schema.playerMatchStats).values({
+      playerId: headToHeadLoserId,
+      matchId: headToHeadMatch!.id,
+      matchCost: 1,
+      averageScore: 500_000,
+      averagePlacement: 1.5,
+      averageMisses: 0,
+      averageAccuracy: 0.95,
+      gamesPlayed: 3,
+      gamesWon: 1,
+      gamesLost: 2,
+      won: false,
+      teammateIds: [],
+      opponentIds: [opponent!.id],
+    });
   });
 
   afterAll(async () => {
@@ -156,6 +207,20 @@ describe.skipIf(!testDatabaseUrl)('getPlayerStats match record', () => {
       matchesPlayed: 1,
       matchesWon: 1,
       matchesLost: 0,
+    });
+  });
+
+  it('counts a lost head-to-head 1v1, whose sides have no team', async () => {
+    const stats = await call(
+      getPlayerStats,
+      { id: headToHeadLoserId, keyType: 'otr', ruleset: Ruleset.Osu },
+      { context: { db, headers: new Headers() } }
+    );
+
+    expect(stats.matchStats).toMatchObject({
+      matchesPlayed: 1,
+      matchesWon: 0,
+      matchesLost: 1,
     });
   });
 });
