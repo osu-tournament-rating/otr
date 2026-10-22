@@ -339,6 +339,16 @@ export const gameAudits = pgTable(
       'btree',
       table.created.asc().nullsLast().op('timestamptz_ops')
     ),
+    // Creations and deletions are a few percent of the rows. The audit log's
+    // action filter finds them here instead of reading back through the rest.
+    index('ix_game_audits_action_type_created')
+      .using(
+        'btree',
+        table.actionType.asc().nullsLast().op('int4_ops'),
+        table.created.asc().nullsLast().op('timestamptz_ops'),
+        table.actionUserId.asc().nullsLast().op('int4_ops')
+      )
+      .where(sql`action_type <> 1`),
     index('ix_game_audits_reference_id').using(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
@@ -532,6 +542,16 @@ export const gameScoreAudits = pgTable(
       'btree',
       table.created.asc().nullsLast().op('timestamptz_ops')
     ),
+    // Creations and deletions are a few percent of the rows. The audit log's
+    // action filter finds them here instead of reading back through the rest.
+    index('ix_game_score_audits_action_type_created')
+      .using(
+        'btree',
+        table.actionType.asc().nullsLast().op('int4_ops'),
+        table.created.asc().nullsLast().op('timestamptz_ops'),
+        table.actionUserId.asc().nullsLast().op('int4_ops')
+      )
+      .where(sql`action_type <> 1`),
     index('ix_game_score_audits_reference_id').using(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
@@ -904,6 +924,7 @@ export const gameAdminNotes = pgTable(
       .notNull(),
     updated: timestamp({ withTimezone: true, mode: 'string' }),
     note: text().notNull(),
+    // No foreign key: a note outlives its record, as audit rows do.
     referenceId: integer('reference_id').notNull(),
     adminUserId: integer('admin_user_id'),
   },
@@ -916,11 +937,6 @@ export const gameAdminNotes = pgTable(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
     ),
-    foreignKey({
-      columns: [table.referenceId],
-      foreignColumns: [games.id],
-      name: 'fk_game_admin_notes_games_reference_id',
-    }).onDelete('cascade'),
     foreignKey({
       columns: [table.adminUserId],
       foreignColumns: [users.id],
@@ -945,6 +961,7 @@ export const gameScoreAdminNotes = pgTable(
       .notNull(),
     updated: timestamp({ withTimezone: true, mode: 'string' }),
     note: text().notNull(),
+    // No foreign key: a note outlives its record, as audit rows do.
     referenceId: integer('reference_id').notNull(),
     adminUserId: integer('admin_user_id'),
   },
@@ -957,11 +974,6 @@ export const gameScoreAdminNotes = pgTable(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
     ),
-    foreignKey({
-      columns: [table.referenceId],
-      foreignColumns: [gameScores.id],
-      name: 'fk_game_score_admin_notes_game_scores_reference_id',
-    }).onDelete('cascade'),
     foreignKey({
       columns: [table.adminUserId],
       foreignColumns: [users.id],
@@ -1087,6 +1099,7 @@ export const matchAdminNotes = pgTable(
       .notNull(),
     updated: timestamp({ withTimezone: true, mode: 'string' }),
     note: text().notNull(),
+    // No foreign key: a note outlives its record, as audit rows do.
     referenceId: integer('reference_id').notNull(),
     adminUserId: integer('admin_user_id'),
   },
@@ -1099,11 +1112,6 @@ export const matchAdminNotes = pgTable(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
     ),
-    foreignKey({
-      columns: [table.referenceId],
-      foreignColumns: [matches.id],
-      name: 'fk_match_admin_notes_matches_reference_id',
-    }).onDelete('cascade'),
     foreignKey({
       columns: [table.adminUserId],
       foreignColumns: [users.id],
@@ -1740,6 +1748,7 @@ export const tournamentAdminNotes = pgTable(
       .notNull(),
     updated: timestamp({ withTimezone: true, mode: 'string' }),
     note: text().notNull(),
+    // No foreign key: a note outlives its record, as audit rows do.
     referenceId: integer('reference_id').notNull(),
     adminUserId: integer('admin_user_id'),
   },
@@ -1752,11 +1761,6 @@ export const tournamentAdminNotes = pgTable(
       'btree',
       table.referenceId.asc().nullsLast().op('int4_ops')
     ),
-    foreignKey({
-      columns: [table.referenceId],
-      foreignColumns: [tournaments.id],
-      name: 'fk_tournament_admin_notes_tournaments_reference_id',
-    }).onDelete('cascade'),
     foreignKey({
       columns: [table.adminUserId],
       foreignColumns: [users.id],

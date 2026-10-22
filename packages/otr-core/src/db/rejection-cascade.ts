@@ -32,6 +32,8 @@ type GameCascadeOptions = {
 
 type TournamentCascadeOptions = {
   updatedAt?: TimestampValue;
+  /** The admin credited on each match the rejection changes. */
+  verifiedByUserId?: number;
 };
 
 function normalizeIds(ids: readonly number[]): number[] {
@@ -52,6 +54,21 @@ function normalizeIds(ids: readonly number[]): number[] {
 }
 
 const DEFAULT_TIMESTAMP = sql`CURRENT_TIMESTAMP`;
+
+/**
+ * Credits `userId` as the reviewer of each match a cascade moves to `status`.
+ * A match already there keeps the reviewer who put it there.
+ */
+export function creditReviewer(
+  status: VerificationStatus,
+  userId: number | undefined
+): SQL | undefined {
+  if (userId === undefined) {
+    return undefined;
+  }
+
+  return sql`CASE WHEN ${schema.matches.verificationStatus} = ${status} THEN ${schema.matches.verifiedByUserId} ELSE ${userId}::integer END`;
+}
 
 function resolveTimestamp(value?: TimestampValue): TimestampValue {
   return value ?? DEFAULT_TIMESTAMP;
@@ -167,6 +184,10 @@ export async function cascadeTournamentRejection(
       verificationStatus: VerificationStatus.Rejected,
       rejectionReason: sql`${schema.matches.rejectionReason} | ${MatchRejectionReason.RejectedTournament}`,
       warningFlags: MatchWarningFlags.None,
+      verifiedByUserId: creditReviewer(
+        VerificationStatus.Rejected,
+        options?.verifiedByUserId
+      ),
       updated: updatedAt,
     })
     .where(inArray(schema.matches.tournamentId, tournamentIds))
