@@ -37,10 +37,19 @@ Each game in each match is evaluated against the following checks in order.
 1. **End Time**: If end time is null, unparseable, or ≤ Unix epoch (1970-01-01), apply `NoEndTime` rejection. Otherwise, proceed.
 1. **Invalid Mods**: If game contains SuddenDeath, Perfect, Relax, Autoplay, or Relax2 mods, or any [[#Invalid lazer mods|invalid lazer mod]], apply `InvalidMods` rejection. Otherwise, proceed.
 1. **Ruleset Match**: If game ruleset differs from tournament ruleset, apply `RulesetMismatch` rejection. Otherwise, proceed.
-1. **Score Counts**: If total score count is 0, apply `NoScores` rejection. If valid score count is 0, apply `NoValidScores` rejection. If valid score count is odd or does not match lobby size requirements, apply `LobbySizeMismatch` rejection. Otherwise, proceed. Valid scores are scores which are PreVerified or Verified.
+1. **Score Counts**: If total score count is 0, apply `NoScores` rejection. If valid score count is 0, apply `NoValidScores` rejection. If valid score count is odd, or the valid scores do not form exactly two [[#Sides|sides]] of the tournament's lobby size, apply `LobbySizeMismatch` rejection. Otherwise, proceed. Valid scores are scores which are PreVerified or Verified, so a referee's rejected score does not count.
 1. **Scoring Type**: If scoring type is not ScoreV2 or Lazer, apply `InvalidScoringType` rejection. Otherwise, proceed.
-1. **Team Type**: If team type is not TeamVs or HeadToHead, apply `InvalidTeamType` rejection. Otherwise, proceed.
+1. **Team Type**: If team type is TeamVs, or HeadToHead in a tournament with a lobby size of 1, proceed. Otherwise, apply `InvalidTeamType` rejection.
 1. **Status Assignment**: If no rejection reasons were applied, set status to `PreVerified`. Otherwise, set to `PreRejected`.
+
+### Sides
+
+A side is the players who play for one result. In a TeamVs game, each team is a side. osu! records no teams for the scores of a HeadToHead game, so each player there is a side of their own. A HeadToHead game in a 1v1 tournament therefore needs exactly two valid scores, and it is checked as it is, without being converted to TeamVs.
+
+With more than one player per side, a HeadToHead lobby records nothing that tells the teams apart, so HeadToHead games are only accepted in 1v1 tournaments.
+
+> [!note]
+> Until October 2026, the automated checks converted HeadToHead games in 1v1 tournaments to TeamVs and assigned red and blue themselves. Games converted then keep TeamVs and those teams. The website shows every 1v1 match player against player, without red or blue.
 
 ## Match Checks
 
@@ -50,22 +59,13 @@ Each match is evaluated against the following checks. Warning checks are applied
 
 1. **Unexpected Beatmaps**: If games beyond the first 2 (sorted by start time) have `BeatmapNotPooled` rejection, apply `UnexpectedBeatmapsFound` warning.
 1. **Name Format**: If match name does not match pattern `(Team) vs. (Team)`, apply `UnexpectedNameFormat` warning.
-1. **Roster Integrity**: If players appear on both team rosters across valid games, apply `OverlappingRosters` warning.
+1. **Roster Integrity**: If players appear on both team rosters across valid TeamVs games, apply `OverlappingRosters` warning. HeadToHead games are left out, since each player there is a side of their own.
 
 ### Rejection Checks
 
 1. **End Time**: If end time is null or ≤ Unix epoch (1970-01-01), apply `NoEndTime` rejection. Otherwise, proceed.
 1. **Game Counts**: If total game count is 0, apply `NoGames` rejection. If valid game count is 0, apply `NoValidGames` rejection. If valid game count < 3, apply `UnexpectedGameCount` rejection. If valid game count is 3-4, apply `LowGameCount` warning in addition to passing.
 1. **Name Prefix**: If match name does not start with tournament abbreviation (case-insensitive), apply `NamePrefixMismatch` rejection. Otherwise, proceed.
-
-### Head-to-Head Conversion
-
-For 1v1 tournaments (lobby size = 1), the system attempts to convert HeadToHead games to TeamVs format.
-
-1. **Eligibility**: Only runs if tournament lobby size is 1 and the match is played in Head-to-Head.
-1. **Validation**: Requires exactly 2 unique players across all match games, with each game having 1-2 valid scores.
-1. **Conversion**: Assigns Red/Blue teams based on player IDs and converts eligible HeadToHead games to TeamVs.
-1. **Failure**: If validation fails, apply `FailedTeamVsConversion` rejection to the match and affected games.
 
 ### Status Assignment
 
@@ -93,16 +93,16 @@ The tournament is evaluated against the following checks in order.
 | Game | `RulesetMismatch` | Ruleset differs from tournament |
 | Game | `NoScores` | Zero scores present |
 | Game | `NoValidScores` | Zero PreVerified or Verified scores |
-| Game | `LobbySizeMismatch` | Valid score count is odd or does not match lobby size |
+| Game | `LobbySizeMismatch` | Valid scores do not form two sides of the lobby size |
 | Game | `InvalidScoringType` | Not ScoreV2 or Lazer |
-| Game | `InvalidTeamType` | Not TeamVs or HeadToHead |
-| Game | `FailedTeamVsConversion` | H2H conversion failed (applied during match processing) |
+| Game | `InvalidTeamType` | Not TeamVs, or HeadToHead outside a 1v1 tournament |
+| Game | `FailedTeamVsConversion` | No longer applied; older games keep it from the HeadToHead conversion |
 | Match | `NoEndTime` | End time is null or ≤ Unix epoch |
 | Match | `NoGames` | Zero games present |
 | Match | `NoValidGames` | Zero PreVerified or Verified games |
 | Match | `UnexpectedGameCount` | 1-2 valid games (< 3 required) |
 | Match | `NamePrefixMismatch` | Match name does not start with tournament abbreviation |
-| Match | `FailedTeamVsConversion` | H2H conversion failed (wrong player count or unexpected players) |
+| Match | `FailedTeamVsConversion` | No longer applied; older matches keep it from the HeadToHead conversion |
 | Tournament | `NoVerifiedMatches` | No matches with games or no verified matches |
 | Tournament | `NotEnoughVerifiedMatches` | Verified match ratio < 80% |
 
@@ -114,7 +114,7 @@ The tournament is evaluated against the following checks in order.
 | Match | `LowGameCount` | 3-4 valid games |
 | Match | `UnexpectedBeatmapsFound` | Non-pooled beatmaps in games after the first 2 |
 | Match | `UnexpectedNameFormat` | Match name does not follow `(Team) vs. (Team)` pattern |
-| Match | `OverlappingRosters` | Same player appears on both team rosters |
+| Match | `OverlappingRosters` | Same player appears on both team rosters in TeamVs games |
 
 ## Status Transitions
 

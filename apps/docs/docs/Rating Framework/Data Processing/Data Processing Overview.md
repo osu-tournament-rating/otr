@@ -18,5 +18,5 @@ This data includes:
 The o!TR team manipulates raw match data in the following ways:
 
 - Automatically multiply all score values that have the [`EZ` modifier](https://osu.ppy.sh/wiki/en/Gameplay/Game_modifier/Easy) by **1.75x**, in every ruleset and in both osu!stable and osu!lazer matches. This is in the range of typically used multipliers when scores with the `EZ` mod are compared to scores with other mods. When a tournament's rules use a different multiplier, admins may correct the affected scores by hand, as described in [[Data Verification#Modifying submitted data|data verification]].
-- When possible, automatically convert 1v1 matches played in the `HeadToHead` team mode to `TeamVS`.
+- Until October 2026, automatically convert 1v1 matches played in the `HeadToHead` team mode to `TeamVS` when possible, assigning red and blue by player. Matches converted then keep those teams. 1v1 matches played in `HeadToHead` since then are kept as they are, each player a side of their own, as described in [[Automated Checks#Sides|automated checks]].
 - Correct match records (such as in the ways described [[Data Verification#Modifying submitted data|here]]) with corresponding public documentation.
