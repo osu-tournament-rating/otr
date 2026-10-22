@@ -192,11 +192,14 @@ export async function resetTournamentAutomatedChecksHandler({
   context,
 }: ResetAutomatedChecksArgs) {
   const { adminUserId } = ensureAdminSession(context.session);
+  const overrideVerifiedState = input.overrideVerifiedState ?? false;
 
   await enqueueJob(context.db, JobQueue.TournamentChecks, {
     payload: {
       tournamentId: input.id,
-      overrideVerifiedState: input.overrideVerifiedState ?? false,
+      overrideVerifiedState,
+      // The worker names this admin on the data the override overturns.
+      ...(overrideVerifiedState && { requestedByUserId: adminUserId }),
     },
     correlationId: getCorrelationId(context),
     tournamentId: input.id,
@@ -245,20 +248,32 @@ export async function updateTournamentAdminHandler({
     });
   }
 
+  // A field the admin did not edit is not sent, and stays as stored.
   const verificationStatusChanged =
+    input.verificationStatus !== undefined &&
     input.verificationStatus !== existing.verificationStatus;
 
   const newStatusRequiresReviewer =
     input.verificationStatus === VerificationStatus.Verified ||
     input.verificationStatus === VerificationStatus.Rejected;
 
-  const forumUrlChanged = input.forumUrl !== existing.forumUrl;
+  const newForumUrl =
+    input.forumUrl !== undefined && input.forumUrl !== existing.forumUrl
+      ? input.forumUrl
+      : null;
 
-  const rulesetChanged = input.ruleset !== existing.ruleset;
+  const newRuleset =
+    input.ruleset !== undefined && input.ruleset !== existing.ruleset
+      ? input.ruleset
+      : null;
 
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
       const verifiedByUserId = (() => {
+        if (input.verificationStatus === undefined) {
+          return undefined;
+        }
+
         if (!verificationStatusChanged) {
           return existing.verifiedByUserId;
         }
@@ -277,21 +292,21 @@ export async function updateTournamentAdminHandler({
           abbreviation: input.abbreviation,
           forumUrl: input.forumUrl,
           // The worker links the new URL's post once it is fetched.
-          ...(forumUrlChanged ? { forumPostId: null } : {}),
+          ...(newForumUrl !== null ? { forumPostId: null } : {}),
           rankRangeLowerBound: input.rankRangeLowerBound,
           ruleset: input.ruleset,
           lobbySize: input.lobbySize,
           verificationStatus: input.verificationStatus,
           rejectionReason: input.rejectionReason,
-          startTime: input.startTime ?? null,
-          endTime: input.endTime ?? null,
+          startTime: input.startTime,
+          endTime: input.endTime,
           verifiedByUserId,
           updated: NOW,
         })
         .where(eq(schema.tournaments.id, input.id));
 
-      if (rulesetChanged) {
-        await alignManiaRulesets(tx, input.id, input.ruleset);
+      if (newRuleset !== null) {
+        await alignManiaRulesets(tx, input.id, newRuleset);
 
         // The checks judged every game and score against the old ruleset.
         await enqueueJob(tx, JobQueue.TournamentChecks, {
@@ -307,6 +322,7 @@ export async function updateTournamentAdminHandler({
         if (input.children === 'set') {
           await cascadeTournamentVerification(tx, [input.id], {
             updatedAt: NOW,
+            verifiedByUserId: adminUserId,
           });
         } else if (input.children === 'accept') {
           await resolveTournamentVerification(tx, input.id, {
@@ -319,12 +335,12 @@ export async function updateTournamentAdminHandler({
       if (input.verificationStatus === VerificationStatus.Rejected) {
         await cascadeTournamentRejection(tx, [input.id], {
           updatedAt: NOW,
+          verifiedByUserId: adminUserId,
         });
       }
 
-      const topicId = forumUrlChanged
-        ? parseForumTopicId(input.forumUrl)
-        : null;
+      const topicId =
+        newForumUrl !== null ? parseForumTopicId(newForumUrl) : null;
       if (topicId !== null) {
         await enqueueJobs(tx, JobQueue.OsuFetch, [
           {
@@ -500,7 +516,10 @@ export async function acceptTournamentPreVerificationStatusesHandler({
       }
 
       if (tournament.verificationStatus === VerificationStatus.Rejected) {
-        await cascadeTournamentRejection(tx, [input.id], { updatedAt: NOW });
+        await cascadeTournamentRejection(tx, [input.id], {
+          updatedAt: NOW,
+          verifiedByUserId: adminUserId,
+        });
         return;
       }
 

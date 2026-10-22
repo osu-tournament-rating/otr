@@ -284,6 +284,55 @@ describe('updateMatchAdminHandler', () => {
     expect(db.matchUpdates).toHaveLength(0);
   });
 
+  // A dialog sends only the fields the admin edited, so a verification that
+  // leaves the dates alone is judged by the stored start time.
+  describe('when the dates are not sent', () => {
+    const { startTime: _startTime, endTime: _endTime, ...undated } = baseInput;
+
+    const verify = (db: UpdateMatchTestDb) =>
+      updateMatchAdminHandler({
+        input: {
+          ...undated,
+          verificationStatus: VerificationStatus.Verified,
+          children: 'set',
+        },
+        context: {
+          db: db as unknown as DatabaseClient,
+          session: adminSession,
+        },
+      });
+
+    it('verifies a match with a stored start time', async () => {
+      const db = new UpdateMatchTestDb({
+        id: 1,
+        verificationStatus: VerificationStatus.None,
+        verifiedByUserId: null,
+        startTime: '2024-01-01T00:00:00.000Z',
+      });
+
+      await verify(db);
+
+      expect(db.matchUpdates[0]).toMatchObject({
+        verificationStatus: VerificationStatus.Verified,
+      });
+    });
+
+    it('refuses to verify a match with no stored start time', async () => {
+      const db = new UpdateMatchTestDb({
+        id: 1,
+        verificationStatus: VerificationStatus.None,
+        verifiedByUserId: null,
+        startTime: null,
+      });
+
+      await expect(verify(db)).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: 'A match with no data cannot be verified',
+      });
+      expect(db.matchUpdates).toHaveLength(0);
+    });
+  });
+
   it('only includes expected keys in .set()', async () => {
     const db = new UpdateMatchTestDb({
       id: 1,

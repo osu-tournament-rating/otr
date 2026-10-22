@@ -21,6 +21,8 @@ export interface AutomationTournament {
   lobbySize: number;
   verificationStatus: VerificationStatus;
   rejectionReason: TournamentRejectionReason;
+  /** The admin who verified or rejected the tournament. */
+  verifiedByUserId?: number | null;
   matches: AutomationMatch[];
   pooledBeatmaps: AutomationBeatmap[];
 }
@@ -38,6 +40,8 @@ export interface AutomationMatch {
   verificationStatus: VerificationStatus;
   rejectionReason: MatchRejectionReason;
   warningFlags: MatchWarningFlags;
+  /** Set when the checks credit a new reviewer; otherwise the stored one stands. */
+  verifiedByUserId?: number | null;
   games: AutomationGame[];
   rosters: AutomationMatchRoster[];
 }

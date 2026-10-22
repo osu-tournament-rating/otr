@@ -334,15 +334,22 @@
     {
       "idx": 47,
       "version": "7",
-      "when": 1792629166606,
-      "tag": "0047_refetch_keeps_admin_edits",
+      "when": 1792629059556,
+      "tag": "0047_audit_indexes_and_notes_outlive_records",
       "breakpoints": true
     },
     {
       "idx": 48,
       "version": "7",
-      "when": 1792629171076,
-      "tag": "0048_games_osu_id_index",
+      "when": 1792634198625,
+      "tag": "0048_refetch_keeps_admin_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792634206419,
+      "tag": "0049_games_osu_id_index",
       "breakpoints": true
     }
   ]

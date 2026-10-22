@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { withAuditUserId } from '@otr/core/db';
 import * as schema from '@otr/core/db/schema';
 import type { LazerMod } from '@otr/core/osu/lazer-mods';
 import {
@@ -127,6 +128,7 @@ export type TournamentRow = {
   lobbySize: number;
   verificationStatus: number;
   rejectionReason: number;
+  verifiedByUserId?: number | null;
   matches: MatchRow[];
   joinPooledBeatmaps: Array<{ beatmap: BeatmapRow | null }>;
 };
@@ -150,6 +152,9 @@ export class TournamentAutomationCheckService {
 
   /**
    * Checks the tournament and saves the statuses whose result changed.
+   * `resetByUserId` is the admin whose override overturns verified and
+   * rejected data; the reset's audit rows name them, as an admin's own change
+   * would.
    *
    * The read and the save share one repeatable-read transaction, so the
    * database refuses to save over a row someone else changed since the read.
@@ -159,12 +164,19 @@ export class TournamentAutomationCheckService {
    */
   async processAutomationChecks(
     tournamentId: number,
-    overrideVerifiedState = false
+    overrideVerifiedState = false,
+    resetByUserId?: number
   ): Promise<boolean> {
     for (let run = 1; ; run++) {
       try {
         const outcome = await this.db.transaction(
-          (tx) => this.checkTournament(tx, tournamentId, overrideVerifiedState),
+          (tx) =>
+            this.checkTournament(
+              tx,
+              tournamentId,
+              overrideVerifiedState,
+              resetByUserId
+            ),
           { isolationLevel: 'repeatable read' }
         );
 
@@ -189,7 +201,8 @@ export class TournamentAutomationCheckService {
   private async checkTournament(
     tx: Transaction,
     tournamentId: number,
-    overrideVerifiedState: boolean
+    overrideVerifiedState: boolean,
+    resetByUserId: number | undefined
   ): Promise<{ passed: boolean; report: string | null }> {
     const row = await tx.query.tournaments.findFirst({
       where: eq(schema.tournaments.id, tournamentId),
@@ -200,6 +213,7 @@ export class TournamentAutomationCheckService {
         lobbySize: true,
         verificationStatus: true,
         rejectionReason: true,
+        verifiedByUserId: true,
       },
       with: {
         matches: {
@@ -311,6 +325,15 @@ export class TournamentAutomationCheckService {
     }
 
     if (tournament.verificationStatus === VerificationStatus.Rejected) {
+      // The admin who rejected the tournament rejects the matches it reaches.
+      // An override resets them below, so it credits no one.
+      if (!overrideVerifiedState) {
+        for (const match of tournament.matches) {
+          if (match.verificationStatus !== VerificationStatus.Rejected) {
+            match.verifiedByUserId = tournament.verifiedByUserId ?? null;
+          }
+        }
+      }
       cascadeTournamentRejection(tournament.matches);
     }
 
@@ -394,7 +417,12 @@ export class TournamentAutomationCheckService {
       beforeStatus
     );
 
-    await this.saveChangedRows(tx, asRead, tournament);
+    await this.saveChangedRows(
+      tx,
+      asRead,
+      tournament,
+      overrideVerifiedState ? resetByUserId : undefined
+    );
 
     return {
       passed: tournament.rejectionReason === TournamentRejectionReason.None,
@@ -405,42 +433,52 @@ export class TournamentAutomationCheckService {
   /**
    * Saves the columns the checks own, for each row where they differ from
    * `asRead`. A row the checks left as it was is not written, so a change
-   * someone else saved to it stands.
+   * someone else saved to it stands. With `auditUserId`, the audit rows name
+   * that admin.
    */
   private async saveChangedRows(
     tx: Transaction,
     asRead: AutomationTournament,
-    checked: AutomationTournament
+    checked: AutomationTournament,
+    auditUserId?: number
   ) {
     const nowIso = new Date().toISOString();
     const changes = changedRows(asRead, checked);
 
-    if (changes.tournament) {
-      await tx
-        .update(schema.tournaments)
-        .set({ ...changes.tournament, updated: nowIso })
-        .where(eq(schema.tournaments.id, checked.id));
-    }
+    const write = async () => {
+      if (changes.tournament) {
+        await tx
+          .update(schema.tournaments)
+          .set({ ...changes.tournament, updated: nowIso })
+          .where(eq(schema.tournaments.id, checked.id));
+      }
 
-    for (const { id, values } of changes.matches) {
-      await tx
-        .update(schema.matches)
-        .set({ ...values, updated: nowIso })
-        .where(eq(schema.matches.id, id));
-    }
+      for (const { id, values } of changes.matches) {
+        await tx
+          .update(schema.matches)
+          .set({ ...values, updated: nowIso })
+          .where(eq(schema.matches.id, id));
+      }
 
-    for (const { id, values } of changes.games) {
-      await tx
-        .update(schema.games)
-        .set({ ...values, updated: nowIso })
-        .where(eq(schema.games.id, id));
-    }
+      for (const { id, values } of changes.games) {
+        await tx
+          .update(schema.games)
+          .set({ ...values, updated: nowIso })
+          .where(eq(schema.games.id, id));
+      }
 
-    for (const { id, values } of changes.scores) {
-      await tx
-        .update(schema.gameScores)
-        .set({ ...values, updated: nowIso })
-        .where(eq(schema.gameScores.id, id));
+      for (const { id, values } of changes.scores) {
+        await tx
+          .update(schema.gameScores)
+          .set({ ...values, updated: nowIso })
+          .where(eq(schema.gameScores.id, id));
+      }
+    };
+
+    if (auditUserId !== undefined) {
+      await withAuditUserId(tx, auditUserId, write);
+    } else {
+      await write();
     }
 
     this.logger.info('Persisted tournament automation state', {
@@ -491,6 +529,7 @@ const MATCH_COLUMNS = [
   'verificationStatus',
   'rejectionReason',
   'warningFlags',
+  'verifiedByUserId',
 ] as const;
 const GAME_COLUMNS = [
   'teamType',
@@ -590,6 +629,7 @@ const mapTournament = (row: TournamentRow): AutomationTournament => ({
   lobbySize: row.lobbySize,
   verificationStatus: row.verificationStatus as VerificationStatus,
   rejectionReason: row.rejectionReason as TournamentRejectionReason,
+  verifiedByUserId: row.verifiedByUserId ?? null,
   matches: row.matches.map(mapMatch),
   pooledBeatmaps: row.joinPooledBeatmaps
     .map((entry) => entry.beatmap)

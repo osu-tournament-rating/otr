@@ -1,5 +1,5 @@
 {
-  "id": "49f4d373-a451-480a-8dcb-dc237b6b9eea",
+  "id": "73edbb0c-ead2-46f0-aaeb-daed2899eec8",
   "prevId": "7f6bb6a8-08ae-46d3-be14-8a06003df78d",
   "version": "7",
   "dialect": "postgresql",
@@ -1941,118 +1941,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.fetch_exclusions": {
-      "name": "fetch_exclusions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "fetch_exclusions_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "match_id": {
-          "name": "match_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "osu_game_id": {
-          "name": "osu_game_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "player_id": {
-          "name": "player_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "merged_into_game_id": {
-          "name": "merged_into_game_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created": {
-          "name": "created",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "CURRENT_TIMESTAMP"
-        }
-      },
-      "indexes": {
-        "ix_fetch_exclusions_merged_into_game_id": {
-          "name": "ix_fetch_exclusions_merged_into_game_id",
-          "columns": [
-            {
-              "expression": "merged_into_game_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int4_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "fk_fetch_exclusions_matches_match_id": {
-          "name": "fk_fetch_exclusions_matches_match_id",
-          "tableFrom": "fetch_exclusions",
-          "tableTo": "matches",
-          "columnsFrom": ["match_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "fk_fetch_exclusions_players_player_id": {
-          "name": "fk_fetch_exclusions_players_player_id",
-          "tableFrom": "fetch_exclusions",
-          "tableTo": "players",
-          "columnsFrom": ["player_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "fk_fetch_exclusions_games_merged_into_game_id": {
-          "name": "fk_fetch_exclusions_games_merged_into_game_id",
-          "tableFrom": "fetch_exclusions",
-          "tableTo": "games",
-          "columnsFrom": ["merged_into_game_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "uq_fetch_exclusions_match_id_osu_game_id_player_id": {
-          "name": "uq_fetch_exclusions_match_id_osu_game_id_player_id",
-          "nullsNotDistinct": true,
-          "columns": ["match_id", "osu_game_id", "player_id"]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.filter_report_players": {
       "name": "filter_report_players",
       "schema": "",
@@ -2431,15 +2319,6 @@
         }
       },
       "foreignKeys": {
-        "fk_game_admin_notes_games_reference_id": {
-          "name": "fk_game_admin_notes_games_reference_id",
-          "tableFrom": "game_admin_notes",
-          "tableTo": "games",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_game_admin_notes_users_admin_user_id": {
           "name": "fk_game_admin_notes_users_admin_user_id",
           "tableFrom": "game_admin_notes",
@@ -2573,6 +2452,37 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ix_game_audits_action_type_created": {
+          "name": "ix_game_audits_action_type_created",
+          "columns": [
+            {
+              "expression": "action_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            },
+            {
+              "expression": "created",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            },
+            {
+              "expression": "action_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2867,15 +2777,6 @@
         }
       },
       "foreignKeys": {
-        "fk_game_score_admin_notes_game_scores_reference_id": {
-          "name": "fk_game_score_admin_notes_game_scores_reference_id",
-          "tableFrom": "game_score_admin_notes",
-          "tableTo": "game_scores",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_game_score_admin_notes_users_admin_user_id": {
           "name": "fk_game_score_admin_notes_users_admin_user_id",
           "tableFrom": "game_score_admin_notes",
@@ -3009,6 +2910,37 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ix_game_score_audits_action_type_created": {
+          "name": "ix_game_score_audits_action_type_created",
+          "columns": [
+            {
+              "expression": "action_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            },
+            {
+              "expression": "created",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            },
+            {
+              "expression": "action_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "action_type <> 1",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3329,13 +3261,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "edited_fields": {
-          "name": "edited_fields",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
         "game_id": {
           "name": "game_id",
           "type": "integer",
@@ -3560,13 +3485,6 @@
           "notNull": true,
           "default": 0
         },
-        "edited_fields": {
-          "name": "edited_fields",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
         "match_id": {
           "name": "match_id",
           "type": "integer",
@@ -3645,22 +3563,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ix_games_osu_id": {
-          "name": "ix_games_osu_id",
-          "columns": [
-            {
-              "expression": "osu_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "int8_ops"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4323,15 +4225,6 @@
         }
       },
       "foreignKeys": {
-        "fk_match_admin_notes_matches_reference_id": {
-          "name": "fk_match_admin_notes_matches_reference_id",
-          "tableFrom": "match_admin_notes",
-          "tableTo": "matches",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_match_admin_notes_users_admin_user_id": {
           "name": "fk_match_admin_notes_users_admin_user_id",
           "tableFrom": "match_admin_notes",
@@ -4881,13 +4774,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "edited_fields": {
-          "name": "edited_fields",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
         },
         "is_lazer": {
           "name": "is_lazer",
@@ -6808,15 +6694,6 @@
         }
       },
       "foreignKeys": {
-        "fk_tournament_admin_notes_tournaments_reference_id": {
-          "name": "fk_tournament_admin_notes_tournaments_reference_id",
-          "tableFrom": "tournament_admin_notes",
-          "tableTo": "tournaments",
-          "columnsFrom": ["reference_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "fk_tournament_admin_notes_users_admin_user_id": {
           "name": "fk_tournament_admin_notes_users_admin_user_id",
           "tableFrom": "tournament_admin_notes",

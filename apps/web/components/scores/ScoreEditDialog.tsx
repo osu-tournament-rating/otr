@@ -5,11 +5,7 @@ import {
   editedFieldGroups,
   type AdminEditField,
 } from '@otr/core/db/admin-edits';
-import {
-  AdminNoteRouteTarget,
-  Mods,
-  ScoreRejectionReason,
-} from '@otr/core/osu';
+import { AdminNoteRouteTarget, ScoreRejectionReason } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
@@ -17,21 +13,22 @@ import { toast } from 'sonner';
 import type { z } from 'zod';
 
 import {
-  ALL_RULESET_LABELS,
   EDITED_FIELD_HINT,
   LabelSelectContent,
   VerificationStatusSelectContent,
   changedFieldClass,
   combineFlags,
+  editedValues,
   flagOptions,
 } from '@/components/admin-forms/adminFormFields';
 import AdminNotesList from '@/components/admin-notes/AdminNoteList';
 import { getAdminNoteMutations } from '@/components/admin-notes/adminNoteMutations';
-import { modOptions } from '@/components/games/modOptions';
+import { modOptions, selectedMods } from '@/components/games/modOptions';
 import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
 import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 import { MultipleSelect } from '@/components/select/multiple-select';
+import { RulesetSelectContent } from '@/components/tournaments/TournamentFieldOptions';
 import {
   Form,
   FormControl,
@@ -111,39 +108,45 @@ export default function ScoreEditDialog({
   const [savingWithNote, setSavingWithNote] = useState(false);
   const noteMutations = getAdminNoteMutations(AdminNoteRouteTarget.GameScore);
   const fallbackScore = score.adjustedScore ?? score.rawScore;
-  const edited = new Set(
+  const editedFields = new Set(
     editedFieldGroups('game_scores', score.editedFields ?? [])
   );
   const editedHint = (field: AdminEditField<'game_scores'>) =>
-    edited.has(field) ? EDITED_FIELD_HINT : undefined;
+    editedFields.has(field) ? EDITED_FIELD_HINT : undefined;
 
   const form = useForm<ScoreEditValues>({
     resolver: zodResolver(scoreEditFormSchema) as Resolver<ScoreEditValues>,
-    defaultValues: score,
+    // The dialog stays mounted, so the form takes the newer values a
+    // refresh brings and keeps only the fields the admin has changed. A
+    // save then compares against what the page shows now.
+    values: score,
+    resetOptions: { keepDirtyValues: true },
     mode: 'all',
   });
 
   async function save(values: ScoreEditValues) {
+    const edited = editedValues(values, score);
+
     try {
       await orpc.scores.admin.update({
         id: score.id,
-        scoreOverride: values.scoreOverride,
-        placement: values.placement,
-        maxCombo: values.maxCombo,
-        accuracy: values.accuracy,
-        statGreat: values.statGreat,
-        statOk: values.statOk,
-        statMeh: values.statMeh,
-        statMiss: values.statMiss,
-        statGood: values.statGood,
-        statPerfect: values.statPerfect,
-        grade: values.grade,
-        mods: values.mods,
-        ruleset: values.ruleset,
-        verificationStatus:
-          values.verificationStatus as VerificationStatusValue,
-        rejectionReason: values.rejectionReason,
-        team: values.team,
+        scoreOverride: edited.scoreOverride,
+        placement: edited.placement,
+        maxCombo: edited.maxCombo,
+        accuracy: edited.accuracy,
+        statGreat: edited.statGreat,
+        statOk: edited.statOk,
+        statMeh: edited.statMeh,
+        statMiss: edited.statMiss,
+        statGood: edited.statGood,
+        statPerfect: edited.statPerfect,
+        grade: edited.grade,
+        mods: edited.mods,
+        ruleset: edited.ruleset,
+        verificationStatus: edited.verificationStatus as
+          VerificationStatusValue | undefined,
+        rejectionReason: edited.rejectionReason,
+        team: edited.team,
       });
 
       const noteContent = adminNote.trim();
@@ -306,7 +309,7 @@ export default function ScoreEditDialog({
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <LabelSelectContent labels={ALL_RULESET_LABELS} />
+                      <RulesetSelectContent includeManiaOther />
                     </Select>
                   </FormItem>
                 )}
@@ -526,7 +529,7 @@ export default function ScoreEditDialog({
                       <MultipleSelect
                         className={changedFieldClass(fieldState)}
                         placeholder="No mods"
-                        selected={getEnumFlags(value, Mods).map(String)}
+                        selected={selectedMods(value)}
                         options={modOptions}
                         onChange={(values: string[]) =>
                           onChange(combineFlags(values))

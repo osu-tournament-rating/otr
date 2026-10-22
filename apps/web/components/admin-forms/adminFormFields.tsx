@@ -8,7 +8,6 @@ import { VerificationStatusGlyph } from '@/components/kit/status/VerificationSta
 import type { Option } from '@/components/select/multiple-select';
 import { SelectContent, SelectItem } from '@/components/ui/select';
 import type { EnumLabels } from '@/lib/kit/format/enum-labels';
-import { RULESET_NAMES } from '@/lib/kit/format/ruleset';
 import {
   VERIFICATION_STATUS_ORDER,
   getVerificationStatusName,
@@ -31,10 +30,28 @@ export function changedFieldClass(fieldState: ControllerFieldState) {
  */
 export const EDITED_FIELD_HINT = 'Edited';
 
-/** Every ruleset by its short name, `ManiaOther` included: admin pickers offer it. */
-export const ALL_RULESET_LABELS: EnumLabels = Object.fromEntries(
-  Object.entries(RULESET_NAMES).map(([value, { label }]) => [value, label])
-);
+function isSameValue(a: unknown, b: unknown): boolean {
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() === b.getTime();
+  }
+  return Object.is(a, b);
+}
+
+/**
+ * The fields of `values` that differ from the ones the dialog loaded. A
+ * save sends only these, so a field the admin left alone never writes back
+ * a value that someone, or the data worker, has changed since.
+ */
+export function editedValues<T extends Record<string, unknown>>(
+  values: T,
+  loaded: { [K in keyof T]?: unknown }
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(values).filter(
+      ([field, value]) => !isSameValue(value, loaded[field as keyof T])
+    )
+  ) as Partial<T>;
+}
 
 /** Select options for a stored enum, in enum order, named by the kit labels. */
 export function LabelSelectContent({ labels }: { labels: EnumLabels }) {
