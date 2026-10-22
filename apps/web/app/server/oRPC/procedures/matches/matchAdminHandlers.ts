@@ -45,6 +45,7 @@ export async function updateMatchAdminHandler({
       id: true,
       verifiedByUserId: true,
       verificationStatus: true,
+      startTime: true,
     },
     where: eq(schema.matches.id, input.id),
   });
@@ -52,6 +53,17 @@ export async function updateMatchAdminHandler({
   if (!existing) {
     throw new ORPCError('NOT_FOUND', {
       message: 'Match not found',
+    });
+  }
+
+  // osu! returned no data for a match with no start time, and the rating run
+  // cannot rate a verified match without one. An unedited start time is not
+  // sent, so the stored one counts.
+  const startTime =
+    input.startTime === undefined ? existing.startTime : input.startTime;
+  if (input.verificationStatus === VerificationStatus.Verified && !startTime) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'A match with no data cannot be verified',
     });
   }
 

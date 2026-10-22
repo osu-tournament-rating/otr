@@ -1,4 +1,4 @@
-import { inArray, sql, type SQL } from 'drizzle-orm';
+import { and, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import {
@@ -103,7 +103,11 @@ async function cascadeGamesVerification(
   return { gameIds, gameCount: updatedGames.length };
 }
 
-/** Cascades to every match under the given tournaments, clearing their warning flags. */
+/**
+ * Cascades to every match under the given tournaments, clearing their warning
+ * flags. A match osu! returned no data for has no start time and stays as it
+ * is, since the rating run cannot rate it.
+ */
 async function cascadeMatchesVerification(
   db: MutationClient,
   tournamentIds: number[],
@@ -126,7 +130,12 @@ async function cascadeMatchesVerification(
       ),
       updated: updatedAt,
     })
-    .where(inArray(schema.matches.tournamentId, tournamentIds))
+    .where(
+      and(
+        inArray(schema.matches.tournamentId, tournamentIds),
+        isNotNull(schema.matches.startTime)
+      )
+    )
     .returning({ id: schema.matches.id });
 
   const matchIds = updatedMatches.map((match) => match.id);
