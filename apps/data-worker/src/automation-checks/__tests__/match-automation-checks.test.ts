@@ -194,30 +194,28 @@ describe('MatchAutomationChecks', () => {
     );
   });
 
-  it('converts eligible HeadToHead games to TeamVs', () => {
-    const scoresGame1 = [
-      createScore({ team: Team.NoTeam, playerId: 1 }),
-      createScore({ team: Team.NoTeam, playerId: 2 }),
+  it('does not flag a player on both sides of a 1v1 played partly head-to-head', () => {
+    const games = [
+      createGame({
+        teamType: TeamType.HeadToHead,
+        scores: [
+          createScore({ team: Team.NoTeam, playerId: 1 }),
+          createScore({ team: Team.NoTeam, playerId: 2 }),
+        ],
+      }),
+      createGame({
+        scores: [
+          createScore({ team: Team.Red, playerId: 1 }),
+          createScore({ team: Team.Blue, playerId: 2 }),
+        ],
+      }),
     ];
 
-    const headToHeadGame = createGame({
-      teamType: TeamType.HeadToHead,
-      scores: scoresGame1,
-    });
-
-    const match = createMatch({ games: [headToHeadGame] });
+    const match = createMatch({ games });
     const tournament = createTournament({ matches: [match], lobbySize: 1 });
 
-    checker.performHeadToHeadConversion(match, tournament);
+    checker.process(match, tournament);
 
-    const [convertedGame] = match.games;
-
-    expect(convertedGame?.teamType).toBe(TeamType.TeamVs);
-    expect(
-      convertedGame?.scores.find((score) => score.playerId === 1)?.team
-    ).toBe(Team.Red);
-    expect(
-      convertedGame?.scores.find((score) => score.playerId === 2)?.team
-    ).toBe(Team.Blue);
+    expect(match.warningFlags & MatchWarningFlags.OverlappingRosters).toBe(0);
   });
 });

@@ -286,3 +286,54 @@ describe('GameAutomationChecks', () => {
     expect(result & GameRejectionReason.NoScores).not.toBe(0);
   });
 });
+
+describe('GameAutomationChecks on head-to-head games', () => {
+  beforeEach(() => {
+    resetIds();
+  });
+
+  /** A head-to-head game: osu! gives its scores no team. */
+  const headToHeadGame = (scores: ReturnType<typeof createScore>[]) =>
+    createGame({ teamType: TeamType.HeadToHead, scores });
+
+  const players = (count: number, status = VerificationStatus.PreVerified) =>
+    Array.from({ length: count }, (_, index) =>
+      createScore({
+        team: Team.NoTeam,
+        playerId: index + 1,
+        verificationStatus: status,
+      })
+    );
+
+  it('accepts a head-to-head game with two valid scores in a 1v1 tournament', () => {
+    const tournament = createTournament({ lobbySize: 1 });
+
+    expect(checker.process(headToHeadGame(players(2)), tournament)).toBe(
+      GameRejectionReason.None
+    );
+  });
+
+  it('counts only valid scores toward a 1v1 head-to-head lobby', () => {
+    const tournament = createTournament({ lobbySize: 1 });
+    const referee = createScore({
+      team: Team.NoTeam,
+      playerId: 99,
+      score: 0,
+      verificationStatus: VerificationStatus.PreRejected,
+    });
+
+    expect(
+      checker.process(headToHeadGame([...players(2), referee]), tournament)
+    ).toBe(GameRejectionReason.None);
+  });
+
+  it('needs exactly two valid scores in a 1v1 head-to-head game', () => {
+    const tournament = createTournament({ lobbySize: 1 });
+
+    for (const count of [1, 3, 4]) {
+      expect(checker.process(headToHeadGame(players(count)), tournament)).toBe(
+        GameRejectionReason.LobbySizeMismatch
+      );
+    }
+  });
+});

@@ -1,4 +1,9 @@
-import { GameWarningFlags, Team, VerificationStatus } from '@otr/core/osu';
+import {
+  GameWarningFlags,
+  Team,
+  TeamType,
+  VerificationStatus,
+} from '@otr/core/osu';
 
 import type {
   AutomationGame,
@@ -146,6 +151,22 @@ export const trackBeatmapUsage = (
   }
 };
 
+/**
+ * The players on each side of a game, from its scores. A team game has a side
+ * per team. osu! gives the scores of a head-to-head game no team, so there
+ * each player is a side of their own.
+ */
+export const gameSides = (
+  game: Pick<AutomationGame, 'teamType'>,
+  scores: AutomationScore[]
+): Map<number, Set<number>> =>
+  game.teamType === TeamType.HeadToHead
+    ? new Map(
+        scores.map((score) => [score.playerId, new Set([score.playerId])])
+      )
+    : aggregateScoreRoster(scores);
+
+/** Whether the game's valid scores form two sides of `lobbySize` players. */
 export const gameHasQualifiedRoster = (
   game: AutomationGame,
   lobbySize: number
@@ -160,13 +181,13 @@ export const gameHasQualifiedRoster = (
     return false;
   }
 
-  const teamCounts = aggregateScoreRoster(validScores);
+  const sides = gameSides(game, validScores);
 
-  if (teamCounts.size !== 2) {
+  if (sides.size !== 2) {
     return false;
   }
 
-  const counts = Array.from(teamCounts.values()).map((players) => players.size);
+  const counts = Array.from(sides.values()).map((players) => players.size);
 
   return counts.every((count) => count === lobbySize);
 };

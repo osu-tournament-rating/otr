@@ -258,12 +258,6 @@ export class TournamentAutomationCheckService {
     const tournament = mapTournament(row as unknown as TournamentRow);
     const beforeStatus = tournament.verificationStatus;
 
-    if (tournament.verificationStatus !== VerificationStatus.Verified) {
-      for (const match of tournament.matches) {
-        this.matchChecks.performHeadToHeadConversion(match, tournament);
-      }
-    }
-
     if (tournament.verificationStatus === VerificationStatus.Rejected) {
       cascadeTournamentRejection(tournament.matches);
     }
@@ -389,7 +383,6 @@ export class TournamentAutomationCheckService {
           await tx
             .update(schema.games)
             .set({
-              teamType: game.teamType,
               verificationStatus: game.verificationStatus,
               rejectionReason: game.rejectionReason,
               warningFlags: game.warningFlags,
@@ -401,7 +394,6 @@ export class TournamentAutomationCheckService {
             await tx
               .update(schema.gameScores)
               .set({
-                team: score.team,
                 verificationStatus: score.verificationStatus,
                 rejectionReason: score.rejectionReason,
                 updated: nowIso,
