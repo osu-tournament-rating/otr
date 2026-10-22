@@ -90,7 +90,7 @@ export const COLOR_USAGE: Record<string, string> = {
   'match-red-foreground': 'Red team text.',
   'match-blue': 'Blue team edge, tint, swatch and chart line.',
   'match-blue-foreground': 'Blue team text.',
-  'match-no-team': 'Scores with no team.',
+  'match-no-team': 'Scores with no team, and every score in a 1v1.',
   'tier-elite-grandmaster':
     'Elite Grandmaster tier name (text) and chart mark.',
   'tier-grandmaster': 'Grandmaster tier name and chart mark.',

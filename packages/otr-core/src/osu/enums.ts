@@ -25,6 +25,10 @@ export enum GameRejectionReason {
   RulesetMismatch = 4,
   InvalidScoringType = 8,
   InvalidTeamType = 16,
+  /**
+   * No longer set: the automated checks stopped converting head-to-head
+   * games to Team Vs. Older games keep it, so it keeps its number.
+   */
   FailedTeamVsConversion = 32,
   NoValidScores = 64,
   LobbySizeMismatch = 128,
@@ -43,6 +47,10 @@ export enum MatchRejectionReason {
   NoData = 1,
   NoGames = 2,
   NamePrefixMismatch = 4,
+  /**
+   * No longer set: the automated checks stopped converting head-to-head
+   * games to Team Vs. Older matches keep it, so it keeps its number.
+   */
   FailedTeamVsConversion = 8,
   NoValidGames = 16,
   UnexpectedGameCount = 32,

@@ -133,8 +133,19 @@ export const getBeatmapStats = publicProcedure
         CHARTED_SCORE_MODS_FILTER
       );
 
-      // Team Vs games the closeness summary skips, held out only by verification.
-      // Rosters exist only for fully verified games, so teams are counted from scores
+      // Games of two sides: Team Vs, or head-to-head in a 1v1 tournament,
+      // where each player is a side. The checks converted the latter to Team
+      // Vs until October 2026, so the fitted baselines already count them
+      const twoSidedTeamType = or(
+        eq(schema.games.teamType, TeamType.TeamVs),
+        and(
+          eq(schema.games.teamType, TeamType.HeadToHead),
+          eq(schema.tournaments.lobbySize, 1)
+        )
+      );
+
+      // Two-sided games the closeness summary skips, held out only by verification.
+      // Rosters exist only for fully verified games, so sides are counted from scores
       const excludedClosenessGames = context.db
         .select({ gameId: schema.games.id })
         .from(schema.gameScores)
@@ -147,12 +158,14 @@ export const getBeatmapStats = publicProcedure
         .where(
           and(
             eq(schema.games.beatmapId, beatmapId),
-            eq(schema.games.teamType, TeamType.TeamVs),
+            twoSidedTeamType,
             not(fullyVerifiedGame)
           )
         )
         .groupBy(schema.games.id)
-        .having(sql`COUNT(DISTINCT ${schema.gameScores.team}) = 2`)
+        .having(
+          sql`COUNT(DISTINCT CASE WHEN ${schema.games.teamType} = ${TeamType.HeadToHead} THEN ${schema.gameScores.playerId} ELSE ${schema.gameScores.team} END) = 2`
+        )
         .as('excluded_closeness_games');
 
       const [
@@ -813,9 +826,7 @@ export const getBeatmapStats = publicProcedure
             schema.tournaments,
             eq(schema.tournaments.id, schema.matches.tournamentId)
           )
-          .where(
-            and(verifiedGameFilter, eq(schema.games.teamType, TeamType.TeamVs))
-          )
+          .where(and(verifiedGameFilter, twoSidedTeamType))
           .groupBy(schema.games.id, schema.games.ruleset)
           .having(
             sql`COUNT(*) = 2

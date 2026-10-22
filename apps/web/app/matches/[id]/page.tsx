@@ -14,6 +14,7 @@ import MatchStatsView from '@/components/matches/MatchStatsView';
 import MergedMatchStatus from '@/components/matches/MergedMatchStatus';
 import { getMatchDisplayName } from '@/components/matches/matchName';
 import { parseMatchTab } from '@/components/matches/matchTabs';
+import { isOneVsOneMatch } from '@/components/matches/oneVsOne';
 import { getCountryNames } from '@/lib/kit/format/country';
 import { formatCountOf } from '@/lib/kit/format/number';
 import { getMatchCached, getMatchMergeCached } from '@/lib/orpc/queries/match';
@@ -97,6 +98,7 @@ export default async function Page({ params, searchParams }: PageProps) {
                   games={games}
                   players={players}
                   countryNames={countryNames}
+                  oneVsOne={isOneVsOneMatch(match)}
                 />
               </Suspense>
             </PanelBody>

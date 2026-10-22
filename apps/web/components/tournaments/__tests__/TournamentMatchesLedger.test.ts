@@ -37,7 +37,11 @@ const match = (
           loserPoints: 5,
           winnerTeam: Team.Red,
           loserTeam: Team.Blue,
+          winnerRoster: [1],
+          loserRoster: [2],
         },
+  oneVsOne: false,
+  playerResult: null,
   games: Array.from({ length: games }, (_, index) => ({
     id: id * 100 + index,
     verificationStatus: VerificationStatus.Verified,

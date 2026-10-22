@@ -569,7 +569,7 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
     });
   });
 
-  it('converts a head-to-head match added to a verified 1v1 tournament, and only that match', async () => {
+  it('checks a head-to-head match added to a verified 1v1 tournament, and only that match', async () => {
     const headToHeadMatch = (matchId: number, status: VerificationStatus) =>
       matchRow({
         id: matchId,
@@ -625,14 +625,17 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
     expect(written('matches:2')).toMatchObject({
       verificationStatus: PreVerified,
     });
+    // Its games stay head-to-head, and their scores get no team.
     for (const gameId of [201, 202, 203, 204]) {
-      expect(written(`games:${gameId}`)).toMatchObject({
-        teamType: TeamType.TeamVs,
-        verificationStatus: PreVerified,
-      });
+      const game = written(`games:${gameId}`);
+      expect(game).toMatchObject({ verificationStatus: PreVerified });
+      expect(game).not.toHaveProperty('teamType');
     }
-    expect(written('game_scores:2011')).toMatchObject({ team: Team.Red });
-    expect(written('game_scores:2012')).toMatchObject({ team: Team.Blue });
+    for (const scoreId of [2011, 2012]) {
+      const score = written(`game_scores:${scoreId}`);
+      expect(score).toMatchObject({ verificationStatus: PreVerified });
+      expect(score).not.toHaveProperty('team');
+    }
 
     const verifiedMatchRows = [
       'matches:1',
@@ -652,8 +655,122 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
       'matches:1': [PreVerified, MatchRejectionReason.None],
       'games:101': [PreVerified, GameRejectionReason.None],
       'game_scores:1011': [PreVerified, ScoreRejectionReason.None],
-      'games:204': [PreRejected, GameRejectionReason.InvalidTeamType],
+      // Head-to-head: each of the four players is a side of their own.
+      'games:204': [
+        PreRejected,
+        GameRejectionReason.InvalidTeamType |
+          GameRejectionReason.LobbySizeMismatch,
+      ],
       'game_scores:2011': [PreRejected, ScoreRejectionReason.ScoreBelowMinimum],
     });
+  });
+});
+
+/**
+ * A 1v1 tournament played in head-to-head lobbies: four games of players 1
+ * and 2, with scores of no team, and optionally a referee in a slot who
+ * scores 0 in each.
+ */
+const headToHeadTournament = ({ referee }: { referee: boolean }) => {
+  const games = [101, 102, 103, 104].map((id) =>
+    gameRow({
+      id,
+      matchId: 1,
+      teamType: TeamType.HeadToHead,
+      gameScores: [
+        scoreRow({
+          id: id * 10 + 1,
+          gameId: id,
+          playerId: 1,
+          team: Team.NoTeam,
+        }),
+        scoreRow({
+          id: id * 10 + 2,
+          gameId: id,
+          playerId: 2,
+          team: Team.NoTeam,
+          score: 90000,
+        }),
+        ...(referee
+          ? [
+              scoreRow({
+                id: id * 10 + 9,
+                gameId: id,
+                playerId: 9,
+                team: Team.NoTeam,
+                score: 0,
+              }),
+            ]
+          : []),
+      ],
+    })
+  );
+
+  return {
+    id: 1,
+    abbreviation: 'TT',
+    ruleset: Ruleset.Osu,
+    lobbySize: 1,
+    verificationStatus: VerificationStatus.None,
+    rejectionReason: TournamentRejectionReason.None,
+    joinPooledBeatmaps: [],
+    matches: [matchRow({ id: 1, name: 'TT: (one) vs (two)', games })],
+  } satisfies TournamentRow;
+};
+
+const updatesOf = async (row: TournamentRow) => {
+  const db = new StubDatabase(row);
+  const service = new TournamentAutomationCheckService({
+    db: db as unknown as DatabaseClient,
+    logger: noopLogger,
+    tournamentChecks: new TournamentAutomationChecks(),
+    matchChecks: new MatchAutomationChecks(),
+    gameChecks: new GameAutomationChecks(),
+    scoreChecks: new ScoreAutomationChecks(),
+  });
+
+  await service.processAutomationChecks(row.id, false);
+
+  return db.transactions[0]?.updates ?? [];
+};
+
+describe('TournamentAutomationCheckService on 1v1 head-to-head matches', () => {
+  const { PreVerified, PreRejected } = VerificationStatus;
+
+  it('pre-verifies a match whose referee scored 0 in every game', async () => {
+    const updates = await updatesOf(headToHeadTournament({ referee: true }));
+    const statusOf = (table: string, id: number) =>
+      updates.find((entry) => entry.table === table && entry.id === id)?.values
+        .verificationStatus;
+
+    expect(statusOf('matches', 1)).toBe(PreVerified);
+    for (const gameId of [101, 102, 103, 104]) {
+      expect(statusOf('games', gameId)).toBe(PreVerified);
+      expect(statusOf('game_scores', gameId * 10 + 9)).toBe(PreRejected);
+    }
+  });
+
+  it('leaves the games head-to-head and their scores without a team', async () => {
+    const updates = await updatesOf(headToHeadTournament({ referee: false }));
+    const gameUpdates = updates.filter((entry) => entry.table === 'games');
+    const scoreUpdates = updates.filter(
+      (entry) => entry.table === 'game_scores'
+    );
+
+    expect(gameUpdates).toHaveLength(4);
+    expect(scoreUpdates).toHaveLength(8);
+    expect(
+      gameUpdates.filter(
+        (entry) =>
+          entry.values.teamType !== undefined &&
+          entry.values.teamType !== TeamType.HeadToHead
+      )
+    ).toEqual([]);
+    expect(
+      scoreUpdates.filter(
+        (entry) =>
+          entry.values.team !== undefined && entry.values.team !== Team.NoTeam
+      )
+    ).toEqual([]);
   });
 });

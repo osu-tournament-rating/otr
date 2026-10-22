@@ -139,6 +139,7 @@ export const getMatch = publicProcedure
         tournamentName: schema.tournaments.name,
         tournamentAbbreviation: schema.tournaments.abbreviation,
         tournamentRuleset: schema.tournaments.ruleset,
+        tournamentLobbySize: schema.tournaments.lobbySize,
       })
       .from(schema.matches)
       .leftJoin(
@@ -723,6 +724,7 @@ export const getMatch = publicProcedure
             name: matchRow.tournamentName ?? 'Unknown tournament',
             abbreviation: matchRow.tournamentAbbreviation ?? null,
             ruleset: matchRow.tournamentRuleset,
+            lobbySize: matchRow.tournamentLobbySize,
           }
         : null;
 

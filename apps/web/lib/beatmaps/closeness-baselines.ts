@@ -24,7 +24,7 @@ import { Ruleset } from '@otr/core/osu';
  * WHERE t.verification_status = 4
  *   AND m.verification_status = 4
  *   AND g.verification_status = 4
- *   AND g.team_type = 2
+ *   AND (g.team_type = 2 OR (g.team_type = 0 AND t.lobby_size = 1))
  * GROUP BY g.id, g.beatmap_id, g.ruleset
  * HAVING COUNT(*) = 2
  *    AND MAX(cardinality(r.roster)) = MIN(cardinality(r.roster))
@@ -33,6 +33,9 @@ import { Ruleset } from '@otr/core/osu';
  *
  * Aggregate those rows three ways: per (ruleset, team_size), per ruleset, and
  * pooled. Ruleset 3 (ManiaOther) has no qualifying games, so it has no row.
+ * The fit predates the team type 0 branch, but counts those games: until
+ * October 2026 the automated checks converted head-to-head games in 1v1
+ * tournaments to team type 2.
  */
 
 /** Qualifying games behind the fit. */

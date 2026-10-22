@@ -6,6 +6,7 @@ import {
   RatingAdjustmentType,
   Ruleset,
   Team,
+  TeamType,
   VerificationStatus,
 } from '@otr/core/osu';
 import * as schema from '@otr/core/db/schema';
@@ -95,6 +96,7 @@ class StubDatabase {
 
 const toDrizzleTournamentRow = (tournament: StatsTournament) => ({
   id: tournament.id,
+  lobbySize: tournament.lobbySize,
   verificationStatus: tournament.verificationStatus,
   matches: tournament.matches.map((match) => ({
     id: match.id,
@@ -102,6 +104,7 @@ const toDrizzleTournamentRow = (tournament: StatsTournament) => ({
     games: match.games.map((game) => ({
       id: game.id,
       matchId: game.matchId,
+      teamType: game.teamType,
       verificationStatus: game.verificationStatus,
       gameScores: game.scores.map((score) => ({
         id: score.id,
@@ -140,6 +143,7 @@ const toDrizzleTournamentRow = (tournament: StatsTournament) => ({
 
 const createVerifiedTournament = (): StatsTournament => ({
   id: 1,
+  lobbySize: 2,
   verificationStatus: VerificationStatus.Verified,
   matches: [
     {
@@ -149,6 +153,7 @@ const createVerifiedTournament = (): StatsTournament => ({
         {
           id: 100,
           matchId: 10,
+          teamType: TeamType.TeamVs,
           verificationStatus: VerificationStatus.Verified,
           rosters: [],
           scores: [

@@ -15,7 +15,6 @@ import {
   isPreVerifiedOrVerified,
 } from './utils';
 
-const VALID_TEAM_TYPES = [TeamType.TeamVs];
 const VALID_SCORING_TYPES = [ScoringType.ScoreV2, ScoringType.Lazer];
 
 export interface GameAutomationChecksOptions {
@@ -60,13 +59,27 @@ export class GameAutomationChecks {
 
     rejection = addGameRejection(rejection, this.checkScoringType(game));
 
-    rejection = addGameRejection(rejection, this.checkTeamType(game));
+    rejection = addGameRejection(
+      rejection,
+      this.checkTeamType(game, tournament)
+    );
 
     return rejection;
   }
 
-  private checkTeamType(game: AutomationGame): GameRejectionReason {
-    if (VALID_TEAM_TYPES.includes(game.teamType)) {
+  /**
+   * Team Vs is valid everywhere. Head-to-head is valid only in a 1v1
+   * tournament, where each player is a side of their own; with more players a
+   * side, osu! records no teams to build the sides from.
+   */
+  private checkTeamType(
+    game: AutomationGame,
+    tournament: AutomationTournament
+  ): GameRejectionReason {
+    if (
+      game.teamType === TeamType.TeamVs ||
+      (game.teamType === TeamType.HeadToHead && tournament.lobbySize === 1)
+    ) {
       return GameRejectionReason.None;
     }
 

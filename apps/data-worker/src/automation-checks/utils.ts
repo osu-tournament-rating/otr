@@ -89,18 +89,6 @@ export const countValidScores = (scores: AutomationScore[]) =>
 export const gameHasValidScores = (game: AutomationGame) =>
   countValidScores(game.scores).length > 0;
 
-export const ensureTeamAssignments = (
-  scores: AutomationScore[],
-  assignments: Map<number, Team>
-) => {
-  for (const score of scores) {
-    const assigned = assignments.get(score.playerId);
-    if (assigned !== undefined) {
-      score.team = assigned;
-    }
-  }
-};
-
 export const assignMatchWarning = (
   flags: MatchWarningFlags,
   flag: MatchWarningFlags

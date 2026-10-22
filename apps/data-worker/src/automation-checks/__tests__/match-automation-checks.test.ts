@@ -194,30 +194,163 @@ describe('MatchAutomationChecks', () => {
     );
   });
 
-  it('converts eligible HeadToHead games to TeamVs', () => {
-    const scoresGame1 = [
-      createScore({ team: Team.NoTeam, playerId: 1 }),
-      createScore({ team: Team.NoTeam, playerId: 2 }),
+  it('does not flag a player on both sides of a 1v1 played partly head-to-head', () => {
+    const games = [
+      createGame({
+        teamType: TeamType.HeadToHead,
+        scores: [
+          createScore({ team: Team.NoTeam, playerId: 1 }),
+          createScore({ team: Team.NoTeam, playerId: 2 }),
+        ],
+      }),
+      createGame({
+        scores: [
+          createScore({ team: Team.Red, playerId: 1 }),
+          createScore({ team: Team.Blue, playerId: 2 }),
+        ],
+      }),
     ];
 
-    const headToHeadGame = createGame({
-      teamType: TeamType.HeadToHead,
-      scores: scoresGame1,
-    });
-
-    const match = createMatch({ games: [headToHeadGame] });
+    const match = createMatch({ games });
     const tournament = createTournament({ matches: [match], lobbySize: 1 });
 
-    checker.performHeadToHeadConversion(match, tournament);
+    checker.process(match, tournament);
 
-    const [convertedGame] = match.games;
+    expect(match.warningFlags & MatchWarningFlags.OverlappingRosters).toBe(0);
+  });
+});
 
-    expect(convertedGame?.teamType).toBe(TeamType.TeamVs);
+describe('MatchAutomationChecks on 1v1 head-to-head matches', () => {
+  const { PreVerified, PreRejected, Verified } = VerificationStatus;
+
+  beforeEach(() => {
+    resetIds();
+  });
+
+  /** A head-to-head game the game checks passed, between `playerIds`. */
+  const headToHeadGame = (
+    playerIds: number[],
+    verificationStatus = PreVerified
+  ) =>
+    createGame({
+      teamType: TeamType.HeadToHead,
+      verificationStatus,
+      scores: playerIds.map((playerId) =>
+        createScore({ team: Team.NoTeam, playerId })
+      ),
+    });
+
+  const check = (games: ReturnType<typeof createGame>[]) => {
+    const match = createMatch({ games, name: 'TT: (one) vs (two)' });
+    const tournament = createTournament({ matches: [match], lobbySize: 1 });
+
+    return { match, rejection: checker.process(match, tournament) };
+  };
+
+  it('keeps the head-to-head games of a match between two players', () => {
+    const { match, rejection } = check([
+      headToHeadGame([1, 2]),
+      headToHeadGame([1, 2]),
+      headToHeadGame([2, 1]),
+    ]);
+
+    expect(rejection).toBe(MatchRejectionReason.None);
+    expect(match.games.map((game) => game.verificationStatus)).toEqual([
+      PreVerified,
+      PreVerified,
+      PreVerified,
+    ]);
+  });
+
+  it('rejects the head-to-head games of a match with two pairings in one lobby', () => {
+    const { match, rejection } = check([
+      ...[1, 2, 3].map(() => headToHeadGame([1, 2])),
+      ...[1, 2, 3, 4].map(() => headToHeadGame([3, 4])),
+    ]);
+
+    expect(rejection).toBe(MatchRejectionReason.NoValidGames);
+    expect(match.games).toHaveLength(7);
+    for (const game of match.games) {
+      expect(game.verificationStatus).toBe(PreRejected);
+      expect(game.rejectionReason).toBe(GameRejectionReason.InvalidTeamType);
+    }
+  });
+
+  it('rejects the head-to-head games of a match where a substitute played', () => {
+    const { match } = check([
+      ...[1, 2, 3].map(() => headToHeadGame([1, 2])),
+      ...[1, 2, 3, 4].map(() => headToHeadGame([3, 2])),
+    ]);
+
+    expect(match.games).toHaveLength(7);
     expect(
-      convertedGame?.scores.find((score) => score.playerId === 1)?.team
-    ).toBe(Team.Red);
-    expect(
-      convertedGame?.scores.find((score) => score.playerId === 2)?.team
-    ).toBe(Team.Blue);
+      match.games.filter((game) => game.verificationStatus === PreRejected)
+    ).toHaveLength(7);
+  });
+
+  it('judges the match on its team vs games once its head-to-head games are rejected', () => {
+    const teamGame = () =>
+      createGame({
+        scores: [
+          createScore({ team: Team.Red, playerId: 1 }),
+          createScore({ team: Team.Blue, playerId: 2 }),
+        ],
+      });
+    const { match, rejection } = check([
+      teamGame(),
+      teamGame(),
+      teamGame(),
+      headToHeadGame([1, 3]),
+    ]);
+
+    expect(rejection).toBe(MatchRejectionReason.None);
+    expect(match.games.map((game) => game.verificationStatus)).toEqual([
+      PreVerified,
+      PreVerified,
+      PreVerified,
+      PreRejected,
+    ]);
+  });
+
+  it('counts only valid scores in valid games toward the players', () => {
+    const referee = createScore({
+      team: Team.NoTeam,
+      playerId: 9,
+      score: 0,
+      verificationStatus: PreRejected,
+    });
+    const withReferee = headToHeadGame([1, 2]);
+    withReferee.scores.push(referee);
+
+    const { match, rejection } = check([
+      withReferee,
+      headToHeadGame([1, 2]),
+      headToHeadGame([1, 2]),
+      // A warmup the game checks rejected, played by someone else.
+      headToHeadGame([7, 8], PreRejected),
+    ]);
+
+    expect(rejection).toBe(MatchRejectionReason.None);
+    expect(match.games.map((game) => game.verificationStatus)).toEqual([
+      PreVerified,
+      PreVerified,
+      PreVerified,
+      PreRejected,
+    ]);
+  });
+
+  it('keeps a head-to-head game an admin verified', () => {
+    const { match } = check([
+      headToHeadGame([1, 2], Verified),
+      headToHeadGame([3, 2]),
+      headToHeadGame([3, 2]),
+    ]);
+
+    expect(match.games.map((game) => game.verificationStatus)).toEqual([
+      Verified,
+      PreRejected,
+      PreRejected,
+    ]);
+    expect(match.games[0]?.rejectionReason).toBe(GameRejectionReason.None);
   });
 });

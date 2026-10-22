@@ -2,11 +2,7 @@ import { describe, expect, it } from 'bun:test';
 
 import { Team, VerificationStatus } from '@otr/core/osu';
 
-import {
-  deriveTournamentWinRecord,
-  deriveVerifiedWinRecord,
-  deriveWinRecord,
-} from '../winRecord';
+import { deriveVerifiedWinRecord, deriveWinRecord } from '../winRecord';
 
 const roster = (id: number, team: Team, score: number, players: number[]) => ({
   id,
@@ -102,40 +98,5 @@ describe('deriveVerifiedWinRecord', () => {
     ['PreVerified', VerificationStatus.PreVerified],
   ])('returns null for a %s match that still has rosters', (_, status) => {
     expect(deriveVerifiedWinRecord(7, status, rosters)).toBeNull();
-  });
-});
-
-describe('deriveTournamentWinRecord', () => {
-  const rosters = [
-    roster(1, Team.Red, 3, [10, 11]),
-    roster(2, Team.Blue, 5, [20, 21]),
-  ];
-
-  it('drops the roster arrays a verified match derives', () => {
-    expect(
-      deriveTournamentWinRecord(7, VerificationStatus.Verified, rosters)
-    ).toEqual({
-      matchId: 7,
-      isTied: false,
-      winnerTeam: Team.Blue,
-      loserTeam: Team.Red,
-      winnerPoints: 5,
-      loserPoints: 3,
-    });
-  });
-
-  it('returns null for a non-verified match that still has rosters', () => {
-    expect(
-      deriveTournamentWinRecord(7, VerificationStatus.Rejected, rosters)
-    ).toBeNull();
-    expect(
-      deriveTournamentWinRecord(7, VerificationStatus.PreRejected, rosters)
-    ).toBeNull();
-  });
-
-  it('returns null when a verified match has no rosters', () => {
-    expect(
-      deriveTournamentWinRecord(7, VerificationStatus.Verified, [])
-    ).toBeNull();
   });
 });

@@ -10,12 +10,15 @@ interface GamesListClientProps {
   players: MatchPlayer[];
   /** The players' country names by code, from `getCountryNames` on the server. */
   countryNames: Record<string, string>;
+  /** From a 1v1 tournament: games show player against player. */
+  oneVsOne?: boolean;
 }
 
 export default function GamesListClient({
   games,
   players,
   countryNames,
+  oneVsOne = false,
 }: GamesListClientProps) {
   const searchParams = useSearchParams();
   const gameIdParam = searchParams.get('gameId');
@@ -72,6 +75,7 @@ export default function GamesListClient({
             game.scores.map((s) => s.playerId).includes(player.id)
           )}
           countryNames={countryNames}
+          oneVsOne={oneVsOne}
           highlighted={game.id === highlightGameId}
           highlightScoreId={highlightScoreId}
         />

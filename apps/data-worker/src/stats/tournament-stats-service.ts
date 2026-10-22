@@ -1,5 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
-import { Ruleset, Team, VerificationStatus } from '@otr/core/osu';
+import { Ruleset, Team, TeamType, VerificationStatus } from '@otr/core/osu';
 
 import type { DatabaseClient } from '../db';
 import type { Logger } from '../logging/logger';
@@ -107,6 +107,7 @@ export class TournamentStatsService {
       where: eq(schema.tournaments.id, tournamentId),
       columns: {
         id: true,
+        lobbySize: true,
         verificationStatus: true,
       },
       with: {
@@ -120,6 +121,7 @@ export class TournamentStatsService {
               columns: {
                 id: true,
                 matchId: true,
+                teamType: true,
                 verificationStatus: true,
               },
               with: {
@@ -181,6 +183,7 @@ export class TournamentStatsService {
 
     return {
       id: tournamentRow.id,
+      lobbySize: tournamentRow.lobbySize,
       verificationStatus:
         tournamentRow.verificationStatus as VerificationStatus,
       matches:
@@ -191,6 +194,7 @@ export class TournamentStatsService {
             match.games?.map((game): StatsMatch['games'][number] => ({
               id: game.id,
               matchId: game.matchId,
+              teamType: game.teamType as TeamType,
               verificationStatus: game.verificationStatus as VerificationStatus,
               scores:
                 game.gameScores?.map((score) => ({

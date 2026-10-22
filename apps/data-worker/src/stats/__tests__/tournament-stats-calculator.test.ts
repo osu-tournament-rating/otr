@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { Ruleset, Team, VerificationStatus } from '@otr/core/osu';
+import { Ruleset, Team, TeamType, VerificationStatus } from '@otr/core/osu';
 
 import { TournamentStatsCalculator } from '../tournament-stats-calculator';
 import type {
@@ -16,6 +16,7 @@ type Mutable<T> = {
 
 const createVerifiedTournament = (): StatsTournament => ({
   id: 1,
+  lobbySize: 2,
   verificationStatus: VerificationStatus.Verified,
   matches: [
     {
@@ -25,6 +26,7 @@ const createVerifiedTournament = (): StatsTournament => ({
         {
           id: 100,
           matchId: 10,
+          teamType: TeamType.TeamVs,
           verificationStatus: VerificationStatus.Verified,
           rosters: [],
           scores: [
@@ -101,6 +103,7 @@ const createVerifiedTournament = (): StatsTournament => ({
         {
           id: 101,
           matchId: 10,
+          teamType: TeamType.TeamVs,
           verificationStatus: VerificationStatus.Verified,
           rosters: [],
           scores: [
@@ -214,8 +217,16 @@ const game = (
   id: number,
   matchId: number,
   scores: StatsScore[],
-  verificationStatus = VerificationStatus.Verified
-): StatsGame => ({ id, matchId, verificationStatus, rosters: [], scores });
+  verificationStatus = VerificationStatus.Verified,
+  teamType = TeamType.TeamVs
+): StatsGame => ({
+  id,
+  matchId,
+  teamType,
+  verificationStatus,
+  rosters: [],
+  scores,
+});
 
 /** A verified match in which each of `playerIds` has a rating change. */
 const match = (
@@ -234,8 +245,10 @@ const match = (
   })),
 });
 
+/** A verified 1v1 tournament of `matches`. */
 const tournamentOf = (...matches: StatsMatch[]): StatsTournament => ({
   id: 1,
+  lobbySize: 1,
   verificationStatus: VerificationStatus.Verified,
   matches,
 });
@@ -540,6 +553,171 @@ describe('TournamentStatsCalculator', () => {
     expect(playerTournamentStat(result, 1)).toMatchObject({
       matchesWon: 0,
       matchesLost: 0,
+    });
+  });
+  it('gives each player of a head-to-head 1v1 a side of their own, with no team', () => {
+    const headToHead = (id: number, first: number, second: number) =>
+      game(
+        id,
+        10,
+        [score(id, 1, Team.NoTeam, first), score(id, 2, Team.NoTeam, second)],
+        VerificationStatus.Verified,
+        TeamType.HeadToHead
+      );
+    // Player 1 wins games 100 and 102, player 2 wins game 101.
+    const tournament = tournamentOf(
+      match(
+        10,
+        [
+          headToHead(100, 600_000, 400_000),
+          headToHead(101, 300_000, 500_000),
+          headToHead(102, 700_000, 200_000),
+        ],
+        [1, 2]
+      )
+    );
+
+    const result = calculate(tournament);
+    const [matchResult] = result.matches;
+    const byFirstPlayer = <T extends { roster: number[] }>(rosters: T[]) =>
+      [...rosters].sort((a, b) => a.roster[0]! - b.roster[0]!);
+
+    expect(byFirstPlayer(matchResult!.matchRosters)).toEqual([
+      { team: Team.NoTeam, roster: [1], score: 2 },
+      { team: Team.NoTeam, roster: [2], score: 1 },
+    ]);
+    expect(
+      byFirstPlayer(
+        matchResult!.gameRosters.find((entry) => entry.gameId === 101)!.rosters
+      )
+    ).toEqual([
+      { team: Team.NoTeam, roster: [1], score: 300_000 },
+      { team: Team.NoTeam, roster: [2], score: 500_000 },
+    ]);
+    expect(playerMatchStat(result, 10, 1)).toMatchObject({
+      won: true,
+      gamesWon: 2,
+      gamesLost: 1,
+      teammateIds: [],
+      opponentIds: [2],
+    });
+    expect(playerMatchStat(result, 10, 2)).toMatchObject({
+      won: false,
+      gamesWon: 1,
+      gamesLost: 2,
+      teammateIds: [],
+      opponentIds: [1],
+    });
+    expect(playerTournamentStat(result, 2)).toMatchObject({
+      matchesWon: 0,
+      matchesLost: 1,
+    });
+  });
+
+  it('keeps each player their own side when a 1v1 switches to head-to-head', () => {
+    // Game 100 is Team Vs, the other two head-to-head; player 1 wins two.
+    const tournament = tournamentOf(
+      match(
+        10,
+        [
+          game(100, 10, [
+            score(100, 1, Team.Red, 600_000),
+            score(100, 2, Team.Blue, 400_000),
+          ]),
+          game(
+            101,
+            10,
+            [
+              score(101, 1, Team.NoTeam, 300_000),
+              score(101, 2, Team.NoTeam, 500_000),
+            ],
+            VerificationStatus.Verified,
+            TeamType.HeadToHead
+          ),
+          game(
+            102,
+            10,
+            [
+              score(102, 1, Team.NoTeam, 700_000),
+              score(102, 2, Team.NoTeam, 200_000),
+            ],
+            VerificationStatus.Verified,
+            TeamType.HeadToHead
+          ),
+        ],
+        [1, 2]
+      )
+    );
+
+    const result = calculate(tournament);
+    const [matchResult] = result.matches;
+
+    expect(
+      [...matchResult!.matchRosters].sort((a, b) => b.score - a.score)
+    ).toEqual([
+      { team: Team.NoTeam, roster: [1], score: 2 },
+      { team: Team.NoTeam, roster: [2], score: 1 },
+    ]);
+    expect(
+      matchResult!.gameRosters.find((entry) => entry.gameId === 100)!.rosters
+    ).toEqual([
+      { team: Team.Red, roster: [1], score: 600_000 },
+      { team: Team.Blue, roster: [2], score: 400_000 },
+    ]);
+    expect(playerMatchStat(result, 10, 1)).toMatchObject({
+      won: true,
+      gamesWon: 2,
+      gamesLost: 1,
+      opponentIds: [2],
+    });
+  });
+
+  it('keeps the stored teams of a head-to-head game an admin verified in a 2v2', () => {
+    // Red (1 and 2) wins the Team Vs game 100 and the head-to-head game 101.
+    const tournament = {
+      ...tournamentOf(
+        match(
+          10,
+          [
+            game(100, 10, [
+              score(100, 1, Team.Red, 400_000),
+              score(100, 2, Team.Red, 400_000),
+              score(100, 3, Team.Blue, 300_000),
+              score(100, 4, Team.Blue, 300_000),
+            ]),
+            game(
+              101,
+              10,
+              [
+                score(101, 1, Team.Red, 500_000),
+                score(101, 2, Team.Red, 500_000),
+                score(101, 3, Team.Blue, 600_000),
+                score(101, 4, Team.Blue, 100_000),
+              ],
+              VerificationStatus.Verified,
+              TeamType.HeadToHead
+            ),
+          ],
+          [1, 2, 3, 4]
+        )
+      ),
+      lobbySize: 2,
+    };
+
+    const result = calculate(tournament);
+    const [matchResult] = result.matches;
+
+    expect(
+      [...matchResult!.matchRosters].sort((a, b) => b.score - a.score)
+    ).toEqual([
+      { team: Team.Red, roster: [1, 2], score: 2 },
+      { team: Team.Blue, roster: [3, 4], score: 0 },
+    ]);
+    expect(playerMatchStat(result, 10, 3)).toMatchObject({
+      won: false,
+      gamesWon: 0,
+      gamesLost: 2,
+      teammateIds: [4],
     });
   });
 });

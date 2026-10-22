@@ -13,7 +13,10 @@ import TournamentPlayerStatsView from '@/components/tournaments/TournamentPlayer
 import TournamentProgressPanel from '@/components/tournaments/TournamentProgressPanel';
 import TournamentRatingsView from '@/components/tournaments/TournamentRatingsView';
 import TournamentStatsPanel from '@/components/tournaments/TournamentStatsPanel';
-import type { MatchRow } from '@/components/tournaments/matchRow';
+import {
+  getOneVsOneResult,
+  type MatchRow,
+} from '@/components/tournaments/matchRow';
 import {
   DEFAULT_TOURNAMENT_TAB,
   TOURNAMENT_TABS,
@@ -62,8 +65,20 @@ export async function generateMetadata({
   return { title: tournament.name };
 }
 
-function toMatchRows(matches: TournamentMatch[]): MatchRow[] {
-  return matches.map((match) => ({
+/**
+ * The match list's rows. A 1v1's players are named from the tournament's
+ * player stats, which hold everyone a stored result counts.
+ */
+function toMatchRows(tournament: TournamentDetail): MatchRow[] {
+  const oneVsOne = tournament.lobbySize === 1;
+  const usernames = new Map(
+    (tournament.playerTournamentStats ?? []).map((stats) => [
+      stats.player.id,
+      stats.player.username,
+    ])
+  );
+
+  return (tournament.matches ?? []).map((match: TournamentMatch) => ({
     id: match.id,
     name: match.name,
     status: {
@@ -74,6 +89,10 @@ function toMatchRows(matches: TournamentMatch[]): MatchRow[] {
     },
     startDate: match.startTime ? new Date(match.startTime).toISOString() : null,
     winRecord: match.winRecord,
+    oneVsOne,
+    playerResult: oneVsOne
+      ? getOneVsOneResult(match.winRecord, usernames)
+      : null,
     games: (match.games ?? []).map((game) => ({
       id: game.id,
       verificationStatus: game.verificationStatus,
@@ -178,7 +197,7 @@ export default async function Page({ params, searchParams }: PageProps) {
           <TournamentMatchesAdminView
             tournamentId={tournament.id}
             tournamentName={tournament.name}
-            matches={toMatchRows(matches)}
+            matches={toMatchRows(tournament)}
             isLazer={tournament.isLazer}
           />
         </div>

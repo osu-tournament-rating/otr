@@ -40,7 +40,6 @@ The o!TR admins have the ability to manually modify match data in the database, 
 - Renaming individual match names to fix prefix inconsistencies
 - Correcting the EZ (or other mod) multipliers specified in a particular tournament's ruleset by manually changing the appropriate scores across that tournament, in place of the [[Data Processing Overview#Data Manipulation|automatic 1.75x EZ multiplier]]
 - Adding a new score to correct a lobby size mismatch if (1) the player disconnected mid-game but provided a local replay or records of an on-stream score and (2) that data was actually used as the source of truth for tournament proceedings
-- Assigning team rosters to a 1v1 match played in the `HeadToHead` team mode so that the match may be converted to `TeamVS`
 - Reassigning team rosters in a `TeamVS` match in case a player mistakenly assigned themselves the wrong team color for a game
 - Removing "phantom mods" that mistakenly appear in scores (for example, players may mistakenly appear to play a map with the DT mod if the previous map was played with DT)
 - Merging two matches into one if a match was split across two MP links due to technical difficulties

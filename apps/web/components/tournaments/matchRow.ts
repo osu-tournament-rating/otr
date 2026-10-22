@@ -34,18 +34,51 @@ export type MatchRow = {
   };
   startDate: string | null;
   winRecord: TournamentMatch['winRecord'];
+  /**
+   * From a 1v1 tournament, whose sides are players. Their red and blue are
+   * often o!TR's own, from head-to-head lobbies it converted, so the row
+   * never shows them.
+   */
+  oneVsOne: boolean;
+  /** A 1v1's winner and loser by name, from its stored result. */
+  playerResult: OneVsOneResult | null;
   games: GameWithNotes[];
   matchAdminNotes: AdminNotePreview[];
 };
 
-/** osu! lobby names follow `ACRONYM: (red team) vs (blue team)`. */
+export type OneVsOneResult = { winner: string; loser: string };
+
+/**
+ * The names of a decided 1v1's winner and loser, from its stored result.
+ * Null for a draw, a side of more than one player, or a name not in
+ * `usernames`.
+ */
+export function getOneVsOneResult(
+  winRecord: TournamentMatch['winRecord'],
+  usernames: ReadonlyMap<number, string>
+): OneVsOneResult | null {
+  if (!winRecord || winRecord.isTied) return null;
+
+  const nameOf = (roster: number[] | null) =>
+    roster?.length === 1 ? usernames.get(roster[0]!) : undefined;
+  const winner = nameOf(winRecord.winnerRoster);
+  const loser = nameOf(winRecord.loserRoster);
+
+  return winner && loser ? { winner, loser } : null;
+}
+
+/**
+ * The two names in an osu! lobby title, `ACRONYM: (one) vs (two)`, in the
+ * title's order. Hosts list either side first, so the order says nothing
+ * about red, blue or the winner.
+ */
 export function parseTeamNames(
   name: string
-): { red: string; blue: string } | null {
+): { first: string; second: string } | null {
   const parsed = /^.*?:\s*\((.+)\)\s+vs\.?\s+\((.+)\)\s*$/i.exec(name.trim());
-  const red = parsed?.[1]?.trim();
-  const blue = parsed?.[2]?.trim();
-  return red && blue ? { red, blue } : null;
+  const first = parsed?.[1]?.trim();
+  const second = parsed?.[2]?.trim();
+  return first && second ? { first, second } : null;
 }
 
 /** Key of the UTC week containing `date`, weeks running Thursday to Wednesday. */

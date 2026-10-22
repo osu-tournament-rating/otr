@@ -13,6 +13,8 @@ import {
   formatRating,
 } from '@/lib/kit/format/number';
 
+import { isOneVsOneMatch } from './oneVsOne';
+
 export interface HighlightPlayer {
   id: number;
   osuId: number;
@@ -66,8 +68,13 @@ export interface ProcessedPlayerStats {
   averagePlacement: number;
 }
 
+/** Each player's team colour; none in a 1v1, whose sides are players. */
 function getRosterTeamMap(match: MatchDetail): Map<number, TeamColor> {
   const playerTeams = new Map<number, TeamColor>();
+
+  if (isOneVsOneMatch(match)) {
+    return playerTeams;
+  }
 
   for (const roster of match.rosters ?? []) {
     const team =
@@ -167,8 +174,10 @@ function createResultStat(
       teamScores.set(winRecord.loserTeam, winRecord.loserPoints);
     }
 
-    const redScore = teamScores.get(Team.Red);
-    const blueScore = teamScores.get(Team.Blue);
+    // A 1v1 names its winner, never red or blue.
+    const oneVsOne = isOneVsOneMatch(match);
+    const redScore = oneVsOne ? undefined : teamScores.get(Team.Red);
+    const blueScore = oneVsOne ? undefined : teamScores.get(Team.Blue);
     const winner = players.find((player) =>
       winRecord.winnerRoster?.includes(player.playerId)
     );
@@ -182,9 +191,9 @@ function createResultStat(
           : `${formatCount(winRecord.winnerPoints)}–${formatCount(winRecord.loserPoints)}`,
       sublabel: winRecord.isTied
         ? 'Draw'
-        : winRecord.winnerTeam === Team.Red
+        : !oneVsOne && winRecord.winnerTeam === Team.Red
           ? 'Red wins'
-          : winRecord.winnerTeam === Team.Blue
+          : !oneVsOne && winRecord.winnerTeam === Team.Blue
             ? 'Blue wins'
             : winner
               ? `${winner.username} wins`

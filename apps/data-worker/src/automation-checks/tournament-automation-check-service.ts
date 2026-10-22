@@ -299,17 +299,6 @@ export class TournamentAutomationCheckService {
     const asRead = structuredClone(tournament);
     const beforeStatus = tournament.verificationStatus;
 
-    // In a verified tournament only the matches nobody decided are converted,
-    // such as one added since, so verified games keep their team type.
-    for (const match of tournament.matches) {
-      if (
-        tournament.verificationStatus !== VerificationStatus.Verified ||
-        !isLockedVerificationStatus(match.verificationStatus)
-      ) {
-        this.matchChecks.performHeadToHeadConversion(match, tournament);
-      }
-    }
-
     if (tournament.verificationStatus === VerificationStatus.Rejected) {
       cascadeTournamentRejection(tournament.matches);
     }
@@ -493,16 +482,11 @@ const MATCH_COLUMNS = [
   'warningFlags',
 ] as const;
 const GAME_COLUMNS = [
-  'teamType',
   'verificationStatus',
   'rejectionReason',
   'warningFlags',
 ] as const;
-const SCORE_COLUMNS = [
-  'team',
-  'verificationStatus',
-  'rejectionReason',
-] as const;
+const SCORE_COLUMNS = ['verificationStatus', 'rejectionReason'] as const;
 
 const changedColumns = <T, K extends keyof T>(
   before: T | undefined,
