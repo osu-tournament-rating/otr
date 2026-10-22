@@ -44,7 +44,7 @@ Each game in each match is evaluated against the following checks in order.
 
 ### Sides
 
-A side is the players who play for one result. In a TeamVs game, each team is a side. osu! records no teams for the scores of a HeadToHead game, so each player there is a side of their own. A HeadToHead game in a 1v1 tournament therefore needs exactly two valid scores, and it is checked as it is, without being converted to TeamVs.
+A side is the players who play for one result. In a TeamVs game, each team is a side. osu! records no teams for the scores of a HeadToHead game, so each player there is a side of their own. A HeadToHead game in a 1v1 tournament therefore needs exactly two valid scores, and it is checked as it is, without being converted to TeamVs. Its match must also be between two players, as the [[#Head-to-Head Players|head-to-head players]] match check describes.
 
 With more than one player per side, a HeadToHead lobby records nothing that tells the teams apart, so HeadToHead games are only accepted in 1v1 tournaments.
 
@@ -53,13 +53,17 @@ With more than one player per side, a HeadToHead lobby records nothing that tell
 
 ## Match Checks
 
-Each match is evaluated against the following checks. Warning checks are applied first, followed by rejection checks.
+Each match is evaluated against the following checks. Warning checks are applied first, followed by the head-to-head players check and then the rejection checks.
 
 ### Warning Checks
 
 1. **Unexpected Beatmaps**: If games beyond the first 2 (sorted by start time) have `BeatmapNotPooled` rejection, apply `UnexpectedBeatmapsFound` warning.
 1. **Name Format**: If match name does not match pattern `(Team) vs. (Team)`, apply `UnexpectedNameFormat` warning.
 1. **Roster Integrity**: If players appear on both team rosters across valid TeamVs games, apply `OverlappingRosters` warning. HeadToHead games are left out, since each player there is a side of their own.
+
+### Head-to-Head Players
+
+In a 1v1 tournament, if more than two players have valid scores in the match's PreVerified or Verified games, such as a substitute or two pairings in one lobby, apply `InvalidTeamType` rejection to each of its PreVerified HeadToHead games and set them to `PreRejected`. No HeadToHead game says which side each player took, so the match is judged on its other games. Games an admin verified are left as they are.
 
 ### Rejection Checks
 
@@ -95,7 +99,7 @@ The tournament is evaluated against the following checks in order.
 | Game | `NoValidScores` | Zero PreVerified or Verified scores |
 | Game | `LobbySizeMismatch` | Valid scores do not form two sides of the lobby size |
 | Game | `InvalidScoringType` | Not ScoreV2 or Lazer |
-| Game | `InvalidTeamType` | Not TeamVs, or HeadToHead outside a 1v1 tournament |
+| Game | `InvalidTeamType` | Not TeamVs, or HeadToHead outside a 1v1 match of two players |
 | Game | `FailedTeamVsConversion` | No longer applied; older games keep it from the HeadToHead conversion |
 | Match | `NoEndTime` | End time is null or ≤ Unix epoch |
 | Match | `NoGames` | Zero games present |
