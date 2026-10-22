@@ -85,6 +85,10 @@ import {
 } from './procedures/adminNotesProcedures';
 import { getPlatformStats } from './procedures/statsProcedures';
 import {
+  getRecentlyVerifiedTournaments,
+  getStatsPage,
+} from './procedures/stats/statsPageProcedures';
+import {
   filterRegistrants,
   getFilterReport,
 } from './procedures/filteringProcedures';
@@ -240,6 +244,8 @@ export const router = base.router({
   },
   stats: {
     platform: getPlatformStats,
+    page: getStatsPage,
+    recentlyVerified: getRecentlyVerifiedTournaments,
   },
   filtering: {
     filter: filterRegistrants,

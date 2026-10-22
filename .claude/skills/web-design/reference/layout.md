@@ -10,6 +10,7 @@ Every value here comes from the beatmap pages, which are the reference. Import e
 - [HeroTabsRoot, HeroTabsList, HeroTabsTrigger, HeroTabsContent](#herotabsroot-herotabslist-herotabstrigger-herotabscontent): in-page tabs under a hero
 - [Panel and PanelBody](#panel-and-panelbody): the one surface
 - [SectionHeader](#sectionheader): the strip at the top of a panel
+- [PageSection](#pagesection): a group of panels that follow one control
 - [InfoButton](#infobutton): the one help button
 - [TermTooltip](#termtooltip): the dotted-underline label of the tournament match cost
 - [Tile](#tile): the small bordered box inside a panel
@@ -19,7 +20,7 @@ Every value here comes from the beatmap pages, which are the reference. Import e
 
 ## Page anatomy
 
-A list or tool page is a PageFrame holding a PageHeader and then panels. A detail page is a PageFrame holding a DetailHero (with its tabs) and then panels. A panel starts with a SectionHeader and then holds rows, tiles, a table or a chart. The exception is the panel of a searchable or filterable list (tournaments, beatmaps, the leaderboard, audit logs, reports): it starts with its [ListToolbar](lists.md#listtoolbar), as the beatmap list does, and has no SectionHeader; the toolbar's count stands in for the header's meta. A short fixed list inside a detail page, such as teammates, keeps its SectionHeader. That is the whole nesting: never a panel or card inside a panel, never a box around a table inside a panel.
+A list or tool page is a PageFrame holding a PageHeader and then panels. A detail page is a PageFrame holding a DetailHero (with its tabs) and then panels. A panel starts with a SectionHeader and then holds rows, tiles, a table or a chart. The exception is the panel of a searchable or filterable list (tournaments, beatmaps, the leaderboard, audit logs, reports): it starts with its [ListToolbar](lists.md#listtoolbar), as the beatmap list does, and has no SectionHeader; the toolbar's count stands in for the header's meta. A short fixed list inside a detail page, such as teammates, keeps its SectionHeader. That is the whole nesting: never a panel or card inside a panel, never a box around a table inside a panel. One page-level grouping exists for long pages: when the panels after some point all follow one control, such as the stats page's ruleset, they sit in a [PageSection](#pagesection) with that control in its heading row, after the panels that don't.
 
 ```tsx
 import { ListToolbar } from '@/components/kit/lists/ListToolbar';
@@ -366,6 +367,47 @@ Loading: `SectionHeaderSkeleton` ([feedback.md](feedback.md#skeletons)) draws th
 
 Gallery anchor: `/admin/design#layout-section-header`
 
+## PageSection
+
+A group of panels on a long page that all follow one control: a divider, a 16px heading with a muted icon, the control on the right (under the heading on phones), and the panels under it, 16px apart. The stats page puts the panels for one ruleset in one, headed "By ruleset" with the page's RulesetSwitch, after the panels over every ruleset.
+
+```tsx
+import { PageSection } from '@/components/kit/layout/PageSection';
+
+<PageFrame>
+  <PageHeader icon={ChartColumn} title="Platform statistics" description="…" />
+  <Panel>…every ruleset…</Panel>
+  <PageSection
+    icon={Gamepad2}
+    title="By ruleset"
+    actions={<StatsRulesetSwitch />}
+  >
+    <Panel>
+      <SectionHeader icon={Globe} title="Players by country" level={3} />…
+    </Panel>
+  </PageSection>
+</PageFrame>;
+```
+
+Props:
+
+- `title`: the section's h2, sentence case. The heading's id comes from `useId`, and the section is named by it.
+- `icon`: muted, like a SectionHeader's.
+- `actions`: the control the panels follow, such as a RulesetSwitch. Its state lives in the page address like any list control.
+- `children`: panels and grids of panels. Their SectionHeaders take `level={3}`.
+
+Do:
+
+- Put the panels that don't follow the control before the section, so its heading marks where the control starts to apply.
+- Use RulesetSwitchSkeleton as `actions` on the loading screen, inside the same PageSection.
+
+Don't:
+
+- Don't use it to split a short page into chapters, or to title one panel; a panel's SectionHeader does that.
+- Don't nest one PageSection in another, or put one inside a panel.
+
+Gallery anchor: `/admin/design#layout-page-section`
+
 ## InfoButton
 
 The one help affordance: a muted circled "i" beside the thing it explains. It opens on hover, on keyboard focus and on tap, so it works on phones.
@@ -548,6 +590,7 @@ import { EntityLink } from '@/components/kit/tables/EntityLink';
 Props:
 
 - `leading`, `title` (16px medium, truncates), `description` (14px muted), `trailing` (right-aligned): the standard layout. Pass only `children` for a custom row; it keeps the 16px by 12px padding.
+- A `trailing` number can take one muted 12px line under it, right-aligned, for the figure the list is ranked by: the stats page's match lists put the score (`5–4`, semibold) over `Rated 391 vs 1,212`, `Won by 92` or `Trailed by 5 maps`, its strongest fields put a tier icon and rating over the player count, and its most played lists put `18 tournaments` over `72 games` or `104 beatmaps`. Both lines take `tabular-nums`.
 - `href`: makes the whole row one link (not prefetched, like the beatmap lists) with the shared row cues from `@/lib/kit/tables/row`: `ROW_HOVER_TINT`, and `ROW_TITLE_HOVER`, which turns the title blue while the row is hovered. Every whole-row link (DataTableLinkRow, PhoneRow, RowListItem) uses these two, so they read the same. Only for lists whose rows already open as a whole (beatmap list, tournament list, pooled beatmaps, search results). The row must then hold no other link or button, so `title` is plain text; with only `children`, mark the name `data-row-title` yourself.
 - `linkLabel`: the row link's accessible name, such as "View Break The Meta Cup". Always set it with `href`, or a screen reader reads every word in the row. It replaces everything inside the row for a screen reader, the status icon and a "Not in ratings yet" line included, so put in it whatever the row must say aloud besides the name, in the order the row shows it, as the tournament list does (`getTournamentRowLabel` in `components/tournaments/TournamentListRow.tsx`): "View verified tournament Break The Meta Cup BTMC, osu!, 1v1, 10,000+, Dec 4 – 18, 2021, 2 admin notes".
 - `children`: with `title`, extra content under the description; without, the whole custom row.

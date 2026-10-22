@@ -273,7 +273,7 @@ Do:
 
 - Put a flag, status icon or badge after the link, outside it.
 - Put two or more badges (a team and Winner) on their own line under the name, in the table cell and in the phone row's `children`, as the match's player performance does (`components/matches/MatchStatsPlayerRow.tsx`). Beside the name they push a wide table past its panel and cut names to a few letters on a phone.
-- Keep secondary links (country, tournament) as their own inline links.
+- Keep secondary links (country, tournament) as their own inline links. In a row's muted detail line, such as a listed match's tournament or a tiebreaker's beatmap on the stats page, pass `className="font-normal text-muted-foreground"`: the link keeps the line's look, truncates with it and turns blue on hover (`components/stats/MatchRecordPanels.tsx`).
 
 Don't:
 

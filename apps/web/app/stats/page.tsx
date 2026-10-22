@@ -1,11 +1,42 @@
+import { VerificationStatus } from '@otr/core/osu';
 import type { Metadata } from 'next';
 
 import { PageFrame } from '@/components/kit/layout/PageFrame';
+import { PageSection } from '@/components/kit/layout/PageSection';
+import ActivePlayersPanel from '@/components/stats/ActivePlayersPanel';
+import { BY_RULESET_SECTION } from '@/components/stats/chart-panels';
+import {
+  PlayersByCountryPanel,
+  TopPlayersByCountryPanel,
+} from '@/components/stats/CountryPanels';
+import FreemodModsPanel from '@/components/stats/FreemodModsPanel';
+import HigherRatedWinsPanel from '@/components/stats/HigherRatedWinsPanel';
+import LazerSharePanel from '@/components/stats/LazerSharePanel';
+import {
+  BiggestComebacksPanel,
+  BiggestUpsetsPanel,
+  ClosestGamesPanel,
+} from '@/components/stats/MatchRecordPanels';
+import MatchTimesPanel from '@/components/stats/MatchTimesPanel';
+import {
+  MostPlayedArtistsPanel,
+  MostPlayedBeatmapsPanel,
+  MostPlayedMappersPanel,
+} from '@/components/stats/MostPlayedPanels';
+import OverviewPanel from '@/components/stats/OverviewPanel';
+import PoolDifficultyPanel from '@/components/stats/PoolDifficultyPanel';
+import RankRestrictionsPanel from '@/components/stats/RankRestrictionsPanel';
 import RatingDistributionPanel from '@/components/stats/RatingDistributionPanel';
+import RecentlyVerifiedPanel from '@/components/stats/RecentlyVerifiedPanel';
+import { RulesetStatsProvider } from '@/components/stats/ruleset-stats';
+import { getTrendStartYear } from '@/components/stats/stats-data';
+import StatsRulesetSwitch from '@/components/stats/StatsRulesetSwitch';
+import StrongestFieldsPanel from '@/components/stats/StrongestFieldsPanel';
 import TournamentsByLobbySizeChart from '@/components/stats/TournamentsByLobbySizeChart';
 import TournamentsByRulesetChart from '@/components/stats/TournamentsByRulesetChart';
 import TournamentsByYearChart from '@/components/stats/TournamentsByYearChart';
 import TournamentVerificationChart from '@/components/stats/TournamentVerificationChart';
+import { getCountryNames } from '@/lib/kit/format/country';
 import { orpc } from '@/lib/orpc/orpc';
 
 import { StatsPageHeader } from './StatsPageHeader';
@@ -17,25 +48,83 @@ export const metadata: Metadata = {
 
 export default async function StatsPage() {
   // A failure reaches the error screen; this page always exists.
-  const { tournamentStats, ratingStats } = await orpc.stats.platform();
+  const [{ tournamentStats, ratingStats }, { allRulesets, byRuleset }] =
+    await Promise.all([orpc.stats.platform(), orpc.stats.page()]);
+
+  const countryNames = getCountryNames(
+    byRuleset.flatMap((entry) =>
+      [
+        ...entry.playersByCountry.countries,
+        ...entry.topPlayersByCountry.countries,
+      ].map((row) => row.country)
+    )
+  );
+  const currentYear = new Date().getUTCFullYear();
+  const trendStartYear = getTrendStartYear(tournamentStats.verifiedByYear);
 
   return (
     <PageFrame>
       <StatsPageHeader />
+      <OverviewPanel
+        tournaments={
+          tournamentStats.countByVerificationStatus[
+            `${VerificationStatus.Verified}`
+          ] ?? 0
+        }
+        totals={allRulesets.totals}
+      />
       {/* grid-cols-1 lets a panel shrink below its chart's measured width. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TournamentVerificationChart
           verificationCounts={tournamentStats.countByVerificationStatus}
+          summary={allRulesets.verification}
         />
+        <RecentlyVerifiedPanel firstPage={allRulesets.recentlyVerified} />
         <TournamentsByYearChart data={tournamentStats.verifiedByYear} />
+        <LazerSharePanel
+          rows={allRulesets.lazerByYear}
+          startYear={trendStartYear}
+          currentYear={currentYear}
+        />
         <TournamentsByRulesetChart data={tournamentStats.verifiedByRuleset} />
         <TournamentsByLobbySizeChart
           data={tournamentStats.verifiedByLobbySize}
         />
       </div>
-      <RatingDistributionPanel
-        ratingsByRuleset={ratingStats.ratingsByRuleset}
-      />
+      <RulesetStatsProvider
+        byRuleset={byRuleset}
+        countryNames={countryNames}
+        trendStartYear={trendStartYear}
+      >
+        <PageSection {...BY_RULESET_SECTION} actions={<StatsRulesetSwitch />}>
+          <RatingDistributionPanel
+            ratingsByRuleset={ratingStats.ratingsByRuleset}
+          />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <PlayersByCountryPanel />
+            <TopPlayersByCountryPanel />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ActivePlayersPanel currentYear={currentYear} />
+            <RankRestrictionsPanel currentYear={currentYear} />
+          </div>
+          <StrongestFieldsPanel />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <HigherRatedWinsPanel />
+            <BiggestUpsetsPanel />
+            <ClosestGamesPanel />
+            <BiggestComebacksPanel />
+          </div>
+          <MatchTimesPanel />
+          <MostPlayedBeatmapsPanel />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <MostPlayedMappersPanel />
+            <MostPlayedArtistsPanel />
+            <PoolDifficultyPanel />
+            <FreemodModsPanel />
+          </div>
+        </PageSection>
+      </RulesetStatsProvider>
     </PageFrame>
   );
 }

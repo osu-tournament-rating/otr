@@ -52,6 +52,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     refs: ['layout.md#Panel and PanelBody'],
   },
   {
+    name: 'PageSection',
+    group: 'Layout',
+    src: 'components/kit/layout/PageSection.tsx',
+    refs: ['layout.md#PageSection'],
+  },
+  {
     name: 'SectionHeader',
     group: 'Layout',
     src: 'components/kit/layout/SectionHeader.tsx',
@@ -432,6 +438,18 @@ export const COMPONENTS: DesignSystemComponent[] = [
     group: 'Charts',
     src: 'components/kit/charts/CountBarChart.tsx',
     refs: ['color.md#CountBarChart', 'color.md#Chart card'],
+  },
+  {
+    name: 'StackedBarChart',
+    group: 'Charts',
+    src: 'components/kit/charts/StackedBarChart.tsx',
+    refs: ['color.md#StackedBarChart', 'color.md#Chart card'],
+  },
+  {
+    name: 'Heatmap',
+    group: 'Charts',
+    src: 'components/kit/charts/Heatmap.tsx',
+    refs: ['color.md#Heatmap', 'color.md#Chart card'],
   },
   {
     name: 'ChartTooltipContent',

@@ -2,6 +2,7 @@
 
 import { Mods, Team, VerificationStatus } from '@otr/core/osu';
 import {
+  CalendarClock,
   ChartBarBig,
   ChartColumn,
   ChartColumnStacked,
@@ -36,7 +37,9 @@ import {
   ChartTooltipCard,
   ChartTooltipContent,
 } from '@/components/kit/charts/ChartTooltip';
+import { Heatmap } from '@/components/kit/charts/Heatmap';
 import { SeriesMarker } from '@/components/kit/charts/SeriesMarker';
+import { StackedBarChart } from '@/components/kit/charts/StackedBarChart';
 import { Button } from '@/components/kit/controls/Button';
 import { Panel, PanelBody } from '@/components/kit/layout/Panel';
 import { SectionHeader } from '@/components/kit/layout/SectionHeader';
@@ -44,6 +47,7 @@ import { Tile } from '@/components/kit/layout/Tile';
 import { ChoiceChip } from '@/components/kit/lists/ChoiceChip';
 import { NotificationDot } from '@/components/kit/status/NotificationDot';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import { RANK_RANGE_BUCKETS } from '@/lib/beatmaps/rankRange';
 import {
   CHART_BAR_RADIUS,
   CHART_CURSOR,
@@ -63,6 +67,7 @@ import {
 import {
   DEFAULT_MAX_TICKS,
   NARROW_MAX_TICKS,
+  getCategoryTicks,
   getNiceTicks,
   getTimeTicks,
 } from '@/lib/kit/charts/ticks';
@@ -742,81 +747,128 @@ function YearBarDemo() {
   );
 }
 
+/** Each ruleset's matches per year, stacked in the categorical slots. */
+const MATCHES_STACK = MATCHES_BY_RULESET.map((entry) => ({
+  key: entry.year,
+  label: formatYearTick(entry.year),
+  values: Object.fromEntries(
+    RULESETS.map((ruleset) => [ruleset.key, entry[ruleset.key]])
+  ),
+}));
+const MATCHES_SERIES = RULESETS.map((ruleset, index) => ({
+  key: ruleset.key,
+  label: ruleset.label,
+  color: seriesColor(index),
+}));
+
+/** Tournaments per year by rank restriction band, as on the stats page. */
+const RANK_BANDS_STACK = [2020, 2021, 2022, 2023, 2024, 2025].map(
+  (year, index) => ({
+    key: String(year),
+    label: formatYearTick(year),
+    values: {
+      open: 99 + index * 8,
+      lt1k: 6 + index * 3,
+      '1kPlus': 54 - index * 6,
+      '10kPlus': 62 - index * 3,
+      '100kPlus': 10 + index * 4,
+    },
+  })
+);
+const RANK_BAND_SERIES = RANK_RANGE_BUCKETS.map((bucket) => ({
+  key: bucket.key,
+  label: bucket.label,
+  color: bucket.color,
+}));
+
+const sumValues = (values: Readonly<Record<string, number>>) =>
+  Object.values(values).reduce((sum, value) => sum + value, 0);
+
 function StackedBarDemo() {
-  const max = Math.max(
-    ...MATCHES_BY_RULESET.map((entry) =>
-      RULESETS.reduce((sum, ruleset) => sum + entry[ruleset.key], 0)
-    )
+  return (
+    <div className="flex flex-col gap-4">
+      <Panel>
+        <SectionHeader
+          icon={ChartColumnStacked}
+          title="Verified matches by ruleset"
+          level={4}
+        />
+        <PanelBody>
+          <StackedBarChart
+            data={MATCHES_STACK}
+            series={MATCHES_SERIES}
+            footer={(datum) =>
+              `Total ${formatCountTick(sumValues(datum.values))}`
+            }
+          />
+        </PanelBody>
+      </Panel>
+      <Panel>
+        <SectionHeader
+          icon={ChartColumnStacked}
+          title="Rank restrictions by year"
+          level={4}
+        />
+        <PanelBody>
+          <StackedBarChart
+            data={RANK_BANDS_STACK}
+            series={RANK_BAND_SERIES}
+            mode="share"
+            footer={(datum) =>
+              `${formatCountTick(sumValues(datum.values))} tournaments`
+            }
+          />
+        </PanelBody>
+      </Panel>
+    </div>
   );
-  const yTicks = getNiceTicks(0, max, { integer: true });
-  const labels = Object.fromEntries(
-    RULESETS.map((ruleset) => [ruleset.key, ruleset.label])
-  );
+}
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+
+/** Matches by weekday and UTC hour: weekends and afternoons, as on the stats page. */
+const MATCHES_BY_HOUR = WEEKDAYS.map((_, day) =>
+  HOURS.map((hour) => {
+    const afternoon = Math.max(0, 6 - Math.abs(hour - 15));
+    return Math.round((day >= 5 ? 700 : 60) * (afternoon + 1) * 0.25);
+  })
+);
+const MATCHES_BY_HOUR_TOTAL = MATCHES_BY_HOUR.flat().reduce(
+  (sum, value) => sum + value,
+  0
+);
+
+function HeatmapDemo() {
+  const maxTicks = useIsNarrowChart() ? NARROW_MAX_TICKS : DEFAULT_MAX_TICKS;
+  const hour = (value: number) => `${String(value % 24).padStart(2, '0')}:00`;
 
   return (
     <Panel>
       <SectionHeader
-        icon={ChartColumnStacked}
-        title="Verified matches by ruleset"
+        icon={CalendarClock}
+        title="When matches are played"
         level={4}
+        meta={`${formatCount(MATCHES_BY_HOUR_TOTAL)} matches`}
       />
-      <PanelBody className="flex flex-col gap-3">
-        <ChartLegend
-          items={RULESETS.map((ruleset, index) => ({
-            key: ruleset.key,
-            label: ruleset.label,
-            color: seriesColor(index),
+      <PanelBody>
+        <Heatmap
+          aria-label="When matches are played"
+          rows={WEEKDAYS.map((day) => ({ key: day, label: day }))}
+          columns={HOURS.map((value) => ({
+            key: String(value),
+            label: hour(value),
           }))}
+          values={MATCHES_BY_HOUR}
+          columnTicks={getCategoryTicks(HOURS, maxTicks).map(String)}
+          valueName="Matches"
+          cellTitle={(row, column) =>
+            `${row.label}, ${column.label}–${hour(Number(column.key) + 1)} UTC`
+          }
+          footer={(value) =>
+            `${formatPercent(value / MATCHES_BY_HOUR_TOTAL)} of matches`
+          }
         />
-        <ChartContainer config={{}} className={CHART_CLASS}>
-          <BarChart data={MATCHES_BY_RULESET} margin={CHART_MARGIN}>
-            <CartesianGrid {...chartGridProps} />
-            <XAxis
-              {...chartAxisProps}
-              dataKey="year"
-              tickFormatter={formatYearTick}
-            />
-            <YAxis
-              {...chartValueAxisProps}
-              {...niceAxisProps(yTicks)}
-              tickFormatter={formatCountTick}
-            />
-            <ChartTooltip
-              cursor={CHART_CURSOR.bar}
-              content={
-                <ChartTooltipContent
-                  reverse
-                  labelFormatter={(label) => formatYearTick(label)}
-                  nameFormatter={(name) => labels[name] ?? name}
-                  valueFormatter={formatCountTick}
-                  footer={(payload) =>
-                    `Total ${formatCountTick(
-                      payload.reduce(
-                        (sum, item) =>
-                          sum +
-                          (typeof item.value === 'number' ? item.value : 0),
-                        0
-                      )
-                    )}`
-                  }
-                />
-              }
-            />
-            {RULESETS.map((ruleset, index) => (
-              <Bar
-                key={ruleset.key}
-                dataKey={ruleset.key}
-                stackId="rulesets"
-                fill={seriesColor(index)}
-                // A thin line in the card colour between segments.
-                stroke="var(--card)"
-                strokeWidth={1}
-                radius={index === RULESETS.length - 1 ? CHART_BAR_RADIUS : 0}
-                isAnimationActive={false}
-              />
-            ))}
-          </BarChart>
-        </ChartContainer>
       </PanelBody>
     </Panel>
   );
@@ -1317,11 +1369,20 @@ export default function ColorSection() {
 
       <Specimen
         id="color-chart-stacked"
-        name="Stacked bar chart"
-        importPath={`${CHART_PARTS}, ${CHARTS}/ChartLegend`}
-        description="Series take the categorical slots in order, with a legend above the plot in the same order. The tooltip lists the stack top to bottom and adds a total."
+        name="StackedBarChart"
+        importPath={`${CHARTS}/StackedBarChart`}
+        description="Several series per category in one column. Series take the categorical slots of their fixed index, with a legend above the plot from two series on; the tooltip lists the stack top to bottom with a footer. Share mode stacks each count as a percentage of its column, as the stats page's rank restrictions and lazer share do."
       >
         <StackedBarDemo />
+      </Specimen>
+
+      <Specimen
+        id="color-chart-heatmap"
+        name="Heatmap"
+        importPath={`${CHARTS}/Heatmap`}
+        description="Counts by two categories, each cell shaded by its share of the largest in five steps of one series colour, with a scale above. Hover, tap or keyboard focus (arrows, Home, End) shows the cell in the chart tooltip card. The stats page's match start times use it."
+      >
+        <HeatmapDemo />
       </Specimen>
 
       <Specimen

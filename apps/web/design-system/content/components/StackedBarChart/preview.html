@@ -1,0 +1,107 @@
+<!-- @dsCard group="Charts" height=720 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>StackedBarChart</title>
+  </head>
+  <body class="p-4">
+    <div id="root"></div>
+    <script>
+      var O = window.OTR,
+        I = O.Icons,
+        h = React.createElement,
+        F = O.format,
+        C = O.color;
+      var RULESETS = ['osu!', 'taiko', 'catch', 'mania 4K', 'mania 7K'];
+      var YEARS = [2019, 2020, 2021, 2022, 2023, 2024, 2025];
+      var MATCH_SERIES = RULESETS.map(function (label, index) {
+        return { key: label, label: label, color: C.seriesColor(index) };
+      });
+      var MATCHES = YEARS.map(function (year, index) {
+        var values = {};
+        values['osu!'] = 2100 + index * 610;
+        values.taiko = 380 + index * 95;
+        values.catch = 240 + index * 60;
+        values['mania 4K'] = 520 + index * 170;
+        values['mania 7K'] = 90 + index * 30;
+        return { key: String(year), label: F.formatYear(year), values: values };
+      });
+      // The stats page's rank restriction bands, in slots 1 to 5.
+      var BANDS = ['Open rank', '<1k', '1k+', '10k+', '100k+'];
+      var BAND_SERIES = BANDS.map(function (label, index) {
+        return { key: label, label: label, color: C.seriesColor(index) };
+      });
+      var RANK_BANDS = YEARS.slice(1).map(function (year, index) {
+        var values = {};
+        values['Open rank'] = 99 + index * 8;
+        values['<1k'] = 6 + index * 3;
+        values['1k+'] = 54 - index * 6;
+        values['10k+'] = 62 - index * 3;
+        values['100k+'] = 10 + index * 4;
+        return { key: String(year), label: F.formatYear(year), values: values };
+      });
+      function sum(values) {
+        return Object.keys(values).reduce(function (total, key) {
+          return total + values[key];
+        }, 0);
+      }
+      function Demo() {
+        return h(
+          'div',
+          { className: 'flex flex-col gap-4' },
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.ChartColumnStacked,
+              title: 'Verified matches by ruleset',
+              level: 4,
+            }),
+            h(
+              O.PanelBody,
+              null,
+              h(O.StackedBarChart, {
+                data: MATCHES,
+                series: MATCH_SERIES,
+                footer: function (datum) {
+                  return 'Total ' + F.formatCount(sum(datum.values));
+                },
+              })
+            )
+          ),
+          h(
+            O.Panel,
+            null,
+            h(O.SectionHeader, {
+              icon: I.ChartColumnStacked,
+              title: 'Rank restrictions by year',
+              level: 4,
+            }),
+            h(
+              O.PanelBody,
+              null,
+              h(O.StackedBarChart, {
+                data: RANK_BANDS,
+                series: BAND_SERIES,
+                mode: 'share',
+                footer: function (datum) {
+                  return F.formatCount(sum(datum.values)) + ' tournaments';
+                },
+              })
+            )
+          )
+        );
+      }
+      // Recharts measures tick labels to size the axes, so wait for Inter.
+      function mount() {
+        ReactDOM.createRoot(document.getElementById('root')).render(
+          h(O.TooltipProvider, null, h(Demo))
+        );
+      }
+      document.fonts && document.fonts.load
+        ? document.fonts.load('12px Inter').then(mount, mount)
+        : mount();
+    </script>
+  </body>
+</html>

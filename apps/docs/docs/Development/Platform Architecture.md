@@ -10,6 +10,7 @@ The data worker runs every background job. Each job is a row in the `jobs` table
 - `data.osutrack` fetches a player's rank history from osu!track.
 - `processing.checks.tournaments` runs [[Automated Checks|automated checks]] for a tournament.
 - `processing.stats.tournaments` calculates a tournament's stats.
+- `processing.stats.platform` calculates the [[#Platform statistics|platform statistics]] that are due.
 - `processing.attributes.beatmaps` stores a beatmap's file and calculates its [[#Beatmap files and attributes|difficulty attributes]].
 
 A job is queued in the same transaction that saves the data it needs, so the two are saved together or not at all. Jobs with a higher priority run first, which keeps admin requests and submissions ahead of background refreshes. A repeated request for work that is already queued or running merges into the existing job, except in `processing.stats.tournaments`: duplicate stats jobs are harmless, since each one rewrites the tournament's stats. A failed job is retried after about 1 minute, 5 minutes, 30 minutes, and 2 hours, then marked failed. Finished jobs are deleted after 14 days. Since jobs are stored in the database, none are lost while the data worker is down, and it resumes where it left off when it restarts.
@@ -33,6 +34,7 @@ A job is queued in the same transaction that saves the data it needs, so the two
 1. The [[#Processor|processor]] rebuilds every rating in one transaction.
 1. In the same transaction, it queues a `processing.stats.tournaments` job for each tournament whose stats need a refresh.
 1. Once the ratings are saved, the data worker calculates those tournaments' stats.
+1. Once the maintenance window ends, the data worker queues a `processing.stats.platform` job and recalculates the stored platform statistics.
 
 ## Web Application
 
@@ -67,6 +69,16 @@ To roll out a star rating change once rosu-pp-js releases it:
 1. Merge the change, which deploys it. The sweep then recalculates every row from the stored files, with no downloads from osu!. At 1,000 jobs per sweep this takes hours, and until it finishes, rows from both releases coexist.
 
 Files the calculator rejected keep `fetch_status` 4 (Error) and are not recalculated. To try them with the new release, set `fetch_status` to 2 (Fetched) on the `beatmap_files` rows that have a checksum, and the sweep picks them up.
+
+### Platform statistics
+
+The [stats page](https://otr.stagec.net/stats) reads its quick statistics from the database on each request. Slower ones, such as the verified score count, the biggest upsets, and pool difficulty, are stored in `platform_stats`: one row per statistic, or per statistic and ruleset.
+
+- Every 10 minutes, outside the weekly maintenance window, the data worker queues a `processing.stats.platform` job when a stored statistic is missing, was saved by an older version of its definition, or was calculated before the current UTC day or the latest rating run began.
+- The job recalculates only the statistics that are due, so they refresh daily after midnight UTC, after each rating run, and shortly after a deploy that adds or changes one.
+- A statistic that fails to calculate fails the job, and the retry recalculates the ones still due.
+- The stats page shows a stored statistic only when its row matches the current version of its definition.
+- On a local database, `bun run --cwd apps/data-worker platform-stats:refresh --all` calculates every statistic at once.
 
 ### Tournament forum posts
 

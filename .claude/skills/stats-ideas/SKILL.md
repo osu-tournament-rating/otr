@@ -59,7 +59,7 @@ never shown is the cheapest idea there is. Paths are under `apps/web`:
 | Beatmap      | `components/beatmap/`                                                 | `beatmapProcedures.ts`, `beatmapStatsHelpers.ts`         |
 | Beatmap list | `components/beatmaps/list/`                                           | `beatmapListProcedures.ts`                               |
 | Leaderboard  | `components/leaderboard/`                                             | `leaderboardProcedures.ts`, `shared/leaderboardQuery.ts` |
-| `/stats`     | `components/stats/`                                                   | `statsProcedures.ts`                                     |
+| `/stats`     | `components/stats/`                                                   | `statsProcedures.ts`, `stats/statsPageProcedures.ts`     |
 
 If the table has gone stale, fix it in the same change.
 
@@ -170,7 +170,10 @@ Write a query for each idea and record four measurements:
    every tournament, needs the whole population on every request, so plan to
    precompute or cache that part even when one entity is cheap. Anything
    slower needs precomputing. Name where: a new column in the data worker's stats tables,
-   a Postgres trigger like `beatmap_stats`, or the processor. Treat any table
+   a Postgres trigger like `beatmap_stats`, the processor, or, for a
+   site-wide stat on `/stats`, a stored platform stat
+   (`packages/otr-core/src/platform-stats/`), which the data worker
+   recomputes daily and after each rating run. Treat any table
    the processor reads or writes as a contract (see the root `AGENTS.md`).
 
 ## 6. Cut

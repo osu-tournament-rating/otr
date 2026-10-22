@@ -508,7 +508,7 @@ function RulesetChipBlocks({
 
 /**
  * A RulesetSwitch while it loads, outside a ListToolbar, such as the stats
- * page's rating distribution: one chip block per ruleset, as wide as the
+ * page's "By ruleset" heading: one chip block per ruleset, as wide as the
  * loaded chip, so the blocks wrap where the chips do. Inside a toolbar, use
  * ListToolbarSkeleton's `rulesets` with `rulesetsAll={false}`.
  */

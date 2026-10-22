@@ -617,7 +617,7 @@ function SwitchToolbarSkeletonDemo() {
 }
 
 /**
- * A chart panel with a RulesetSwitch strip, as on the stats page: the real
+ * A chart panel with a RulesetSwitch strip under its header: the real
  * header, RulesetSwitchSkeleton, and ChartPlotSkeleton as tall as the plot.
  */
 function ChartSkeletonDemo() {

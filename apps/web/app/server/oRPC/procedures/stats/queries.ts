@@ -1,0 +1,380 @@
+/**
+ * The platform stats page's statistics that are fast enough to read on every
+ * request (each well under 100 ms on production's data). Slower ones are
+ * stored by the data worker; see `@otr/core/platform-stats`.
+ */
+import { sql, type SQL } from 'drizzle-orm';
+
+import * as schema from '@otr/core/db/schema';
+import { type Ruleset, VerificationStatus } from '@otr/core/osu';
+import type { DatabaseClient } from '@/lib/db';
+
+type QueryDb = Pick<DatabaseClient, 'execute'>;
+
+const VERIFIED = VerificationStatus.Verified;
+
+/** How far back the median time to verify looks, from the newest verification. */
+export const VERIFICATION_WINDOW_DAYS = 90;
+
+const rowsOf = async <TRow>(db: QueryDb, query: SQL): Promise<TRow[]> =>
+  (await db.execute(query)).rows as TRow[];
+
+/** A UTC timestamp as an ISO 8601 string, in SQL, so no driver parses it. */
+const isoTimestamp = (column: SQL) =>
+  sql`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
+/** A tournament's year, as the stats page's other tournament charts count it. */
+const tournamentYear = sql`date_part('year', coalesce(${schema.tournaments.startTime}, ${schema.tournaments.endTime}, ${schema.tournaments.created}))::int`;
+
+/**
+ * Every audit row that set a tournament to Verified, at millisecond
+ * precision. The audit trail has written the change three ways over time.
+ */
+const verificationEvents = () => {
+  const verifiedChange = (field: string, value: string) =>
+    sql`${schema.tournamentAudits.changes} @> ${JSON.stringify({
+      [field]: { [value]: VERIFIED },
+    })}::jsonb`;
+
+  return sql`
+    select
+      ${schema.tournamentAudits.referenceIdLock} as tournament_id,
+      date_trunc('milliseconds', ${schema.tournamentAudits.created}) as verified_at
+    from ${schema.tournamentAudits}
+    where ${verifiedChange('verification_status', 'newValue')}
+      or ${verifiedChange('verificationStatus', 'newValue')}
+      or ${verifiedChange('verificationStatus', 'NewValue')}`;
+};
+
+export interface VerificationSummary {
+  windowDays: number;
+  /** Tournaments first verified in the window. */
+  tournaments: number;
+  /** Median days from their end to their first verification; null for none. */
+  medianDays: number | null;
+}
+
+/**
+ * How fast verification happens lately: the median time from a verified
+ * tournament's end to its first verification, over tournaments first
+ * verified in the 90 days up to the newest verification. A tournament
+ * verified before it ended counts as zero days; one without an end is left
+ * out. Re-verifications don't count, since only the first one does.
+ */
+export async function getVerificationSummary(
+  db: QueryDb
+): Promise<VerificationSummary> {
+  const [row] = await rowsOf<{
+    tournaments: string;
+    median_days: number | null;
+  }>(
+    db,
+    sql`
+      with events as (${verificationEvents()}),
+      firsts as (
+        select tournament_id, min(verified_at) as first_at
+        from events
+        group by tournament_id
+      ),
+      verified as (
+        select
+          firsts.first_at,
+          greatest(
+            0,
+            extract(epoch from firsts.first_at - ${schema.tournaments.endTime}) / 86400
+          ) as days
+        from firsts
+        inner join ${schema.tournaments}
+          on ${schema.tournaments.id} = firsts.tournament_id
+        where ${schema.tournaments.verificationStatus} = ${VERIFIED}
+          and ${schema.tournaments.endTime} is not null
+      )
+      select
+        count(*) as tournaments,
+        percentile_cont(0.5) within group (order by days) as median_days
+      from verified
+      where first_at > (select max(first_at) from verified)
+        - make_interval(days => ${VERIFICATION_WINDOW_DAYS})`
+  );
+
+  return {
+    windowDays: VERIFICATION_WINDOW_DAYS,
+    tournaments: Number(row?.tournaments ?? 0),
+    medianDays:
+      row?.median_days === null || row?.median_days === undefined
+        ? null
+        : Number(row.median_days),
+  };
+}
+
+export interface RecentlyVerifiedTournament {
+  id: number;
+  name: string;
+  abbreviation: string;
+  ruleset: Ruleset;
+  lobbySize: number;
+  rankRangeLowerBound: number;
+  isLazer: boolean;
+  /** ISO 8601, UTC; null when the tournament has no end. */
+  endTime: string | null;
+  /** The first verification on record, ISO 8601, UTC. */
+  verifiedAt: string;
+}
+
+export interface RecentlyVerifiedCursor {
+  verifiedAt: string;
+  id: number;
+}
+
+export interface RecentlyVerifiedPage {
+  items: RecentlyVerifiedTournament[];
+  /** Verified tournaments the audit trail records a verification for. */
+  totalCount: number;
+  /** Where the next page starts; null after the last. */
+  nextCursor: RecentlyVerifiedCursor | null;
+}
+
+/**
+ * Verified tournaments, most recently verified first, each at its first
+ * verification. A later re-verification, such as after automated checks
+ * reset verified data, keeps the tournament where it was, so a batch of
+ * them does not bury new ones. Tournaments verified before the audit trail
+ * began have no verification on record and are left out. Pages by keyset,
+ * so a verification between two pages neither repeats nor skips a row.
+ */
+export async function getRecentlyVerified(
+  db: QueryDb,
+  { limit, cursor }: { limit: number; cursor?: RecentlyVerifiedCursor }
+): Promise<RecentlyVerifiedPage> {
+  const rows = await rowsOf<{
+    id: number;
+    name: string;
+    abbreviation: string;
+    ruleset: number;
+    lobby_size: number;
+    rank_range_lower_bound: number;
+    is_lazer: boolean;
+    end_time: string | null;
+    verified_at: string;
+    total: string;
+  }>(
+    db,
+    sql`
+      with events as (${verificationEvents()}),
+      firsts as (
+        select tournament_id, min(verified_at) as verified_at
+        from events
+        group by tournament_id
+      ),
+      feed as (
+        select
+          ${schema.tournaments.id} as id,
+          ${schema.tournaments.name} as name,
+          ${schema.tournaments.abbreviation} as abbreviation,
+          ${schema.tournaments.ruleset} as ruleset,
+          ${schema.tournaments.lobbySize} as lobby_size,
+          ${schema.tournaments.rankRangeLowerBound} as rank_range_lower_bound,
+          ${schema.tournaments.isLazer} as is_lazer,
+          ${schema.tournaments.endTime} as end_time_raw,
+          firsts.verified_at,
+          count(*) over () as total
+        from firsts
+        inner join ${schema.tournaments}
+          on ${schema.tournaments.id} = firsts.tournament_id
+        where ${schema.tournaments.verificationStatus} = ${VERIFIED}
+      )
+      select
+        id, name, abbreviation, ruleset, lobby_size, rank_range_lower_bound,
+        is_lazer, total,
+        ${isoTimestamp(sql`end_time_raw`)} as end_time,
+        ${isoTimestamp(sql`verified_at`)} as verified_at
+      from feed
+      ${
+        cursor
+          ? sql`where (verified_at, id) < (${cursor.verifiedAt}::timestamptz, ${cursor.id})`
+          : sql``
+      }
+      order by feed.verified_at desc, id desc
+      limit ${limit + 1}`
+  );
+
+  const items = rows.slice(0, limit).map((row) => ({
+    id: row.id,
+    name: row.name,
+    abbreviation: row.abbreviation,
+    ruleset: row.ruleset as Ruleset,
+    lobbySize: row.lobby_size,
+    rankRangeLowerBound: row.rank_range_lower_bound,
+    isLazer: row.is_lazer,
+    endTime: row.end_time,
+    verifiedAt: row.verified_at,
+  }));
+  const last = items.at(-1);
+
+  return {
+    items,
+    totalCount: Number(rows[0]?.total ?? 0),
+    nextCursor:
+      rows.length > limit && last
+        ? { verifiedAt: last.verifiedAt, id: last.id }
+        : null,
+  };
+}
+
+export interface LazerYear {
+  year: number;
+  /** Verified tournaments that year. */
+  total: number;
+  /** Of those, the ones played on osu!lazer. */
+  lazer: number;
+}
+
+/** Verified tournaments per year, every ruleset, and how many were on lazer. */
+export async function getLazerByYear(db: QueryDb): Promise<LazerYear[]> {
+  const rows = await rowsOf<{ year: number; total: string; lazer: string }>(
+    db,
+    sql`
+      select
+        ${tournamentYear} as year,
+        count(*) as total,
+        count(*) filter (where ${schema.tournaments.isLazer}) as lazer
+      from ${schema.tournaments}
+      where ${schema.tournaments.verificationStatus} = ${VERIFIED}
+      group by 1
+      order by 1`
+  );
+
+  return rows.map((row) => ({
+    year: Number(row.year),
+    total: Number(row.total),
+    lazer: Number(row.lazer),
+  }));
+}
+
+export interface CountryCount {
+  ruleset: Ruleset;
+  /** The code osu! stores; `XX` for players without one. */
+  country: string;
+  players: number;
+}
+
+/**
+ * Rated players per ruleset and country, most first within each ruleset.
+ * With `topRank`, only players ranked that high or better.
+ */
+export async function getPlayersByCountry(
+  db: QueryDb,
+  { topRank }: { topRank?: number } = {}
+): Promise<CountryCount[]> {
+  const rows = await rowsOf<{
+    ruleset: number;
+    country: string;
+    players: string;
+  }>(
+    db,
+    sql`
+      select
+        ${schema.playerRatings.ruleset} as ruleset,
+        coalesce(nullif(${schema.players.country}, ''), 'XX') as country,
+        count(*) as players
+      from ${schema.playerRatings}
+      inner join ${schema.players}
+        on ${schema.players.id} = ${schema.playerRatings.playerId}
+      ${topRank === undefined ? sql`` : sql`where ${schema.playerRatings.globalRank} <= ${topRank}`}
+      group by 1, 2
+      order by 1, 3 desc, 2`
+  );
+
+  return rows.map((row) => ({
+    ruleset: row.ruleset as Ruleset,
+    country: row.country,
+    players: Number(row.players),
+  }));
+}
+
+export interface RankRestrictionCount {
+  ruleset: Ruleset;
+  year: number;
+  /** `tournaments.rank_range_lower_bound`; the page groups it into bands. */
+  rankRangeLowerBound: number;
+  tournaments: number;
+}
+
+/** Verified tournaments per ruleset, year and rank restriction. */
+export async function getRankRestrictionsByYear(
+  db: QueryDb
+): Promise<RankRestrictionCount[]> {
+  const rows = await rowsOf<{
+    ruleset: number;
+    year: number;
+    bound: number;
+    tournaments: string;
+  }>(
+    db,
+    sql`
+      select
+        ${schema.tournaments.ruleset} as ruleset,
+        ${tournamentYear} as year,
+        ${schema.tournaments.rankRangeLowerBound} as bound,
+        count(*) as tournaments
+      from ${schema.tournaments}
+      where ${schema.tournaments.verificationStatus} = ${VERIFIED}
+      group by 1, 2, 3
+      order by 1, 2, 3`
+  );
+
+  return rows.map((row) => ({
+    ruleset: row.ruleset as Ruleset,
+    year: Number(row.year),
+    rankRangeLowerBound: Number(row.bound),
+    tournaments: Number(row.tournaments),
+  }));
+}
+
+export interface MatchStartCount {
+  ruleset: Ruleset;
+  /** ISO weekday in UTC: 1 is Monday, 7 Sunday. */
+  weekday: number;
+  /** Hour in UTC, 0–23. */
+  hour: number;
+  matches: number;
+}
+
+/**
+ * Verified matches of verified tournaments per ruleset, by the UTC weekday
+ * and hour they started. Matches without a start time are left out.
+ */
+export async function getMatchStartTimes(
+  db: QueryDb
+): Promise<MatchStartCount[]> {
+  const startTime = sql`${schema.matches.startTime} at time zone 'UTC'`;
+  const rows = await rowsOf<{
+    ruleset: number;
+    weekday: number;
+    hour: number;
+    matches: string;
+  }>(
+    db,
+    sql`
+      select
+        ${schema.tournaments.ruleset} as ruleset,
+        extract(isodow from ${startTime})::int as weekday,
+        extract(hour from ${startTime})::int as hour,
+        count(*) as matches
+      from ${schema.matches}
+      inner join ${schema.tournaments}
+        on ${schema.tournaments.id} = ${schema.matches.tournamentId}
+      where ${schema.matches.verificationStatus} = ${VERIFIED}
+        and ${schema.tournaments.verificationStatus} = ${VERIFIED}
+        and ${schema.matches.startTime} is not null
+      group by 1, 2, 3
+      order by 1, 2, 3`
+  );
+
+  return rows.map((row) => ({
+    ruleset: row.ruleset as Ruleset,
+    weekday: Number(row.weekday),
+    hour: Number(row.hour),
+    matches: Number(row.matches),
+  }));
+}

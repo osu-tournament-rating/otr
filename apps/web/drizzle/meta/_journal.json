@@ -337,6 +337,13 @@
       "when": 1792629059556,
       "tag": "0047_audit_indexes_and_notes_outlive_records",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792634083655,
+      "tag": "0048_platform_stats",
+      "breakpoints": true
     }
   ]
 }

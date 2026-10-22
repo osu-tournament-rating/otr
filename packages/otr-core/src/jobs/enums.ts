@@ -20,4 +20,5 @@ export enum JobQueue {
   TournamentChecks = 'processing.checks.tournaments',
   TournamentStats = 'processing.stats.tournaments',
   BeatmapAttributes = 'processing.attributes.beatmaps',
+  PlatformStats = 'processing.stats.platform',
 }
