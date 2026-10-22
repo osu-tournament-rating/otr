@@ -12,7 +12,6 @@ import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
 import {
-  ALL_RULESET_LABELS,
   LabelSelectContent,
   VERIFY_CHILDREN_DESCRIPTION,
   VERIFY_CHILDREN_TITLE,
@@ -26,6 +25,7 @@ import {
 import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
 import { MultipleSelect } from '@/components/select/multiple-select';
+import { RulesetSelectContent } from '@/components/tournaments/TournamentFieldOptions';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
@@ -277,7 +277,7 @@ export default function GameEditDialog({
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <LabelSelectContent labels={ALL_RULESET_LABELS} />
+                      <RulesetSelectContent includeManiaOther />
                     </Select>
                   </FormItem>
                 )}

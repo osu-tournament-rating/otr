@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import type { z } from 'zod';
 
 import {
-  ALL_RULESET_LABELS,
   LabelSelectContent,
   VerificationStatusSelectContent,
   changedFieldClass,
@@ -24,6 +23,7 @@ import { Button } from '@/components/kit/controls/Button';
 import { DialogTemplate } from '@/components/kit/controls/DialogTemplate';
 import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 import { MultipleSelect } from '@/components/select/multiple-select';
+import { RulesetSelectContent } from '@/components/tournaments/TournamentFieldOptions';
 import {
   Form,
   FormControl,
@@ -298,7 +298,7 @@ export default function ScoreEditDialog({
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <LabelSelectContent labels={ALL_RULESET_LABELS} />
+                      <RulesetSelectContent includeManiaOther />
                     </Select>
                   </FormItem>
                 )}

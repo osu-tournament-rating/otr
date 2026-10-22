@@ -8,7 +8,6 @@ import { VerificationStatusGlyph } from '@/components/kit/status/VerificationSta
 import type { Option } from '@/components/select/multiple-select';
 import { SelectContent, SelectItem } from '@/components/ui/select';
 import type { EnumLabels } from '@/lib/kit/format/enum-labels';
-import { RULESET_NAMES } from '@/lib/kit/format/ruleset';
 import {
   VERIFICATION_STATUS_ORDER,
   getVerificationStatusName,
@@ -47,11 +46,6 @@ export function editedValues<T extends Record<string, unknown>>(
     )
   ) as Partial<T>;
 }
-
-/** Every ruleset by its short name, `ManiaOther` included: admin pickers offer it. */
-export const ALL_RULESET_LABELS: EnumLabels = Object.fromEntries(
-  Object.entries(RULESET_NAMES).map(([value, { label }]) => [value, label])
-);
 
 /** Select options for a stored enum, in enum order, named by the kit labels. */
 export function LabelSelectContent({ labels }: { labels: EnumLabels }) {

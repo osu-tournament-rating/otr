@@ -1,9 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { VerificationStatus } from '@otr/core/osu';
+import { TournamentRejectionReason, VerificationStatus } from '@otr/core/osu';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type Resolver, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -18,11 +18,13 @@ import {
   VerificationStatusSelectContent,
   VerifyChildrenChoices,
   changedFieldClass,
+  combineFlags,
   editedValues,
+  flagOptions,
 } from '@/components/admin-forms/adminFormFields';
+import { MultipleSelect } from '@/components/select/multiple-select';
 import {
   LobbySizeSelectContent,
-  RejectionReasonChips,
   RulesetSelectContent,
 } from '@/components/tournaments/TournamentFieldOptions';
 import {
@@ -34,6 +36,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getEnumFlags } from '@/lib/enum-helpers';
+import { TOURNAMENT_REJECTION_REASON_LABELS } from '@/lib/kit/format/enum-labels';
 import { orpc } from '@/lib/orpc/orpc';
 import type {
   VerificationChildrenChoice,
@@ -75,6 +79,8 @@ const toFormValues = (
   endTime: tournament.endTime ? new Date(tournament.endTime) : undefined,
 });
 
+const rejectionReasonOptions = flagOptions(TOURNAMENT_REJECTION_REASON_LABELS);
+
 /**
  * The admin's edit dialog for a tournament, opened from the hero's Admin
  * menu. Verifying the tournament asks, in the same dialog, what to do with
@@ -90,7 +96,6 @@ export default function TournamentEditDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
-  const reasonLabelId = useId();
   const defaults = useMemo(() => toFormValues(tournament), [tournament]);
   const [pendingValues, setPendingValues] =
     useState<TournamentEditValues | null>(null);
@@ -388,17 +393,19 @@ export default function TournamentEditDialog({
                 name="rejectionReason"
                 render={({ field: { value, onChange }, fieldState }) => (
                   <FormItem>
-                    <FormFieldLabel
-                      groupId={reasonLabelId}
-                      invalid={fieldState.error !== undefined}
-                    >
-                      Rejection reason
-                    </FormFieldLabel>
+                    <FormFieldLabel>Rejection reason</FormFieldLabel>
                     <FormControl>
-                      <RejectionReasonChips
-                        aria-labelledby={reasonLabelId}
-                        value={value}
-                        onValueChange={onChange}
+                      <MultipleSelect
+                        className={changedFieldClass(fieldState)}
+                        placeholder="No rejection reason"
+                        selected={getEnumFlags(
+                          value,
+                          TournamentRejectionReason
+                        ).map(String)}
+                        options={rejectionReasonOptions}
+                        onChange={(values: string[]) =>
+                          onChange(combineFlags(values))
+                        }
                       />
                     </FormControl>
                   </FormItem>
