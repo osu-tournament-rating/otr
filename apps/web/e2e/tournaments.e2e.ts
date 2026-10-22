@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 import { STORAGE_STATE } from './fixtures/auth';
+import { waitForHydration } from './fixtures/hydration';
 import {
   ROUTES,
   TEST_PUBLIC_TOURNAMENT_ID,
@@ -544,7 +545,9 @@ test.describe('Tournaments', () => {
       await page.waitForLoadState('networkidle');
 
       const content = page.locator('[data-testid="tab-content-matches"]');
-      await content.getByRole('combobox', { name: 'Sort matches by' }).click();
+      const sort = content.getByRole('combobox', { name: 'Sort matches by' });
+      await waitForHydration(sort);
+      await sort.click();
       await page.getByRole('option', { name: 'Match name' }).click();
 
       await expect
@@ -601,6 +604,7 @@ test.describe('Tournaments', () => {
       const header = table.getByRole('columnheader', { name: /^SR/ });
       await expect(header).toHaveAttribute('aria-sort', 'none');
 
+      await waitForHydration(header.getByRole('button'));
       await header.getByRole('button').click();
       await expect(header).toHaveAttribute('aria-sort', 'descending');
       expect(await pool()).not.toEqual(before);
@@ -673,6 +677,7 @@ test.describe('Tournaments', () => {
       const sort = content.getByRole('combobox', {
         name: 'Sort rating changes by',
       });
+      await waitForHydration(sort);
       await sort.click();
       await page.getByRole('option', { name: 'Player' }).click();
       // The rows re-sort once the closed dropdown hands the page back.

@@ -64,6 +64,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     refs: ['layout.md#InfoButton'],
   },
   {
+    name: 'TermTooltip',
+    group: 'Layout',
+    src: 'components/kit/layout/TermTooltip.tsx',
+    refs: ['layout.md#TermTooltip'],
+  },
+  {
     name: 'Tile',
     group: 'Layout',
     src: 'components/kit/layout/Tile.tsx',
@@ -122,6 +128,12 @@ export const COMPONENTS: DesignSystemComponent[] = [
     group: 'Status',
     src: 'components/kit/status/ReportStatusBadge.tsx',
     refs: ['status.md#ReportStatusBadge'],
+  },
+  {
+    name: 'JobStateBadge',
+    group: 'Status',
+    src: 'components/kit/status/JobStateBadge.tsx',
+    refs: ['status.md#JobStateBadge'],
   },
   {
     name: 'NotificationDot',

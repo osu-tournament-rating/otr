@@ -8,10 +8,12 @@ import {
 } from '@otr/core/osu';
 
 import {
+  API_ENDPOINT_LABELS,
   FILTERING_FAIL_REASON_DESCRIPTIONS,
   FILTERING_FAIL_REASON_LABELS,
   formatEnumValue,
   formatFlags,
+  formatTextValue,
   getFlagLabels,
   getSetFlags,
   GAME_REJECTION_REASON_LABELS,
@@ -157,5 +159,16 @@ describe('label wording', () => {
         }
       }
     }
+  });
+});
+
+describe('formatTextValue', () => {
+  it('names a stored value', () => {
+    expect(formatTextValue('getMatch', API_ENDPOINT_LABELS)).toBe('Match');
+  });
+
+  it('shows a value with no name as it is stored', () => {
+    expect(formatTextValue('getScores', API_ENDPOINT_LABELS)).toBe('getScores');
+    expect(formatTextValue('toString', API_ENDPOINT_LABELS)).toBe('toString');
   });
 });

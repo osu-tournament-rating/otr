@@ -1,7 +1,7 @@
 import { ORPCError, os } from '@orpc/server';
 import { APIError } from 'better-auth/api';
 import * as schema from '@otr/core/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
   createLogger,
   generateCorrelationId,
@@ -14,7 +14,14 @@ import {
   API_KEY_MESSAGES,
   parseBearerAuthorization,
 } from '@/lib/api/api-key-header';
+import {
+  consumeApiKeyRequest,
+  fullApiKeyWindow,
+  limitForOwnerRole,
+} from '@/lib/api/api-key-rate-limit';
+import { PUBLIC_API_PREFIX } from '@/lib/api/prefix';
 import { auth } from '@/lib/auth/auth';
+import { hasAdminScope } from '@/lib/auth/roles';
 import { db } from '@/lib/db';
 import {
   anonymousSources,
@@ -33,6 +40,7 @@ import {
   formatUserDescriptor,
   formatProcedurePath,
 } from './logging/helpers';
+import { ensureAdminSession } from './shared/adminGuard';
 import { assertCurrentBuild } from './shared/currentBuild';
 import { assertOutsideMaintenanceWindow } from './shared/maintenanceWindow';
 
@@ -403,6 +411,82 @@ const resolveSource = (context: {
   return ip ? sourceId(ip) : null;
 };
 
+type ApiKeyOwner = { actor: ApiKeyActor; isAdmin: boolean };
+
+/**
+ * The key owner's player and whether they are an admin, read for each request
+ * the key's window counts, so the admin key limit follows the owner's role.
+ * Null when the lookup fails, which holds the key to the limit stored on it.
+ */
+const findApiKeyOwner = async (
+  userId: string,
+  keyId: string
+): Promise<ApiKeyOwner | null> => {
+  try {
+    const authUser = await db.query.auth_users.findFirst({
+      columns: {
+        id: true,
+        name: true,
+        playerId: true,
+      },
+      where: eq(schema.auth_users.id, userId),
+      with: {
+        player: {
+          columns: {
+            id: true,
+            osuId: true,
+            username: true,
+          },
+          with: {
+            users: {
+              columns: { scopes: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!authUser) {
+      return null;
+    }
+
+    return {
+      actor: {
+        userId,
+        playerId: authUser.player?.id ?? authUser.playerId ?? null,
+        osuId: authUser.player?.osuId ?? null,
+        osuUsername:
+          authUser.player?.username ?? (authUser.name ? authUser.name : null),
+      },
+      isAdmin:
+        authUser.player?.users.some((user) => hasAdminScope(user.scopes)) ??
+        false,
+    };
+  } catch (apiKeyOwnerError) {
+    rootLogger.error('api key owner lookup failed', {
+      apiKey: maskApiKey(keyId),
+      error: apiKeyOwnerError,
+    });
+    return null;
+  }
+};
+
+/** The 429 for a key over its rate limit, which sets the retry-after header. */
+const apiKeyRateLimited = (
+  context: { resHeaders?: Headers },
+  retryAfterMs: number
+) => {
+  context.resHeaders?.set(
+    'retry-after',
+    String(Math.ceil(retryAfterMs / 1000))
+  );
+  return new ORPCError('TOO_MANY_REQUESTS', {
+    status: 429,
+    message: 'API key rate limit exceeded',
+    data: { code: 'RATE_LIMITED', tryAgainIn: retryAfterMs },
+  });
+};
+
 export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   const candidate = extractApiKey(context.headers);
 
@@ -428,6 +512,8 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
   let activeKey: NonNullable<
     Awaited<ReturnType<typeof auth.api.verifyApiKey>>['key']
   >;
+  let requestsInWindow: number | null;
+  let owner: ApiKeyOwner | null;
 
   try {
     const verification = await auth.api.verifyApiKey({
@@ -454,6 +540,25 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
         data: { code: 'KEY_DISABLED' },
       });
     }
+
+    // A full window refuses the rest of its requests before the owner lookup,
+    // so requests over the limit cost no more than verifying the key
+    const fullFor = fullApiKeyWindow(activeKey);
+
+    if (fullFor !== null) {
+      throw apiKeyRateLimited(context, fullFor);
+    }
+
+    owner = await findApiKeyOwner(activeKey.referenceId, activeKey.id);
+    const limit = consumeApiKeyRequest(
+      limitForOwnerRole(activeKey, owner?.isAdmin ?? false)
+    );
+
+    if (!limit.allowed) {
+      throw apiKeyRateLimited(context, limit.retryAfterMs);
+    }
+
+    requestsInWindow = limit.requests;
   } catch (error) {
     const refusal = toApiKeyRefusal(error);
     const reason =
@@ -475,47 +580,27 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
 
   // Better Auth's API key plugin (v1.6+) renamed `userId` to `referenceId`.
   const { id, referenceId, name, enabled } = activeKey;
-  const userId = referenceId;
-  let apiKeyActor: ApiKeyActor | null = null;
 
-  try {
-    const authUser = await db.query.auth_users.findFirst({
-      columns: {
-        id: true,
-        name: true,
-        playerId: true,
-      },
-      where: eq(schema.auth_users.id, userId),
-      with: {
-        player: {
-          columns: {
-            id: true,
-            osuId: true,
-            username: true,
-          },
-        },
-      },
-    });
-
-    if (authUser) {
-      const playerId = authUser.player?.id ?? authUser.playerId ?? null;
-
-      apiKeyActor = {
-        userId,
-        playerId,
-        osuId: authUser.player?.osuId ?? null,
-        osuUsername:
-          authUser.player?.username ?? (authUser.name ? authUser.name : null),
-      };
-    }
-  } catch (apiKeyActorError) {
-    const timestamp = new Date().toISOString();
-    const description = describeError(apiKeyActorError as ProcedureError);
-    console.error(
-      `${timestamp} [oRPC]: api-key-owner-lookup-failed apiKey=${maskApiKey(
-        id
-      )} error=${description}`
-    );
+  // The auth plugin no longer counts requests, so the count the admin key
+  // list shows is saved here. A request that opened the window starts it
+  // over; otherwise the highest count wins, since concurrent requests can
+  // save theirs out of order.
+  if (requestsInWindow !== null) {
+    await db
+      .update(schema.apiKeys)
+      .set({
+        requestCount:
+          requestsInWindow === 1
+            ? 1
+            : sql`greatest(${schema.apiKeys.requestCount}, ${requestsInWindow})`,
+      })
+      .where(eq(schema.apiKeys.id, id))
+      .catch((countError: unknown) => {
+        rootLogger.warn('api key request count not saved', {
+          apiKeyId: maskApiKey(id),
+          error: describeError(countError as ProcedureError),
+        });
+      });
   }
 
   return next({
@@ -523,11 +608,11 @@ export const withOptionalApiKey = base.middleware(async ({ context, next }) => {
       ...context,
       apiKey: {
         id,
-        userId,
+        userId: referenceId,
         name: name ?? null,
         enabled,
       },
-      apiKeyActor,
+      apiKeyActor: owner?.actor ?? null,
     } as typeof context & VerifiedApiKeyContext,
   });
 });
@@ -592,19 +677,32 @@ const withOptionalSession = base.middleware(async ({ context, next }) => {
 
 const rootLogger = createLogger('otr-web');
 
-const extractRequestPath = (requestUrl?: string): string | null => {
+/**
+ * The path a request called, without its query string. A GET call to /rpc
+ * carries its whole input in the query string.
+ */
+const requestPathname = (requestUrl?: string): string | null => {
   if (!requestUrl) {
     return null;
   }
 
   try {
-    const url = new URL(requestUrl);
-    const search = url.search;
-    return search ? `${url.pathname}${search}` : url.pathname;
+    return new URL(requestUrl).pathname;
   } catch {
     return null;
   }
 };
+
+/**
+ * A public API procedure's route, such as `/api/players/{id}`. Its span
+ * records this rather than the path, which can hold user input such as a
+ * player's name. A path on /rpc names only the procedure.
+ */
+const publicApiRoute = (
+  procedure: { '~orpc': { route: { path?: string } } },
+  path: readonly string[]
+): string =>
+  `${PUBLIC_API_PREFIX}${procedure['~orpc'].route.path ?? `/${path.join('/')}`}`;
 
 // Runs ahead of the rest of the chain so session lookups and database work all
 // land inside the procedure span.
@@ -621,18 +719,21 @@ const withTracing = base.middleware(async ({ path, next }) => {
   );
 });
 
-const withLoggingContext = base.middleware(async ({ context, path, next }) => {
+const withLoggingContext = base.middleware(async (options) => {
+  const { context, path, procedure, next } = options;
   const correlationId =
     extractCorrelationId(context.headers) ?? generateCorrelationId();
   const procedurePath = formatProcedurePath(path);
   const actor = resolveActor(context);
-  const requestPath = extractRequestPath(context.requestUrl);
+  const requestPath = requestPathname(context.requestUrl);
 
   setActiveSpanAttributes({
     'otr.correlation_id': correlationId,
     'otr.access_method': actor.accessMethod,
     'otr.player_id': actor.playerId ?? undefined,
-    'otr.request_path': requestPath ?? undefined,
+    'otr.request_path': context.apiKeyRequired
+      ? publicApiRoute(procedure, path)
+      : (requestPath ?? undefined),
     'otr.rpc_caller': context.rpc?.kind,
   });
 
@@ -812,7 +913,7 @@ function verificationInheritanceMessage(error: unknown): string | null {
   return null;
 }
 
-const withErrorBoundary = base.middleware(async ({ path, next }) => {
+const withErrorBoundary = base.middleware(async ({ context, next }) => {
   try {
     return await next();
   } catch (error) {
@@ -826,8 +927,10 @@ const withErrorBoundary = base.middleware(async ({ path, next }) => {
       throw new ORPCError('BAD_REQUEST', { message: inheritanceMessage });
     }
 
-    const procedurePath = formatProcedurePath(path);
-    console.error(`[orpc] ${procedurePath} failed with unhandled error`, error);
+    const { logging } = context as typeof context & {
+      logging: RequestLoggingContext;
+    };
+    logging.logger.error('procedure failed with unhandled error', { error });
 
     throw new ORPCError('INTERNAL_SERVER_ERROR', {
       message: 'An unexpected error occurred',
@@ -853,18 +956,6 @@ export const protectedProcedure = base
   .use(withMetrics)
   .use(withRequestLogging)
   .use(withErrorBoundary);
-
-const requestPathname = (requestUrl?: string): string | null => {
-  if (!requestUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(requestUrl).pathname;
-  } catch {
-    return null;
-  }
-};
 
 /**
  * Limits searches with a term, the costliest reads, wherever they come from:
@@ -923,11 +1014,24 @@ export const withCurrentBuildGuard = base.middleware(
   }
 );
 
+// Checked here as well as in each handler, so a handler that forgets
+// still refuses non-admins
+export const withAdminGuard = base.middleware(async ({ context, next }) => {
+  const { session } = context as typeof context & {
+    session?: Parameters<typeof ensureAdminSession>[0];
+  };
+  ensureAdminSession(session);
+  return next();
+});
+
 /** A signed-in user's write, refused from a page of another release. */
 export const protectedMutationProcedure = protectedProcedure.use(
   withCurrentBuildGuard
 );
 
-export const adminMutationProcedure = protectedMutationProcedure.use(
-  withMaintenanceWindowGuard
-);
+/** An admin's read, or a write the maintenance window allows. */
+export const adminProcedure = protectedProcedure.use(withAdminGuard);
+
+export const adminMutationProcedure = protectedMutationProcedure
+  .use(withAdminGuard)
+  .use(withMaintenanceWindowGuard);

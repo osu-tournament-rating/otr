@@ -130,7 +130,7 @@ configured application database.
 
 ## Agent stacks
 
-`./otr up|down|status` (`apps/scripts/otr` from the repository root) gives
+`./otr up|down|status|test` (`apps/scripts/otr` from the repository root) gives
 each linked worktree its own stack. The code is `src/otr.py` and
 `src/lib/stack/`. It uses only the standard library, so the wrapper runs it
 without syncing the venv. It refuses to run in the main checkout.
@@ -147,8 +147,17 @@ without syncing the venv. It refuses to run in the main checkout.
   keeps its jobs.
 - Each `up` runs `bun install --frozen-lockfile` and the worktree's pending
   migrations. The web app and worker run on the host from the worktree's code,
-  in their own process groups. Monitoring (`grafana/otel-lgtm`) runs in the
+  in their own process groups, and the web app starts without the dev cache
+  an earlier start left. The web app alone also gets `E2E_OSU_URL`, which
+  sends osu! sign-in to the e2e suite's fake osu! server; it stays out of the
+  `.env`, which Bun loads into `bun test`, whose sign-in tests fake osu!
+  their own way. Monitoring (`grafana/otel-lgtm`) runs in the
   stack's Compose project, from `src/lib/stack/compose.yml`.
+- Each `up` also creates the empty `otr_test` database beside the copy when
+  it is missing, and migrates it from a temporary copy of the migrations with
+  the commented-out first one restored, as CI's `checks` job does. `up --fresh`
+  drops and recreates it. `otr test [args]` runs `bun test [args]` from the
+  worktree root with `SEARCH_TEST_DATABASE_URL` and `DATABASE_URL` on it.
 - State lives in `~/.local/share/otr/stacks` (or `$OTR_STACKS_DIR`): `base/`,
   one directory per stack with its data, registry entry, and process records,
   and `locks/`. Logs go to the worktree's `.tmp/otr/`.
@@ -165,4 +174,8 @@ without syncing the venv. It refuses to run in the main checkout.
   beatmap files in a local directory. The tracing endpoint is set only while
   monitoring runs. A running process whose settings changed is restarted.
   After `down`, the block still points at the disposed stack, so nothing falls
-  back to the main checkout's services.
+  back to the main checkout's services. Before the first `up`, otr's root
+  `lib/env/load-root-env.ts` and the processor refuse the copied
+  `DATABASE_URL` of a linked worktree whose `.env` has no block. Both find the
+  block by the start of `envfile.BEGIN`, and their tests read it from
+  `envfile.py`.

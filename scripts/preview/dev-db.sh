@@ -60,6 +60,11 @@ LIVE_DB="${DEV_LIVE_DB:-otr_dev}"
 OTR_SCRIPTS_DIR="${OTR_SCRIPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/apps/scripts}"
 MAX_STALE_DAYS="${DEV_DB_MAX_STALE_DAYS:-14}"
 EXPECTED_JOURNAL="${EXPECTED_JOURNAL:-}"
+# The journal a restore migrates the seed to: MIGRATIONS_ARCHIVE's, which is
+# the default branch's. A clone for a pull request with its own migrations
+# expects that pull request's journal, which the seed never has, so the
+# workflow passes the default branch's here. Unset, it is EXPECTED_JOURNAL.
+SEED_JOURNAL="${SEED_JOURNAL:-$EXPECTED_JOURNAL}"
 # A gzip tar holding apps/web/drizzle/meta/_journal.json and
 # apps/web/drizzle/*.sql, relative to the migration image's WORKDIR.
 MIGRATIONS_ARCHIVE="${MIGRATIONS_ARCHIVE:-}"
@@ -323,7 +328,7 @@ restore() {
   # anything clones from it.
   echo "migrating $SEED_DB"
   migrate "$SEED_DB"
-  verify "$SEED_DB"
+  verify "$SEED_DB" "$SEED_JOURNAL"
   local problem
   if ! problem="$(health_problem "$SEED_DB")"; then
     fail "restore left $SEED_DB unusable: $problem"
@@ -409,19 +414,19 @@ clone() { # clone <database>
   info "$1"
 }
 
-verify() { # verify <database>
+verify() { # verify <database> [<journal>], EXPECTED_JOURNAL by default
   require_journal
-  local applied status message
+  local journal="${2:-$EXPECTED_JOURNAL}" applied status message
   applied="$(applied_journal "$1")"
-  status="$(classify_journal "$applied" "$EXPECTED_JOURNAL")"
+  status="$(classify_journal "$applied" "$journal")"
   if [[ "$status" != match ]]; then
-    message="$1 is $status: applied $(count_lines "$applied"), expected $(count_lines "$EXPECTED_JOURNAL")"
+    message="$1 is $status: applied $(count_lines "$applied"), expected $(count_lines "$journal")"
     if [[ -n "$MIGRATION_SOURCE" ]]; then
       message+="; the migrator ran $MIGRATION_SOURCE"
     fi
     fail "$message"
   fi
-  echo "verified $1 against $(count_lines "$EXPECTED_JOURNAL") expected migrations"
+  echo "verified $1 against $(count_lines "$journal") expected migrations"
 }
 
 info() { # info <database>

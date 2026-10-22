@@ -11,6 +11,7 @@ The glyph carries the meaning and colour only reinforces it, so every status sti
 - [NotInRatings](#notinratings): the muted "Not in ratings yet" label and notice
 - [Badge](#badge): the one small label, for mods, rulesets, roles, tags and counts
 - [ReportStatusBadge](#reportstatusbadge): a data report's state
+- [JobStateBadge](#jobstatebadge): a background job's state
 - [NotificationDot](#notificationdot): the one "something new" dot
 - [CircleDashedX](#circledashedx): the Pre-rejected glyph lucide lacks
 
@@ -257,6 +258,7 @@ When to pick each:
 - Tiers: `swatch={getTierColor(tierName)}` from `@/lib/kit/color/tiers`.
 - Rulesets: neutral soft with `RulesetIcon` (`className="fill-current"`) and the label from `getRulesetLabel` (`@/lib/kit/format/ruleset`): osu!, taiko, catch, mania 4K, mania 7K.
 - Roles: neutral soft with an icon: `ShieldCheck` for Admin, the one role the profile shows (`components/profile/ProfileRoleBadge.tsx`). Never red.
+- Player activity: "Inactive" is neutral soft `sm`, after the name on a profile (`PlayerHero`'s `titleSuffix`), in a `TapTooltip` that says what it means. A leaderboard row marks an inactive player with a muted `Moon` icon in a `TapTooltip` instead, where a badge would crowd the name.
 - Tags: `lazer` is neutral outline. "Includes unverified" is a notice, not a tag: use `CalloutChip icon={ShieldQuestion}` from `@/components/kit/feedback/CalloutChip` (see [feedback.md](feedback.md#calloutchip)).
 - Counts: solid primary `sm` inside a Filters button (`FilterButton` from `@/components/kit/lists/FilterButton` already renders it) or next to a menu item; neutral soft for a plain total ("1,204 matches"). Format with `formatBadgeCount` or the format family's `formatCount`, never a bare number above 999. A badge whose content is a count (a number, or text with digits and no letters, such as `99+`; `isCountContent` in `@/lib/kit/status/count`) takes tabular figures by itself, also when a screen-reader label follows the count (`{formatBadgeCount(n)}<span className="sr-only"> unseen</span>`, as in the header's Admin menu); words keep proportional ones, so `Pre-verified` keeps its narrow hyphen.
 - Failure reasons and other problems: destructive soft, `sm`.
@@ -292,6 +294,38 @@ Don't:
 - Don't build a report state from `Badge` or a solid fill; My reports and the admin queue both render this component.
 
 Gallery anchor: `/admin/design#status-report-badge`
+
+## JobStateBadge
+
+A background job's state on the admin jobs page, and the state of a tournament's fetches and jobs in its progress panel. Waiting and finished work is neutral, a success green, work that is retrying or stalled amber, and a job that gave up red; each state has its own glyph, so it reads without its colour.
+
+```tsx
+import { JobStateBadge } from '@/components/kit/status/JobStateBadge';
+
+<JobStateBadge state="retrying" />;
+```
+
+| State       | Glyph          | Tone        | Means                                          |
+| ----------- | -------------- | ----------- | ---------------------------------------------- |
+| `queued`    | clock          | neutral     | waiting and due                                |
+| `delayed`   | calendar clock | neutral     | waiting until later, such as a retry's backoff |
+| `retrying`  | turning arrow  | warning     | waiting to retry after an error                |
+| `running`   | spinner circle | neutral     | claimed by the worker                          |
+| `succeeded` | circled check  | success     | finished                                       |
+| `failed`    | circled cross  | destructive | gave up                                        |
+| `cancelled` | slashed circle | neutral     | cancelled by an admin, or dropped by its job   |
+| `stalled`   | triangle       | warning     | waiting to be fetched with no job queued       |
+
+- `state`: one of `JOB_BADGE_STATES` (`@/lib/kit/status/job`), whose `getJobStateCopy(state)` gives the name and tone.
+- `size`: as for Badge, `sm` by default, the size a table row takes.
+- The admin jobs list shows queued, delayed, running, succeeded, failed and cancelled, by the queue counts' rule: a waiting job is queued once it is due and delayed until then, so one waiting out a retry's backoff is delayed. The progress panel's "Needs attention" list shows `retrying`, `failed` and `stalled`.
+
+Don't:
+
+- Don't spin the running glyph; it is a state, not a loading indicator.
+- Don't build a job state from `Badge` by hand.
+
+Gallery anchor: `/admin/design#status-job-state-badge`
 
 ## NotificationDot
 

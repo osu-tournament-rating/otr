@@ -5,8 +5,23 @@ import { z } from 'zod';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
 
+import { escapeLikePattern } from './likePattern';
+
 export const KeyTypeSchema = z.enum(['otr', 'osu', 'username']).default('otr');
 export type KeyType = z.infer<typeof KeyTypeSchema>;
+
+const MAX_PLAYER_ID = 2_147_483_647;
+
+const INVALID_PLAYER_ID_MESSAGE =
+  'Player ID is not a number. To look up a player by username, pass keyType=username.';
+
+/**
+ * The client error `resolvePlayerId` throws. A procedure that calls it
+ * declares these with `.errors()`, so the API reference documents the 400.
+ */
+export const playerIdErrors = {
+  INVALID_PLAYER_ID: { status: 400, message: INVALID_PLAYER_ID_MESSAGE },
+} as const;
 
 export async function resolvePlayerId(
   db: DatabaseClient,
@@ -14,7 +29,8 @@ export async function resolvePlayerId(
   keyType: KeyType
 ): Promise<number> {
   if (keyType === 'username') {
-    const username = String(id);
+    // Escaped, so the name matches only itself, in any case
+    const username = escapeLikePattern(String(id));
     const player = await db.query.players.findFirst({
       where: (players, { ilike }) => ilike(players.username, username),
       columns: { id: true },
@@ -25,8 +41,24 @@ export async function resolvePlayerId(
     return player.id;
   }
 
+  // The public API passes every ID as text. Without this, a username reaches
+  // Postgres as NaN and fails as a server error.
   const numericId = Number(id);
+  if (!Number.isSafeInteger(numericId)) {
+    throw new ORPCError('INVALID_PLAYER_ID', {
+      status: 400,
+      message: INVALID_PLAYER_ID_MESSAGE,
+    });
+  }
+
   if (keyType === 'otr') {
+    // o!TR IDs run from 1 to 2147483647, the top of Postgres's integer type.
+    // Postgres refuses a value outside that range with a server error, and an
+    // all-digit username passed without keyType=username can be one.
+    if (numericId < 1 || numericId > MAX_PLAYER_ID) {
+      throw new ORPCError('NOT_FOUND', { message: 'Player not found' });
+    }
+
     const player = await db.query.players.findFirst({
       where: (players, { eq }) => eq(players.id, numericId),
       columns: { id: true },

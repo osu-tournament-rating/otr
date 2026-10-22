@@ -11,6 +11,7 @@ import {
 } from '@/lib/orpc/schema/stats';
 import { CHART_CONSTANTS } from '@/lib/utils/chart';
 import { VerificationStatus } from '@otr/core/osu';
+import { logger } from '@/lib/logger';
 
 const { BUCKET_SIZE: RATING_BUCKET_SIZE } = CHART_CONSTANTS;
 
@@ -211,7 +212,7 @@ export const getPlatformStats = publicProcedure
         },
       };
     } catch (error) {
-      console.error('Failed to compute platform stats', error);
+      logger.error('Failed to compute platform stats', { error });
       throw error;
     }
   });

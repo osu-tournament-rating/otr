@@ -19,10 +19,14 @@ in this directory would shadow the root one.
 Running the binary rewrites every rating in its target database, so run it only
 against your worktree's own stack. `apps/scripts/otr up --no-web` points the
 worktree's `DATABASE_URL` at that stack, and a run from this directory then
-uses it. The stats jobs a run queues wait in that database's `jobs` table until
-a data worker claims them. Never run the binary from the main checkout, whose
-`.env` targets the developer's database, or against production, the dev tier,
-or a template database. Testcontainers tests start their own databases.
+uses it. Until then, a run in a linked worktree exits before connecting, unless
+`DATABASE_URL` or `CONNECTION_STRING` is set in the shell:
+`args::worktree_without_stack` refuses a `.env` without the stack's block and
+one found outside the worktree. The stats jobs a run queues wait in that
+database's `jobs` table until a data worker claims them. Never run the binary
+from the main checkout, whose `.env` targets the developer's database, or
+against production, the dev tier, or a template database. Testcontainers tests
+start their own databases.
 
 ## Commands
 

@@ -10,7 +10,7 @@ Every formatter uses fixed en-US and UTC and is built so the server and the brow
 - [TimeRangeText](#timerangetext): two moments in a day, `15:42 – 15:45 UTC`
 - [RelativeTime](#relativetime): `3h ago`, for activity feeds only
 - [Figures in dates](#figures-in-dates): proportional, never tabular
-- [Date helpers](#date-helpers): `formatDate`, `formatDateRange`, `formatTimestamp`, `formatTimeRange`, `formatRelativeTime`, `toDate`, and lengths with `formatDuration` and `parseDuration`
+- [Date helpers](#date-helpers): `formatDate`, `formatDateRange`, `formatTimestamp`, `formatTimeRange`, `formatRelativeTime`, `toDate`, lengths with `formatDuration` and `parseDuration`, and run times with `formatRunTime`
 - [Number helpers](#number-helpers): counts, ranks, ratings, percentiles, percents, years and IDs
 - [RatingDelta](#ratingdelta): a rating change, `↑ +12.3`
 - [Tier names](#tier-names): `Gold II`, `formatTierName`
@@ -31,6 +31,7 @@ Every formatter uses fixed en-US and UTC and is built so the server and the brow
 | Two moments in a day  | `15:42 – 15:45 UTC`                                       | `TimeRangeText`, `formatTimeRange`          |
 | Time since, in a feed | `3h ago`, full timestamp on hover, focus and tap          | `RelativeTime`                              |
 | Length                | `2:04`, `1:02:04`                                         | `formatDuration`                            |
+| Run time              | `850 ms`, `12.5 s`, `2:04`                                | `formatRunTime`                             |
 | Count                 | `12,345`                                                  | `formatCount`, `formatCountOf`              |
 | Rank                  | `#1,234`, everywhere                                      | `formatRank`                                |
 | Rating                | `1,835`; `1,834.57` in tooltips and exports               | `formatRating`, `formatRatingPrecise`       |
@@ -206,6 +207,7 @@ import {
   formatTimeRange,
   formatTimestamp,
   formatDuration,
+  formatRunTime,
   parseDuration,
   toDate,
   toDateTimeAttribute,
@@ -219,6 +221,7 @@ formatRelativeTime(created, Date.now());
 toDate('2024-07-20 15:42:00+00'); // Date, or null when unreadable
 formatDuration(124); // "2:04"; formatDuration(3724) is "1:02:04"
 parseDuration('1:02:04'); // 3724, or null when it isn't a length
+formatRunTime(850); // "850 ms"; formatRunTime(12_450) is "12.5 s", formatRunTime(124_000) "2:04"
 ```
 
 - All of them take `Date | string | number | null | undefined` and print `empty` (an em dash by default) for missing or unreadable input.
@@ -226,6 +229,7 @@ parseDuration('1:02:04'); // 3724, or null when it isn't a length
 - Month names are written by hand, not by `Intl`, so output is identical on every engine.
 - `formatRelativeTime` depends on the clock, so the server and the browser disagree. Never print it straight into server-rendered markup; use `RelativeTime`, which handles hydration.
 - `formatDuration(seconds)` writes a length, such as a beatmap's: `m:ss` under an hour, `h:mm:ss` from an hour, fractions of a second dropped, and `empty` for missing or negative input. It is a number that sits in columns, so give it `tabular-nums` outside the kit's numeric cells. `parseDuration` reads the same text (or bare seconds) back, for a length typed into a form (the beatmap edit dialog's length), and returns null for anything else. Every beatmap length, audit values included, goes through these two. A span of days is a count (`formatCountOf(days, 'day')`, `59 days`), not a length.
+- `formatRunTime(milliseconds)` writes how long a piece of work took, such as a background job or an osu! request on the admin daily totals: whole milliseconds under a second, seconds to one decimal under a minute, then a length as `formatDuration` writes it, rounded to the second. Like a length it sits in columns, so it takes `tabular-nums` outside the kit's numeric cells.
 - `toDateTimeAttribute(date, { dateOnly })` gives a `<time dateTime>` value in UTC; the components set it for you.
 - `RANGE_SEPARATOR` is the spaced en dash every range uses, and `RELATIVE_TIME_MAX_DAYS` (30) is where relative time turns into the plain date.
 
@@ -601,7 +605,8 @@ getSetFlags(player.failureReason, FILTERING_FAIL_REASON_LABELS).map((flag) => (
 - Verification status names come from the status family (`getVerificationStatusName` in `@/lib/kit/status/verification`).
 - `getSetFlags(value, labels)`: the named flags set, lowest first; unnamed bits, zero and values that are not flags give none. `getFlagLabels` is built on it and adds `Unknown (64)` for unnamed bits.
 - Every name is sentence case (`No end time`, `Head to head`, `Tag co-op`, `Low rating`), except osu! terms, which keep the site's spelling (`Team Vs`). Enum numbers never change: they are a contract with the processor.
-- The other tables: `TOURNAMENT_REJECTION_REASON_LABELS`, `MATCH_REJECTION_REASON_LABELS`, `SCORE_REJECTION_REASON_LABELS`, `MATCH_WARNING_FLAG_LABELS`, `GAME_WARNING_FLAG_LABELS`, `SCORING_TYPE_LABELS`, `TEAM_LABELS`, `SCORE_GRADE_LABELS`, `DATA_FETCH_STATUS_LABELS` and `RANKED_STATUS_LABELS`. The status family's `getWarningTexts` and `getRejectionReasonTexts` read the flag tables for you.
+- The other tables: `TOURNAMENT_REJECTION_REASON_LABELS`, `MATCH_REJECTION_REASON_LABELS`, `SCORE_REJECTION_REASON_LABELS`, `MATCH_WARNING_FLAG_LABELS`, `GAME_WARNING_FLAG_LABELS`, `SCORING_TYPE_LABELS`, `TEAM_LABELS`, `SCORE_GRADE_LABELS`, `DATA_FETCH_STATUS_LABELS`, `RANKED_STATUS_LABELS` and `JOB_QUEUE_LABELS` (the background job queues by the work they do: osu! fetches, Automated checks).
+- Stored text values have tables keyed by the text, read through `formatTextValue(value, labels)`, which falls back to the value itself so one added after the release still reads: `API_SERVICE_LABELS` (osu!, osu!track), `API_ENDPOINT_LABELS` (the worker's request metric endpoints: `getMatch` is Match) and `API_REQUEST_STATUS_LABELS` (`not_found` is Not found). The status family's `getWarningTexts` and `getRejectionReasonTexts` read the flag tables for you.
 
 Don't:
 

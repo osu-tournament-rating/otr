@@ -302,6 +302,27 @@
       "when": 1792440452780,
       "tag": "0042_user_activity_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792456630832,
+      "tag": "0043_player_restricted",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792456649235,
+      "tag": "0044_last_match_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792624343510,
+      "tag": "0045_rebuild_tournament_stats",
+      "breakpoints": true
     }
   ]
 }

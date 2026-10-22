@@ -10,11 +10,6 @@ import {
   VerificationStatus,
 } from '@otr/core/osu';
 
-export const CreatedUpdatedOmit = {
-  created: true,
-  updated: true,
-} as const;
-
 export const RulesetSchema = z
   .enum(Ruleset)
   .describe(

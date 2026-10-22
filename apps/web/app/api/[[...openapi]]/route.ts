@@ -1,5 +1,6 @@
 import { openAPIHandler } from '@/app/server/openapi';
 import { normalizeApiKeyHeader } from '@/lib/api/api-key-header';
+import { PUBLIC_API_PREFIX } from '@/lib/api/prefix';
 
 async function handle(request: Request) {
   let headers = request.headers;
@@ -15,9 +16,10 @@ async function handle(request: Request) {
   }
 
   const result = await openAPIHandler.handle(request, {
-    prefix: '/api',
+    prefix: PUBLIC_API_PREFIX,
     context: {
       headers,
+      requestUrl: request.url,
       apiKeyRequired: true,
     },
   });

@@ -18,6 +18,7 @@ import {
 import { z } from 'zod';
 
 import type { DatabaseClient } from '@/lib/db';
+import { isActiveSql, lastMatchTimeSql } from '@otr/core/db/player-activity';
 import * as schema from '@otr/core/db/schema';
 import {
   PlayerBeatmapsRequestSchema,
@@ -36,7 +37,7 @@ import {
   type PlayerTournamentHistoryItem,
   type PlayerTournamentListItem,
 } from '@/lib/orpc/schema/tournament';
-import { PlayerSchema } from '@/lib/orpc/schema/player';
+import { PlayerDetailSchema } from '@/lib/orpc/schema/player';
 import {
   RatingAdjustmentType,
   Ruleset,
@@ -47,7 +48,11 @@ import { buildTierProgress } from '@/lib/utils/tierProgress';
 
 import { publicProcedure } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
-import { KeyTypeSchema, resolvePlayerId } from './shared/keyType';
+import {
+  KeyTypeSchema,
+  playerIdErrors,
+  resolvePlayerId,
+} from './shared/keyType';
 
 export const getPlayer = publicProcedure
   .input(
@@ -56,7 +61,8 @@ export const getPlayer = publicProcedure
       keyType: KeyTypeSchema,
     })
   )
-  .output(PlayerSchema)
+  .output(PlayerDetailSchema)
+  .errors(playerIdErrors)
   .route({
     summary: 'Get player details',
     description:
@@ -87,7 +93,7 @@ export const getPlayer = publicProcedure
       });
     }
 
-    return PlayerSchema.parse(player[0]);
+    return PlayerDetailSchema.parse(player[0]);
   });
 type PlayerRatingRow = typeof schema.playerRatings.$inferSelect;
 type PlayerMatchStatsRow = typeof schema.playerMatchStats.$inferSelect;
@@ -196,7 +202,27 @@ interface MatchStatsRow {
   stats: PlayerMatchStatsRow;
   matchStartTime: string | null;
   tournamentId: number;
+  /**
+   * The player did not win, and another team won more games than a team they
+   * played for. A draw is neither won nor lost.
+   */
+  lost: boolean;
 }
+
+/**
+ * {@link MatchStatsRow.lost}, from the match's rosters. The stats worker
+ * counts a tournament's losses by the same rule, so the profile agrees with
+ * the tournament stats for a player who played for more than one team.
+ */
+const matchLostSql = sql<boolean>`NOT ${schema.playerMatchStats.won} AND EXISTS (
+  SELECT 1
+  FROM match_rosters own
+  JOIN match_rosters other
+    ON other.match_id = own.match_id AND other.team <> own.team
+  WHERE own.match_id = ${schema.playerMatchStats.matchId}
+    AND ${schema.playerMatchStats.playerId} = ANY(own.roster)
+    AND other.score > own.score
+)`;
 
 const computeBestWinStreak = (rows: MatchStatsRow[]): number => {
   if (!rows.length) {
@@ -253,7 +279,7 @@ const buildMatchAggregates = (
     (accumulator, row) => accumulator + (row.stats.won ? 1 : 0),
     0
   );
-  const matchesLost = matchesPlayed - matchesWon;
+  const matchesLost = rows.filter((row) => row.lost).length;
 
   const gamesWon = rows.reduce(
     (accumulator, row) => accumulator + row.stats.gamesWon,
@@ -308,10 +334,14 @@ const buildMatchAggregates = (
   if (adjustments.length > 0) {
     const firstAdjustment = adjustments[0];
     const lastAdjustment = adjustments[adjustments.length - 1];
+    // An initial rating's ratingBefore is a placeholder 0, so the gain starts from the rating it set
+    const startingRating =
+      firstAdjustment.adjustmentType === RatingAdjustmentType.Initial
+        ? firstAdjustment.ratingAfter
+        : firstAdjustment.ratingBefore;
 
     ratingGained =
-      toNumber(lastAdjustment.ratingAfter) -
-      toNumber(firstAdjustment.ratingAfter);
+      toNumber(lastAdjustment.ratingAfter) - toNumber(startingRating);
 
     highestRating = adjustments.reduce((max, adjustment) => {
       const ratingAfter = toNumber(adjustment.ratingAfter);
@@ -390,32 +420,43 @@ export type PlayerTournamentFilters = {
 
 const buildPlayerTournamentFilters = ({
   ruleset,
+}: PlayerTournamentFilters): SQL[] =>
+  ruleset != null ? [eq(schema.tournaments.ruleset, ruleset)] : [];
+
+/**
+ * Matches that started within the date range, the same matches player stats
+ * count. A tournament is in the range when the player played in it during
+ * the range, whatever its own start and end dates.
+ */
+const buildPlayedInRangeFilters = ({
   dateMin,
   dateMax,
 }: PlayerTournamentFilters): SQL[] => {
+  const bounds = resolveDateBounds(dateMin, dateMax);
   const filters: SQL[] = [];
 
-  if (ruleset != null) {
-    filters.push(eq(schema.tournaments.ruleset, ruleset));
+  if (bounds.start) {
+    filters.push(gte(schema.matches.startTime, bounds.start));
   }
 
-  if (dateMin) {
-    filters.push(gte(schema.tournaments.startTime, dateMin));
-  }
-
-  if (dateMax) {
-    filters.push(lte(schema.tournaments.endTime, dateMax));
+  if (bounds.end) {
+    filters.push(lte(schema.matches.startTime, bounds.end));
   }
 
   return filters;
 };
 
-/** The tournaments a player has stats for, with their match record. */
+/**
+ * The tournaments a player has stats for, with their match record. With a
+ * date range, only those they have a match in that started within it.
+ */
 export async function listPlayerStatsTournaments(
   db: DatabaseClient,
   playerId: number,
   filters: PlayerTournamentFilters
 ): Promise<PlayerTournamentListItem[]> {
+  const playedInRange = buildPlayedInRangeFilters(filters);
+
   const rows = await db
     .select({
       ...tournamentListItemColumns,
@@ -430,7 +471,25 @@ export async function listPlayerStatsTournaments(
     .where(
       and(
         eq(schema.playerTournamentStats.playerId, playerId),
-        ...buildPlayerTournamentFilters(filters)
+        ...buildPlayerTournamentFilters(filters),
+        playedInRange.length > 0
+          ? exists(
+              db
+                .select({ one: sql`1` })
+                .from(schema.playerMatchStats)
+                .innerJoin(
+                  schema.matches,
+                  eq(schema.matches.id, schema.playerMatchStats.matchId)
+                )
+                .where(
+                  and(
+                    eq(schema.playerMatchStats.playerId, playerId),
+                    eq(schema.matches.tournamentId, schema.tournaments.id),
+                    ...playedInRange
+                  )
+                )
+            )
+          : undefined
       )
     )
     .orderBy(desc(schema.tournaments.endTime));
@@ -452,7 +511,8 @@ export async function listPlayerStatsTournaments(
  * Verified one before the weekly rating run computes its stats. Playing
  * means at least UNVERIFIED_HISTORY_MIN_SCORE on a beatmap the tournament
  * pooled, whatever the status of the score, game and match: a tournament's
- * rejection reaches all three.
+ * rejection reaches all three. With a date range, the score must come from a
+ * match that started within it.
  */
 export async function listPlayerTournamentsWithoutStats(
   db: DatabaseClient,
@@ -510,7 +570,8 @@ export async function listPlayerTournamentsWithoutStats(
               and(
                 eq(schema.matches.tournamentId, schema.tournaments.id),
                 eq(schema.gameScores.playerId, playerId),
-                gte(schema.gameScores.score, UNVERIFIED_HISTORY_MIN_SCORE)
+                gte(schema.gameScores.score, UNVERIFIED_HISTORY_MIN_SCORE),
+                ...buildPlayedInRangeFilters(filters)
               )
             )
         ),
@@ -587,10 +648,11 @@ export async function listPlayerTournamentHistory(
 export const getPlayerTournaments = publicProcedure
   .input(PlayerTournamentsInputSchema)
   .output(PlayerTournamentListItemSchema.array())
+  .errors(playerIdErrors)
   .route({
     summary: 'List player tournaments',
     description:
-      'List tournaments a player has participated in.\n\n' +
+      'List tournaments a player has participated in. With `dateMin` or `dateMax`, list those the player played a match in during that range, the matches player stats count for it.\n\n' +
       '**Examples:**\n' +
       '- By o!TR ID: `GET /players/123/tournaments`\n' +
       '- By osu! ID: `GET /players/4504101/tournaments?keyType=osu`\n' +
@@ -615,6 +677,7 @@ export const getPlayerTournaments = publicProcedure
 export const getPlayerTournamentHistory = publicProcedure
   .input(PlayerTournamentsInputSchema)
   .output(PlayerTournamentHistoryItemSchema.array())
+  .errors(playerIdErrors)
   .route({
     summary: "List a player's tournament history for the profile",
     tags: ['players'],
@@ -630,6 +693,7 @@ export const getPlayerTournamentHistory = publicProcedure
 export const getPlayerBeatmaps = publicProcedure
   .input(PlayerBeatmapsRequestSchema)
   .output(PlayerBeatmapsResponseSchema)
+  .errors(playerIdErrors)
   .route({
     summary: 'List player beatmaps',
     description:
@@ -836,6 +900,7 @@ export const getPlayerStats = publicProcedure
     })
   )
   .output(PlayerStatsSchema)
+  .errors(playerIdErrors)
   .route({
     summary: 'Get player stats',
     description:
@@ -857,6 +922,7 @@ export const getPlayerStats = publicProcedure
         osuId: schema.players.osuId,
         username: schema.players.username,
         country: schema.players.country,
+        restricted: schema.players.restricted,
         defaultRuleset: defaultRulesetSql(schema.players.id),
       })
       .from(schema.players)
@@ -891,6 +957,18 @@ export const getPlayerStats = publicProcedure
           eq(playerRatings.ruleset, resolvedRuleset)
         ),
     });
+
+    // Today's activity, whatever dates the stats cover.
+    const [activity] = ratingRow
+      ? await context.db
+          .execute<{
+            lastMatchTime: string | null;
+            active: boolean;
+          }>(
+            sql`select ${lastMatchTimeSql(ratingRow.id)} as "lastMatchTime", ${isActiveSql(ratingRow.id)} as "active"`
+          )
+          .then((result) => result.rows)
+      : [];
 
     const adjustmentFilters = [
       eq(schema.ratingAdjustments.playerId, player.id),
@@ -938,6 +1016,21 @@ export const getPlayerStats = publicProcedure
 
     const adjustments = mapRatingAdjustments(adjustmentRows);
 
+    // Provisional describes the current rating, so it counts every change, not only those in the range
+    const totalAdjustmentCount =
+      ratingRow && (bounds.start || bounds.end)
+        ? await context.db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(schema.ratingAdjustments)
+            .where(
+              and(
+                eq(schema.ratingAdjustments.playerId, player.id),
+                eq(schema.ratingAdjustments.ruleset, resolvedRuleset)
+              )
+            )
+            .then(([row]) => toNumber(row?.count))
+        : adjustments.length;
+
     const matchFilters = [
       eq(schema.playerMatchStats.playerId, player.id),
       eq(schema.tournaments.ruleset, resolvedRuleset),
@@ -956,6 +1049,7 @@ export const getPlayerStats = publicProcedure
         stats: schema.playerMatchStats,
         matchStartTime: schema.matches.startTime,
         tournamentId: schema.matches.tournamentId,
+        lost: matchLostSql,
       })
       .from(schema.playerMatchStats)
       .innerJoin(
@@ -1047,7 +1141,9 @@ export const getPlayerStats = publicProcedure
             winRate: matchesPlayed > 0 ? matchesWon / matchesPlayed : null,
             tierProgress: tierProgressData,
             adjustments,
-            isProvisional: adjustments.length < 10,
+            isProvisional: totalAdjustmentCount < 10,
+            lastMatchTime: activity?.lastMatchTime ?? null,
+            inactive: !activity?.active,
           };
         })()
       : null;
@@ -1059,6 +1155,7 @@ export const getPlayerStats = publicProcedure
         username: player.username,
         country: player.country,
         defaultRuleset: playerDefaultRuleset,
+        restricted: player.restricted,
       },
       ruleset: resolvedRuleset,
       rating: ratingStats,

@@ -11,11 +11,8 @@ import {
   ensureBeatmapPlaceholder,
   updateBeatmapStatus,
 } from '../beatmap-store';
-import {
-  claimPlayerFetchLease,
-  getOrCreatePlayerId,
-  getPlayerOsuFetchState,
-} from '../player-store';
+import { claimPlayerFetchLease } from '@otr/core/db/player-fetch-lease';
+import { getOrCreatePlayerId, getPlayerOsuFetchState } from '../player-store';
 import { TournamentDataCompletionService } from './tournament-data-completion-service';
 import type { DatabaseClient } from '../../db';
 import {
