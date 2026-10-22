@@ -236,7 +236,12 @@ describe.skipIf(!url)('match merges', () => {
         ids: [MATCH_OSU_ID_BASE + 1],
         beatmapIds: [],
       },
-      context: { db, session },
+      // A non-admin's submission, held for approval, is checked when sent
+      context: {
+        db,
+        headers: new Headers(),
+        session: { dbUser: { id: session.dbUser.id, scopes: [] } },
+      },
       errors: {
         ACCOUNT_RESOLUTION_FAILED: () => new ORPCError('FORBIDDEN'),
         NAME_ABBREVIATION_CONFLICT: () => new ORPCError('CONFLICT'),
@@ -259,6 +264,14 @@ describe.skipIf(!url)('match merges', () => {
       .from(schema.tournaments)
       .where(eq(schema.tournaments.name, `${NAME_PREFIX}resubmitted`));
     expect(rows).toEqual([]);
+    expect(
+      await db
+        .select({ id: schema.tournamentSubmissions.id })
+        .from(schema.tournamentSubmissions)
+        .where(
+          eq(schema.tournamentSubmissions.name, `${NAME_PREFIX}resubmitted`)
+        )
+    ).toEqual([]);
   });
 
   it('backfills merges made before they were recorded, through later merges of the parent, but not matches added again', async () => {

@@ -3,6 +3,7 @@ import {
   apiRequestStats,
   osuApiRequests,
   osuApiDuration,
+  osuLookupRequests,
   type OsuApiEndpoint,
   type OsuApiStatus,
 } from '../metrics';
@@ -48,9 +49,17 @@ export const withApiErrorHandling = async <T>(
   }
 };
 
+/**
+ * Whose credentials an osu! request carries: o!TR's own client's, or a
+ * user's, for the lookups they asked for. Only o!TR's own count in its osu!
+ * request metrics, which its dashboards and alerts read.
+ */
+export type OsuApiCredentials = 'otr' | 'user';
+
 export const withApiMetrics = async <T>(
   endpoint: OsuApiEndpoint,
-  invoke: () => Promise<ApiCallResult<T>>
+  invoke: () => Promise<ApiCallResult<T>>,
+  credentials: OsuApiCredentials = 'otr'
 ): Promise<ApiCallResult<T>> => {
   const start = Date.now();
   let status: OsuApiStatus = 'error';
@@ -64,8 +73,13 @@ export const withApiMetrics = async <T>(
     throw error;
   } finally {
     const durationMs = Date.now() - start;
-    osuApiRequests.labels({ endpoint, status }).inc();
-    osuApiDuration.labels({ endpoint }).observe(durationMs / 1000);
-    apiRequestStats.record('osu', endpoint, status, durationMs);
+    if (credentials === 'user') {
+      osuLookupRequests.labels({ status }).inc();
+      apiRequestStats.record('osu-lookup', endpoint, status, durationMs);
+    } else {
+      osuApiRequests.labels({ endpoint, status }).inc();
+      osuApiDuration.labels({ endpoint }).observe(durationMs / 1000);
+      apiRequestStats.record('osu', endpoint, status, durationMs);
+    }
   }
 };

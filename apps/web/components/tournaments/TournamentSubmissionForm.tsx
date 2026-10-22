@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { useSWRConfig } from 'swr';
 
 import { Button } from '@/components/kit/controls/Button';
 import { ConfirmDialog } from '@/components/kit/controls/ConfirmDialog';
+import { Callout } from '@/components/kit/feedback/Callout';
 import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 import {
   FormActions,
@@ -16,6 +18,9 @@ import {
   FormPanel,
   FormSection,
 } from '@/components/kit/controls/FormPanel';
+import MyTournamentSubmissions, {
+  MY_SUBMISSIONS_KEY,
+} from '@/components/tournaments/MyTournamentSubmissions';
 import {
   LobbySizeSelectContent,
   RejectionReasonChips,
@@ -71,6 +76,7 @@ export default function TournamentSubmissionForm() {
   const session = useSession();
   const router = useRouter();
   const isAdmin = hasAdminScope(session?.scopes ?? []);
+  const { mutate } = useSWRConfig();
   const rejectId = useId();
   const reasonLabelId = useId();
 
@@ -143,9 +149,11 @@ export default function TournamentSubmissionForm() {
       form.reset(DEFAULT_VALUES);
       setRejectOnSubmit(false);
 
-      result.warnings?.forEach((warning) => {
-        toast.warning(warning);
-      });
+      if (result.status === 'pending') {
+        toast.success('Tournament submitted for approval');
+        void mutate(MY_SUBMISSIONS_KEY);
+        return;
+      }
 
       toast.success('Tournament submitted successfully');
       // Its page shows the matches and beatmaps being fetched.
@@ -164,6 +172,15 @@ export default function TournamentSubmissionForm() {
 
   return (
     <Form {...form}>
+      {session && !isAdmin ? (
+        <Callout
+          title="Admin approval"
+          data-testid="submission-approval-notice"
+        >
+          An admin approves each submission before o!TR fetches its matches.
+          Until then, only you and admins can see it.
+        </Callout>
+      ) : null}
       <FormPanel
         data-testid="tournament-submission-form"
         noValidate
@@ -449,6 +466,7 @@ export default function TournamentSubmissionForm() {
         pendingLabel="Submitting…"
         onConfirm={() => performSubmit({ allowNoBeatmaps: true })}
       />
+      {session && !isAdmin ? <MyTournamentSubmissions /> : null}
     </Form>
   );
 }

@@ -58,6 +58,8 @@ import { JobListener } from './jobs/listener';
 import { JobPruner } from './jobs/pruner';
 import { StrandedFetchSweep } from './jobs/stranded-fetch-sweep';
 import { captureOsuRetryAfter } from './osu/retry-after';
+import { UserOsuTokens } from './osu/user-tokens';
+import { OsuLookupWorker } from './osu/workers/osu-lookup-worker';
 
 const logger = consoleLogger;
 
@@ -233,6 +235,21 @@ const bootstrap = async () => {
     maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
   });
   runner.register(osuWorker.registration());
+
+  const { osuSignInClient } = dataWorkerEnv;
+  if (osuSignInClient) {
+    const lookupWorker = new OsuLookupWorker({
+      db,
+      tokens: new UserOsuTokens({ db, client: osuSignInClient }),
+      logger,
+      maintenanceWindowEnabled: dataWorkerEnv.maintenanceWindowEnabled,
+    });
+    runner.register(lookupWorker.registration());
+  } else {
+    logger.error(
+      "Lookups with users' osu! accounts are off: WEB_OSU_CLIENT_ID and WEB_OSU_CLIENT_SECRET are not set, so their jobs wait in the queue"
+    );
+  }
 
   const strandedFetchSweep = new StrandedFetchSweep({
     db,

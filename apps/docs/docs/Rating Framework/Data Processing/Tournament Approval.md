@@ -58,6 +58,8 @@ When submitting a tournament, follow these steps:
     - Note that the _beatmap_ ID, rather than the _beatmapset_ ID, must be provided. For example, enter `75` rather than `1` for [this beatmap](https://osu.ppy.sh/beatmapsets/1#osu/75).
 1. Enter the above data along with requested general tournament information on the [website submission form](https://otr.stagec.net/tournaments/submit).
 
+An o!TR admin approves each submission before any of its data is fetched. Until then, the submission appears only to its submitter, under Your submissions on the submission page, and to admins. Submissions from admins skip this step.
+
 Additionally, keep the following in mind for tiered tournaments or tournaments that feature multiple divisions:
 
 > [!warning]

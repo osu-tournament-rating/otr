@@ -1,6 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 
-type ApiService = 'osu' | 'osutrack';
+/** osu-lookup: osu! requests made with users' own osu! accounts. */
+type ApiService = 'osu' | 'osu-lookup' | 'osutrack';
 
 interface Totals {
   day: string;

@@ -7,7 +7,14 @@ import { Callout } from '@/components/kit/feedback/Callout';
 import { PageFrame } from '@/components/kit/layout/PageFrame';
 import { PageHeader } from '@/components/kit/layout/PageHeader';
 import FilteringForm from '@/components/filtering/FilteringForm';
-import type { FilteringResult } from '@/lib/orpc/schema/filtering';
+import { formatCount } from '@/lib/kit/format/number';
+import { OSU_LOOKUP_REQUESTS_PER_MINUTE } from '@otr/core/jobs/enums';
+import {
+  FILTER_REPORTS_PER_DAY,
+  FLAGGED_UNKNOWN_PERCENT,
+  MAX_FILTER_PLAYER_IDS,
+  type FilteringResult,
+} from '@/lib/orpc/schema/filtering';
 
 const FILTERING_RULES_URL =
   'https://osu.ppy.sh/wiki/en/Tournaments/Official_support#registrant-filtering-and-seeding';
@@ -48,9 +55,33 @@ function HostComplianceCallout() {
   );
 }
 
+/** What a user may filter: reports a day, players a report, lookups and approval. */
+function FilterLimitsCallout() {
+  return (
+    <Callout title="Limits" data-testid="filtering-limits">
+      <ul className="ml-4 list-disc space-y-1">
+        <li>
+          You can create {FILTER_REPORTS_PER_DAY} filter reports a day, with up
+          to {formatCount(MAX_FILTER_PLAYER_IDS)} osu! player IDs each.
+        </li>
+        <li>
+          o!TR looks up each player it doesn&apos;t have yet on osu! with your
+          osu! account, at up to {OSU_LOOKUP_REQUESTS_PER_MINUTE} requests a
+          minute.
+        </li>
+        <li>
+          If more than {FLAGGED_UNKNOWN_PERCENT}% of the players aren&apos;t in
+          o!TR yet, you&apos;ll be asked why, and an admin reviews the request
+          before it runs.
+        </li>
+      </ul>
+    </Callout>
+  );
+}
+
 /**
- * The registrant filter: the host compliance rules, then the form and its
- * results. During the weekly rating run the page shows only the outage
+ * The registrant filter: the host compliance rules and the limits, then the
+ * form and its results. During the weekly rating run the page shows only the outage
  * notice, in the compliance rules' place: there is nothing to comply with
  * while the tool is off.
  */
@@ -79,6 +110,7 @@ export default function FilteringPageClient({
       ) : (
         <>
           <HostComplianceCallout />
+          <FilterLimitsCallout />
           <FilteringForm
             onFilteringComplete={setFilteringResults}
             filteringResults={filteringResults}

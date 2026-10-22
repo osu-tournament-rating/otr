@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ClipboardCheck,
   ClipboardList,
   FileCode,
   FileText,
@@ -43,6 +44,8 @@ export type NavContext = {
   isAdmin: boolean;
   /** Pending reports the admin has not seen yet. */
   unseenReports: number;
+  /** Tournament submissions and filter requests waiting for an admin. */
+  pendingApprovals?: number;
 };
 
 export const DOCS_URL = 'https://docs.otr.stagec.net';
@@ -57,6 +60,7 @@ export function getNavEntries({
   hasSession,
   isAdmin,
   unseenReports,
+  pendingApprovals = 0,
 }: NavContext): NavEntry[] {
   const entries: NavEntry[] = [
     {
@@ -116,7 +120,12 @@ export function getNavEntries({
       kind: 'menu',
       title: 'Admin',
       testId: 'nav-admin',
-      notification: unseenReports > 0 ? 'Unseen reports' : undefined,
+      notification:
+        unseenReports > 0
+          ? 'Unseen reports'
+          : pendingApprovals > 0
+            ? 'Approvals waiting'
+            : undefined,
       links: [
         {
           title: 'Admin',
@@ -131,6 +140,14 @@ export function getNavEntries({
           count: unseenReports,
           countLabel: 'unseen',
           testId: 'nav-admin-reports',
+        },
+        {
+          title: 'Approvals',
+          href: '/admin/approvals',
+          icon: ClipboardCheck,
+          count: pendingApprovals,
+          countLabel: 'waiting',
+          testId: 'nav-admin-approvals',
         },
         {
           title: 'Jobs',

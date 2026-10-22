@@ -18,12 +18,21 @@ const INTERVAL_MS = 60 * 60_000;
 const FIRST_RUN_DELAY_MS = 2 * 60_000;
 const BATCH_SIZE = 1_000;
 
-const activeOsuJob = (dedupKey: ReturnType<typeof sql>) => sql`EXISTS (
+const activeJob = (
+  queues: readonly JobQueue[],
+  dedupKey: ReturnType<typeof sql>
+) => sql`EXISTS (
   SELECT 1 FROM jobs
-  WHERE queue = ${JobQueue.OsuFetch}
+  WHERE queue IN (${sql.join(
+    queues.map((queue) => sql`${queue}`),
+    sql`, `
+  )})
     AND status IN (${JobStatus.Pending}, ${JobStatus.Running})
     AND dedup_key = ${dedupKey}
 )`;
+
+const activeOsuJob = (dedupKey: ReturnType<typeof sql>) =>
+  activeJob([JobQueue.OsuFetch], dedupKey);
 
 interface StrandedFetchSweepOptions {
   db: Pick<DatabaseClient, 'execute'>;
@@ -119,13 +128,17 @@ export class StrandedFetchSweep {
       LIMIT ${BATCH_SIZE}`);
 
     // Only Fetching: a player who was never fetched waits for the refetch
-    // scheduler instead. Longest stranded first.
+    // scheduler instead. A lookup with a user's osu! account counts as the
+    // player's fetch, even while it waits for them. Longest stranded first.
     const { rows: players } = this.options.players
       ? await db.execute<{ osu_id: string }>(sql`
           SELECT p.osu_id
           FROM players p
           WHERE p.data_fetch_status = ${DataFetchStatus.Fetching}
-            AND NOT ${activeOsuJob(sql`'player:' || p.osu_id`)}
+            AND NOT ${activeJob(
+              [JobQueue.OsuFetch, JobQueue.OsuLookup],
+              sql`'player:' || p.osu_id`
+            )}
           ORDER BY p.osu_last_fetch, p.id
           LIMIT ${BATCH_SIZE}`)
       : { rows: [] };

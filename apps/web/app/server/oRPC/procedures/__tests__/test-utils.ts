@@ -60,6 +60,26 @@ export const seedAdminUser = async (db: DatabaseClient, osuId: number) => {
   return user!.id;
 };
 
+/** A signed-in account without admin scopes. */
+export const seedUser = async (db: DatabaseClient, osuId: number) => {
+  await removePlayers(db, [osuId]);
+
+  const [player] = await db
+    .insert(schema.players)
+    .values({ osuId })
+    .returning({ id: schema.players.id });
+  const [user] = await db
+    .insert(schema.users)
+    .values({ playerId: player!.id, scopes: [] })
+    .returning({ id: schema.users.id });
+
+  return user!.id;
+};
+
+export const userSession = (userId: number) => ({
+  dbUser: { id: userId, scopes: [] as string[] },
+});
+
 export const adminSession = (userId: number) => ({
   dbUser: { id: userId, scopes: ['admin'] },
 });
@@ -93,6 +113,23 @@ export const queuedFetches = async (
     runAfter: new Date(row.run_after as string),
     correlationId: String(row.correlation_id),
     tournamentId: row.tournament_id === null ? null : Number(row.tournament_id),
+  }));
+};
+
+/**
+ * The lookups queued to run with `userId`'s osu! account, ordered by dedup
+ * key: payload, and when each may run.
+ */
+export const queuedLookups = async (db: DatabaseClient, userId: number) => {
+  const { rows } = await db.execute<Record<string, unknown>>(sql`
+    SELECT payload, run_after
+    FROM jobs
+    WHERE queue = ${JobQueue.OsuLookup} AND requested_by_user_id = ${userId}
+    ORDER BY dedup_key`);
+
+  return rows.map((row) => ({
+    payload: row.payload as Record<string, unknown>,
+    runAfter: new Date(row.run_after as string),
   }));
 };
 

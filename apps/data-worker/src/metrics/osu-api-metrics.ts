@@ -16,6 +16,13 @@ export const osuApiDuration = new Histogram({
   registers: [metricsRegistry],
 });
 
+export const osuLookupRequests = new Counter({
+  name: 'data_worker_osu_lookup_requests_total',
+  help: "osu! API requests made with users' own osu! accounts, for the registrant filter lookups they asked for",
+  labelNames: ['status'] as const,
+  registers: [metricsRegistry],
+});
+
 export const osuTrackApiRequests = new Counter({
   name: 'data_worker_osutrack_api_requests_total',
   help: 'osu!track API requests',

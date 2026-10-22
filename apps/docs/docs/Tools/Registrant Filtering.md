@@ -5,10 +5,10 @@ The Registrant Filtering tool allows tournament hosts to filter registrants base
 Filters can be applied against:
 
 - Ruleset
-- Current rating
-- Peak rating
-- Number of verified tournaments played
-- Number of verified matches played
+- Current rating, with a minimum, a maximum, or both
+
+> [!note]
+> Reports made before the tool offered only rating bounds may also list the peak rating, tournament count, and match count criteria they were run with. The tool no longer applies those criteria.
 
 We do not support filtering against osu! statistics, such as global rank or badge count, for these reasons:
 
@@ -22,7 +22,28 @@ If you would like to filter using osu! statistics in addition to o!TR statistics
 
 To use the tool, simply select the ruleset of your tournament, input your filter criteria, and paste a list containing the osu! IDs of all tournament registrants.
 
-A report is then generated for review. Reports can be downloaded as a `.csv` file for import into a spreadsheet. The ID linked to the report can be looked up by anyone using our Filter Report tool.
+A report is then generated for review. Reports can be downloaded as a `.csv` file for import into a spreadsheet. The ID linked to the report can be looked up by anyone using our Filter Report tool. A report stays available after its creator deletes their o!TR account.
+
+## Limits
+
+The tool limits how much each user can filter, because every player o!TR does not have yet is looked up on osu!:
+
+- Each user can create 2 filter reports in any 24 hours.
+- Each report can check up to 1,000 osu! player IDs.
+
+o!TR admins have no daily limit or approval step, and can check up to 5,000 osu! player IDs a report.
+
+### Player lookups
+
+o!TR looks up each player it does not have yet on osu! on the user's behalf, with the osu! account they log in with, at up to 60 requests a minute. That speed belongs to the user alone, apart from o!TR's own osu! requests and from the user's o!TR API rate limit. A player takes up to 4 requests, one per ruleset, so about 15 players are looked up a minute. The report does not wait for the lookups, since a player new to o!TR has no rating yet.
+
+If osu! stops accepting the user's account, for example after they revoke o!TR's access on osu!, the lookups wait and the filter page asks the user to log in with osu! again, which resumes them. Players still waiting after 7 days are looked up in o!TR's regular refresh of player data instead.
+
+Players in an admin's own reports are looked up with o!TR's own osu! client. So are the players still waiting when a user deletes their o!TR account.
+
+### Admin approval
+
+If more than 30% of the players in a request are not in o!TR yet, the tool asks the user for a justification and holds the request for an o!TR admin instead of running it. Nothing is looked up until an admin approves it. Approval runs the filter and creates the report, and its players are looked up with the user's osu! account as if they had run it; the user finds the report, and any denial, under Your filter requests on the filter page. A held request counts toward the daily limit when it is sent.
 
 ## Notice to Tournament Hosts
 

@@ -56,6 +56,12 @@ import {
 import { submitTournament } from './procedures/tournaments/tournamentSubmissionProcedure';
 import { getTournamentProgress } from './procedures/tournaments/progressProcedure';
 import {
+  approveTournamentSubmissionAdmin,
+  denyTournamentSubmissionAdmin,
+  listMyTournamentSubmissions,
+  listTournamentSubmissionsAdmin,
+} from './procedures/tournaments/submissionApprovalProcedures';
+import {
   acceptTournamentPreVerificationStatuses,
   deleteTournamentAdmin,
   deleteTournamentBeatmapsAdmin,
@@ -88,6 +94,13 @@ import {
   filterRegistrants,
   getFilterReport,
 } from './procedures/filteringProcedures';
+import {
+  approveFilterRequestAdmin,
+  denyFilterRequestAdmin,
+  listFilterRequestsAdmin,
+  listMyFilterRequests,
+} from './procedures/filtering/requestProcedures';
+import { getPendingApprovalCount } from './procedures/approvalProcedures';
 import {
   deleteUserApiKey,
   generateUserApiKey,
@@ -141,6 +154,9 @@ export const router = base.router({
       cancel: cancelJobsAdmin,
       daily: getJobDailyTotals,
     },
+  },
+  approvals: {
+    pendingCount: getPendingApprovalCount,
   },
   reports: {
     templates: getReportTemplates,
@@ -244,6 +260,12 @@ export const router = base.router({
   filtering: {
     filter: filterRegistrants,
     report: getFilterReport,
+    myRequests: listMyFilterRequests,
+    admin: {
+      requests: listFilterRequestsAdmin,
+      approveRequest: approveFilterRequestAdmin,
+      denyRequest: denyFilterRequestAdmin,
+    },
   },
   apiClients: {
     getKeys: getUserApiKeys,
@@ -264,6 +286,7 @@ export const router = base.router({
     get: getTournament,
     progress: getTournamentProgress,
     submit: submitTournament,
+    mySubmissions: listMyTournamentSubmissions,
     adminNotes: {
       create: createTournamentAdminNote,
       update: updateTournamentAdminNote,
@@ -279,6 +302,9 @@ export const router = base.router({
       deleteBeatmaps: deleteTournamentBeatmapsAdmin,
       refetchMatchData: refetchTournamentMatchData,
       refetchBeatmaps: refetchTournamentBeatmaps,
+      submissions: listTournamentSubmissionsAdmin,
+      approveSubmission: approveTournamentSubmissionAdmin,
+      denySubmission: denyTournamentSubmissionAdmin,
     },
   },
 });
