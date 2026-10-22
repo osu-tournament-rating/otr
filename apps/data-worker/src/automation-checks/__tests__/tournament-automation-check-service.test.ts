@@ -685,9 +685,11 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
   };
 
   it('credits the admin who rejected the tournament on the matches its rejection now reaches', async () => {
-    expect(await matchReviews(false)).toEqual([
-      // Rejected already, so the earlier rejection stands.
-      [1, Rejected, undefined],
+    const reviews = await matchReviews(false);
+
+    // Rejected already, so the earlier rejection and its reviewer stand.
+    expect(reviews.find(([id]) => id === 1)?.[2]).toBeUndefined();
+    expect(reviews.filter(([id]) => id !== 1)).toEqual([
       [2, Rejected, 77],
       [3, Rejected, 77],
     ]);
