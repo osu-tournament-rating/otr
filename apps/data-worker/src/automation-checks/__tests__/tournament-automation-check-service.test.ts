@@ -54,6 +54,14 @@ class StubTransaction {
     values: Record<string, unknown>;
   }> = [];
 
+  constructor(private readonly row: TournamentRow) {}
+
+  query = {
+    tournaments: {
+      findFirst: async () => this.row,
+    },
+  } as const;
+
   update(table: { tableName?: string }) {
     let tableName = table?.tableName ?? 'unknown';
 
@@ -83,14 +91,8 @@ class StubDatabase {
     this.row = row;
   }
 
-  query = {
-    tournaments: {
-      findFirst: async () => this.row,
-    },
-  } as const;
-
   async transaction<T>(callback: (tx: StubTransaction) => Promise<T>) {
-    const tx = new StubTransaction();
+    const tx = new StubTransaction(this.row);
     this.transactions.push(tx);
     return callback(tx);
   }
@@ -423,12 +425,34 @@ const runChecks = async (
     scoreChecks: new ScoreAutomationChecks(),
   });
 
+  // Each row as read, by `${table}:${id}`, then with the checks' writes
+  type Status = { verificationStatus: unknown; rejectionReason: unknown };
+  const saved = new Map<string, Status>();
+  const read = (key: string, { verificationStatus, rejectionReason }: Status) =>
+    saved.set(key, { verificationStatus, rejectionReason });
+
+  read(`tournaments:${row.id}`, row);
+  for (const match of row.matches) {
+    read(`matches:${match.id}`, match);
+    for (const game of match.games) {
+      read(`games:${game.id}`, game);
+      for (const score of game.gameScores) {
+        read(`game_scores:${score.id}`, score);
+      }
+    }
+  }
+
   await service.processAutomationChecks(row.id, overrideVerifiedState);
 
+  for (const { table, id, values } of db.transactions[0]?.updates ?? []) {
+    const key = `${table}:${id}`;
+    saved.set(key, { ...saved.get(key)!, ...values });
+  }
+
   return Object.fromEntries(
-    (db.transactions[0]?.updates ?? []).map(({ table, id, values }) => [
-      `${table}:${id}`,
-      [values.verificationStatus, values.rejectionReason],
+    [...saved].map(([key, { verificationStatus, rejectionReason }]) => [
+      key,
+      [verificationStatus, rejectionReason],
     ])
   );
 };
@@ -486,6 +510,141 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
     });
   });
 
+  it('checks the undecided scores of a game an admin verified', async () => {
+    // Verified with "Leave children unchanged", so its scores kept their
+    // pre-statuses, apart from one an admin verified and one they rejected
+    const row = reviewedTournament();
+    row.matches[2]!.games.push(
+      gameRow({
+        id: 306,
+        matchId: 3,
+        verificationStatus: Verified,
+        gameScores: lineup(306, PreVerified).map((score) => {
+          if (score.id === 3062) {
+            return { ...score, score: 500 };
+          }
+          if (score.id === 3063) {
+            return { ...score, score: 500, verificationStatus: Verified };
+          }
+          if (score.id === 3064) {
+            return { ...score, verificationStatus: Rejected };
+          }
+          return score;
+        }),
+      })
+    );
+
+    const persisted = await runChecks(row, false);
+
+    expect(persisted).toMatchObject({
+      'games:306': [Verified, GameRejectionReason.None],
+      'game_scores:3061': [PreVerified, ScoreRejectionReason.None],
+      'game_scores:3062': [PreRejected, ScoreRejectionReason.ScoreBelowMinimum],
+      'game_scores:3063': [Verified, ScoreRejectionReason.None],
+      'game_scores:3064': [Rejected, ScoreRejectionReason.None],
+    });
+  });
+
+  it('checks a match added to a verified tournament', async () => {
+    const row: TournamentRow = {
+      ...reviewedTournament(),
+      verificationStatus: Verified,
+    };
+    row.matches.push(
+      matchRow({
+        id: 4,
+        games: [401, 402, 403, 404].map((id) => gameRow({ id, matchId: 4 })),
+      })
+    );
+
+    const persisted = await runChecks(row, false);
+
+    expect(persisted).toMatchObject({
+      'tournaments:1': [Verified, TournamentRejectionReason.None],
+      'matches:1': [Rejected, MatchRejectionReason.None],
+      'matches:2': [Verified, MatchRejectionReason.None],
+      'matches:4': [PreVerified, MatchRejectionReason.None],
+      'games:401': [PreVerified, GameRejectionReason.None],
+      'game_scores:4011': [PreVerified, ScoreRejectionReason.None],
+    });
+  });
+
+  it('converts a head-to-head match added to a verified 1v1 tournament, and only that match', async () => {
+    const headToHeadMatch = (matchId: number, status: VerificationStatus) =>
+      matchRow({
+        id: matchId,
+        verificationStatus: status,
+        games: [1, 2, 3, 4].map((game) => {
+          const gameId = matchId * 100 + game;
+          return gameRow({
+            id: gameId,
+            matchId,
+            teamType: TeamType.HeadToHead,
+            verificationStatus: status,
+            gameScores: [1, 2].map((playerId) =>
+              scoreRow({
+                id: gameId * 10 + playerId,
+                gameId,
+                playerId,
+                team: Team.NoTeam,
+                verificationStatus: status,
+              })
+            ),
+          });
+        }),
+      });
+
+    // Match 1 was verified with its games still head-to-head; match 2 was
+    // added after the tournament was verified
+    const row: TournamentRow = {
+      ...reviewedTournament(),
+      lobbySize: 1,
+      verificationStatus: Verified,
+      matches: [
+        headToHeadMatch(1, Verified),
+        headToHeadMatch(2, VerificationStatus.None),
+      ],
+    };
+
+    const db = new StubDatabase(row);
+    const service = new TournamentAutomationCheckService({
+      db: db as unknown as DatabaseClient,
+      logger: noopLogger,
+      tournamentChecks: new TournamentAutomationChecks(),
+      matchChecks: new MatchAutomationChecks(),
+      gameChecks: new GameAutomationChecks(),
+      scoreChecks: new ScoreAutomationChecks(),
+    });
+
+    await service.processAutomationChecks(row.id, false);
+
+    const updates = db.transactions[0]?.updates ?? [];
+    const written = (key: string) =>
+      updates.find((entry) => `${entry.table}:${entry.id}` === key)?.values;
+
+    expect(written('matches:2')).toMatchObject({
+      verificationStatus: PreVerified,
+    });
+    for (const gameId of [201, 202, 203, 204]) {
+      expect(written(`games:${gameId}`)).toMatchObject({
+        teamType: TeamType.TeamVs,
+        verificationStatus: PreVerified,
+      });
+    }
+    expect(written('game_scores:2011')).toMatchObject({ team: Team.Red });
+    expect(written('game_scores:2012')).toMatchObject({ team: Team.Blue });
+
+    const verifiedMatchRows = [
+      'matches:1',
+      ...[101, 102, 103, 104].flatMap((gameId) => [
+        `games:${gameId}`,
+        `game_scores:${gameId * 10 + 1}`,
+        `game_scores:${gameId * 10 + 2}`,
+      ]),
+    ];
+    expect(verifiedMatchRows.filter(written)).toEqual([]);
+  });
+
   it('checks admin decisions again when asked to override them', async () => {
     const persisted = await runChecks(reviewedTournament(), true);
 
@@ -496,5 +655,54 @@ describe('TournamentAutomationCheckService and admin decisions', () => {
       'games:204': [PreRejected, GameRejectionReason.InvalidTeamType],
       'game_scores:2011': [PreRejected, ScoreRejectionReason.ScoreBelowMinimum],
     });
+  });
+
+  /** The verification status and reviewer each match update writes. */
+  const matchReviews = async (overrideVerifiedState: boolean) => {
+    const db = new StubDatabase({
+      ...reviewedTournament(),
+      verificationStatus: Rejected,
+      verifiedByUserId: 77,
+    });
+    const service = new TournamentAutomationCheckService({
+      db: db as unknown as DatabaseClient,
+      logger: noopLogger,
+      tournamentChecks: new TournamentAutomationChecks(),
+      matchChecks: new MatchAutomationChecks(),
+      gameChecks: new GameAutomationChecks(),
+      scoreChecks: new ScoreAutomationChecks(),
+    });
+
+    await service.processAutomationChecks(1, overrideVerifiedState);
+
+    return (db.transactions[0]?.updates ?? [])
+      .filter(({ table }) => table === 'matches')
+      .map(({ id, values }) => [
+        id,
+        values.verificationStatus,
+        values.verifiedByUserId,
+      ]);
+  };
+
+  it('credits the admin who rejected the tournament on the matches its rejection now reaches', async () => {
+    const reviews = await matchReviews(false);
+
+    // Rejected already, so the earlier rejection and its reviewer stand.
+    expect(reviews.find(([id]) => id === 1)?.[2]).toBeUndefined();
+    expect(reviews.filter(([id]) => id !== 1)).toEqual([
+      [2, Rejected, 77],
+      [3, Rejected, 77],
+    ]);
+  });
+
+  it('credits no one when an override checks the rejected tournament again', async () => {
+    const reviews = await matchReviews(true);
+
+    expect(reviews).toHaveLength(3);
+    expect(reviews.map(([, , reviewer]) => reviewer)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 });

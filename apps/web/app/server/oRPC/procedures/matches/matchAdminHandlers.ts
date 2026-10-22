@@ -45,6 +45,7 @@ export async function updateMatchAdminHandler({
       id: true,
       verifiedByUserId: true,
       verificationStatus: true,
+      startTime: true,
     },
     where: eq(schema.matches.id, input.id),
   });
@@ -55,7 +56,20 @@ export async function updateMatchAdminHandler({
     });
   }
 
+  // osu! returned no data for a match with no start time, and the rating run
+  // cannot rate a verified match without one. An unedited start time is not
+  // sent, so the stored one counts.
+  const startTime =
+    input.startTime === undefined ? existing.startTime : input.startTime;
+  if (input.verificationStatus === VerificationStatus.Verified && !startTime) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'A match with no data cannot be verified',
+    });
+  }
+
+  // A field the admin did not edit is not sent, and stays as stored.
   const verificationStatusChanged =
+    input.verificationStatus !== undefined &&
     input.verificationStatus !== existing.verificationStatus;
 
   const newStatusRequiresReviewer =
@@ -65,6 +79,10 @@ export async function updateMatchAdminHandler({
   await context.db.transaction((tx) =>
     withAuditUserId(tx, adminUserId, async () => {
       const verifiedByUserId = (() => {
+        if (input.verificationStatus === undefined) {
+          return undefined;
+        }
+
         if (!verificationStatusChanged) {
           return existing.verifiedByUserId;
         }
@@ -91,8 +109,8 @@ export async function updateMatchAdminHandler({
           verificationStatus: input.verificationStatus,
           rejectionReason: input.rejectionReason,
           warningFlags: nextWarningFlags,
-          startTime: input.startTime ?? null,
-          endTime: input.endTime ?? null,
+          startTime: input.startTime,
+          endTime: input.endTime,
           verifiedByUserId,
           updated: NOW,
         })

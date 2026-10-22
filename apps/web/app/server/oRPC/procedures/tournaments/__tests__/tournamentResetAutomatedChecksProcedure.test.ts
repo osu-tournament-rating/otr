@@ -77,10 +77,22 @@ describe.skipIf(!testDatabaseUrl)(
       expect(await queuedChecks()).toEqual([
         expect.objectContaining({
           dedupKey: `tournament:${TOURNAMENT_ID}:override`,
-          payload: { tournamentId: TOURNAMENT_ID, overrideVerifiedState: true },
+          payload: {
+            tournamentId: TOURNAMENT_ID,
+            overrideVerifiedState: true,
+            requestedByUserId: userId,
+          },
           correlationId: 'reset-request',
           tournamentId: TOURNAMENT_ID,
         }),
+      ]);
+    });
+
+    it('names no admin in the payload of checks that keep reviewed data', async () => {
+      await reset(false);
+
+      expect((await queuedChecks()).map(({ payload }) => payload)).toEqual([
+        { tournamentId: TOURNAMENT_ID, overrideVerifiedState: false },
       ]);
     });
 

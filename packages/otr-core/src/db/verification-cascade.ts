@@ -1,4 +1,4 @@
-import { inArray, sql, type SQL } from 'drizzle-orm';
+import { and, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import {
@@ -6,6 +6,7 @@ import {
   MatchWarningFlags,
   VerificationStatus,
 } from '../osu/enums';
+import { creditReviewer } from './rejection-cascade';
 import * as schema from './schema';
 
 export interface VerificationCascadeResult {
@@ -23,6 +24,11 @@ type TimestampValue = string | SQL<unknown>;
 
 type CascadeOptions = {
   updatedAt?: TimestampValue;
+};
+
+type TournamentCascadeOptions = CascadeOptions & {
+  /** The admin credited on each match the verification changes. */
+  verifiedByUserId?: number;
 };
 
 function normalizeIds(ids: readonly number[]): number[] {
@@ -97,11 +103,16 @@ async function cascadeGamesVerification(
   return { gameIds, gameCount: updatedGames.length };
 }
 
-/** Cascades to every match under the given tournaments, clearing their warning flags. */
+/**
+ * Cascades to every match under the given tournaments, clearing their warning
+ * flags. A match osu! returned no data for has no start time and stays as it
+ * is, since the rating run cannot rate it.
+ */
 async function cascadeMatchesVerification(
   db: MutationClient,
   tournamentIds: number[],
-  updatedAt: TimestampValue
+  updatedAt: TimestampValue,
+  verifiedByUserId: number | undefined
 ): Promise<{ matchIds: number[]; matchCount: number }> {
   if (tournamentIds.length === 0) {
     return { matchIds: [], matchCount: 0 };
@@ -113,9 +124,18 @@ async function cascadeMatchesVerification(
       verificationStatus: VerificationStatus.Verified,
       rejectionReason: 0,
       warningFlags: MatchWarningFlags.None,
+      verifiedByUserId: creditReviewer(
+        VerificationStatus.Verified,
+        verifiedByUserId
+      ),
       updated: updatedAt,
     })
-    .where(inArray(schema.matches.tournamentId, tournamentIds))
+    .where(
+      and(
+        inArray(schema.matches.tournamentId, tournamentIds),
+        isNotNull(schema.matches.startTime)
+      )
+    )
     .returning({ id: schema.matches.id });
 
   const matchIds = updatedMatches.map((match) => match.id);
@@ -177,7 +197,7 @@ export async function cascadeMatchVerification(
 export async function cascadeTournamentVerification(
   db: MutationClient,
   tournamentIdsInput: readonly number[],
-  options?: CascadeOptions
+  options?: TournamentCascadeOptions
 ): Promise<VerificationCascadeResult> {
   const tournamentIds = normalizeIds(tournamentIdsInput);
 
@@ -190,7 +210,8 @@ export async function cascadeTournamentVerification(
   const { matchIds, matchCount } = await cascadeMatchesVerification(
     db,
     tournamentIds,
-    updatedAt
+    updatedAt,
+    options?.verifiedByUserId
   );
   const { gameIds, gameCount } = await cascadeGamesVerification(
     db,
