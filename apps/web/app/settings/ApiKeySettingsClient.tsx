@@ -248,7 +248,6 @@ export default function ApiKeySettingsClient({
         {newKey ? (
           <Callout
             tone="warning"
-            title={`Copy "${getKeyName(newKey)}" now`}
             action={
               <Button
                 size="sm"
@@ -260,10 +259,10 @@ export default function ApiKeySettingsClient({
             }
           >
             <p>
-              o!TR keeps only its first characters, so this is the only time it
-              is shown.
+              Save this key now, as it won&apos;t be shown again after you leave
+              this page.
             </p>
-            <code className="mt-1 block font-sans font-medium break-all text-foreground">
+            <code className="mt-1 block font-sans break-all text-foreground">
               {newKey.key}
             </code>
           </Callout>
