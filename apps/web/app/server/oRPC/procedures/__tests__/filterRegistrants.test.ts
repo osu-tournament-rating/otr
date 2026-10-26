@@ -9,6 +9,7 @@ import {
 import { eq, inArray } from 'drizzle-orm';
 
 import { filterRegistrants } from '../filteringProcedures';
+import { consume, RATE_LIMITS } from '@/lib/rpc/rate-limit';
 import type { DatabaseClient } from '@/lib/db';
 import * as schema from '@otr/core/db/schema';
 import { Ruleset } from '@otr/core/osu';
@@ -98,6 +99,33 @@ describe.skipIf(!testDatabaseUrl)('filterRegistrants', () => {
         })
       )
     );
+  });
+
+  it('adds no player when the user has used up their allowance of new ones', async () => {
+    const mode = process.env.RPC_RATE_LIMIT;
+    process.env.RPC_RATE_LIMIT = 'enforce';
+    globalThis.__otrRpcRateLimit = undefined;
+    try {
+      // One new player left, and this filter brings two
+      consume(
+        'players',
+        `user:${userId}`,
+        Date.now(),
+        RATE_LIMITS.players.capacity - 1
+      );
+
+      await expect(filter()).rejects.toThrow('Too many requests');
+
+      expect(await savedPlayerOsuIds()).toEqual([KNOWN_PLAYER_OSU_ID]);
+      expect(await queuedFetches(db, userId)).toEqual([]);
+    } finally {
+      globalThis.__otrRpcRateLimit = undefined;
+      if (mode === undefined) {
+        Reflect.deleteProperty(process.env, 'RPC_RATE_LIMIT');
+      } else {
+        process.env.RPC_RATE_LIMIT = mode;
+      }
+    }
   });
 
   it.each(transactionFaults)(

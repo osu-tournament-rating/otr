@@ -19,6 +19,7 @@ import {
 import * as schema from '@otr/core/db/schema';
 import { enqueueJobs, JobQueue } from '@otr/core/jobs';
 import { getCorrelationId } from './logging';
+import { checkRateLimit, rateLimitedError } from '@/lib/rpc/rate-limit';
 
 type FilterReportPlayerRow = typeof schema.filterReportPlayers.$inferSelect & {
   player: typeof schema.players.$inferSelect | null;
@@ -66,6 +67,25 @@ export const filterRegistrants = protectedMutationProcedure
       );
 
       if (missingOsuIds.length > 0) {
+        // Every new player is a permanent row and an explicit osu! fetch, so a
+        // caller inventing IDs would otherwise flood both
+        const { allowed, retryAfterSeconds } = checkRateLimit(
+          'players',
+          `user:${userId}`,
+          {
+            caller: context.rpc?.kind ?? 'api',
+            path: null,
+            procedure: 'filtering.filter',
+          },
+          Date.now(),
+          missingOsuIds.length
+        );
+
+        if (!allowed) {
+          context.resHeaders?.set('retry-after', String(retryAfterSeconds));
+          throw rateLimitedError(retryAfterSeconds);
+        }
+
         const correlationId = getCorrelationId(context);
 
         // Placeholder rows, so filters can record results before ingestion

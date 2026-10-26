@@ -68,6 +68,17 @@ describe('consume', () => {
     });
   });
 
+  it('takes a call that costs more than one token only when all of it fits', () => {
+    const { capacity } = RATE_LIMITS.players;
+    consume('players', 'user:1', NOW, capacity - 1);
+
+    expect(consume('players', 'user:1', NOW, 2)).toMatchObject({
+      allowed: false,
+      limited: true,
+    });
+    expect(consume('players', 'user:1', NOW, 1).allowed).toBe(true);
+  });
+
   it('refills at the bucket rate', () => {
     const { capacity, refillPerSecond } = RATE_LIMITS.general;
     for (let call = 0; call < capacity; call++) {
