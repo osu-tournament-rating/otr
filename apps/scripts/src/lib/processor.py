@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 
 from lib.config import config
@@ -10,10 +11,16 @@ logger = logging.getLogger(__name__)
 CONTAINER_NAME = "otr-processor"
 
 
-def _stream(cmd: list[str]) -> int:
-    """Run a command, logging each line of its output as it arrives"""
+def _stream(cmd: list[str], env: dict[str, str] | None = None) -> int:
+    """Run a command, logging each line of its output as it arrives. `env`
+    adds to the inherited environment, which keeps secrets off the command
+    line, where any local user can read them."""
     with subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env={**os.environ, **env} if env else None,
     ) as proc:
         for line in proc.stdout:
             logger.info(line.rstrip("\n"))
@@ -37,11 +44,25 @@ def run() -> bool:
     rust_log = "info"
 
     # --rm removes the container once it exits, so runs leave none behind.
-    # Alloy collects logs only from containers named otr-*.
-    run_cmd = f"docker run --rm --name {CONTAINER_NAME} --network host -e DATABASE_URL={conn_str} -e RUST_LOG={rust_log} {image}".split()
+    # Alloy collects logs only from containers named otr-*. A bare
+    # `-e DATABASE_URL` copies the value from docker's own environment.
+    run_cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        CONTAINER_NAME,
+        "--network",
+        "host",
+        "-e",
+        "DATABASE_URL",
+        "-e",
+        f"RUST_LOG={rust_log}",
+        image,
+    ]
 
     logger.info("Running processor")
-    if (code := _stream(run_cmd)) != 0:
+    if (code := _stream(run_cmd, env={"DATABASE_URL": conn_str})) != 0:
         logger.error(f"Processor failed (code {code})")
         return False
 

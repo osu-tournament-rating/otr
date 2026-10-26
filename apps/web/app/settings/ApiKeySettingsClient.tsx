@@ -10,6 +10,7 @@ import { Button } from '@/components/kit/controls/Button';
 import { ConfirmDialog } from '@/components/kit/controls/ConfirmDialog';
 import { FormFieldLabel } from '@/components/kit/controls/FormFieldLabel';
 import { IconButton } from '@/components/kit/controls/IconButton';
+import { Callout } from '@/components/kit/feedback/Callout';
 import { EmptyState } from '@/components/kit/feedback/EmptyState';
 import { Timestamp } from '@/components/kit/format/Timestamp';
 import { Panel, PanelBody } from '@/components/kit/layout/Panel';
@@ -25,12 +26,15 @@ import {
 import { PhoneRow, PhoneRowList } from '@/components/kit/tables/PhoneRow';
 import { Input } from '@/components/ui/input';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
-import type { ApiKeyMetadataWithKey } from '@/lib/orpc/schema/apiKey';
+import type {
+  ApiKeyMetadata,
+  ApiKeyMetadataWithKey,
+} from '@/lib/orpc/schema/apiKey';
 import { orpc } from '@/lib/orpc/orpc';
 import { getApiKeyPreview } from '@/lib/utils/apiKey';
 
 interface ApiKeySettingsClientProps {
-  initialKeys: ApiKeyMetadataWithKey[];
+  initialKeys: ApiKeyMetadata[];
   rateLimit: {
     maxRequests: number;
     timeWindowMs: number;
@@ -41,7 +45,7 @@ const MAX_API_KEYS = 3;
 const FALLBACK_KEY_NAME = 'API key';
 const KEY_NAME_REQUIRED_MESSAGE = 'Key name is required';
 
-const getKeyName = (metadata: ApiKeyMetadataWithKey) =>
+const getKeyName = (metadata: ApiKeyMetadata) =>
   metadata.name && metadata.name.trim().length > 0
     ? metadata.name.trim()
     : FALLBACK_KEY_NAME;
@@ -72,14 +76,14 @@ export default function ApiKeySettingsClient({
   initialKeys,
   rateLimit,
 }: ApiKeySettingsClientProps) {
-  const [keys, setKeys] = useState<ApiKeyMetadataWithKey[]>(initialKeys);
+  const [keys, setKeys] = useState<ApiKeyMetadata[]>(initialKeys);
+  // The whole key exists only in this response, so it is shown just once
+  const [newKey, setNewKey] = useState<ApiKeyMetadataWithKey | null>(null);
   const [pendingName, setPendingName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   // Kept after the confirm closes, so its title does not empty as it fades.
-  const [keyToDelete, setKeyToDelete] = useState<ApiKeyMetadataWithKey | null>(
-    null
-  );
+  const [keyToDelete, setKeyToDelete] = useState<ApiKeyMetadata | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const sortedKeys = useMemo(
@@ -118,12 +122,15 @@ export default function ApiKeySettingsClient({
         name: trimmedName,
       });
 
+      const { key: _key, ...listed } = metadata;
+      void _key;
       setKeys((previous) => {
         const withoutDuplicate = previous.filter(
           (existing) => existing.id !== metadata.id
         );
-        return [...withoutDuplicate, metadata];
+        return [...withoutDuplicate, listed];
       });
+      setNewKey(metadata);
 
       setPendingName('');
       toast.success('API key generated successfully');
@@ -139,22 +146,14 @@ export default function ApiKeySettingsClient({
     }
   };
 
-  const handleCopySecret = (value: string | null | undefined) => {
-    const secret = value?.trim();
-    if (!secret) {
-      toast.error(
-        'Secret is unavailable. Generate a new key to continue using the API.'
-      );
-      return;
-    }
-
+  const handleCopySecret = (secret: string) => {
     navigator.clipboard
       .writeText(secret)
       .then(() => toast.success('API key copied to clipboard'))
       .catch(() => toast.error('Failed to copy API key.'));
   };
 
-  const askToDelete = (key: ApiKeyMetadataWithKey) => {
+  const askToDelete = (key: ApiKeyMetadata) => {
     setKeyToDelete(key);
     setConfirmingDelete(true);
   };
@@ -164,16 +163,12 @@ export default function ApiKeySettingsClient({
 
     await orpc.apiClients.deleteKey({ keyId: keyToDelete.id });
     setKeys((previous) => previous.filter((key) => key.id !== keyToDelete.id));
+    if (newKey?.id === keyToDelete.id) setNewKey(null);
     toast.success('API key deleted');
   };
 
-  const renderActions = (keyMetadata: ApiKeyMetadataWithKey) => (
+  const renderActions = (keyMetadata: ApiKeyMetadata) => (
     <span className="flex justify-end gap-1">
-      <IconButton
-        label="Copy API key"
-        icon={Copy}
-        onClick={() => handleCopySecret(keyMetadata.key)}
-      />
       <IconButton
         label="Delete API key"
         icon={Trash2}
@@ -249,6 +244,28 @@ export default function ApiKeySettingsClient({
           >
             {error}
           </p>
+        ) : null}
+        {newKey ? (
+          <Callout
+            tone="warning"
+            action={
+              <Button
+                size="sm"
+                icon={Copy}
+                onClick={() => handleCopySecret(newKey.key)}
+              >
+                Copy API key
+              </Button>
+            }
+          >
+            <p>
+              Save this key now, as it won&apos;t be shown again after you leave
+              this page.
+            </p>
+            <code className="mt-1 block font-sans break-all text-foreground">
+              {newKey.key}
+            </code>
+          </Callout>
         ) : null}
       </PanelBody>
 

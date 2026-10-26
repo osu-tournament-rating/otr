@@ -426,6 +426,9 @@ def _export(replica: str) -> Path | None:
     config.dump_dir.mkdir(parents=True, exist_ok=True)
 
     dest = config.dump_dir / dump_file_format
+    # A production dump holds live tokens and API keys. The shell's `>`
+    # truncates this file and keeps its mode, so only the owner can read it.
+    dest.touch(mode=0o600)
 
     cmd = _export_command(replica, dest)
 

@@ -8,7 +8,7 @@ import { rpcRejections } from '@/lib/metrics';
 import { resolveInternalRpcSecret } from './internal-token';
 
 export type RateLimitMode = 'enforce' | 'observe' | 'off';
-export type RateLimitBucket = 'general' | 'search';
+export type RateLimitBucket = 'general' | 'search' | 'players';
 export type RateLimitCaller = 'browser' | 'internal' | 'api';
 
 /**
@@ -25,6 +25,10 @@ export const RATE_LIMITS: Record<
   general: { capacity: 240, refillPerSecond: 4 },
   // Searches with a term, from anywhere, by user or else IP
   search: { capacity: 60, refillPerSecond: 1 },
+  // osu! players new to o!TR that a user adds by filtering, by user. Each one
+  // is a permanent row and an explicit osu! fetch, so the cost is one per
+  // player: one full registrant list at once, and another an hour later.
+  players: { capacity: 5000, refillPerSecond: 5000 / 3600 },
 };
 
 /** Keys tracked per bucket before idle and then the oldest are dropped. */
@@ -114,11 +118,15 @@ export type RateLimitResult = {
   enforced: boolean;
 };
 
-/** Takes one call from `key`'s bucket. A null key passes uncounted. */
+/**
+ * Takes `cost` tokens, one per call by default, from `key`'s bucket. A null
+ * key passes uncounted.
+ */
 export function consume(
   bucket: RateLimitBucket,
   key: string | null,
-  now = Date.now()
+  now = Date.now(),
+  cost = 1
 ): RateLimitResult {
   const mode = resolveRateLimitMode();
   const enforced = mode === 'enforce';
@@ -145,9 +153,9 @@ export function consume(
     ? Math.min(capacity, entry.tokens + elapsedSeconds * refillPerSecond)
     : capacity;
 
-  const limited = tokens < 1;
+  const limited = tokens < cost;
   if (!limited) {
-    tokens -= 1;
+    tokens -= cost;
   }
 
   // Re-inserted so the map stays in order of last use
@@ -163,7 +171,7 @@ export function consume(
     limited,
     unkeyed: false,
     retryAfterSeconds: limited
-      ? Math.max(1, Math.ceil((1 - tokens) / refillPerSecond))
+      ? Math.max(1, Math.ceil((cost - tokens) / refillPerSecond))
       : 0,
     enforced,
   };
@@ -222,9 +230,10 @@ export function checkRateLimit(
   bucket: RateLimitBucket,
   key: string | null,
   report: RateLimitReport,
-  now = Date.now()
+  now = Date.now(),
+  cost = 1
 ): RateLimitResult {
-  const result = consume(bucket, key, now);
+  const result = consume(bucket, key, now, cost);
   const enforced = String(result.enforced);
 
   if (result.unkeyed) {
@@ -265,11 +274,19 @@ export function checkRateLimit(
   return result;
 }
 
+/** Seconds under a minute, else whole minutes rounded up. */
+const formatWait = (seconds: number) => {
+  if (seconds < 60) {
+    return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+};
+
 export const rateLimitedError = (retryAfterSeconds: number) =>
   new ORPCError('TOO_MANY_REQUESTS', {
     status: 429,
-    message: `Too many requests. Try again in ${retryAfterSeconds} ${
-      retryAfterSeconds === 1 ? 'second' : 'seconds'
-    }.`,
+    message: `Too many requests. Try again in ${formatWait(retryAfterSeconds)}.`,
     data: { code: 'RATE_LIMITED', retryAfter: retryAfterSeconds },
   });
