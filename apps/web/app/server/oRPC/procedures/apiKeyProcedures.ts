@@ -42,12 +42,6 @@ type ApiKeyResponse = Omit<
 
 const FALLBACK_API_KEY_NAME = 'API key';
 const API_KEY_PREFIX = 'otr-';
-const API_KEY_METADATA_SECRET_FIELD = 'secret';
-
-type ApiKeyMetadataPayload = {
-  secret?: string;
-  [key: string]: unknown;
-};
 
 const normalizeTimestamp = (value: unknown) => {
   if (value instanceof Date) {
@@ -61,53 +55,10 @@ const normalizeTimestamp = (value: unknown) => {
   return value === null || value === undefined ? null : String(value);
 };
 
-const parseApiKeyMetadata = (metadata: unknown): ApiKeyMetadataPayload => {
-  if (!metadata) {
-    return {};
-  }
-
-  if (typeof metadata === 'string') {
-    try {
-      const parsed = JSON.parse(metadata);
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-        ? (parsed as ApiKeyMetadataPayload)
-        : {};
-    } catch {
-      return {};
-    }
-  }
-
-  if (typeof metadata === 'object' && !Array.isArray(metadata)) {
-    return { ...(metadata as ApiKeyMetadataPayload) };
-  }
-
-  return {};
-};
-
-const extractStoredSecret = (metadata: unknown): string | null => {
-  const parsed = parseApiKeyMetadata(metadata);
-  const candidate = parsed[API_KEY_METADATA_SECRET_FIELD];
-
-  if (typeof candidate !== 'string') {
-    return null;
-  }
-
-  const trimmed = candidate.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
-const encodeApiKeyMetadata = (metadata: ApiKeyMetadataPayload) => {
-  try {
-    return JSON.stringify(metadata);
-  } catch {
-    return null;
-  }
-};
-
 const toMetadataShape = (record: RawApiKeyRecord | ApiKeyResponse) => {
   const {
     key: _omitKey,
-    metadata: rawMetadata,
+    metadata: _omitMetadata,
     permissions: _omitPermissions,
     createdAt,
     updatedAt,
@@ -118,10 +69,10 @@ const toMetadataShape = (record: RawApiKeyRecord | ApiKeyResponse) => {
   } = record as ApiKeyResponse;
 
   void _omitKey;
+  void _omitMetadata;
   void _omitPermissions;
 
   const recordWithMetadata = record as ApiKeyResponse;
-  const storedSecret = extractStoredSecret(rawMetadata);
   const normalizedName =
     typeof recordWithMetadata.name === 'string'
       ? recordWithMetadata.name.trim()
@@ -130,7 +81,6 @@ const toMetadataShape = (record: RawApiKeyRecord | ApiKeyResponse) => {
   return {
     ...rest,
     name: normalizedName.length > 0 ? normalizedName : FALLBACK_API_KEY_NAME,
-    key: storedSecret ?? '',
     createdAt: normalizeTimestamp(createdAt),
     updatedAt: normalizeTimestamp(updatedAt),
     lastRequest: normalizeTimestamp(lastRequest),
@@ -143,7 +93,7 @@ export const toApiKeyMetadata = (record: RawApiKeyRecord) =>
   ApiKeyMetadataSchema.parse(toMetadataShape(record));
 
 export const getUserApiKeys = protectedProcedure
-  .output(ApiKeyWithSecretSchema.array())
+  .output(ApiKeyMetadataSchema.array())
   .route({
     summary: 'List API keys',
     tags: ['authenticated'],
@@ -165,7 +115,7 @@ export const getUserApiKeys = protectedProcedure
     const ownerIsAdmin = hasAdminScope(context.session.dbUser?.scopes);
 
     return records.map((record) =>
-      ApiKeyWithSecretSchema.parse(
+      ApiKeyMetadataSchema.parse(
         toMetadataShape(limitForOwnerRole(record, ownerIsAdmin))
       )
     );
@@ -215,24 +165,8 @@ export const generateUserApiKey = protectedMutationProcedure
         throw error;
       });
 
-    if (created?.id) {
-      const rawMetadata =
-        typeof created === 'object' && created !== null && 'metadata' in created
-          ? (created as { metadata?: unknown }).metadata
-          : null;
-      const combinedMetadata = parseApiKeyMetadata(rawMetadata);
-      combinedMetadata[API_KEY_METADATA_SECRET_FIELD] = created.key;
-
-      const encoded = encodeApiKeyMetadata(combinedMetadata);
-
-      if (encoded) {
-        await context.db
-          .update(schema.apiKeys)
-          .set({ metadata: encoded })
-          .where(eq(schema.apiKeys.id, created.id));
-      }
-    }
-
+    // Only the creator sees the whole key, once: o!TR keeps its hash and
+    // first characters, never the key itself
     return ApiKeyWithSecretSchema.parse({
       ...toMetadataShape(
         limitForOwnerRole(

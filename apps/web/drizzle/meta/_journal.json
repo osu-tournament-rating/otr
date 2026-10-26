@@ -337,6 +337,13 @@
       "when": 1792629059556,
       "tag": "0047_audit_indexes_and_notes_outlive_records",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793051394666,
+      "tag": "0048_strip_stored_api_key_secrets",
+      "breakpoints": true
     }
   ]
 }
