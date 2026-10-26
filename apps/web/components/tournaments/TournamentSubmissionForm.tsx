@@ -158,7 +158,7 @@ export default function TournamentSubmissionForm() {
               href={`/tournaments/${result.id}`}
               onClick={() => toast.dismiss(toastId)}
             >
-              View tournament
+              View
             </Link>
           </Button>
         ),
