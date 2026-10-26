@@ -36,6 +36,10 @@ import {
 } from './beatmapStatsHelpers';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolveBeatmapId } from './shared/keyType';
+import {
+  reviewerUsernameSql,
+  tournamentPendingRatingSql,
+} from './shared/verificationDetails';
 import { logger } from '@/lib/logger';
 
 /** Verified scores surfaced by the beatmap page's score table. */
@@ -360,6 +364,12 @@ export const getBeatmapStats = publicProcedure
             tournamentLobbySize: schema.tournaments.lobbySize,
             tournamentVerificationStatus: schema.tournaments.verificationStatus,
             tournamentRejectionReason: schema.tournaments.rejectionReason,
+            tournamentVerifiedByUsername: reviewerUsernameSql(
+              schema.tournaments.verifiedByUserId
+            ),
+            tournamentPendingRating: tournamentPendingRatingSql(
+              schema.tournaments
+            ),
             tournamentRankRangeLowerBound:
               schema.tournaments.rankRangeLowerBound,
             gameCount: sql<number>`COUNT(DISTINCT ${schema.games.id})`,
@@ -988,6 +998,8 @@ export const getBeatmapStats = publicProcedure
             verificationStatus:
               row.tournamentVerificationStatus as VerificationStatus,
             rejectionReason: row.tournamentRejectionReason,
+            verifiedByUsername: row.tournamentVerifiedByUsername ?? null,
+            pendingRating: row.tournamentPendingRating,
             // Falls back to the games' mode only when no verified score resolved the pool
             mostCommonMods: poolMods
               ? poolMods.mods

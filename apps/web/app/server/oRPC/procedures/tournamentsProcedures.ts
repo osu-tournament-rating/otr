@@ -54,6 +54,10 @@ import {
   collectRulesets,
 } from './shared/rulesetFilter';
 import { buildTournamentListOrder } from './shared/tournamentListOrder';
+import {
+  matchPendingRatingSql,
+  tournamentPendingRatingSql,
+} from './shared/verificationDetails';
 import { deriveTournamentWinRecord } from './shared/winRecord';
 import { logger } from '@/lib/logger';
 
@@ -199,6 +203,7 @@ async function fetchTournamentListItems(
       isLazer: schema.tournaments.isLazer,
       submittedByUsername: submitterPlayer.username,
       verifiedByUsername: verifierPlayer.username,
+      pendingRating: tournamentPendingRatingSql(schema.tournaments),
     })
     .from(schema.tournaments)
     .leftJoin(
@@ -266,6 +271,7 @@ async function fetchTournamentListItems(
       isLazer: row.isLazer,
       submittedByUsername: row.submittedByUsername ?? null,
       verifiedByUsername: row.verifiedByUsername ?? null,
+      pendingRating: row.pendingRating,
       adminNotes: adminNotesByTournamentId.get(row.id) ?? [],
     })
   );
@@ -404,6 +410,13 @@ export const getTournament = publicProcedure
             .limit(1)
             .then((rows) => rows[0]?.username ?? null)
         : null;
+
+      const [{ pendingRating } = { pendingRating: false }] = await context.db
+        .select({
+          pendingRating: tournamentPendingRatingSql(schema.tournaments),
+        })
+        .from(schema.tournaments)
+        .where(eq(schema.tournaments.id, tournament.id));
 
       const beatmapsetCreator = alias(schema.players, 'beatmapsetCreator');
 
@@ -600,6 +613,7 @@ export const getTournament = publicProcedure
           submittedByUserId: schema.matches.submittedByUserId,
           verifiedByUserId: schema.matches.verifiedByUserId,
           verifiedByUsername: matchVerifierPlayer.username,
+          pendingRating: matchPendingRatingSql(schema.matches),
           dataFetchStatus: schema.matches.dataFetchStatus,
         })
         .from(schema.matches)
@@ -764,6 +778,7 @@ export const getTournament = publicProcedure
         submittedByUserId: match.submittedByUserId ?? null,
         verifiedByUserId: match.verifiedByUserId ?? null,
         verifiedByUsername: match.verifiedByUsername ?? null,
+        pendingRating: match.pendingRating,
         dataFetchStatus: match.dataFetchStatus,
         adminNotes: matchAdminNotesByMatchId.get(match.id) ?? [],
         winRecord: deriveTournamentWinRecord(
@@ -1016,6 +1031,7 @@ export const getTournament = publicProcedure
         verifiedByUserId: tournament.verifiedByUserId ?? null,
         submittedByUsername,
         verifiedByUsername,
+        pendingRating,
         matches: normalizedMatches,
         adminNotes,
         playerTournamentStats: playerStats,

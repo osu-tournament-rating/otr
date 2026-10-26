@@ -42,6 +42,7 @@ function tournament(
     isLazer: false,
     submittedByUsername: null,
     verifiedByUsername: null,
+    pendingRating: false,
     matchesWon: 2,
     matchesLost: 1,
     ...overrides,

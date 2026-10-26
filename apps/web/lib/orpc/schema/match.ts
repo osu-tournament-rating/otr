@@ -231,6 +231,8 @@ const matchBaseSchema = matchSelectSchema
     winRecord: MatchWinRecordSchema.nullable().default(null),
     rosters: z.array(MatchRosterSchema).default([]),
     verifiedByUsername: z.string().nullable(),
+    /** Verified, but the weekly rating run has not rated it yet. */
+    pendingRating: z.boolean(),
   });
 
 export const MatchSchema = matchBaseSchema;

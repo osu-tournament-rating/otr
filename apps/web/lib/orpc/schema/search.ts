@@ -48,6 +48,9 @@ export const TournamentSearchResultSchema = tournamentSearchBaseSchema
     ruleset: RulesetSchema,
     verificationStatus: VerificationStatusSchema,
     abbreviation: tournamentSearchBaseSchema.shape.abbreviation.nullable(),
+    verifiedByUsername: z.string().nullable(),
+    /** Verified, but the weekly rating run has not rated it yet. */
+    pendingRating: z.boolean(),
   });
 
 const matchSearchBaseSchema = matchSelectSchema.pick({

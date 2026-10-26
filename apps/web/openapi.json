@@ -860,7 +860,8 @@
           },
           "verifiedByUsername": {
             "anyOf": [{ "type": "string" }, { "type": "null" }]
-          }
+          },
+          "pendingRating": { "type": "boolean" }
         },
         "required": [
           "id",
@@ -876,7 +877,8 @@
           "submittedByUserId",
           "verifiedByUserId",
           "dataFetchStatus",
-          "verifiedByUsername"
+          "verifiedByUsername",
+          "pendingRating"
         ]
       },
       "Tournament": {
@@ -1749,7 +1751,8 @@
                 },
                 "verifiedByUsername": {
                   "anyOf": [{ "type": "string" }, { "type": "null" }]
-                }
+                },
+                "pendingRating": { "type": "boolean" }
               },
               "required": [
                 "id",
@@ -1765,7 +1768,8 @@
                 "submittedByUserId",
                 "verifiedByUserId",
                 "dataFetchStatus",
-                "verifiedByUsername"
+                "verifiedByUsername",
+                "pendingRating"
               ]
             },
             "default": []
@@ -2089,7 +2093,8 @@
           },
           "verifiedByUsername": {
             "anyOf": [{ "type": "string" }, { "type": "null" }]
-          }
+          },
+          "pendingRating": { "type": "boolean" }
         },
         "required": [
           "id",
@@ -2107,7 +2112,8 @@
           "startTime",
           "endTime",
           "submittedByUsername",
-          "verifiedByUsername"
+          "verifiedByUsername",
+          "pendingRating"
         ]
       },
       "TournamentListItem": {
@@ -2134,6 +2140,7 @@
           "verifiedByUsername": {
             "anyOf": [{ "type": "string" }, { "type": "null" }]
           },
+          "pendingRating": { "type": "boolean" },
           "adminNotes": {
             "type": "array",
             "items": {
@@ -2177,7 +2184,8 @@
           "rejectionReason",
           "isLazer",
           "submittedByUsername",
-          "verifiedByUsername"
+          "verifiedByUsername",
+          "pendingRating"
         ]
       },
       "LeaderboardEntry": {
@@ -4285,6 +4293,7 @@
                     "verifiedByUsername": {
                       "anyOf": [{ "type": "string" }, { "type": "null" }]
                     },
+                    "pendingRating": { "type": "boolean" },
                     "mergedMatches": {
                       "type": "array",
                       "items": {
@@ -4321,7 +4330,8 @@
                     "submittedByUserId",
                     "verifiedByUserId",
                     "dataFetchStatus",
-                    "verifiedByUsername"
+                    "verifiedByUsername",
+                    "pendingRating"
                   ]
                 }
               }
@@ -4726,6 +4736,7 @@
                       "verifiedByUsername": {
                         "anyOf": [{ "type": "string" }, { "type": "null" }]
                       },
+                      "pendingRating": { "type": "boolean" },
                       "matchesWon": { "type": "integer" },
                       "matchesLost": { "type": "integer" }
                     },
@@ -4745,6 +4756,7 @@
                       "isLazer",
                       "submittedByUsername",
                       "verifiedByUsername",
+                      "pendingRating",
                       "matchesWon",
                       "matchesLost"
                     ]
@@ -5538,6 +5550,10 @@
                             "type": "integer",
                             "minimum": 0
                           },
+                          "verifiedByUsername": {
+                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                          },
+                          "pendingRating": { "type": "boolean" },
                           "mostCommonMods": {
                             "anyOf": [
                               { "type": "integer", "minimum": 0 },
@@ -5556,6 +5572,8 @@
                           "endTime",
                           "verificationStatus",
                           "rejectionReason",
+                          "verifiedByUsername",
+                          "pendingRating",
                           "mostCommonMods",
                           "mostCommonModsFreemod"
                         ]

@@ -26,6 +26,7 @@ import {
 import { publicProcedure } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolveMatchId } from './shared/keyType';
+import { matchPendingRatingSql } from './shared/verificationDetails';
 import { deriveVerifiedWinRecord } from './shared/winRecord';
 
 type AdminNote = ReturnType<(typeof AdminNoteSchema)['parse']>;
@@ -136,6 +137,7 @@ export const getMatch = publicProcedure
         submittedByUserId: schema.matches.submittedByUserId,
         verifiedByUserId: schema.matches.verifiedByUserId,
         dataFetchStatus: schema.matches.dataFetchStatus,
+        pendingRating: matchPendingRatingSql(schema.matches),
         tournamentName: schema.tournaments.name,
         tournamentAbbreviation: schema.tournaments.abbreviation,
         tournamentRuleset: schema.tournaments.ruleset,
@@ -749,6 +751,7 @@ export const getMatch = publicProcedure
       winRecord,
       rosters,
       verifiedByUsername,
+      pendingRating: matchRow.pendingRating,
       mergedMatches,
     });
 

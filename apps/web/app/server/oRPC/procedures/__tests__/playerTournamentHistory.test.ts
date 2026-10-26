@@ -40,6 +40,7 @@ function historyRow(
     isLazer: false,
     submittedByUsername: null,
     verifiedByUsername: null,
+    pendingRating: false,
     matchesWon: null,
     matchesLost: null,
   };
