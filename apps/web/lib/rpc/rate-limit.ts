@@ -274,11 +274,19 @@ export function checkRateLimit(
   return result;
 }
 
+/** Seconds under a minute, else whole minutes rounded up. */
+const formatWait = (seconds: number) => {
+  if (seconds < 60) {
+    return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+};
+
 export const rateLimitedError = (retryAfterSeconds: number) =>
   new ORPCError('TOO_MANY_REQUESTS', {
     status: 429,
-    message: `Too many requests. Try again in ${retryAfterSeconds} ${
-      retryAfterSeconds === 1 ? 'second' : 'seconds'
-    }.`,
+    message: `Too many requests. Try again in ${formatWait(retryAfterSeconds)}.`,
     data: { code: 'RATE_LIMITED', retryAfter: retryAfterSeconds },
   });

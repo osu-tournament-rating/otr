@@ -245,4 +245,14 @@ describe('rateLimitedError', () => {
       'Too many requests. Try again in 3 seconds.'
     );
   });
+
+  // The players bucket refills over an hour
+  it('says a wait of a minute or more in minutes, rounded up', () => {
+    expect(rateLimitedError(60).message).toBe(
+      'Too many requests. Try again in 1 minute.'
+    );
+    expect(rateLimitedError(2592).message).toBe(
+      'Too many requests. Try again in 44 minutes.'
+    );
+  });
 });
