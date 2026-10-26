@@ -29,6 +29,8 @@ export function TournamentResultContent({
           'tournament',
           data.rejectionReason
         )}
+        reviewer={data.verifiedByUsername}
+        pendingRating={data.pendingRating}
         tooltip="hover"
       />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">

@@ -50,6 +50,8 @@ function StatusIcon({ row }: { row: BeatmapTournamentUsage }) {
         'tournament',
         row.rejectionReason
       )}
+      reviewer={row.verifiedByUsername}
+      pendingRating={row.pendingRating}
       context={row.tournament.name}
       tooltip="tap"
     />

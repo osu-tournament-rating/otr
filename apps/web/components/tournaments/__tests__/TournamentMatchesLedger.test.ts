@@ -25,6 +25,7 @@ const match = (
     warningFlags: MatchWarningFlags.None,
     rejectionReason: MatchRejectionReason.None,
     verifiedByUsername: null,
+    pendingRating: false,
   },
   startDate,
   winRecord:

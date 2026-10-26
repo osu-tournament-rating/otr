@@ -58,7 +58,11 @@ import type { TournamentDetail } from '@/lib/orpc/schema/tournament';
 export type TournamentHeroData = EditableTournament &
   Pick<
     TournamentDetail,
-    'isLazer' | 'adminNotes' | 'verifiedByUsername' | 'submittedByUsername'
+    | 'isLazer'
+    | 'adminNotes'
+    | 'verifiedByUsername'
+    | 'pendingRating'
+    | 'submittedByUsername'
   >;
 
 type AdminAction =
@@ -84,14 +88,11 @@ export default function TournamentHero({
   tournament,
   tab,
   counts,
-  pendingRating = false,
 }: {
   tournament: TournamentHeroData;
   tab: TournamentTab;
   /** What the Matches and Beatmaps tabs hold (visible pooled beatmaps). */
   counts: { matches: number; beatmaps: number };
-  /** Verified, but the Tuesday update has not rated it yet. */
-  pendingRating?: boolean;
 }) {
   const session = useSession();
   const router = useRouter();
@@ -120,8 +121,8 @@ export default function TournamentHero({
               'tournament',
               tournament.rejectionReason
             )}
-            reviewer={tournament.verifiedByUsername ?? undefined}
-            pendingRating={pendingRating}
+            reviewer={tournament.verifiedByUsername}
+            pendingRating={tournament.pendingRating}
             tooltip="tap"
           />
         }

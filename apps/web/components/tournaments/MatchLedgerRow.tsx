@@ -261,7 +261,8 @@ export default function MatchLedgerRow({
           'match',
           match.status.rejectionReason
         )}
-        reviewer={match.status.verifiedByUsername ?? undefined}
+        reviewer={match.status.verifiedByUsername}
+        pendingRating={match.status.pendingRating}
         context={match.name || `Match ${match.id}`}
         tooltip="tap"
       />

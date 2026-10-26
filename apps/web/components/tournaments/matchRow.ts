@@ -31,6 +31,7 @@ export type MatchRow = {
     warningFlags: MatchWarningFlags;
     rejectionReason: MatchRejectionReason;
     verifiedByUsername: string | null;
+    pendingRating: boolean;
   };
   startDate: string | null;
   winRecord: TournamentMatch['winRecord'];

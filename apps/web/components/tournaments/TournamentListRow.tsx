@@ -120,7 +120,8 @@ export default function TournamentListRow({
                   'tournament',
                   tournament.rejectionReason
                 )}
-                reviewer={tournament.verifiedByUsername ?? undefined}
+                reviewer={tournament.verifiedByUsername}
+                pendingRating={tournament.pendingRating}
                 tooltip="hover"
               />
             </span>

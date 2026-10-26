@@ -90,6 +90,8 @@ export default function PlayerTournamentCard({
                 tournament.rejectionReason
               )}
               reviewer={tournament.verifiedByUsername}
+              pendingRating={tournament.pendingRating}
+              context={tournament.name}
               tooltip="tap"
             />
             <NotInRatings status={tournament.verificationStatus} />

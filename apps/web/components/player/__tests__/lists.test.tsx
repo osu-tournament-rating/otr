@@ -136,7 +136,7 @@ describe('PlayerTournamentCard', () => {
 
     expect(html).toContain('href="/tournaments/1"');
     expect(html).toContain('data-slot="verification-status-icon"');
-    expect(html).toContain('aria-label="Rejected"');
+    expect(html).toContain('aria-label="Tournament 1: Rejected"');
     expect(html).not.toContain('>Record<');
     expect(html).not.toContain('>Rating change<');
     expect(html).not.toContain('Matches in Tournament 1');
@@ -154,7 +154,7 @@ describe('PlayerTournamentCard', () => {
   it('shows a verified row awaiting stats with neither a record nor the label', () => {
     const html = renderRow(withoutStats(1, VerificationStatus.Verified));
 
-    expect(html).toContain('aria-label="Verified"');
+    expect(html).toContain('aria-label="Tournament 1: Verified"');
     expect(html).not.toContain('>Record<');
     expect(html).not.toContain('Matches in Tournament 1');
     expect(html).not.toContain('data-slot="not-in-ratings"');

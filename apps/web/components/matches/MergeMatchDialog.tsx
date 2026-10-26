@@ -310,7 +310,8 @@ function ChildMatchRow({
               'match',
               match.rejectionReason
             )}
-            reviewer={match.verifiedByUsername ?? undefined}
+            reviewer={match.verifiedByUsername}
+            pendingRating={match.pendingRating}
             tooltip="tap"
           />
         </dd>

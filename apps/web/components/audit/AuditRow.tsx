@@ -100,7 +100,8 @@ export function AuditStatusSlot({
   return (
     <span className="flex h-5 w-4 shrink-0 items-center justify-center">
       {status !== undefined ? (
-        <VerificationStatusIcon status={status} tooltip="tap" />
+        // The sentence beside it names the change, so the icon only marks it.
+        <VerificationStatusIcon status={status} decorative />
       ) : (
         icon
       )}
