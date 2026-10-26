@@ -196,9 +196,9 @@ skill in `.claude/skills/testing/SKILL.md`.
   test, or copy the code's current output into its expected values, to make a
   run pass.
 - When a test your change does not touch fails, compare it with `master` in
-  the same environment, as the skill describes. If `master` fails it too, open
-  an issue and leave the test alone. If it fails only with your change, fix
-  the code.
+  the same environment, as the skill describes. If `master` fails it too,
+  find or open an issue as the `issue` skill allows, and leave the test alone.
+  If it fails only with your change, fix the code.
 - Change what an existing test expects only when the task changes that
   behavior. List every such test under `## Tests changed` in the pull request.
   CI fails a pull request that edits or deletes an existing test without one,
@@ -255,13 +255,15 @@ follow the `pull-request` skill in `.claude/skills/pull-request/SKILL.md`.
 
 ## Issues
 
-Open an issue for anything you notice outside your task, such as an unrelated
-bug, a risk, dead code, or documentation that no longer matches the code. Do not
-fix it in the current change. The one exception is the `web-design` skill: fix
-an out-of-date part of it in place, in the change you are making.
+When you notice something outside your task, such as an unrelated bug, a
+risk, dead code, or documentation that no longer matches the code, do not fix
+it in the current change. List it in your final report to the user. One
+maintainer works every issue, so most findings stay in the report; the `issue`
+skill says when one becomes an issue. The one exception is the `web-design`
+skill: fix an out-of-date part of it in place, in the change you are making.
 
-Before you open, edit, or label an issue, read and follow the `issue` skill in
-`.claude/skills/issue/SKILL.md`.
+Before you open, comment on, edit, or label an issue, read and follow the
+`issue` skill in `.claude/skills/issue/SKILL.md`.
 
 ## Signature
 

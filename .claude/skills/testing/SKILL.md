@@ -47,8 +47,8 @@ A failing test is a report. Work out what it reports before you touch it.
      That means master's CI fails it, or for a test CI doesn't run, your clean
      `master` fails it. Say so under Testing in the pull request and leave the test alone.
      If the check is required, the pull request stays red. Tell the user, link
-     the issue, and offer to fix `master` in its own pull request. Never merge
-     past a failing check.
+     the issue if there is one, and offer to fix `master` in its own pull
+     request. Never merge past a failing check.
    - If it fails on your clean `master` but passes in master's CI, the cause
      is your environment. Say so under Testing, and change neither the code
      nor the test.
@@ -58,8 +58,9 @@ A failing test is a report. Work out what it reports before you touch it.
 6. A test that fails, then passes on a rerun with no change, is flaky. Run it
    several times on the clean `master` worktree. If it flakes only with your
    change, or it is a spec you changed, the flake is yours to fix by waiting
-   on conditions. Otherwise, open an issue and tell the user before anyone
-   merges past it. Never add retries, sleeps, or longer timeouts.
+   on conditions. Otherwise, find or open an issue with the `issue` skill,
+   and tell the user before anyone merges past it. Never add retries, sleeps,
+   or longer timeouts.
 
 Never delete, skip, or weaken a test to get a run green. Never copy the code's
 new output into a test's expected values for the same reason. If the pull
@@ -111,8 +112,8 @@ sweep real rows and run past their time limits, or at `localhost:5432`.
 ## What not to test
 
 These apply to the tests you write and to tests the task asks you to change.
-When an existing test outside your task matches one, open an issue and leave
-it.
+When an existing test outside your task matches one, leave it and list it in
+your final report.
 
 - Exact Tailwind classes or markup in one component. Test roles, accessible
   names, and ARIA wiring, such as `aria-describedby` naming the hint's id.

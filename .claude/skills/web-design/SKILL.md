@@ -136,5 +136,6 @@ current. To see a component, open the gallery on your stack.
 
 When you notice that any part of this skill no longer matches the site, fix
 that part, even when it is outside your task; for this skill, that replaces
-the usual rule of filing an issue. When a page breaks a rule here, move it
-onto the library when you next work on that page.
+the usual rule of leaving findings outside your task for your report. When a
+page breaks a rule here, move it onto the library when you next work on that
+page.
