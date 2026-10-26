@@ -160,6 +160,9 @@
                   "anyOf": [{ "type": "integer" }, { "type": "null" }]
                 },
                 "isFreeMod": { "type": "boolean" },
+                "verifiedByUsername": {
+                  "anyOf": [{ "type": "string" }, { "type": "null" }]
+                },
                 "beatmap": {
                   "anyOf": [
                     {
@@ -468,6 +471,9 @@
                       "rejectionReason": { "type": "integer" },
                       "gameId": { "type": "integer" },
                       "playerId": { "type": "integer" },
+                      "verifiedByUsername": {
+                        "anyOf": [{ "type": "string" }, { "type": "null" }]
+                      },
                       "adminNotes": {
                         "type": "array",
                         "items": {
@@ -551,7 +557,8 @@
                       "verificationStatus",
                       "rejectionReason",
                       "gameId",
-                      "playerId"
+                      "playerId",
+                      "verifiedByUsername"
                     ]
                   },
                   "default": []
@@ -573,6 +580,7 @@
                 "matchId",
                 "beatmapId",
                 "isFreeMod",
+                "verifiedByUsername",
                 "beatmap"
               ]
             },
@@ -860,7 +868,8 @@
           },
           "verifiedByUsername": {
             "anyOf": [{ "type": "string" }, { "type": "null" }]
-          }
+          },
+          "pendingRating": { "type": "boolean" }
         },
         "required": [
           "id",
@@ -876,7 +885,8 @@
           "submittedByUserId",
           "verifiedByUserId",
           "dataFetchStatus",
-          "verifiedByUsername"
+          "verifiedByUsername",
+          "pendingRating"
         ]
       },
       "Tournament": {
@@ -973,6 +983,9 @@
                         "anyOf": [{ "type": "integer" }, { "type": "null" }]
                       },
                       "isFreeMod": { "type": "boolean" },
+                      "verifiedByUsername": {
+                        "anyOf": [{ "type": "string" }, { "type": "null" }]
+                      },
                       "beatmap": {
                         "anyOf": [
                           {
@@ -1371,6 +1384,12 @@
                             "rejectionReason": { "type": "integer" },
                             "gameId": { "type": "integer" },
                             "playerId": { "type": "integer" },
+                            "verifiedByUsername": {
+                              "anyOf": [
+                                { "type": "string" },
+                                { "type": "null" }
+                              ]
+                            },
                             "adminNotes": {
                               "type": "array",
                               "items": {
@@ -1454,7 +1473,8 @@
                             "verificationStatus",
                             "rejectionReason",
                             "gameId",
-                            "playerId"
+                            "playerId",
+                            "verifiedByUsername"
                           ]
                         },
                         "default": []
@@ -1476,6 +1496,7 @@
                       "matchId",
                       "beatmapId",
                       "isFreeMod",
+                      "verifiedByUsername",
                       "beatmap"
                     ]
                   },
@@ -1749,7 +1770,8 @@
                 },
                 "verifiedByUsername": {
                   "anyOf": [{ "type": "string" }, { "type": "null" }]
-                }
+                },
+                "pendingRating": { "type": "boolean" }
               },
               "required": [
                 "id",
@@ -1765,7 +1787,8 @@
                 "submittedByUserId",
                 "verifiedByUserId",
                 "dataFetchStatus",
-                "verifiedByUsername"
+                "verifiedByUsername",
+                "pendingRating"
               ]
             },
             "default": []
@@ -2089,7 +2112,8 @@
           },
           "verifiedByUsername": {
             "anyOf": [{ "type": "string" }, { "type": "null" }]
-          }
+          },
+          "pendingRating": { "type": "boolean" }
         },
         "required": [
           "id",
@@ -2107,7 +2131,8 @@
           "startTime",
           "endTime",
           "submittedByUsername",
-          "verifiedByUsername"
+          "verifiedByUsername",
+          "pendingRating"
         ]
       },
       "TournamentListItem": {
@@ -2134,6 +2159,7 @@
           "verifiedByUsername": {
             "anyOf": [{ "type": "string" }, { "type": "null" }]
           },
+          "pendingRating": { "type": "boolean" },
           "adminNotes": {
             "type": "array",
             "items": {
@@ -2177,7 +2203,8 @@
           "rejectionReason",
           "isLazer",
           "submittedByUsername",
-          "verifiedByUsername"
+          "verifiedByUsername",
+          "pendingRating"
         ]
       },
       "LeaderboardEntry": {
@@ -3467,6 +3494,9 @@
                             "anyOf": [{ "type": "integer" }, { "type": "null" }]
                           },
                           "isFreeMod": { "type": "boolean" },
+                          "verifiedByUsername": {
+                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                          },
                           "beatmap": {
                             "anyOf": [
                               {
@@ -3867,6 +3897,12 @@
                                 "rejectionReason": { "type": "integer" },
                                 "gameId": { "type": "integer" },
                                 "playerId": { "type": "integer" },
+                                "verifiedByUsername": {
+                                  "anyOf": [
+                                    { "type": "string" },
+                                    { "type": "null" }
+                                  ]
+                                },
                                 "adminNotes": {
                                   "type": "array",
                                   "items": {
@@ -3954,7 +3990,8 @@
                                 "verificationStatus",
                                 "rejectionReason",
                                 "gameId",
-                                "playerId"
+                                "playerId",
+                                "verifiedByUsername"
                               ]
                             },
                             "default": []
@@ -3976,6 +4013,7 @@
                           "matchId",
                           "beatmapId",
                           "isFreeMod",
+                          "verifiedByUsername",
                           "beatmap"
                         ]
                       },
@@ -4285,6 +4323,7 @@
                     "verifiedByUsername": {
                       "anyOf": [{ "type": "string" }, { "type": "null" }]
                     },
+                    "pendingRating": { "type": "boolean" },
                     "mergedMatches": {
                       "type": "array",
                       "items": {
@@ -4321,7 +4360,8 @@
                     "submittedByUserId",
                     "verifiedByUserId",
                     "dataFetchStatus",
-                    "verifiedByUsername"
+                    "verifiedByUsername",
+                    "pendingRating"
                   ]
                 }
               }
@@ -4726,6 +4766,7 @@
                       "verifiedByUsername": {
                         "anyOf": [{ "type": "string" }, { "type": "null" }]
                       },
+                      "pendingRating": { "type": "boolean" },
                       "matchesWon": { "type": "integer" },
                       "matchesLost": { "type": "integer" }
                     },
@@ -4745,6 +4786,7 @@
                       "isLazer",
                       "submittedByUsername",
                       "verifiedByUsername",
+                      "pendingRating",
                       "matchesWon",
                       "matchesLost"
                     ]
@@ -5538,6 +5580,10 @@
                             "type": "integer",
                             "minimum": 0
                           },
+                          "verifiedByUsername": {
+                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                          },
+                          "pendingRating": { "type": "boolean" },
                           "mostCommonMods": {
                             "anyOf": [
                               { "type": "integer", "minimum": 0 },
@@ -5556,6 +5602,8 @@
                           "endTime",
                           "verificationStatus",
                           "rejectionReason",
+                          "verifiedByUsername",
+                          "pendingRating",
                           "mostCommonMods",
                           "mostCommonModsFreemod"
                         ]

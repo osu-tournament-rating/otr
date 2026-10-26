@@ -4,7 +4,6 @@ import {
   AdminNoteRouteTarget,
   AuditEntityType,
   ReportEntityType,
-  VerificationStatus,
 } from '@otr/core/osu';
 import {
   CalendarDays,
@@ -100,12 +99,8 @@ export default function MatchHero({
               'match',
               match.rejectionReason
             )}
-            reviewer={match.verifiedByUsername ?? undefined}
-            // Player stats arrive with the Tuesday update that rates it.
-            pendingRating={
-              match.verificationStatus === VerificationStatus.Verified &&
-              !match.playerMatchStats?.length
-            }
+            reviewer={match.verifiedByUsername}
+            pendingRating={match.pendingRating}
             tooltip="tap"
           />
         }

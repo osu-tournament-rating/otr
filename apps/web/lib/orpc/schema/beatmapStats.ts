@@ -35,6 +35,10 @@ export const BeatmapTournamentUsageSchema = z.object({
   verificationStatus: VerificationStatusSchema,
   /** `TournamentRejectionReason` bitfield; 0 when the tournament is not rejected. */
   rejectionReason: z.number().int().nonnegative(),
+  /** The admin who verified or rejected the tournament. */
+  verifiedByUsername: z.string().nullable(),
+  /** Verified, but the weekly rating run has not rated it yet. */
+  pendingRating: z.boolean(),
   /** Raw mods bitmask of the most common game, null exactly when gameCount is 0. */
   mostCommonMods: z.number().int().nonnegative().nullable(),
   /** True when per-player mods varied in that game, so the row renders FM. */

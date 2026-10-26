@@ -53,6 +53,10 @@ import {
   playerIdErrors,
   resolvePlayerId,
 } from './shared/keyType';
+import {
+  reviewerUsernameSql,
+  tournamentPendingRatingSql,
+} from './shared/verificationDetails';
 
 export const getPlayer = publicProcedure
   .input(
@@ -112,6 +116,8 @@ const tournamentListItemColumns = {
   verificationStatus: schema.tournaments.verificationStatus,
   rejectionReason: schema.tournaments.rejectionReason,
   isLazer: schema.tournaments.isLazer,
+  verifiedByUsername: reviewerUsernameSql(schema.tournaments.verifiedByUserId),
+  pendingRating: tournamentPendingRatingSql(schema.tournaments),
 } as const;
 
 const playerCompactColumns = {
@@ -500,7 +506,7 @@ export async function listPlayerStatsTournaments(
       ruleset: row.ruleset as Ruleset,
       verificationStatus: row.verificationStatus as VerificationStatus,
       submittedByUsername: null,
-      verifiedByUsername: null,
+      verifiedByUsername: row.verifiedByUsername ?? null,
     })
   );
 }
@@ -601,7 +607,7 @@ export async function listPlayerTournamentsWithoutStats(
       ruleset: row.ruleset as Ruleset,
       verificationStatus: row.verificationStatus as VerificationStatus,
       submittedByUsername: null,
-      verifiedByUsername: null,
+      verifiedByUsername: row.verifiedByUsername ?? null,
       matchesWon: null,
       matchesLost: null,
     })

@@ -198,6 +198,7 @@ function GamePips({ games }: { games: MatchRow['games'] }) {
               'game',
               game.rejectionReason
             )}
+            reviewer={game.verifiedByUsername}
             context={`Game ${index + 1}`}
             showContext
             tooltip="tap"
@@ -261,7 +262,8 @@ export default function MatchLedgerRow({
           'match',
           match.status.rejectionReason
         )}
-        reviewer={match.status.verifiedByUsername ?? undefined}
+        reviewer={match.status.verifiedByUsername}
+        pendingRating={match.status.pendingRating}
         context={match.name || `Match ${match.id}`}
         tooltip="tap"
       />

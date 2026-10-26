@@ -24,6 +24,10 @@ import { Ruleset, VerificationStatus } from '@otr/core/osu';
 import { publicProcedure, withSearchRateLimit } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { buildTournamentRelevanceOrder } from './shared/tournamentListOrder';
+import {
+  reviewerUsernameSql,
+  tournamentPendingRatingSql,
+} from './shared/verificationDetails';
 import { logger } from '@/lib/logger';
 
 const DEFAULT_RESULT_LIMIT = 5;
@@ -145,6 +149,10 @@ export const searchEntities = publicProcedure
               rejectionReason: schema.tournaments.rejectionReason,
               lobbySize: schema.tournaments.lobbySize,
               isLazer: schema.tournaments.isLazer,
+              verifiedByUsername: reviewerUsernameSql(
+                schema.tournaments.verifiedByUserId
+              ),
+              pendingRating: tournamentPendingRatingSql(schema.tournaments),
             })
             .from(schema.tournaments)
             .where(tournamentCondition)
@@ -262,6 +270,8 @@ export const searchEntities = publicProcedure
           lobbySize: Number(row.lobbySize),
           abbreviation: row.abbreviation ?? null,
           isLazer: row.isLazer,
+          verifiedByUsername: row.verifiedByUsername ?? null,
+          pendingRating: row.pendingRating,
         })
       );
 

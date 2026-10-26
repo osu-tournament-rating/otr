@@ -25,6 +25,7 @@ const match = (
     warningFlags: MatchWarningFlags.None,
     rejectionReason: MatchRejectionReason.None,
     verifiedByUsername: null,
+    pendingRating: false,
   },
   startDate,
   winRecord:
@@ -44,6 +45,7 @@ const match = (
     warningFlags: 0,
     rejectionReason: 0,
     startTime: startDate ?? '',
+    verifiedByUsername: null,
     adminNotes: [],
   })),
   matchAdminNotes: [],

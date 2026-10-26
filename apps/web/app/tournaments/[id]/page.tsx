@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { VerificationStatus } from '@otr/core/osu';
 import { z } from 'zod';
 
 import { PageFrame } from '@/components/kit/layout/PageFrame';
@@ -71,6 +70,7 @@ function toMatchRows(matches: TournamentMatch[]): MatchRow[] {
       warningFlags: match.warningFlags,
       rejectionReason: match.rejectionReason,
       verifiedByUsername: match.verifiedByUsername,
+      pendingRating: match.pendingRating,
     },
     startDate: match.startTime ? new Date(match.startTime).toISOString() : null,
     winRecord: match.winRecord,
@@ -80,6 +80,7 @@ function toMatchRows(matches: TournamentMatch[]): MatchRow[] {
       warningFlags: game.warningFlags,
       startTime: game.startTime,
       rejectionReason: game.rejectionReason,
+      verifiedByUsername: game.verifiedByUsername,
       adminNotes: (game.adminNotes ?? []).map((note) => ({
         note: note.note,
         adminUsername: note.adminUser?.player?.username ?? 'Unknown',
@@ -111,6 +112,7 @@ function toHeroData(tournament: TournamentDetail): TournamentHeroData {
     isLazer: tournament.isLazer,
     adminNotes: tournament.adminNotes ?? [],
     verifiedByUsername: tournament.verifiedByUsername,
+    pendingRating: tournament.pendingRating,
     submittedByUsername: tournament.submittedByUsername,
   };
 }
@@ -159,11 +161,6 @@ export default async function Page({ params, searchParams }: PageProps) {
           matches: matches.length,
           beatmaps: visibleBeatmapCount,
         }}
-        // Player stats arrive with the Tuesday update that rates it.
-        pendingRating={
-          tournament.verificationStatus === VerificationStatus.Verified &&
-          playerStats.length === 0
-        }
       />
 
       <NotInRatings status={tournament.verificationStatus} variant="notice" />

@@ -26,6 +26,11 @@ import {
 import { publicProcedure } from './base';
 import { defaultRulesetSql } from './shared/defaultRuleset';
 import { KeyTypeSchema, resolveMatchId } from './shared/keyType';
+import {
+  gameReviewerUsernameSql,
+  matchPendingRatingSql,
+  scoreReviewerUsernameSql,
+} from './shared/verificationDetails';
 import { deriveVerifiedWinRecord } from './shared/winRecord';
 
 type AdminNote = ReturnType<(typeof AdminNoteSchema)['parse']>;
@@ -136,6 +141,7 @@ export const getMatch = publicProcedure
         submittedByUserId: schema.matches.submittedByUserId,
         verifiedByUserId: schema.matches.verifiedByUserId,
         dataFetchStatus: schema.matches.dataFetchStatus,
+        pendingRating: matchPendingRatingSql(schema.matches),
         tournamentName: schema.tournaments.name,
         tournamentAbbreviation: schema.tournaments.abbreviation,
         tournamentRuleset: schema.tournaments.ruleset,
@@ -186,6 +192,7 @@ export const getMatch = publicProcedure
         verificationStatus: schema.games.verificationStatus,
         rejectionReason: schema.games.rejectionReason,
         warningFlags: schema.games.warningFlags,
+        verifiedByUsername: gameReviewerUsernameSql(schema.games),
         beatmapDbId: schema.beatmaps.id,
         beatmapOsuId: schema.beatmaps.osuId,
         beatmapRuleset: schema.beatmaps.ruleset,
@@ -358,6 +365,7 @@ export const getMatch = publicProcedure
             ruleset: schema.gameScores.ruleset,
             verificationStatus: schema.gameScores.verificationStatus,
             rejectionReason: schema.gameScores.rejectionReason,
+            verifiedByUsername: scoreReviewerUsernameSql(schema.gameScores),
             created: schema.gameScores.created,
             updated: schema.gameScores.updated,
           })
@@ -654,6 +662,7 @@ export const getMatch = publicProcedure
         rejectionReason: game.rejectionReason,
         warningFlags: game.warningFlags,
         isFreeMod: deriveGameIsFreeMod(game.mods, scores),
+        verifiedByUsername: game.verifiedByUsername ?? null,
         beatmap,
         adminNotes: gameAdminNotesByGameId.get(game.id) ?? [],
         scores,
@@ -749,6 +758,7 @@ export const getMatch = publicProcedure
       winRecord,
       rosters,
       verifiedByUsername,
+      pendingRating: matchRow.pendingRating,
       mergedMatches,
     });
 

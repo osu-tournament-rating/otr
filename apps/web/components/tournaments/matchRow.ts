@@ -17,7 +17,11 @@ export type AdminNotePreview = {
 
 export type GameWithNotes = Pick<
   TournamentMatchGame,
-  'verificationStatus' | 'warningFlags' | 'startTime' | 'rejectionReason'
+  | 'verificationStatus'
+  | 'warningFlags'
+  | 'startTime'
+  | 'rejectionReason'
+  | 'verifiedByUsername'
 > & {
   id: number;
   adminNotes: AdminNotePreview[];
@@ -31,6 +35,7 @@ export type MatchRow = {
     warningFlags: MatchWarningFlags;
     rejectionReason: MatchRejectionReason;
     verifiedByUsername: string | null;
+    pendingRating: boolean;
   };
   startDate: string | null;
   winRecord: TournamentMatch['winRecord'];

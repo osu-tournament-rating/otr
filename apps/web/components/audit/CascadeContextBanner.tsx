@@ -153,6 +153,10 @@ function AffectedEntities({
         <ul className="flex flex-col gap-1.5 text-sm">
           {affected.map((entity) => {
             const status = statusOf(entity.changes);
+            const name = nameOr(
+              entity.entityName,
+              `${getEntityTypeName(entityType)} #${formatId(entity.id)}`
+            );
             return (
               <li key={entity.id} className="flex items-center gap-2">
                 <span className="flex w-4 shrink-0 justify-center">
@@ -160,15 +164,13 @@ function AffectedEntities({
                     <VerificationStatusIcon
                       status={status}
                       size="sm"
+                      context={name}
                       tooltip="tap"
                     />
                   ) : null}
                 </span>
                 <EntityLink href={`/audit/${slug}/${entity.id}`} wrap>
-                  {nameOr(
-                    entity.entityName,
-                    `${getEntityTypeName(entityType)} #${formatId(entity.id)}`
-                  )}
+                  {name}
                 </EntityLink>
               </li>
             );

@@ -33,6 +33,8 @@ function pool(
     endTime: null,
     verificationStatus: VerificationStatus.Verified,
     rejectionReason: 0,
+    verifiedByUsername: null,
+    pendingRating: false,
     mostCommonMods: null,
     mostCommonModsFreemod: false,
     ...rest,

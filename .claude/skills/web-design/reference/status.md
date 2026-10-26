@@ -103,9 +103,9 @@ Props that matter:
 - `size`: `sm` (14px) inside a line of text, `md` (16px, default) in rows and cells, `lg` (20px) next to a page or section heading.
 - `variant`: `default`, or `overlay` on cover art only. The overlay sets the glyph on a dark disc (80% black, `OVERLAY_DISC_ALPHA`, with a faint white ring, a 24px disc around the 16px glyph) and gives it the dark theme's lighter colours whatever the page's theme, so every state keeps 3:1 even over a white cover; a test checks it. Warnings make the disc a pill.
 - `tooltip`: `tap` opens on tap, hover and focus (it renders a button); `hover` adds no button, for an icon inside a link. Leave it out only when the name is written next to the icon.
-- `warnings`, `rejectionReasons`, `reviewer`: what the tooltip lists. Any warning shows the marker.
+- `warnings`, `rejectionReasons`, `reviewer`: what the tooltip lists. Any warning shows the marker. Pass every one the item's data has, so the same item says the same thing on every page; tournament, match, game and score responses carry the reviewer as `verifiedByUsername`. Games and scores take it from the audit log, so older ones may have none.
 - `context`: starts the accessible name ("Game 3: Rejected"). `showContext` also heads the bubble with it; use it only in a row of look-alikes, such as game pips.
-- `pendingRating`: a verified item whose stats have not come yet, as the match and tournament heroes know from their player stats.
+- `pendingRating`: a verified item the weekly rating run has not rated yet. Every tournament and match response carries it as `pendingRating`; pass it wherever the status shows.
 - `decorative`: hides the icon from assistive tech when the name is already beside it.
 
 Related exports in the same file: `VerificationStatusGlyph` (the bare coloured glyph, for legends) and `StatusWarningMarker` (the triangle on its own).
@@ -113,7 +113,7 @@ Related exports in the same file: `VerificationStatusGlyph` (the bare coloured g
 Do:
 
 - Give every icon on its own a tooltip. Without one it still has an accessible name (`role="img"`), but sighted visitors cannot learn what the glyph means.
-- Use `context` when several icons sit together, such as the game pips of a match row, so each one is named ("Game 3: Rejected"). Add `showContext` there too, so sighted visitors see which pip they opened.
+- Use `context` when several icons sit together, such as the game pips of a match row, so each one is named ("Game 3: Rejected"). Add `showContext` there too, so sighted visitors see which pip they opened. A list of `tap` icons needs `context` too, such as a profile's tournament cards, or each button is only "Verified".
 - Leave `showContext` off where the row beside the icon already names it: a score card, a game card, a match or tournament row.
 - Keep tap icons at least 8px apart (`gap-2`): the icon is a 16px target, and the gap gives each one the 24px tap area WCAG 2.5.8 asks for.
 - Inside a whole-row link, use `tooltip="hover"`: the row is one link, so it can hold no button. The row link's `linkLabel` replaces the row's content for screen readers, icon included, so a status the row must say aloud goes into the label as well ([RowListItem](layout.md#rowlist-and-rowlistitem)).
@@ -189,6 +189,7 @@ import {
 
 Don't:
 
+- Don't give the icon a tooltip when a sentence beside it already says the change, as on an audit row; use `decorative`.
 - Don't add a line that explains the status, such as "Approved by an admin" or "awaiting admin review": the name says it.
 - Don't head the lists with "Rejection reasons" or "Warnings": the bullet and the triangle tell them apart.
 - Don't promise when an item counts in ratings unless the page's data shows it has not been rated yet (`pendingRating`).

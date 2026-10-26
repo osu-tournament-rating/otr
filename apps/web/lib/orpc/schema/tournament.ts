@@ -68,6 +68,8 @@ export const TournamentListItemSchema = tournamentSelectSchema
     verificationStatus: VerificationStatusSchema,
     submittedByUsername: z.string().nullable(),
     verifiedByUsername: z.string().nullable(),
+    /** Verified, but the weekly rating run has not rated it yet. */
+    pendingRating: z.boolean(),
     adminNotes: z.array(AdminNotePreviewSchema).default([]),
   });
 
@@ -184,6 +186,8 @@ const tournamentDetailBaseSchema = tournamentSelectSchema
     pooledBeatmaps: z.array(TournamentBeatmapSchema).default([]),
     submittedByUsername: z.string().nullable(),
     verifiedByUsername: z.string().nullable(),
+    /** Verified, but the weekly rating run has not rated it yet. */
+    pendingRating: z.boolean(),
   });
 
 export const TournamentDetailSchema = tournamentDetailBaseSchema;
