@@ -77,7 +77,8 @@ def download_latest(bucket: str, out_dir: Path) -> Path | None:
     output_loc = out_dir / latest.name
     part = out_dir / f"{latest.name}.{os.getpid()}.part"
     try:
-        with open(part, "wb") as f:
+        # Archives hold tokens and API keys, so only the owner may read them.
+        with open(part, "wb", opener=lambda p, flags: os.open(p, flags, 0o600)) as f:
             storage_client.download_blob_to_file(latest, f)
 
         part.replace(output_loc)

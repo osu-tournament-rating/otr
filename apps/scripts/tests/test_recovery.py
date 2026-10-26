@@ -255,3 +255,11 @@ def test_failed_download_leaves_nothing_behind(monkeypatch, tmp_path):
 
     assert gcs_utils.download_latest("dev", tmp_path) is None
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_downloaded_archive_is_readable_only_by_its_owner(monkeypatch, tmp_path):
+    fake_storage(monkeypatch, lambda blob, f: f.write(b"gz"))
+
+    downloaded = gcs_utils.download_latest("dev", tmp_path)
+
+    assert downloaded.stat().st_mode & 0o777 == 0o600

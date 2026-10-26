@@ -405,3 +405,14 @@ def test_a_failed_recording_keeps_the_runs_exit_code(monkeypatch, cli, metrics_d
 
     assert code == 0
     assert "Recording the 'processor' run in" in log
+
+
+def test_an_archive_is_readable_only_by_its_owner(monkeypatch, cli, dirs):
+    # A production dump holds live session tokens and API keys.
+    fake_docker(monkeypatch)
+    fake_storage(monkeypatch, fail_on=".gz")
+
+    cli("-s", "archive", "--archive-bucket", "production")
+
+    (kept,) = dirs.dumps.iterdir()
+    assert kept.stat().st_mode & 0o777 == 0o600
