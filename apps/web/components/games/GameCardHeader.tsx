@@ -72,6 +72,7 @@ export default function GameCardHeader({
                 'game',
                 game.rejectionReason
               )}
+              reviewer={game.verifiedByUsername}
               context={`Game ${number}`}
               tooltip="tap"
               variant="overlay"

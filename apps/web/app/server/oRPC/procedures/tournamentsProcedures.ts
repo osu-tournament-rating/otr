@@ -55,6 +55,7 @@ import {
 } from './shared/rulesetFilter';
 import { buildTournamentListOrder } from './shared/tournamentListOrder';
 import {
+  gameReviewerUsernameSql,
   matchPendingRatingSql,
   tournamentPendingRatingSql,
 } from './shared/verificationDetails';
@@ -645,6 +646,7 @@ export const getTournament = publicProcedure
               verificationStatus: schema.games.verificationStatus,
               rejectionReason: schema.games.rejectionReason,
               warningFlags: schema.games.warningFlags,
+              verifiedByUsername: gameReviewerUsernameSql(schema.games),
               mods: schema.games.mods,
               lazerMods: schema.games.lazerMods,
               beatmapDbId: schema.beatmaps.id,
@@ -806,6 +808,7 @@ export const getTournament = publicProcedure
           // i.e. mods set at the game level = generally no freemod allowed.
           // Need to investigate.
           isFreeMod: (game.mods & Mods.FreeModAllowed) === Mods.FreeModAllowed,
+          verifiedByUsername: game.verifiedByUsername ?? null,
           adminNotes: gameAdminNotesByGameId.get(game.id) ?? [],
           beatmap:
             game.beatmapDbId != null && game.beatmapOsuId != null

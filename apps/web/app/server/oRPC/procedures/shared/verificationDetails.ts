@@ -1,5 +1,10 @@
-import { and, eq, sql, type AnyColumn, type SQL } from 'drizzle-orm';
-import { alias, QueryBuilder } from 'drizzle-orm/pg-core';
+import { and, desc, eq, sql, type AnyColumn, type SQL } from 'drizzle-orm';
+import {
+  alias,
+  QueryBuilder,
+  type AnyPgColumn,
+  type PgTable,
+} from 'drizzle-orm/pg-core';
 
 import * as schema from '@otr/core/db/schema';
 import { VerificationStatus } from '@otr/core/osu';
@@ -31,6 +36,69 @@ export function reviewerUsernameSql(
     .limit(1);
 
   return sql<string | null>`${username}`;
+}
+
+/** An entity's audit table, as `gameAudits` and `gameScoreAudits` share it. */
+type AuditTable = PgTable & {
+  id: AnyPgColumn;
+  referenceIdLock: AnyPgColumn;
+  actionUserId: AnyPgColumn;
+  changes: AnyPgColumn;
+};
+
+/**
+ * The username of the admin who last set a verified or rejected item to its
+ * current status, read from its audit log, or null. For games and scores,
+ * which keep no verifier of their own. The log names an admin only for
+ * changes since auditing began, and has spelled the status key both ways.
+ */
+function auditedReviewerUsernameSql(
+  audits: AuditTable,
+  entity: { id: AnyColumn; verificationStatus: AnyColumn }
+): SQL<string | null> {
+  const user = alias(schema.users, 'audited_reviewer_user');
+  const player = alias(schema.players, 'audited_reviewer_player');
+  const statusSet = sql`coalesce(${audits.changes} -> 'verification_status' ->> 'newValue', ${audits.changes} -> 'verificationStatus' ->> 'newValue')::int`;
+
+  const username = new QueryBuilder()
+    .select({ username: player.username })
+    .from(audits)
+    .innerJoin(user, eq(user.id, audits.actionUserId))
+    .innerJoin(player, eq(player.id, user.playerId))
+    .where(
+      and(
+        eq(audits.referenceIdLock, entity.id),
+        sql`${statusSet} = ${entity.verificationStatus}`
+      )
+    )
+    .orderBy(desc(audits.id))
+    .limit(1);
+
+  return sql<
+    string | null
+  >`case when ${entity.verificationStatus} in (${VerificationStatus.Verified}, ${VerificationStatus.Rejected}) then ${username} end`;
+}
+
+/** The admin who verified or rejected a game, when its audit log says. */
+export function gameReviewerUsernameSql(game: {
+  id: AnyColumn;
+  verificationStatus: AnyColumn;
+}): SQL<string | null> {
+  return auditedReviewerUsernameSql(
+    alias(schema.gameAudits, 'reviewer_game_audit'),
+    game
+  );
+}
+
+/** The admin who verified or rejected a score, when its audit log says. */
+export function scoreReviewerUsernameSql(score: {
+  id: AnyColumn;
+  verificationStatus: AnyColumn;
+}): SQL<string | null> {
+  return auditedReviewerUsernameSql(
+    alias(schema.gameScoreAudits, 'reviewer_score_audit'),
+    score
+  );
 }
 
 /**

@@ -103,7 +103,7 @@ Props that matter:
 - `size`: `sm` (14px) inside a line of text, `md` (16px, default) in rows and cells, `lg` (20px) next to a page or section heading.
 - `variant`: `default`, or `overlay` on cover art only. The overlay sets the glyph on a dark disc (80% black, `OVERLAY_DISC_ALPHA`, with a faint white ring, a 24px disc around the 16px glyph) and gives it the dark theme's lighter colours whatever the page's theme, so every state keeps 3:1 even over a white cover; a test checks it. Warnings make the disc a pill.
 - `tooltip`: `tap` opens on tap, hover and focus (it renders a button); `hover` adds no button, for an icon inside a link. Leave it out only when the name is written next to the icon.
-- `warnings`, `rejectionReasons`, `reviewer`: what the tooltip lists. Any warning shows the marker. Pass every one the item's data has, so the same item says the same thing on every page; tournament and match responses carry the reviewer as `verifiedByUsername`.
+- `warnings`, `rejectionReasons`, `reviewer`: what the tooltip lists. Any warning shows the marker. Pass every one the item's data has, so the same item says the same thing on every page; tournament, match, game and score responses carry the reviewer as `verifiedByUsername`. Games and scores take it from the audit log, so older ones may have none.
 - `context`: starts the accessible name ("Game 3: Rejected"). `showContext` also heads the bubble with it; use it only in a row of look-alikes, such as game pips.
 - `pendingRating`: a verified item the weekly rating run has not rated yet. Every tournament and match response carries it as `pendingRating`; pass it wherever the status shows.
 - `decorative`: hides the icon from assistive tech when the name is already beside it.

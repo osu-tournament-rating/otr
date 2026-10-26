@@ -80,6 +80,7 @@ function toMatchRows(matches: TournamentMatch[]): MatchRow[] {
       warningFlags: game.warningFlags,
       startTime: game.startTime,
       rejectionReason: game.rejectionReason,
+      verifiedByUsername: game.verifiedByUsername,
       adminNotes: (game.adminNotes ?? []).map((note) => ({
         note: note.note,
         adminUsername: note.adminUser?.player?.username ?? 'Unknown',

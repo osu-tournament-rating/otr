@@ -119,6 +119,8 @@ export const GameScoreSchema = gameScoreSelectSchema
     ruleset: RulesetSchema,
     verificationStatus: VerificationStatusSchema,
     lazerMods: LazerModsSchema,
+    /** The admin who verified or rejected it, when the audit log names one. */
+    verifiedByUsername: z.string().nullable(),
     adminNotes: z.array(AdminNoteSchema).default([]),
   });
 
@@ -146,6 +148,8 @@ const gameBaseSchema = gameSelectSchema
     verificationStatus: VerificationStatusSchema,
     lazerMods: LazerModsSchema,
     isFreeMod: z.boolean(),
+    /** The admin who verified or rejected it, when the audit log names one. */
+    verifiedByUsername: z.string().nullable(),
     beatmap: MatchBeatmapSchema.nullable(),
     adminNotes: z.array(AdminNoteSchema).default([]),
     hasAdminNotes: z.boolean().optional(),

@@ -17,7 +17,11 @@ export type AdminNotePreview = {
 
 export type GameWithNotes = Pick<
   TournamentMatchGame,
-  'verificationStatus' | 'warningFlags' | 'startTime' | 'rejectionReason'
+  | 'verificationStatus'
+  | 'warningFlags'
+  | 'startTime'
+  | 'rejectionReason'
+  | 'verifiedByUsername'
 > & {
   id: number;
   adminNotes: AdminNotePreview[];

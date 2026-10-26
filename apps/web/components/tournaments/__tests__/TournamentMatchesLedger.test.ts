@@ -45,6 +45,7 @@ const match = (
     warningFlags: 0,
     rejectionReason: 0,
     startTime: startDate ?? '',
+    verifiedByUsername: null,
     adminNotes: [],
   })),
   matchAdminNotes: [],

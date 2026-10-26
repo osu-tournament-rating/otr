@@ -106,6 +106,7 @@ export default function ScoreCard({
     <VerificationStatusIcon
       status={score.verificationStatus}
       rejectionReasons={getRejectionReasonTexts('score', score.rejectionReason)}
+      reviewer={score.verifiedByUsername}
       context={`${playerName}'s score in game ${gameNumber}`}
       tooltip="tap"
     />

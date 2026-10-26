@@ -160,6 +160,9 @@
                   "anyOf": [{ "type": "integer" }, { "type": "null" }]
                 },
                 "isFreeMod": { "type": "boolean" },
+                "verifiedByUsername": {
+                  "anyOf": [{ "type": "string" }, { "type": "null" }]
+                },
                 "beatmap": {
                   "anyOf": [
                     {
@@ -468,6 +471,9 @@
                       "rejectionReason": { "type": "integer" },
                       "gameId": { "type": "integer" },
                       "playerId": { "type": "integer" },
+                      "verifiedByUsername": {
+                        "anyOf": [{ "type": "string" }, { "type": "null" }]
+                      },
                       "adminNotes": {
                         "type": "array",
                         "items": {
@@ -551,7 +557,8 @@
                       "verificationStatus",
                       "rejectionReason",
                       "gameId",
-                      "playerId"
+                      "playerId",
+                      "verifiedByUsername"
                     ]
                   },
                   "default": []
@@ -573,6 +580,7 @@
                 "matchId",
                 "beatmapId",
                 "isFreeMod",
+                "verifiedByUsername",
                 "beatmap"
               ]
             },
@@ -975,6 +983,9 @@
                         "anyOf": [{ "type": "integer" }, { "type": "null" }]
                       },
                       "isFreeMod": { "type": "boolean" },
+                      "verifiedByUsername": {
+                        "anyOf": [{ "type": "string" }, { "type": "null" }]
+                      },
                       "beatmap": {
                         "anyOf": [
                           {
@@ -1373,6 +1384,12 @@
                             "rejectionReason": { "type": "integer" },
                             "gameId": { "type": "integer" },
                             "playerId": { "type": "integer" },
+                            "verifiedByUsername": {
+                              "anyOf": [
+                                { "type": "string" },
+                                { "type": "null" }
+                              ]
+                            },
                             "adminNotes": {
                               "type": "array",
                               "items": {
@@ -1456,7 +1473,8 @@
                             "verificationStatus",
                             "rejectionReason",
                             "gameId",
-                            "playerId"
+                            "playerId",
+                            "verifiedByUsername"
                           ]
                         },
                         "default": []
@@ -1478,6 +1496,7 @@
                       "matchId",
                       "beatmapId",
                       "isFreeMod",
+                      "verifiedByUsername",
                       "beatmap"
                     ]
                   },
@@ -3475,6 +3494,9 @@
                             "anyOf": [{ "type": "integer" }, { "type": "null" }]
                           },
                           "isFreeMod": { "type": "boolean" },
+                          "verifiedByUsername": {
+                            "anyOf": [{ "type": "string" }, { "type": "null" }]
+                          },
                           "beatmap": {
                             "anyOf": [
                               {
@@ -3875,6 +3897,12 @@
                                 "rejectionReason": { "type": "integer" },
                                 "gameId": { "type": "integer" },
                                 "playerId": { "type": "integer" },
+                                "verifiedByUsername": {
+                                  "anyOf": [
+                                    { "type": "string" },
+                                    { "type": "null" }
+                                  ]
+                                },
                                 "adminNotes": {
                                   "type": "array",
                                   "items": {
@@ -3962,7 +3990,8 @@
                                 "verificationStatus",
                                 "rejectionReason",
                                 "gameId",
-                                "playerId"
+                                "playerId",
+                                "verifiedByUsername"
                               ]
                             },
                             "default": []
@@ -3984,6 +4013,7 @@
                           "matchId",
                           "beatmapId",
                           "isFreeMod",
+                          "verifiedByUsername",
                           "beatmap"
                         ]
                       },

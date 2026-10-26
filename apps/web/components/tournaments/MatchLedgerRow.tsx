@@ -198,6 +198,7 @@ function GamePips({ games }: { games: MatchRow['games'] }) {
               'game',
               game.rejectionReason
             )}
+            reviewer={game.verifiedByUsername}
             context={`Game ${index + 1}`}
             showContext
             tooltip="tap"
