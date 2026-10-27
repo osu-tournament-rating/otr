@@ -12,17 +12,8 @@ export interface ModColor extends ThemeColor {
   mods: readonly Mods[];
 }
 
-function mod(
-  label: string,
-  mods: readonly Mods[],
-  light: string,
-  dark: string
-): ModColor {
-  return {
-    ...themeColor(`--mod-${label.toLowerCase()}`, light, dark, 'mark'),
-    label,
-    mods,
-  };
+function mod(label: string, mods: readonly Mods[]): ModColor {
+  return { ...themeColor(`--mod-${label.toLowerCase()}`), label, mods };
 }
 
 const KEY_MODS = [
@@ -38,36 +29,32 @@ const KEY_MODS = [
 ] as const;
 
 /**
- * Mod colours for chart marks, swatches and solid mod pills: the colours the
- * site has always used, with each hue kept and only the lightness moved as
- * far as the contrast rules need. Every entry clears 3:1 on light and dark
- * cards and takes black text as a solid fill (`MOD_FILL_FOREGROUND`), which
- * is why the light theme's are darker. Touch Device, which shared Sudden
- * Death's orange, is a greyer orange, and Random a greyer green than Half
- * Time, so no two mods look alike.
+ * Mod colors for chart marks, swatches and solid mod pills, one `--mod-*`
+ * token in globals.css per entry. Each takes black text as a solid fill
+ * (`MOD_FILL_FOREGROUND`).
  */
 export const MOD_PALETTE: readonly ModColor[] = [
-  mod('NM', [Mods.None], '#4589f2', '#4e93fc'),
-  mod('HD', [Mods.Hidden], '#a18902', '#f4dc71'),
-  mod('HR', [Mods.HardRock], '#db675e', '#f27c71'),
-  mod('DT', [Mods.DoubleTime], '#8971f4', '#8971f4'),
-  mod('HT', [Mods.HalfTime], '#029f54', '#3cd77d'),
-  mod('EZ', [Mods.Easy], '#1aa101', '#7af46c'),
-  mod('FL', [Mods.Flashlight], '#6970b7', '#6970b7'),
-  mod('HDHR', [Mods.Hidden | Mods.HardRock], '#ff3381', '#ff3381'),
-  mod('EZHD', [Mods.Easy | Mods.Hidden], '#b87f04', '#ffc365'),
-  mod('EZDT', [Mods.Easy | Mods.DoubleTime], '#049a9b', '#32c3c3'),
-  mod('HDFL', [Mods.Hidden | Mods.Flashlight], '#4a7d91', '#4a7d91'),
-  mod('HDDT', [Mods.Hidden | Mods.DoubleTime], '#b568e9', '#bf72f3'),
-  mod('SD', [Mods.SuddenDeath], '#d56f01', '#ff9238'),
-  mod('TD', [Mods.TouchDevice], '#a4846f', '#cbaa94'),
-  mod('RX', [Mods.Relax, Mods.Autoplay, Mods.Relax2], '#0394ce', '#11a8e8'),
-  mod('MR', [Mods.Mirror], '#778cab', '#bad1f3'),
-  mod('RD', [Mods.Random], '#5a986c', '#83c395'),
-  mod('KEY', KEY_MODS, '#5590be', '#84c0f0'),
+  mod('NM', [Mods.None]),
+  mod('HD', [Mods.Hidden]),
+  mod('HR', [Mods.HardRock]),
+  mod('DT', [Mods.DoubleTime]),
+  mod('HT', [Mods.HalfTime]),
+  mod('EZ', [Mods.Easy]),
+  mod('FL', [Mods.Flashlight]),
+  mod('HDHR', [Mods.Hidden | Mods.HardRock]),
+  mod('EZHD', [Mods.Easy | Mods.Hidden]),
+  mod('EZDT', [Mods.Easy | Mods.DoubleTime]),
+  mod('HDFL', [Mods.Hidden | Mods.Flashlight]),
+  mod('HDDT', [Mods.Hidden | Mods.DoubleTime]),
+  mod('SD', [Mods.SuddenDeath]),
+  mod('TD', [Mods.TouchDevice]),
+  mod('RX', [Mods.Relax, Mods.Autoplay, Mods.Relax2]),
+  mod('MR', [Mods.Mirror]),
+  mod('RD', [Mods.Random]),
+  mod('KEY', KEY_MODS),
 ];
 
-/** Text on a solid mod fill. Every mod colour clears 4.5:1 with it. */
+/** Text on a solid mod fill. */
 export const MOD_FILL_FOREGROUND = '#000000';
 
 const MOD_COLOR_BY_MODS = new Map<number, ModColor>(

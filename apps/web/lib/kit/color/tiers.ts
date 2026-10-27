@@ -2,25 +2,25 @@ import type { TierName } from '@/lib/utils/tierData';
 
 import { themeColor, type ThemeColor } from './theme-color';
 
-function tier(name: string, light: string, dark: string): ThemeColor {
-  return themeColor(`--tier-${name}`, light, dark, 'text');
+function tier(name: string): ThemeColor {
+  return themeColor(`--tier-${name}`);
 }
 
 /**
- * Tier colours, stepped per theme so tier names clear 4.5:1 as text. Also the
- * mark colour for tier rows in charts. Use the `text-tier-<name>` classes for
+ * Tier colors, one `--tier-*` token in globals.css per tier, for tier names
+ * as text and tier rows in charts. Use the `text-tier-<name>` classes for
  * text and `.css` for chart fills.
  */
 export const TIER_PALETTE: Readonly<Record<TierName, ThemeColor>> = {
-  Bronze: tier('bronze', '#aa5800', '#c8732d'),
-  Silver: tier('silver', '#6d6d6d', '#b3b3b3'),
-  Gold: tier('gold', '#896904', '#ddb246'),
-  Platinum: tier('platinum', '#0d7699', '#3691b5'),
-  Emerald: tier('emerald', '#027f3d', '#2dd26f'),
-  Diamond: tier('diamond', '#9c43c7', '#b961e5'),
-  Master: tier('master', '#8b44e5', '#a467ff'),
-  Grandmaster: tier('grandmaster', '#d81821', '#f9433e'),
-  'Elite Grandmaster': tier('elite-grandmaster', '#256acf', '#4e93fc'),
+  Bronze: tier('bronze'),
+  Silver: tier('silver'),
+  Gold: tier('gold'),
+  Platinum: tier('platinum'),
+  Emerald: tier('emerald'),
+  Diamond: tier('diamond'),
+  Master: tier('master'),
+  Grandmaster: tier('grandmaster'),
+  'Elite Grandmaster': tier('elite-grandmaster'),
 };
 
 /** Tailwind text classes for each tier, spelled out so Tailwind finds them. */

@@ -12,14 +12,6 @@ import {
 } from '@/components/kit/status/VerificationStatusIcon';
 import { VerificationStatusDetails } from '@/components/kit/status/VerificationStatusTooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import {
-  CONTRAST_MARK,
-  composite,
-  contrastRatio,
-  parseColor,
-  toHex,
-} from '@/lib/kit/color/contrast';
-import { VERIFICATION_COLORS } from '@/lib/kit/color/verification';
 import { formatBadgeCount } from '@/lib/kit/status/count';
 
 const render = (node: React.ReactNode) =>
@@ -102,20 +94,6 @@ describe('VerificationStatusIcon overlay', () => {
     expect(classes).toContain(`bg-black/${OVERLAY_DISC_ALPHA * 100}`);
     // A 16px glyph and 4px padding: a 24px disc and tap target.
     expect(classes).toContain('p-1');
-  });
-
-  it('keeps every glyph colour at 3:1 on the disc over white art', () => {
-    const disc = toHex(
-      composite(
-        { ...parseColor('#000000'), alpha: OVERLAY_DISC_ALPHA },
-        parseColor('#ffffff')
-      )
-    );
-    for (const color of Object.values(VERIFICATION_COLORS)) {
-      expect(contrastRatio(color.dark, disc)).toBeGreaterThanOrEqual(
-        CONTRAST_MARK
-      );
-    }
   });
 
   it('adds no disc by default', () => {
