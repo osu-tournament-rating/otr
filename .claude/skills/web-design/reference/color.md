@@ -362,7 +362,7 @@ import { MOD_FILL_FOREGROUND, getModPaletteColor } from '@/lib/kit/color/mods';
 
 Don't:
 
-- Don't keep a mod colour table of your own; every mod chart and the beatmap list's top mods use this palette.
+- Don't keep a mod colour table of your own; every mod chart uses this palette.
 - Don't swap a mod to a new hue to fix contrast or a clash. Players know these colours; move the lightness, or the chroma for a rare mod, as `mods.ts` does.
 
 Gallery anchor: `/admin/design#color-mods`
@@ -384,6 +384,7 @@ import ModIconset from '@/components/icons/ModIconset';
 - Badges and the "+N" chip stay still on hover and focus: no lift or bounce, since nothing else on the page moves that way.
 - `freemod`: adds a freemod badge first. osu-web has none, so it is an acronym badge in `FREEMOD_COLOR`, osu-web's green-1: the type colours' 70% lightness step in a hue no mod type uses, so it doesn't read as a System mod.
 - Badges sit side by side, 2px apart, and never overlap or shrink. Size them by height, no taller than the text line beside them: a game header's are 20px, 24px from tablet up; a score's 16px, 20px from tablet up.
+- The beatmap list's top mods (`BeatmapTopMods`) put each mod group in one neutral `Badge`: its badges at 16px (`<ModIconset className="h-4" />`) and its share of scores as a whole percent. No Mod and "Other" have no badge, so they show `NM` and `Other` as text in the same pill. A share that would round to 0% or 100% without being either reads `<1%` or `>99%`. The badges and text are hidden from assistive tech, and each pill carries its name as screen-reader text: "Hidden 42%", "Easy + Double Time 31%", "No Mod 55%", "Other mods 3%".
 - `FittingModIconset` (`@/components/icons/FittingModIconset`) is the row for tight spaces, such as a score card's: give it a height and a width (`h-4 flex-1 basis-0`). It measures its width, shows the badges that fit and folds the rest into a grey "+N" chip whose tooltip (tap, hover or focus) lists them with their names. It never wraps, so the grade and score beside it keep their spot; the fit logic is `countModBadgeSlots` and `fitModBadges` in `@/lib/utils/mod-badges`.
 - A game card's header shows `resolveGameDisplayMods` (the lobby's mods, or what every freemod score shares), and each score shows only what the header doesn't, from `getScoreDisplayMods` in `@/lib/utils/mods`. A score that matches its header shows no badges. Lazer mods follow the same rules: the header's come with `resolveGameDisplayMods`, and a score's from `getScoreDisplayLazerMods`, which keeps a mod the header shows with different settings.
 - The glyphs, the badge shape and their osu-web commit are in `public/icons/mods/`; each mod's name, type and glyph, and each type's colour, are in `@/lib/utils/mod-badges`. A mod osu-web has no glyph for shows its acronym.

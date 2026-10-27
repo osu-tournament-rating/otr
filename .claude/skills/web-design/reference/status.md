@@ -255,7 +255,7 @@ Props that matter:
 When to pick each:
 
 - Status: never by hand; use `VerificationStatusBadge` or `ReportStatusBadge`.
-- Mods: `customColor` with `getModPaletteColor(mods)` and `MOD_FILL_FOREGROUND` from `@/lib/kit/color/mods` (the reviewed mod palette; every entry takes black text), or `swatch={getModPaletteColor(mods)}` beside a count. The label comes from `getBeatmapModLabel` in `@/lib/utils/mods`.
+- Mods: `customColor` with `getModPaletteColor(mods)` and `MOD_FILL_FOREGROUND` from `@/lib/kit/color/mods` (the reviewed mod palette; every entry takes black text), or `swatch={getModPaletteColor(mods)}` beside a count. The label comes from `getBeatmapModLabel` in `@/lib/utils/mods`. The beatmap list's top mods are the exception: a neutral pill with osu!'s mod badges and a whole percent ([color.md](color.md#mod-badges)).
 - Tiers: `swatch={getTierColor(tierName)}` from `@/lib/kit/color/tiers`.
 - Rulesets: neutral soft with `RulesetIcon` (`className="fill-current"`) and the label from `getRulesetLabel` (`@/lib/kit/format/ruleset`): osu!, taiko, catch, mania 4K, mania 7K.
 - Roles: neutral soft with an icon: `ShieldCheck` for Admin, the one role the profile shows (`components/profile/ProfileRoleBadge.tsx`). Never red.

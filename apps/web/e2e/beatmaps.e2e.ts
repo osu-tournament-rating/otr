@@ -370,7 +370,8 @@ test.describe('Beatmaps Listing Page', () => {
       const displayedModCount = await displayedMods.count();
       expect(displayedModCount).toBeGreaterThan(0);
       expect(displayedModCount).toBeLessThanOrEqual(2);
-      await expect(displayedMods.first()).toContainText(/%/);
+      await expect(displayedMods.first()).toContainText(/(?:\d+|<1|>99)%/);
+      await expect(displayedMods.first()).not.toContainText(/\.\d+%/);
       if (displayedModCount === 2) {
         const secondaryPercentage = Number.parseFloat(
           (await displayedMods.nth(1).textContent())?.match(
@@ -597,30 +598,18 @@ test.describe('Beatmaps Listing Page', () => {
               backgroundColor: pillStyle.backgroundColor,
               backgroundImage: pillStyle.backgroundImage,
               borderRadius: Number.parseFloat(pillStyle.borderRadius),
-              childColors: Array.from(pill.children).map(
-                (child) => getComputedStyle(child).color
-              ),
-              color: pillStyle.color,
               height: pill.getBoundingClientRect().height,
-              inlineBackgroundColor: (pill as HTMLElement).style
-                .backgroundColor,
             };
           })
         );
+      expect(modPresentations).toHaveLength(displayedModCount);
       for (const modPresentation of modPresentations) {
-        expect(modPresentation.inlineBackgroundColor).toMatch(
-          /^var\(--(?:mod|series)-/
-        );
         expect(modPresentation.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
         expect(modPresentation.backgroundImage).toBe('none');
         expect(modPresentation.height).toBe(24);
         expect(modPresentation.borderRadius).toBeGreaterThanOrEqual(
           modPresentation.height / 2
         );
-        expect(modPresentation.childColors).toEqual([
-          modPresentation.color,
-          modPresentation.color,
-        ]);
       }
     });
 

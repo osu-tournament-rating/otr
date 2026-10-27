@@ -1,32 +1,48 @@
 import { Layers } from 'lucide-react';
 
+import ModIconset from '@/components/icons/ModIconset';
 import { Badge } from '@/components/kit/status/Badge';
-import { CATEGORICAL_OTHER } from '@/lib/kit/color/categorical';
-import { MOD_FILL_FOREGROUND, getModPaletteColor } from '@/lib/kit/color/mods';
+import { NO_MOD_LABEL } from '@/lib/kit/format/mods';
 import { formatPercent } from '@/lib/kit/format/number';
 import type { BeatmapListItem } from '@/lib/orpc/schema/beatmapList';
 import { cn } from '@/lib/utils';
+import { getModBadgeAcronyms, getModName } from '@/lib/utils/mod-badges';
 import {
   BEATMAP_MOD_OTHER_LABEL,
-  getBeatmapModLabel,
   selectBeatmapListModGroups,
 } from '@/lib/utils/mods';
 
 type TopMod = NonNullable<BeatmapListItem['topMods']>[number];
 
-/** The pill's label and fill: the mod palette, or the "Other" grey. */
-function modPill({ mod, mods }: TopMod) {
-  if (mod === BEATMAP_MOD_OTHER_LABEL) {
-    return { label: mod, background: CATEGORICAL_OTHER.css };
-  }
-
-  return {
-    label: getBeatmapModLabel(mods),
-    background: getModPaletteColor(mods),
-  };
+/**
+ * A share of scores as a whole percent. A share that rounds to 0% or 100%
+ * without being either reads `<1%` or `>99%`, so the pill never claims no
+ * scores or every score.
+ */
+function formatModShare(percentage: number): string {
+  if (percentage > 0 && percentage < 0.5) return '<1%';
+  if (percentage < 100 && percentage >= 99.5) return '>99%';
+  return formatPercent(percentage / 100, { decimals: 0 });
 }
 
-/** The mod pills summarising which mods a beatmap's scores were set under. */
+/**
+ * What a pill shows and its name: osu!'s mod badges, or a text label for
+ * "Other" and No Mod, which have no badge.
+ */
+function describeTopMod({ mod, mods }: TopMod) {
+  if (mod === BEATMAP_MOD_OTHER_LABEL) {
+    return { label: mod, name: 'Other mods' };
+  }
+
+  const acronyms = getModBadgeAcronyms(mods);
+  if (acronyms.length === 0) {
+    return { label: NO_MOD_LABEL, name: 'No Mod' };
+  }
+
+  return { label: null, name: acronyms.map(getModName).join(' + ') };
+}
+
+/** The mod pills summarizing which mods a beatmap's scores were set under. */
 export default function BeatmapTopMods({
   mods,
   fixedWidth = false,
@@ -74,7 +90,8 @@ export default function BeatmapTopMods({
         className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden"
       >
         {displayedMods.map((topMod) => {
-          const { label, background } = modPill(topMod);
+          const { label, name } = describeTopMod(topMod);
+          const share = formatModShare(topMod.percentage);
 
           return (
             <li
@@ -82,12 +99,16 @@ export default function BeatmapTopMods({
               data-testid="beatmap-mod-group"
               className="flex"
             >
-              <Badge
-                customColor={{ background, foreground: MOD_FILL_FOREGROUND }}
-                className="tabular-nums"
-              >
-                <span className="font-semibold">{label}</span>
-                <span>{formatPercent(topMod.percentage / 100)}</span>
+              <Badge>
+                <span aria-hidden="true" className="flex items-center gap-1.5">
+                  {label === null ? (
+                    <ModIconset mods={topMod.mods} className="h-4" />
+                  ) : (
+                    <span className="font-semibold">{label}</span>
+                  )}
+                  <span className="tabular-nums">{share}</span>
+                </span>
+                <span className="sr-only">{`${name} ${share}`}</span>
               </Badge>
             </li>
           );
