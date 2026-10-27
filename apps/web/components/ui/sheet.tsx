@@ -1,8 +1,8 @@
 'use client';
 
-import * as SheetPrimitive from '@radix-ui/react-dialog';
-import { XIcon } from 'lucide-react';
 import * as React from 'react';
+import { XIcon } from 'lucide-react';
+import { Dialog as SheetPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 
@@ -48,13 +48,15 @@ function SheetContent({
   className,
   children,
   side = 'right',
+  showCloseButton = true,
   overlay = true,
-  closeButton = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left';
+  showCloseButton?: boolean;
+  // Local patch, not in upstream: the header's mobile nav opens under the
+  // header with no backdrop.
   overlay?: boolean;
-  closeButton?: boolean;
 }) {
   return (
     <SheetPortal>
@@ -76,7 +78,7 @@ function SheetContent({
         {...props}
       >
         {children}
-        {closeButton && (
+        {showCloseButton && (
           <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
@@ -135,11 +137,11 @@ function SheetDescription({
 
 export {
   Sheet,
+  SheetTrigger,
   SheetClose,
   SheetContent,
-  SheetDescription,
-  SheetFooter,
   SheetHeader,
+  SheetFooter,
   SheetTitle,
-  SheetTrigger,
+  SheetDescription,
 };

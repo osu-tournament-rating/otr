@@ -213,6 +213,7 @@ export default function MergeMatchDialog({
               placeholder={TEXTAREA_PLACEHOLDER}
               value={matchIdsInput}
               onChange={(event) => setMatchIdsInput(event.target.value)}
+              className="field-sizing-fixed"
               rows={3}
             />
             <Button

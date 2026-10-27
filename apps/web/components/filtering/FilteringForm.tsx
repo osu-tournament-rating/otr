@@ -321,7 +321,7 @@ export default function FilteringForm({
                       data-testid="filter-player-ids"
                       aria-required="true"
                       placeholder="Enter osu! player IDs (e.g. 1234567, 2345678, 3456789)"
-                      className="min-h-32 sm:min-h-40"
+                      className="field-sizing-fixed min-h-32 sm:min-h-40"
                       {...field}
                     />
                   </FormControl>
