@@ -17,9 +17,9 @@ o!TR (osu! Tournament Rating) rates osu! tournament players. The site is a data 
 
 - The interface is neutral greys plus one brand blue. Set text in `foreground` on `background`, `card`, `muted` or `popover`; set secondary text in `muted-foreground`.
 - **Blue means "you can act on this" or "this is selected".** Primary buttons, a selected chip or tab, the focus ring, links on hover and the notification dot. Nothing decorative is blue: section and page icons are `muted-foreground`, names rest in `foreground` and turn `link` on hover.
-- Use `primary` for blue icons, borders and selected tints; `link` for blue text; `primary-solid` behind white `primary-foreground` text. Never put white text on `primary` (3:1 in dark mode) and never colour text with `primary`.
-- Status colour goes on fills, borders and icons (`destructive`, `color-success`, `color-warning`); their `*-foreground` tokens colour text. On a solid success fill, text is Tailwind's green-950.
-- Red only for destructive actions; a solid red fill (`destructive-solid`) only in the final confirm.
+- Use `primary` for blue fills behind white `primary-foreground` text, and for blue icons, borders and selected tints; `link` for blue text. Never colour text with `primary` (dark mode's is a darker blue, too dark for text on a dark surface).
+- Red text, icons and borders are `destructive`. `success` and `warning` go on fills, borders and icons; their `*-foreground` tokens colour text. On a solid success fill, text is Tailwind's green-950.
+- Red only for destructive actions; a solid red fill (`destructive` behind white text, at 60% in dark mode) only in the final confirm.
 - Tooltips sit on `accent`, where `muted-foreground` fails: muted text there is `accent-muted-foreground`. Never put red text on `accent`.
 - Callouts use their own tones (`callout-info`, `callout-warning`, `callout-danger`, each with `-border` and `-foreground`). The info callout is slate, not brand blue.
 - Domain colours (tiers, mods, grades, verification, teams, chart series) only ever mean their domain. See the palettes section.

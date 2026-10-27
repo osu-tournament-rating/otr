@@ -48,7 +48,7 @@ export function RatingDelta({
           ? 'text-muted-foreground'
           : improved
             ? 'text-success-foreground'
-            : 'text-destructive-foreground',
+            : 'text-destructive',
         className
       )}
       {...props}

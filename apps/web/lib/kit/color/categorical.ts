@@ -7,14 +7,15 @@ export interface CategoricalColor extends ThemeColor {
 }
 
 function slot(index: number, name: string): CategoricalColor {
-  return { ...themeColor(`--series-${index}`), slot: index, name };
+  return { ...themeColor(`--chart-${index}`), slot: index, name };
 }
 
 /**
- * The fixed categorical palette for neutral series, rank restriction buckets
- * and teams. The order keeps neighbours apart for red-green colour blindness (checked
- * with the dataviz palette validator), so assign slots in order and never
- * reorder or cycle them. Slot 1 is the brand blue a single series uses.
+ * The fixed categorical palette (`--chart-1` to `--chart-8`) for neutral
+ * series, rank restriction buckets, teams and the five chart mods. The
+ * order keeps neighbours apart for red-green colour blindness (checked with
+ * the dataviz palette validator), so assign slots in order and never reorder
+ * or cycle them. Slot 1 is the brand blue a single series uses.
  */
 export const CATEGORICAL_PALETTE: readonly CategoricalColor[] = [
   slot(1, 'Blue'),
@@ -28,7 +29,7 @@ export const CATEGORICAL_PALETTE: readonly CategoricalColor[] = [
 ];
 
 /** The neutral a series past the eighth folds into, labelled "Other". */
-export const CATEGORICAL_OTHER: ThemeColor = themeColor('--series-other');
+export const CATEGORICAL_OTHER: ThemeColor = themeColor('--chart-other');
 
 /**
  * The colour of the series at `index` (0-based). Colour follows the series,

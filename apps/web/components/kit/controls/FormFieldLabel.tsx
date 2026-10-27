@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 // The ui Label's text style, for the group label, which is not a <label>.
 const GROUP_LABEL_CLASSES =
-  'min-w-0 text-sm leading-none font-medium select-none data-[error=true]:text-destructive-foreground';
+  'min-w-0 text-sm leading-none font-medium select-none data-[error=true]:text-destructive';
 
 /**
  * A field label with the one info button for help and an optional muted
@@ -79,7 +79,7 @@ export function FormFieldLabel({
         <Label
           htmlFor={htmlFor}
           data-error={invalid}
-          className="min-w-0 data-[error=true]:text-destructive-foreground"
+          className="min-w-0 data-[error=true]:text-destructive"
         >
           {children}
         </Label>

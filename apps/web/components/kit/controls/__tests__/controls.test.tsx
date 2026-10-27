@@ -84,21 +84,9 @@ describe('Button', () => {
       render(<Button variant="destructive-confirm">Delete tournament</Button>)
     );
 
-    expect(trigger).toContain('text-destructive-foreground');
+    expect(trigger).toContain('text-destructive');
     expect(trigger).not.toMatch(/\bbg-destructive(-solid)?(\s|$)/);
     expect(confirm).toContain('text-white');
-  });
-
-  it('fills the final confirm with the darker solid red', () => {
-    // White text on dark mode's --destructive is under 4.5:1.
-    const confirm = classOf(
-      render(<Button variant="destructive-confirm">Delete tournament</Button>)
-    );
-
-    expect(confirm).toMatch(/\bbg-destructive-solid(\s|$)/);
-    expect(confirm).toContain('hover:bg-destructive-solid/90');
-    expect(confirm).not.toMatch(/\bbg-destructive(\s|$)/);
-    expect(confirm).not.toContain('hover:bg-destructive/90');
   });
 
   it('swaps the icon for a spinner and disables itself while pending', () => {
@@ -293,7 +281,7 @@ describe('FormFieldLabel', () => {
       </FormFieldLabel>
     );
     expect(html).toContain('data-error="true"');
-    expect(html).toContain('data-[error=true]:text-destructive-foreground');
+    expect(html).toContain('data-[error=true]:text-destructive');
   });
 
   it('labels a group of controls by id, in the same row', () => {

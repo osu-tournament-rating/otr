@@ -323,16 +323,12 @@ function ThemeTextDemo() {
           <PanelBody className="flex flex-col gap-3 text-sm">
             <p>text-foreground</p>
             <p className="text-muted-foreground">text-muted-foreground</p>
-            <p className="text-destructive-foreground">
-              text-destructive-foreground
-            </p>
+            <p className="text-destructive">text-destructive</p>
             <Tile className="flex flex-col gap-1">
               <p className="text-xs text-muted-foreground">
                 text-muted-foreground on a tile
               </p>
-              <p className="text-destructive-foreground">
-                text-destructive-foreground on a tile
-              </p>
+              <p className="text-destructive">text-destructive on a tile</p>
             </Tile>
           </PanelBody>
         </Panel>
@@ -996,7 +992,7 @@ export default function ColorSection() {
         id="color-categorical-palette"
         name="Categorical palette"
         importPath={`${COLOR_LIB}/categorical`}
-        description="Eight hues in a fixed order for neutral series, rank restriction buckets and match teams. Assign slots in order and never cycle; a single series uses slot 1."
+        description="Eight hues in a fixed order for neutral series, rank restriction buckets, match teams and the five chart mods. Assign slots in order and never cycle; a single series uses slot 1."
       >
         <div className="flex flex-col gap-3">
           <div className="flex h-8 gap-0.5 overflow-hidden rounded-md">
@@ -1051,7 +1047,7 @@ export default function ColorSection() {
       <Specimen
         id="color-accent-rule"
         name="Accent rule"
-        description="Blue means you can act on it or it is selected: links on hover, primary buttons, the selected chip. Buttons fill with primary-solid, blue text uses link, and icons and borders use primary. Section icons stay muted, new things get the one notification dot, and the header's support heart turns pink on hover."
+        description="Blue means you can act on it or it is selected: links on hover, primary buttons, the selected chip. Buttons fill with primary behind white text, blue text uses link, and icons and borders use primary. Section icons stay muted, new things get the one notification dot, and the header's support heart turns pink on hover."
       >
         <div className="flex flex-col gap-3">
           <AccentRule />
@@ -1084,18 +1080,26 @@ export default function ColorSection() {
         id="color-grades"
         name="Grade colours"
         importPath={`${COLOR_LIB}/grades`}
-        description="Marks for grade charts. SS, S and A keep the osu! badge hues; B to D recede toward the card."
+        description="One blue ramp from chart-1, SS strongest and D faintest. SS and S move toward the text color and B to D toward the card, so the order holds in both themes. No grade has a token of its own."
       >
         <div className="flex flex-col gap-3">
-          <div className="flex h-3 gap-0.5 overflow-hidden rounded-full">
+          <div className="flex h-7 gap-0.5">
             {Object.entries(GRADE_PALETTE).map(([grade, color], index) => (
               <span
                 key={grade}
-                style={{ backgroundColor: color.css, flexGrow: 6 - index }}
+                className="first:rounded-l-md last:rounded-r-md"
+                style={{ backgroundColor: color, flexGrow: 6 - index }}
               />
             ))}
           </div>
-          <TokenList groupId="grades" />
+          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+            {Object.entries(GRADE_PALETTE).map(([grade, color]) => (
+              <li key={grade} className="flex items-center gap-1.5">
+                <SeriesMarker color={color} />
+                <span className="text-muted-foreground">{grade}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </Specimen>
 
@@ -1103,9 +1107,9 @@ export default function ColorSection() {
         id="color-mods"
         name="Mod colours"
         importPath={`${COLOR_LIB}/mods`}
-        description="The mod colors the site has always used, each hue kept and only the lightness moved as far as contrast needs, so the light theme's are darker. Touch Device, which once shared Sudden Death's orange, is a grayer orange. Every mod takes black text as a solid pill. Rare combinations use the Other gray."
+        description="NM, HD, HR, DT and FL take chart-1 to chart-5. Every other mod or combination is one Other group in chart-other, in the data as well as the color, and comes last. Box plots leave Other out. Each takes black text as a solid pill."
       >
-        <div className="@container">
+        <div className="@container flex flex-col gap-3">
           <ul className="grid grid-cols-3 gap-2 @md:grid-cols-4 @xl:grid-cols-6">
             {[...MOD_PALETTE, { ...CATEGORICAL_OTHER, label: 'Other' }].map(
               (color) => (
@@ -1126,6 +1130,7 @@ export default function ColorSection() {
               )
             )}
           </ul>
+          <TokenList groupId="mods" />
         </div>
       </Specimen>
 

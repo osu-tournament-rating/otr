@@ -3,9 +3,9 @@
  * globals.css, which sets one for each theme.
  */
 export interface ThemeColor {
-  /** The custom property, such as `--series-1`. */
+  /** The custom property, such as `--chart-1`. */
   token: string;
-  /** `var(--series-1)`, ready for a style or a Recharts `fill`. */
+  /** `var(--chart-1)`, ready for a style or a Recharts `fill`. */
   css: string;
 }
 

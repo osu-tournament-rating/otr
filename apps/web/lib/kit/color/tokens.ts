@@ -1,5 +1,4 @@
 import { CATEGORICAL_OTHER, CATEGORICAL_PALETTE } from './categorical';
-import { GRADE_PALETTE } from './grades';
 import { MOD_PALETTE } from './mods';
 import { MATCH_SURFACES, MATCH_TEAM_COLORS } from './teams';
 import { themeColor, type ThemeColor } from './theme-color';
@@ -45,7 +44,7 @@ export const ACCENT_SURFACE_CLASSES =
 export interface TokenEntry {
   color: ThemeColor;
   label: string;
-  /** Tailwind class stem, such as `series-1`, when the token is registered. */
+  /** Tailwind class stem, such as `chart-1`, when the token is registered. */
   utility?: string;
 }
 
@@ -77,7 +76,7 @@ export const TOKEN_GROUPS: readonly TokenGroup[] = [
       { token: '--foreground', label: 'Text' },
       { token: '--muted-foreground', label: 'Muted text' },
       { token: '--accent-muted-foreground', label: 'Muted text in a tooltip' },
-      { token: '--destructive-foreground', label: 'Red text' },
+      { token: '--destructive', label: 'Red text' },
     ]),
   },
   {
@@ -132,15 +131,13 @@ export const TOKEN_GROUPS: readonly TokenGroup[] = [
     ].map((entry) => ({ ...entry, utility: utilityOf(entry.color) })),
   },
   {
-    // `--primary` colors icons, borders, rings and selection, `--primary-solid`
-    // is the fill behind white text in both themes, and `--link` colors blue
-    // text.
+    // `--primary` is the fill behind white text and colors icons, borders
+    // and selection; `--link` colors blue text.
     id: 'brand',
     title: 'Brand blue',
     entries: named([
-      { token: '--primary', label: 'Blue icons, borders and selection' },
+      { token: '--primary', label: 'Blue fills, icons, borders and selection' },
       { token: '--link', label: 'Blue link text' },
-      { token: '--primary-solid', label: 'Blue fill behind white text' },
     ]),
   },
   {
@@ -160,14 +157,6 @@ export const TOKEN_GROUPS: readonly TokenGroup[] = [
       color,
       label,
       utility: utilityOf(color),
-    })),
-  },
-  {
-    id: 'grades',
-    title: 'Score grades',
-    entries: Object.entries(GRADE_PALETTE).map(([label, color]) => ({
-      color,
-      label,
     })),
   },
   {

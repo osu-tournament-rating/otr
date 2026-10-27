@@ -249,7 +249,7 @@ export function Calendar({
                           !selected &&
                           'font-semibold after:absolute after:bottom-1 after:size-1 after:rounded-full after:bg-primary',
                         selected &&
-                          'bg-primary-solid font-semibold text-primary-foreground hover:bg-primary-solid/90'
+                          'bg-primary font-semibold text-primary-foreground hover:bg-primary/90'
                       )}
                     >
                       {parts.day}

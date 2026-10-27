@@ -41,6 +41,24 @@ export function getBeatmapModLabel(mods: number): string {
   );
 }
 
+/**
+ * The display combinations the mod charts show on their own, in the order
+ * they take the categorical palette. Every other mod or combination joins one
+ * "Other" group.
+ */
+export const CHART_MODS: readonly Mods[] = [
+  Mods.None,
+  Mods.Hidden,
+  Mods.HardRock,
+  Mods.DoubleTime,
+  Mods.Flashlight,
+];
+
+/** Whether a combination, after the display rules, is one of `CHART_MODS`. */
+export function isChartMods(mods: number): boolean {
+  return CHART_MODS.includes(normalizeBeatmapDisplayMods(mods));
+}
+
 /** Buckets grouped score counts by label and converts them to percentages. */
 function aggregateModDistribution(
   rows: BeatmapModScoreCount[],
@@ -143,7 +161,10 @@ export function calculateBeatmapListModDistribution(
 
 export const BEATMAP_MOD_OTHER_LABEL = 'Other';
 
-/** Moves every combination below the display threshold into a trailing "Other" slice. */
+/**
+ * Moves every combination outside `CHART_MODS`, and every one below the
+ * display threshold, into a trailing "Other" slice.
+ */
 export function collapseBeatmapModDistribution(
   distribution: BeatmapModDistributionEntry[],
   minimumPercentage = BEATMAP_MOD_DISPLAY_THRESHOLD_PERCENTAGE
@@ -152,7 +173,9 @@ export function collapseBeatmapModDistribution(
   const collapsed: BeatmapModDistributionEntry[] = [];
 
   for (const entry of distribution) {
-    (entry.percentage >= minimumPercentage ? displayed : collapsed).push(entry);
+    const shown =
+      entry.percentage >= minimumPercentage && isChartMods(entry.mods);
+    (shown ? displayed : collapsed).push(entry);
   }
 
   if (collapsed.length === 0) return displayed;

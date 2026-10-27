@@ -118,7 +118,7 @@ describe('RatingDelta', () => {
   it('colours a loss with the destructive text token', () => {
     const html = render(<RatingDelta value={-4.56} />);
     expect(html).toContain('data-direction="down"');
-    expect(html).toContain('text-destructive-foreground');
+    expect(html).toContain('text-destructive');
     expect(text(html)).toBe('−4.6');
   });
 

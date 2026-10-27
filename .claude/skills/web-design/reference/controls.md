@@ -75,7 +75,7 @@ Variants:
 | `outline`             | Bordered                        | Secondary actions: Cancel, Back, Clear, a page's second action        |
 | `ghost`               | Text, fills on hover            | Quiet actions inside a panel: Clear all, a Load more in an opened row |
 | `destructive`         | Red text and border, no fill    | Starts an action that deletes or overwrites data; it opens a confirm  |
-| `destructive-confirm` | Solid red (`destructive-solid`) | Only the final confirm in a dialog (ConfirmDialog already renders it) |
+| `destructive-confirm` | Solid red (`destructive`)       | Only the final confirm in a dialog (ConfirmDialog already renders it) |
 | `overlay`             | Dark pill, white in both themes | Only on cover art, like the beatmap hero's preview button             |
 
 A list's own footer, "Load more" or "Show more", is [LoadMore](tables.md#loadmore), which draws an outline `sm` Button; don't build that footer from a ghost button.
@@ -92,7 +92,7 @@ Don't:
 - Don't use a grey `secondary` button for Clear or Reset; use `outline`.
 - Don't make the button that opens a destructive action solid red, or blue. Use `destructive`, or an AdminMenu item.
 - Don't recolour `AlertDialogAction` with `bg-destructive text-white`; use ConfirmDialog.
-- Don't put white text on `bg-destructive`. Dark mode's `--destructive` (red-500) gives white 14px text only about 3.8:1, so `destructive-confirm` fills with `bg-destructive-solid` (`hover:bg-destructive-solid/90`): red-600 in dark mode and the usual destructive red in light. The shadcn `destructive` variants of `components/ui/button.tsx` and `components/ui/badge.tsx` use it too; any other solid red fill behind white text needs the same token.
+- Don't put white text on a full `bg-destructive` in dark mode. Dark mode's `--destructive` (red-400) gives white text only 2.9:1, so `destructive-confirm` takes stock shadcn's `bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive/60`: red-700 in light mode, and red-400 at 60% over the surface in dark mode (6.1:1 with white over the card). The shadcn `destructive` variants of `components/ui/button.tsx` and `components/ui/badge.tsx` are where it comes from; any other solid red fill behind white text needs the same `dark:bg-destructive/60`.
 - Don't hand-roll a spinner (`<Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...`); use `pending`.
 
 Gallery anchors: `/admin/design#controls-button-sizes`, `/admin/design#controls-button-variants`
