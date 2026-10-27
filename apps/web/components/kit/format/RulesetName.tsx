@@ -30,7 +30,7 @@ export function RulesetName({
     <RulesetIcon
       ruleset={ruleset}
       aria-hidden="true"
-      className="size-4 shrink-0 fill-muted-foreground"
+      className="size-4 shrink-0 self-center fill-muted-foreground"
     />
   );
 
@@ -49,10 +49,13 @@ export function RulesetName({
     );
   }
 
+  // The label sets the baseline. With the icon first and every item
+  // centered, the line would sit on the icon's bottom edge instead, and the
+  // whole name would ride above the text beside it, as in a hero's meta row.
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap',
+        'inline-flex items-baseline gap-1.5 whitespace-nowrap',
         className
       )}
       {...props}
