@@ -52,9 +52,11 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
-  --color-destructive-solid: var(--destructive-solid);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-muted-foreground: var(--accent-muted-foreground);
   --color-accent: var(--accent);
@@ -64,7 +66,6 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
-  --color-primary-solid: var(--primary-solid);
   --color-link: var(--link);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -93,15 +94,15 @@
 
   /* Component library tokens. Values live in :root and .dark below; the
      web-design skill's color reference says when to use each. */
-  --color-series-1: var(--series-1);
-  --color-series-2: var(--series-2);
-  --color-series-3: var(--series-3);
-  --color-series-4: var(--series-4);
-  --color-series-5: var(--series-5);
-  --color-series-6: var(--series-6);
-  --color-series-7: var(--series-7);
-  --color-series-8: var(--series-8);
-  --color-series-other: var(--series-other);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-other: var(--chart-other);
   --color-verification-verified: var(--verification-verified);
   --color-verification-rejected: var(--verification-rejected);
   --color-verification-neutral: var(--verification-neutral);
@@ -135,12 +136,6 @@
 }
 
 @theme {
-  --color-success: var(--color-green-600);
-  --color-success-foreground: var(--color-green-800);
-
-  --color-warning: var(--color-amber-600);
-  --color-warning-foreground: var(--color-amber-800);
-
   /* One turn, then a pause, so an icon draws the eye without spinning
      constantly. */
   --animate-spin-pause: spin-pause 3s cubic-bezier(0.65, 0, 0.35, 1) 600ms
@@ -170,11 +165,10 @@
   --popover-foreground: oklch(0 0 0);
   --border: oklch(0.92 0 0);
   --input: oklch(0.94 0 0);
-  /* The brand blue for icons, borders and selection, darkened just enough that
-     white text on it reaches 4.5:1. Blue text uses --link. */
+  /* The brand blue for fills behind white text, icons, borders and selection:
+     white text on it is 4.5:1, and it is 4.2:1 on the card. Blue text uses
+     --link. */
   --primary: oklch(0.575 0.182 262.51);
-  /* Fills behind white text: buttons, solid badges, selected days. */
-  --primary-solid: oklch(0.575 0.182 262.51);
   --primary-foreground: oklch(1 0 0);
   /* Blue link text: darker than --primary so it reaches 4.5:1 on every light surface. */
   --link: oklch(0.547 0.174 262.51);
@@ -185,14 +179,16 @@
   --secondary: oklch(0.92 0 0);
   --secondary-foreground: oklch(0 0 0);
 
-  --destructive: var(--color-red-600);
-  /* Solid fill behind white text, such as the final destructive confirm. */
-  --destructive-solid: var(--color-red-600);
-  /* Red text: Tailwind's red-800. */
-  --destructive-foreground: oklch(44.4% 0.177 26.899);
+  /* Red text, icons and borders, and the fill behind white text: red-700,
+     6.1:1 on the card and 6.4:1 under white text. Red-600 is only 4.5:1 on
+     the card. */
+  --destructive: var(--color-red-700);
 
-  --warning: var(--color-warning);
-  --warning-foreground: var(--color-warning-foreground);
+  /* Status fills, borders and icons, and their text. */
+  --success: var(--color-green-600);
+  --success-foreground: var(--color-green-800);
+  --warning: var(--color-amber-600);
+  --warning-foreground: var(--color-amber-800);
 
   --ring: oklch(0 0 0);
 
@@ -227,13 +223,6 @@
 
   --tracking-normal: 0em;
 
-  /* Repeats the @theme status values so a light subtree inside a dark page
-     (the design gallery) gets the light ones. Same values as @theme. */
-  --color-success: var(--color-green-600);
-  --color-success-foreground: var(--color-green-800);
-  --color-warning: var(--color-amber-600);
-  --color-warning-foreground: var(--color-amber-800);
-
   /*
    * Component library tokens. This file is the only place their values live;
    * apps/web/lib/kit/color maps domain values to them by name. Marks and icons
@@ -241,17 +230,17 @@
    * their theme.
    */
 
-  /* Categorical chart palette: neutral series, rank ranges and teams, in
+  /* Categorical chart palette: neutral series, rank ranges, teams and mods, in
      this fixed order. Never cycle it; a ninth series folds into "other". */
-  --series-1: #4589f2;
-  --series-2: #e6632f;
-  --series-3: #049e6d;
-  --series-4: #bd7f03;
-  --series-5: #d36992;
-  --series-6: #008300;
-  --series-7: #4a3aa7;
-  --series-8: #e34948;
-  --series-other: #7a7a7a;
+  --chart-1: #4589f2;
+  --chart-2: #e6632f;
+  --chart-3: #049e6d;
+  --chart-4: #bd7f03;
+  --chart-5: #d36992;
+  --chart-6: #008300;
+  --chart-7: #4a3aa7;
+  --chart-8: #e34948;
+  --chart-other: #7a7a7a;
 
   /* Verification status, for icons, badges and chart fills. Icons take the
      outcome's hue (Pre-verified green, Pre-rejected red, with a dashed
@@ -298,35 +287,6 @@
   --tier-gold: #896904;
   --tier-silver: #6d6d6d;
   --tier-bronze: #aa5800;
-
-  /* Score grade marks. SS, S and A keep the osu! badge hues; B to D are a
-     grey ramp that recedes toward the card in both themes. */
-  --score-grade-ss: #de31ae;
-  --score-grade-s: #0c98a4;
-  --score-grade-a: #5d9a03;
-  --score-grade-b: #3d3d3d;
-  --score-grade-c: #5b5b5b;
-  --score-grade-d: #7a7a7a;
-
-  /* Mod marks. Every value takes black text on a solid fill. */
-  --mod-nm: #4589f2;
-  --mod-hd: #a18902;
-  --mod-hr: #db675e;
-  --mod-dt: #8971f4;
-  --mod-ht: #029f54;
-  --mod-ez: #1aa101;
-  --mod-fl: #6970b7;
-  --mod-hdhr: #ff3381;
-  --mod-ezhd: #b87f04;
-  --mod-ezdt: #049a9b;
-  --mod-hdfl: #4a7d91;
-  --mod-hddt: #b568e9;
-  --mod-sd: #d56f01;
-  --mod-td: #a4846f;
-  --mod-rx: #0394ce;
-  --mod-mr: #778cab;
-  --mod-rd: #5a986c;
-  --mod-key: #5590be;
 }
 
 .dark {
@@ -337,28 +297,22 @@
   --card: oklch(0.2 0 264.47);
   --border: oklch(0.32 0 0);
 
-  --color-success: var(--color-green-400);
-  --color-success-foreground: var(--color-green-400);
-  --color-warning: var(--color-yellow-400);
-  --color-warning-foreground: var(--color-yellow-400);
+  --success: var(--color-green-400);
+  --success-foreground: var(--color-green-400);
+  --warning: var(--color-yellow-400);
+  --warning-foreground: var(--color-yellow-400);
 
-  --destructive: var(--color-red-500);
-  /* Red-500 under white text is about 3.8:1; red-600 clears 4.5:1. */
-  --destructive-solid: var(--color-red-600);
-  /* Red text: Tailwind's red-400.
-     Red-500 fell under 4.5:1 on tiles and popovers. */
-  --destructive-foreground: oklch(70.4% 0.191 22.216);
-
-  --warning: var(--color-warning);
-  --warning-foreground: var(--color-warning-foreground);
+  /* Red text, icons and borders: red-400, 6.3:1 on the card. White text
+     sits on it at 60% (dark:bg-destructive/60), 6.1:1 over the card. */
+  --destructive: var(--color-red-400);
 
   --card-foreground: oklch(1 0 0);
   --popover: oklch(0.23 0 264.49);
   --popover-foreground: oklch(1 0 0);
-  /* The original brand blue for icons, borders and selection. */
-  --primary: oklch(0.67 0.17 258.51);
-  /* White text on the original blue is only 3:1, so fills use the darker one. */
-  --primary-solid: oklch(0.575 0.182 262.51);
+  /* A darker step of the brand blue, for fills behind white text (5.0:1),
+     icons, borders and selection (3.6:1 on the card). Too dark for text on
+     a dark surface: blue text uses --link. */
+  --primary: oklch(0.55 0.19 258.51);
   --primary-foreground: oklch(1 0 0);
   /* Blue link text: the original blue, 6.3:1 on the background. */
   --link: oklch(0.67 0.17 258.51);
@@ -388,15 +342,15 @@
   --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
 
   /* Component library tokens, dark values. */
-  --series-1: #4e93fc;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
-  --series-8: #e66767;
-  --series-other: #929292;
+  --chart-1: #4e93fc;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  --chart-other: #929292;
 
   --verification-verified: #47c86e;
   --verification-rejected: #f66d67;
@@ -433,32 +387,6 @@
   --tier-gold: #ddb246;
   --tier-silver: #b3b3b3;
   --tier-bronze: #c8732d;
-
-  --score-grade-ss: #de31ae;
-  --score-grade-s: #02b5c3;
-  --score-grade-a: #88da20;
-  --score-grade-b: #d7d7d7;
-  --score-grade-c: #ababab;
-  --score-grade-d: #808080;
-
-  --mod-nm: #4e93fc;
-  --mod-hd: #f4dc71;
-  --mod-hr: #f27c71;
-  --mod-dt: #8971f4;
-  --mod-ht: #3cd77d;
-  --mod-ez: #7af46c;
-  --mod-fl: #6970b7;
-  --mod-hdhr: #ff3381;
-  --mod-ezhd: #ffc365;
-  --mod-ezdt: #32c3c3;
-  --mod-hdfl: #4a7d91;
-  --mod-hddt: #bf72f3;
-  --mod-sd: #ff9238;
-  --mod-td: #cbaa94;
-  --mod-rx: #11a8e8;
-  --mod-mr: #bad1f3;
-  --mod-rd: #83c395;
-  --mod-key: #84c0f0;
 }
 
 @layer base {

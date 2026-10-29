@@ -41,7 +41,7 @@ One number with its label: a 12px muted label (with an optional 14px icon) over 
 | `default`   | 36px   | Form and dialog actions, page header actions                                   |
 | `lg`        | 40px   | List toolbars, beside the 40px search field and sort select                    |
 
-- Primary buttons fill with `primary-solid` and white text. Red is for destructive actions only; solid red only in the final confirm.
+- Primary buttons fill with `primary` and white text. Red is for destructive actions only; solid red only in the final confirm.
 - Never large lifted buttons with a big shadow and a hover lift.
 - **Dialogs**: one layout. `radius-xl` corners, `background` surface with `shadow-lg`, a header strip (`section-title`, optional muted description), a 24px-padded body, a footer strip in `muted` at 30% with the actions on the right, over a black 50% backdrop. Widths 448, 512 (default) or 672px.
 - **Forms**: field labels in a 20px row so side-by-side inputs stay level; fields 16px apart; form sections with a section header strip.

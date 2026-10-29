@@ -2,8 +2,8 @@ import { describe, expect, it } from 'bun:test';
 import { Mods, ScoreGrade, Team, VerificationStatus } from '@otr/core/osu';
 
 import { CATEGORICAL_PALETTE, seriesColor } from '@/lib/kit/color/categorical';
-import { getGradeColor } from '@/lib/kit/color/grades';
-import { MOD_PALETTE, getModPaletteColor } from '@/lib/kit/color/mods';
+import { GRADE_PALETTE, getGradeColor } from '@/lib/kit/color/grades';
+import { getModPaletteColor } from '@/lib/kit/color/mods';
 import {
   getTeamColor,
   getTeamTextColor,
@@ -19,7 +19,6 @@ import {
   getRatingsGroupColor,
   getVerificationStatusColor,
 } from '@/lib/kit/color/verification';
-import { getBeatmapModLabel } from '@/lib/utils/mods';
 import { tierNames } from '@/lib/utils/tierData';
 
 describe('theme text', () => {
@@ -36,15 +35,15 @@ describe('theme text', () => {
 describe('categorical palette', () => {
   it('has eight slots in a fixed order', () => {
     expect(CATEGORICAL_PALETTE.map((color) => color.token)).toEqual(
-      Array.from({ length: 8 }, (_, index) => `--series-${index + 1}`)
+      Array.from({ length: 8 }, (_, index) => `--chart-${index + 1}`)
     );
   });
 
   it('never cycles: a ninth series is "Other"', () => {
-    expect(seriesColor(0)).toBe('var(--series-1)');
-    expect(seriesColor(7)).toBe('var(--series-8)');
-    expect(seriesColor(8)).toBe('var(--series-other)');
-    expect(seriesColor(20)).toBe('var(--series-other)');
+    expect(seriesColor(0)).toBe('var(--chart-1)');
+    expect(seriesColor(7)).toBe('var(--chart-8)');
+    expect(seriesColor(8)).toBe('var(--chart-other)');
+    expect(seriesColor(20)).toBe('var(--chart-other)');
   });
 });
 
@@ -110,33 +109,49 @@ describe('tiers', () => {
 
 describe('grades', () => {
   it('folds silver grades into their gold ones', () => {
-    expect(getGradeColor(ScoreGrade.SSH)).toBe('var(--score-grade-ss)');
-    expect(getGradeColor(ScoreGrade.SH)).toBe('var(--score-grade-s)');
-    expect(getGradeColor(ScoreGrade.D)).toBe('var(--score-grade-d)');
+    expect(getGradeColor(ScoreGrade.SSH)).toBe(getGradeColor(ScoreGrade.SS));
+    expect(getGradeColor(ScoreGrade.SH)).toBe(getGradeColor(ScoreGrade.S));
+  });
+
+  it('gives every grade its own step of one chart hue', () => {
+    const marks = Object.values(GRADE_PALETTE);
+
+    expect(new Set(marks).size).toBe(6);
+    for (const mark of marks) expect(mark).toContain('var(--chart-1)');
   });
 });
 
 describe('mods', () => {
-  it('gives No Mod its own colour, not the link blue', () => {
-    expect(getModPaletteColor(Mods.None)).toBe('var(--mod-nm)');
-    expect(getModPaletteColor(Mods.None)).not.toBe('var(--primary)');
-  });
-
-  it('labels each colour as the beatmap pages label its mods', () => {
-    for (const entry of MOD_PALETTE) {
-      if (entry.label === 'RX' || entry.label === 'KEY') continue;
-      expect(entry.mods.map(getBeatmapModLabel)).toEqual([entry.label]);
-    }
+  it('colors NM, HD, HR, DT and FL with the first five chart colors', () => {
+    expect(
+      [
+        Mods.None,
+        Mods.Hidden,
+        Mods.HardRock,
+        Mods.DoubleTime,
+        Mods.Flashlight,
+      ].map(getModPaletteColor)
+    ).toEqual([1, 2, 3, 4, 5].map((slot) => `var(--chart-${slot})`));
   });
 
   it('follows the display rules', () => {
-    expect(getModPaletteColor(Mods.Nightcore)).toBe('var(--mod-dt)');
-    expect(getModPaletteColor(Mods.Hidden | Mods.NoFail)).toBe('var(--mod-hd)');
-    expect(getModPaletteColor(Mods.Relax2)).toBe('var(--mod-rx)');
-    expect(getModPaletteColor(Mods.Key7)).toBe('var(--mod-key)');
-    expect(
-      getModPaletteColor(Mods.Hidden | Mods.HardRock | Mods.Flashlight)
-    ).toBe('var(--series-other)');
+    expect(getModPaletteColor(Mods.Nightcore)).toBe('var(--chart-4)');
+    expect(getModPaletteColor(Mods.Hidden | Mods.NoFail)).toBe(
+      'var(--chart-2)'
+    );
+  });
+
+  it('gives every other mod or combination the "Other" color', () => {
+    for (const mods of [
+      Mods.Hidden | Mods.HardRock,
+      Mods.Easy,
+      Mods.HalfTime,
+      Mods.Relax2,
+      Mods.Key7,
+      Mods.Hidden | Mods.HardRock | Mods.Flashlight,
+    ]) {
+      expect(getModPaletteColor(mods)).toBe('var(--chart-other)');
+    }
   });
 });
 

@@ -37,25 +37,17 @@ export const COLOR_USAGE: Record<string, string> = {
   input: 'Input and select borders.',
   ring: 'Focus ring, drawn at 50% as a 3px ring (focus-visible).',
   primary:
-    'Brand blue for icons, borders, the focus ring and selected tints; 3:1 on every surface. Never text (use link) and never behind white text in dark mode (use primary-solid).',
-  'primary-solid':
-    'Fill behind white text: primary buttons, solid badges, selected days. White on it is 4.5:1 in both themes.',
-  'primary-foreground': 'White text, only on primary-solid.',
+    'Brand blue for fills behind white text (primary buttons, solid badges, selected days), icons, borders and selected tints. White on it is 4.5:1 light, 5.0:1 dark; it is 3:1 or more on background and card. Never text (use link): dark mode makes it a darker step of the brand blue.',
+  'primary-foreground': 'White text, only on primary.',
   link: 'Blue text: links and row titles on hover. 4.5:1 on background, card and muted in both themes (dark is the original brand blue, 6.3:1).',
   destructive:
-    'Red for destructive icons, borders and outlines (Tailwind red-600 / red-500).',
-  'destructive-solid':
-    'Solid red fill behind white text: only the final destructive confirm (red-600 in both themes).',
-  'destructive-foreground':
-    'Red text (red-800 / red-400): 7.4:1 light, 5.6:1 dark on muted and popover. Not on accent in dark mode (3.9:1).',
-  'color-success':
+    'Red text, icons, borders and outlines (red-700 / red-400): 6.1:1 light, 6.3:1 dark on the card. The final destructive confirm fills with it behind white text, at 60% in dark mode (dark:bg-destructive/60).',
+  success:
     'Success fills, borders and icons (green-600 / green-400). On a solid success fill, text is green-950.',
-  'color-success-foreground':
+  'success-foreground':
     'Success text, such as a rating rise (green-800 / green-400).',
-  'color-warning': 'Warning fills, borders and icons (amber-600 / yellow-400).',
-  'color-warning-foreground': 'Warning text (amber-800 / yellow-400).',
-  warning: 'Alias of color-warning.',
-  'warning-foreground': 'Alias of color-warning-foreground.',
+  warning: 'Warning fills, borders and icons (amber-600 / yellow-400).',
+  'warning-foreground': 'Warning text (amber-800 / yellow-400).',
   'verification-verified':
     'Verified and Pre-verified icon and chart fill (Pre-verified adds a dashed outline).',
   'verification-rejected':
@@ -75,17 +67,18 @@ export const COLOR_USAGE: Record<string, string> = {
     'Danger callout text and icon, on callout-danger.',
   notification: 'The one notification dot colour.',
   support: "The header's support heart on hover, the pink it always had.",
-  'series-1':
-    'Categorical chart series 1, the brand blue stepped to clear 3:1 on light cards. Series take this palette in order and never cycle.',
-  'series-2': 'Categorical chart series 2.',
-  'series-3': 'Categorical chart series 3.',
-  'series-4': 'Categorical chart series 4.',
-  'series-5': 'Categorical chart series 5.',
-  'series-6': 'Categorical chart series 6.',
-  'series-7': 'Categorical chart series 7.',
-  'series-8':
-    'Categorical chart series 8. A ninth series folds into series-other.',
-  'series-other': 'The "Other" series or bucket.',
+  'chart-1':
+    'Categorical chart series 1, the brand blue stepped to clear 3:1 on light cards. Series take this palette in order and never cycle. Also the NM mark, and the hue of the grade ramp.',
+  'chart-2': 'Categorical chart series 2; the HD mark.',
+  'chart-3': 'Categorical chart series 3; the HR mark.',
+  'chart-4': 'Categorical chart series 4; the DT mark.',
+  'chart-5': 'Categorical chart series 5; the FL mark.',
+  'chart-6': 'Categorical chart series 6.',
+  'chart-7': 'Categorical chart series 7.',
+  'chart-8':
+    'Categorical chart series 8. A ninth series folds into chart-other.',
+  'chart-other':
+    'The "Other" series or bucket, including every mod but NM, HD, HR, DT and FL.',
   'match-red': 'Red team edge, tint, swatch and chart line.',
   'match-red-foreground': 'Red team text.',
   'match-blue': 'Blue team edge, tint, swatch and chart line.',
@@ -101,42 +94,6 @@ export const COLOR_USAGE: Record<string, string> = {
   'tier-gold': 'Gold tier name and chart mark.',
   'tier-silver': 'Silver tier name and chart mark.',
   'tier-bronze': 'Bronze tier name and chart mark.',
-  'score-grade-ss': 'SS grade chart mark (keeps the osu! badge hue).',
-  'score-grade-s': 'S grade chart mark (osu! badge hue).',
-  'score-grade-a': 'A grade chart mark (osu! badge hue).',
-  'score-grade-b':
-    'B grade chart mark; B to D are a grey ramp that recedes toward the card.',
-  'score-grade-c': 'C grade chart mark.',
-  'score-grade-d': 'D grade chart mark.',
-  'mod-nm':
-    'No mod (NM) mark and solid mod pill; black text on the solid fill.',
-  'mod-hd':
-    'Hidden (HD) mark and solid mod pill; black text on the solid fill.',
-  'mod-hr':
-    'Hard Rock (HR) mark and solid mod pill; black text on the solid fill.',
-  'mod-dt':
-    'Double Time (DT) mark and solid mod pill; black text on the solid fill.',
-  'mod-ht':
-    'Half Time (HT) mark and solid mod pill; black text on the solid fill.',
-  'mod-ez': 'Easy (EZ) mark and solid mod pill; black text on the solid fill.',
-  'mod-fl':
-    'Flashlight (FL) mark and solid mod pill; black text on the solid fill.',
-  'mod-hdhr': 'HD + HR mark and solid mod pill; black text on the solid fill.',
-  'mod-ezhd': 'EZ + HD mark and solid mod pill; black text on the solid fill.',
-  'mod-ezdt': 'EZ + DT mark and solid mod pill; black text on the solid fill.',
-  'mod-hdfl': 'HD + FL mark and solid mod pill; black text on the solid fill.',
-  'mod-hddt': 'HD + DT mark and solid mod pill; black text on the solid fill.',
-  'mod-sd':
-    'Sudden Death (SD) mark and solid mod pill; black text on the solid fill.',
-  'mod-td':
-    'Touch Device (TD) mark and solid mod pill; black text on the solid fill.',
-  'mod-rx': 'Relax (RX) mark and solid mod pill; black text on the solid fill.',
-  'mod-mr':
-    'Mirror (MR) mark and solid mod pill; black text on the solid fill.',
-  'mod-rd':
-    'Random (RD) mark and solid mod pill; black text on the solid fill.',
-  'mod-key':
-    'Key-count mods (1K to 9K) mark and solid mod pill; black text on the solid fill.',
 };
 
 /** Custom properties in `:root` that are not colour tokens. */

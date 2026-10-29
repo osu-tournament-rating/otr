@@ -401,7 +401,7 @@ function InlineErrorDemo() {
         <PanelBody className="flex flex-col gap-2">
           <Label htmlFor={reasonId}>
             Reason{' '}
-            <span aria-hidden="true" className="text-destructive-foreground">
+            <span aria-hidden="true" className="text-destructive">
               *
             </span>
             <span className="sr-only"> (required)</span>

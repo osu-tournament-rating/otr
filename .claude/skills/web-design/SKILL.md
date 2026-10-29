@@ -53,17 +53,19 @@ it in `apps/web` from the kit, never from the mockup's markup.
   `uppercase`, never `tracking-wide`, never smaller than `text-xs`.
 - **Colour.** Semantic tokens only; no hex values or palette classes such as
   `text-orange-500`. Blue only for things you can act on or that are
-  selected; section icons are muted. Blue text is `text-link`, blue icons and
-  borders `primary`, and white text sits only on `bg-primary-solid`. Status
-  tokens colour fills, borders and icons; their `*-foreground` tokens colour
-  text.
+  selected; section icons are muted. Blue text is `text-link`, blue fills,
+  icons and borders `primary`, and white text sits on `bg-primary`. Red text,
+  icons and borders are `destructive`. `success` and `warning` colour fills,
+  borders and icons, and their `*-foreground` tokens colour text.
 - **Status.** The glyph shows the outcome and a dashed outline means an
   automated check: Verified, Pre-verified, Pending, Pre-rejected, Rejected.
   Colour only reinforces. Pending, Pre-verified and Pre-rejected are "Not in
   ratings yet" everywhere, including charts.
-- **Charts.** A fixed categorical palette for neutral series, rank ranges
-  and teams. Mods, tiers, grades, verification status and star rating keep
-  their own palettes. One tick rule, at most six ticks. Counts get thousands
+- **Charts.** A fixed categorical palette (`chart-1` to `chart-8`) for
+  neutral series, rank ranges, teams and mods: NM, HD, HR, DT and FL take
+  the first five, and every other mod is one "Other" group. Grades are a
+  ramp of `chart-1`. Tiers, verification status and star rating keep their
+  own palettes. One tick rule, at most six ticks. Counts get thousands
   separators; years and IDs never do.
 - **Lists.** One toolbar inside the list's panel. Every control that changes
   what a list shows lives in the page address. Filters apply as you change

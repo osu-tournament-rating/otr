@@ -225,7 +225,7 @@ export default function MergeMatchDialog({
               {isFetching ? 'Fetching…' : 'Fetch matches'}
             </Button>
             {error ? (
-              <p role="alert" className="text-sm text-destructive-foreground">
+              <p role="alert" className="text-sm text-destructive">
                 {error}
               </p>
             ) : null}

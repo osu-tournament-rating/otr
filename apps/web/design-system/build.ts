@@ -636,21 +636,9 @@ async function buildStylesheet() {
     '@custom-variant dark (&:is(.dark *):not(.theme-light *));',
     "@custom-variant dark (&:is([data-theme='dark'] *, .dark *):not(.theme-light *));"
   );
-  // Radii and the status colours come from tokens.css, not from formulas here.
+  // Radii come from tokens.css, not from formulas here.
   replace(/--radius-(sm|md|lg|xl): [^;]+;/g, '--radius-$1: var(--radius-$1);');
   replace(/\n\s*--radius: 0\.5rem;/, '');
-  replace(
-    /@theme \{([^}]*)\}/,
-    (() => {
-      const names = [
-        'color-success',
-        'color-success-foreground',
-        'color-warning',
-        'color-warning-foreground',
-      ];
-      return `@theme inline {\n${names.map((n) => `  --${n}: var(--${n});`).join('\n')}\n}`;
-    })()
-  );
   css += '\n:root {\n  --tracking-normal: 0em;\n}\n';
 
   const result = await postcss([

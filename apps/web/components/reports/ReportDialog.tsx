@@ -246,9 +246,7 @@ export function ReportDialog({
                 <FormDescription
                   role={hasNoTemplates ? 'alert' : 'status'}
                   aria-live="polite"
-                  className={
-                    hasNoTemplates ? 'text-destructive-foreground' : undefined
-                  }
+                  className={hasNoTemplates ? 'text-destructive' : undefined}
                 >
                   {isLoadingTemplates
                     ? 'Loading report reasons…'

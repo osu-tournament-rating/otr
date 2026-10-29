@@ -21,6 +21,6 @@ One way to write each kind of value, the same for every visitor. Never format wi
 | Rulesets                     | `osu!`, `taiko`, `catch`, `mania 4K`, `mania 7K`                                     | `Osu!`, `Standard`                                  |
 | Missing                      | an em dash `—` in `muted-foreground`                                                 | blank, `N/A`, `0`                                   |
 
-- Rating changes take `color-success-foreground` up, `destructive-foreground` down and `muted-foreground` flat; the arrow and sign carry the direction, colour only reinforces it.
+- Rating changes take `success-foreground` up, `destructive` down and `muted-foreground` flat; the arrow and sign carry the direction, colour only reinforces it.
 - Counts, ranks and ratings take tabular figures in columns. Dates keep proportional figures.
 - Status names are sentence case: Verified, Pre-verified, Pending, Pre-rejected, Rejected.

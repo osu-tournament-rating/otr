@@ -129,6 +129,23 @@ describe('beatmap mod display helpers', () => {
     expect(distribution[2].percentage).toBeCloseTo(1);
   });
 
+  it('collapses combinations outside the chart mods into Other at any share', () => {
+    const distribution = collapseBeatmapModDistribution(
+      calculateBeatmapModDistribution([
+        { mods: Mods.Hidden | Mods.HardRock, scoreCount: 50 },
+        { mods: Mods.None, scoreCount: 30 },
+        { mods: Mods.Easy, scoreCount: 20 },
+      ])
+    );
+
+    expect(
+      distribution.map(({ label, scoreCount }) => ({ label, scoreCount }))
+    ).toEqual([
+      { label: 'NM', scoreCount: 30 },
+      { label: BEATMAP_MOD_OTHER_LABEL, scoreCount: 70 },
+    ]);
+  });
+
   it('omits the Other slice when every combination meets the threshold', () => {
     expect(
       collapseBeatmapModDistribution(
