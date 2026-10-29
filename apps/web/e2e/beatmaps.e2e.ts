@@ -613,6 +613,37 @@ test.describe('Beatmaps Listing Page', () => {
       }
     });
 
+    test('hides a top mod that cannot fit whole instead of cutting it off', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.beatmaps);
+      const twoGroups = page
+        .getByRole('list', { name: 'Top mods by score usage' })
+        .filter({ has: page.locator('li + li') })
+        .first();
+      await expect(twoGroups).toBeVisible({ timeout: 10000 });
+
+      // Narrow the list so its first pill fits and its second can't.
+      const placement = await twoGroups.evaluate(async (list) => {
+        const [first, second] = list.children;
+        (list as HTMLElement).style.width =
+          `${first.getBoundingClientRect().width + 8}px`;
+        await new Promise(requestAnimationFrame);
+
+        const box = list.getBoundingClientRect();
+        const pill = (item: Element) => item.getBoundingClientRect();
+        return {
+          firstInside:
+            pill(first).left >= box.left - 0.5 &&
+            pill(first).right <= box.right + 0.5 &&
+            pill(first).bottom <= box.bottom + 0.5,
+          secondOutOfSight: pill(second).top >= box.bottom - 0.5,
+        };
+      });
+
+      expect(placement).toEqual({ firstInside: true, secondOutOfSight: true });
+    });
+
     test('hides mod summaries for mania beatmaps', async ({ page }) => {
       await page.goto(`${ROUTES.beatmaps}?ruleset=4`);
       const firstRow = page

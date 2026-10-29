@@ -1,6 +1,6 @@
 import { Layers } from 'lucide-react';
 
-import ModIconset, { ModBadgeIcon } from '@/components/icons/ModIconset';
+import { ModBadgeIcon } from '@/components/icons/ModIconset';
 import { Badge } from '@/components/kit/status/Badge';
 import { formatPercent } from '@/lib/kit/format/number';
 import type { BeatmapListItem } from '@/lib/orpc/schema/beatmapList';
@@ -33,17 +33,21 @@ const NO_MOD_ACRONYM = 'NM';
  */
 function describeTopMod({ mod, mods }: TopMod) {
   if (mod === BEATMAP_MOD_OTHER_LABEL) {
-    return { label: mod, noMod: false, name: 'Other mods' };
+    return { label: mod, acronyms: [], name: 'Other mods' };
   }
 
   const acronyms = getModBadgeAcronyms(mods);
   if (acronyms.length === 0) {
-    return { label: null, noMod: true, name: getModName(NO_MOD_ACRONYM) };
+    return {
+      label: null,
+      acronyms: [NO_MOD_ACRONYM],
+      name: getModName(NO_MOD_ACRONYM),
+    };
   }
 
   return {
     label: null,
-    noMod: false,
+    acronyms,
     name: acronyms.map(getModName).join(' + '),
   };
 }
@@ -93,10 +97,12 @@ export default function BeatmapTopMods({
       <ul
         data-testid="beatmap-top-mods"
         aria-label="Top mods by score usage"
-        className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden"
+        // One pill tall: a pill that doesn't fit whole wraps out of sight
+        // rather than showing with its share cut off.
+        className="flex h-6 min-w-0 flex-wrap items-center gap-x-1.5 overflow-hidden"
       >
         {displayedMods.map((topMod) => {
-          const { label, noMod, name } = describeTopMod(topMod);
+          const { label, acronyms, name } = describeTopMod(topMod);
           const share = formatModShare(topMod.percentage);
 
           return (
@@ -105,14 +111,24 @@ export default function BeatmapTopMods({
               data-testid="beatmap-mod-group"
               className="flex"
             >
-              <Badge>
-                <span aria-hidden="true" className="flex items-center gap-1.5">
+              <Badge className={cn(label === null && 'border-0 pl-0')}>
+                <span
+                  aria-hidden="true"
+                  className="flex h-full items-center gap-1.5"
+                >
                   {label !== null ? (
                     <span className="font-semibold">{label}</span>
-                  ) : noMod ? (
-                    <ModBadgeIcon acronym={NO_MOD_ACRONYM} className="h-4" />
                   ) : (
-                    <ModIconset mods={topMod.mods} className="h-4" />
+                    <span className="flex h-full gap-0.5">
+                      {acronyms.map((acronym, index) => (
+                        <ModBadgeIcon
+                          key={acronym}
+                          acronym={acronym}
+                          fillStart={index === 0}
+                          className="h-full"
+                        />
+                      ))}
+                    </span>
                   )}
                   <span className="tabular-nums">{share}</span>
                 </span>

@@ -73,6 +73,7 @@ import {
 } from '@/lib/kit/color/categorical';
 import { GRADE_PALETTE } from '@/lib/kit/color/grades';
 import { MOD_FILL_FOREGROUND, MOD_PALETTE } from '@/lib/kit/color/mods';
+import BeatmapTopMods from '@/components/beatmaps/BeatmapTopMods';
 import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset, { ModBadgeIcon } from '@/components/icons/ModIconset';
 import {
@@ -104,6 +105,7 @@ import { formatLobbySize } from '@/lib/kit/format/fields';
 import { formatCount, formatPercent } from '@/lib/kit/format/number';
 import { useIsNarrowChart } from '@/lib/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
+import { BEATMAP_MOD_OTHER_LABEL } from '@/lib/utils/mods';
 import { tierNames } from '@/lib/utils/tierData';
 
 const COLOR_LIB = '@/lib/kit/color';
@@ -169,6 +171,22 @@ const MOD_BADGE_SPECIMENS: readonly {
     mods: [],
     freemod: true,
   },
+];
+
+/** Top mod rows: a mod with No Mod, a combo, and a mod with "Other". */
+const TOP_MOD_SPECIMENS = [
+  [
+    { mod: 'HD', mods: Mods.Hidden, percentage: 42 },
+    { mod: 'NM', mods: Mods.None, percentage: 36 },
+  ],
+  [
+    { mod: 'HDDT', mods: Mods.Hidden | Mods.DoubleTime, percentage: 62 },
+    { mod: 'HR', mods: Mods.HardRock, percentage: 31 },
+  ],
+  [
+    { mod: 'HR', mods: Mods.HardRock, percentage: 70 },
+    { mod: BEATMAP_MOD_OTHER_LABEL, mods: Mods.None, percentage: 30 },
+  ],
 ];
 
 function TokenSwatch({ entry }: { entry: TokenEntry }) {
@@ -1162,6 +1180,21 @@ export default function ColorSection() {
             mods={Mods.Hidden | Mods.HardRock | Mods.DoubleTime}
             className="flex h-6"
           />
+        </div>
+        <div className="mt-4 flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">
+            As the beatmap list shows top mods, the first badge filling the left
+            end of its pill
+          </span>
+          <div className="flex flex-col gap-2">
+            {TOP_MOD_SPECIMENS.map((mods) => (
+              <BeatmapTopMods
+                key={mods.map(({ mod }) => mod).join()}
+                mods={mods}
+                showIcon={false}
+              />
+            ))}
+          </div>
         </div>
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">
