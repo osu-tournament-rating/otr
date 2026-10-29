@@ -51,7 +51,7 @@ export function DefaultRulesetPanelSkeleton({ label }: { label?: string }) {
         title="Default ruleset"
         meta={false}
       />
-      {/* "Your profile", then "Leaderboard and tournaments". */}
+      {/* "Your profile", then "Leaderboard, tournaments and beatmaps". */}
       <FormGrid className="p-4">
         <FieldSkeleton />
         <FieldSkeleton />

@@ -32,7 +32,7 @@ import { errorSaveToast, saveToast } from '@/lib/utils/toasts';
 
 const FIELDS: readonly { key: RulesetSettingKey; label: string }[] = [
   { key: 'profileRuleset', label: 'Your profile' },
-  { key: 'browsingRuleset', label: 'Leaderboard and tournaments' },
+  { key: 'browsingRuleset', label: 'Leaderboard, tournaments and beatmaps' },
 ];
 
 /**

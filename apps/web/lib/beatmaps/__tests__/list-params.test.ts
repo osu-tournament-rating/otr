@@ -20,8 +20,20 @@ describe('BEATMAP_LIST_PARAMS', () => {
     expect(state.q).toBe('');
     expect(state.page).toBe(1);
     expect(state.sort).toEqual({ key: 'gameCount', direction: 'desc' });
-    expect(state.ruleset).toEqual([]);
+    expect(state.ruleset).toBeUndefined();
     expect(beatmapListHref(state)).toBe('/beatmaps');
+  });
+
+  // A bare address shows the visitor's browsing ruleset, so every ruleset
+  // needs a value of its own.
+  test('tells no ruleset apart from every ruleset', () => {
+    expect(parse('ruleset=all').ruleset).toEqual([]);
+    expect(beatmapListHref({ ...parse(''), ruleset: [] })).toBe(
+      '/beatmaps?ruleset=all'
+    );
+    expect(beatmapListHref(parse('ruleset=all&q=medley'))).toBe(
+      '/beatmaps?q=medley&ruleset=all'
+    );
   });
 
   test('reads the links the list wrote before', () => {
@@ -80,7 +92,8 @@ describe('toBeatmapListRequest', () => {
     const request = toBeatmapListRequest(
       parse(
         'q=medley&ruleset=0&ruleset=4&minSr=5&maxLength=120&maxTournamentCount=20&sort=bpm&dir=asc&page=2'
-      )
+      ),
+      [Ruleset.Catch]
     );
 
     expect(request).toMatchObject({
@@ -99,10 +112,19 @@ describe('toBeatmapListRequest', () => {
   });
 
   test('sends no rulesets or search for the default list', () => {
-    const request = toBeatmapListRequest(parse(''));
+    const request = toBeatmapListRequest(parse(''), []);
 
     expect(request.rulesets).toBeUndefined();
     expect(request.searchQuery).toBeUndefined();
     expect(request).toMatchObject({ sort: 'gameCount', descending: true });
+  });
+
+  test('fills an address without a ruleset with the visitor’s', () => {
+    expect(toBeatmapListRequest(parse(''), [Ruleset.Taiko]).rulesets).toEqual([
+      Ruleset.Taiko,
+    ]);
+    expect(
+      toBeatmapListRequest(parse('ruleset=all'), [Ruleset.Taiko]).rulesets
+    ).toBeUndefined();
   });
 });

@@ -25,7 +25,7 @@ import TournamentListError from '@/components/tournaments/list/TournamentListErr
 import TournamentListToolbar from '@/components/tournaments/list/TournamentListToolbar';
 import { auth } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
-import { getBrowsingRuleset } from '@/lib/db/ruleset-settings';
+import { getBrowsingRulesets } from '@/lib/db/ruleset-settings';
 import { formatCountOf } from '@/lib/kit/format/number';
 import {
   clearListFilters,
@@ -125,9 +125,9 @@ export default async function Page({ searchParams }: PageSearchParams) {
   // An address without a ruleset shows the visitor's browsing ruleset, and
   // every ruleset when signed out. It is never written to the address, so a
   // shared link shows each visitor their own.
-  const defaultRulesetsRequest = sessionRequest
-    .then((session) => getBrowsingRuleset(db, session?.dbPlayer?.id))
-    .then((ruleset): Ruleset[] => (ruleset === null ? [] : [ruleset]));
+  const defaultRulesetsRequest = sessionRequest.then((session) =>
+    getBrowsingRulesets(db, session?.dbPlayer?.id)
+  );
   const [session, defaultRulesets, data] = await Promise.all([
     sessionRequest,
     defaultRulesetsRequest,

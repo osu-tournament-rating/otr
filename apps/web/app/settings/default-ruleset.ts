@@ -35,7 +35,8 @@ export function fromRulesetSelectValue(value: string): RulesetSettingValue {
  * The ruleset a setting left on most played opens in now: the ruleset played
  * most, and for the lists only a rated one (as `resolveBrowsingRuleset`).
  * Null when there is none and the page keeps its own default: osu! on the
- * profile, osu! on the leaderboard and every ruleset on the tournament list.
+ * profile, osu! on the leaderboard and every ruleset on the tournament and
+ * beatmap lists.
  */
 export function getMostPlayedRuleset(
   setting: RulesetSettingKey,
