@@ -50,7 +50,8 @@ export async function getRulesetSettings(
 }
 
 /**
- * The ruleset a signed-in player's leaderboard and tournament list open in:
+ * The ruleset a signed-in player's leaderboard, tournament list and beatmap
+ * list open in:
  * their browsing setting, else the ruleset they have played most. Their
  * profile setting plays no part. Null when they have played no rated ruleset
  * (no verified tournaments, or most played is mania (other)), so the page
@@ -71,4 +72,17 @@ export async function getBrowsingRuleset(
   if (!playerId) return null;
   const settings = await getRulesetSettings(database, playerId);
   return settings ? resolveBrowsingRuleset(settings) : null;
+}
+
+/**
+ * `getBrowsingRuleset` for a list that shows several rulesets at once, such
+ * as the tournament and beatmap lists: empty, every ruleset, when the
+ * visitor has none.
+ */
+export async function getBrowsingRulesets(
+  database: DatabaseClient,
+  playerId: number | null | undefined
+): Promise<Ruleset[]> {
+  const ruleset = await getBrowsingRuleset(database, playerId);
+  return ruleset === null ? [] : [ruleset];
 }

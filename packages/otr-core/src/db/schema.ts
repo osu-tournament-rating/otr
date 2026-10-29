@@ -1968,8 +1968,9 @@ export const userSettings = pgTable(
     // Ruleset anyone opening this user's profile sees first. Null means the
     // ruleset they have played most.
     profileRuleset: integer('profile_ruleset'),
-    // Ruleset this user's leaderboard and tournament list open in. Null means
-    // the ruleset they have played most, whatever profileRuleset says.
+    // Ruleset this user's leaderboard, tournament list and beatmap list open
+    // in. Null means the ruleset they have played most, whatever
+    // profileRuleset says.
     browsingRuleset: integer('browsing_ruleset'),
     userId: integer('user_id').notNull(),
     created: timestamp({ withTimezone: true, mode: 'string' })

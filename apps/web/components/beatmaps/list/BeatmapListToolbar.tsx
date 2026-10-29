@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ruleset } from '@otr/core/osu';
 import { LayoutGrid, Rows3, Table2 } from 'lucide-react';
 
 import {
@@ -32,6 +33,7 @@ import {
   formatFilterNumber,
   formatRangeFilterLabel,
 } from '@/lib/kit/lists/filters';
+import { valuesForAddress } from '@/lib/kit/lists/params';
 import type { UseListStateResult } from '@/lib/kit/lists/use-list-state';
 import { formatDuration } from '@/lib/kit/format/date';
 
@@ -137,11 +139,18 @@ const RANGE_FIELDS: readonly RangeField[] = [
  */
 export default function BeatmapListToolbar({
   list,
+  defaultRulesets,
   layout,
   onLayoutChange,
   totalCount,
 }: {
   list: BeatmapList;
+  /**
+   * The visitor's browsing ruleset, which an address without a ruleset
+   * shows; empty for every ruleset. Choosing it leaves the ruleset out of
+   * the address.
+   */
+  defaultRulesets: readonly Ruleset[];
   layout: BeatmapLayout;
   onLayoutChange: (layout: BeatmapLayout) => void;
   totalCount: number;
@@ -209,8 +218,10 @@ export default function BeatmapListToolbar({
       rulesets={
         <RulesetChips
           data-testid="beatmap-ruleset-filters"
-          value={state.ruleset}
-          onValueChange={(ruleset) => setState({ ruleset })}
+          value={state.ruleset ?? defaultRulesets}
+          onValueChange={(ruleset) =>
+            setState({ ruleset: valuesForAddress(ruleset, defaultRulesets) })
+          }
         />
       }
       view={<LayoutToggle layout={layout} onLayoutChange={onLayoutChange} />}

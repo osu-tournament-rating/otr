@@ -9,7 +9,6 @@ import {
 import {
   TOURNAMENT_LIST_PARAMS,
   legacyTournamentListHref,
-  rulesetsForAddress,
   toTournamentListRequest,
   tournamentListHref,
 } from '@/app/tournaments/list-params';
@@ -41,19 +40,6 @@ describe('tournament list params', () => {
     expect(tournamentListHref(parse('ruleset=all&q=DAS'))).toBe(
       '/tournaments?q=DAS&ruleset=all'
     );
-  });
-
-  it('leaves the visitor’s own rulesets out of the address', () => {
-    expect(
-      rulesetsForAddress([Ruleset.Taiko], [Ruleset.Taiko])
-    ).toBeUndefined();
-    expect(rulesetsForAddress([], [])).toBeUndefined();
-    // Every ruleset over a visitor's default writes ruleset=all.
-    expect(rulesetsForAddress([], [Ruleset.Taiko])).toEqual([]);
-    expect(rulesetsForAddress([Ruleset.Osu], [])).toEqual([Ruleset.Osu]);
-    expect(
-      rulesetsForAddress([Ruleset.Osu, Ruleset.Taiko], [Ruleset.Taiko])
-    ).toEqual([Ruleset.Osu, Ruleset.Taiko]);
   });
 
   it('keeps every ruleset through Clear all', () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ruleset } from '@otr/core/osu';
 import { useEffect, useState } from 'react';
 
 import BeatmapListGrid from '@/components/beatmaps/list/BeatmapListGrid';
@@ -21,6 +22,8 @@ const BEATMAP_LAYOUT_STORAGE_KEY = 'otr-beatmap-layout';
 
 interface BeatmapListContentProps {
   beatmaps: BeatmapListItem[];
+  /** The visitor's browsing ruleset; empty for every ruleset. */
+  defaultRulesets: readonly Ruleset[];
   isFiltered: boolean;
   totalCount: number;
 }
@@ -28,6 +31,7 @@ interface BeatmapListContentProps {
 /** The beatmap list's toolbar and rows, inside the list's panel. */
 export default function BeatmapListContent({
   beatmaps,
+  defaultRulesets,
   isFiltered,
   totalCount,
 }: BeatmapListContentProps) {
@@ -65,6 +69,7 @@ export default function BeatmapListContent({
     <>
       <BeatmapListToolbar
         list={list}
+        defaultRulesets={defaultRulesets}
         layout={layout}
         onLayoutChange={changeLayout}
         totalCount={totalCount}
