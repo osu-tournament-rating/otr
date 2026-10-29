@@ -1184,7 +1184,7 @@ export default function ColorSection() {
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">
             As the beatmap list shows top mods, the first badge filling the left
-            end of its pill
+            end of its pill; last, the one pill a table row shows
           </span>
           <div className="flex flex-col gap-2">
             {TOP_MOD_SPECIMENS.map((mods) => (
@@ -1194,6 +1194,11 @@ export default function ColorSection() {
                 showIcon={false}
               />
             ))}
+            <BeatmapTopMods
+              mods={TOP_MOD_SPECIMENS[1].slice(0, 1)}
+              showIcon={false}
+              maxBadges={1}
+            />
           </div>
         </div>
         <div className="mt-4 flex flex-col gap-1">

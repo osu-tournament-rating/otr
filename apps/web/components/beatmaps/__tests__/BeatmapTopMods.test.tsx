@@ -91,6 +91,23 @@ describe('BeatmapTopMods', () => {
     ).toEqual(['Hidden 100%']);
   });
 
+  it('folds badges past the limit into a count but names every mod', () => {
+    const mods = [
+      {
+        mod: 'EZHDDT',
+        mods: Mods.Easy | Mods.Hidden | Mods.DoubleTime,
+        percentage: 54,
+      },
+    ];
+    const html = renderToStaticMarkup(
+      <BeatmapTopMods mods={mods} maxBadges={1} />
+    );
+
+    expect(html.match(/role="img"/g)).toHaveLength(1);
+    expect(html).toContain('>+2<');
+    expect(spokenItems(mods)).toEqual(['Easy + Hidden + Double Time 54%']);
+  });
+
   it('says when there is no mod data', () => {
     const html = renderToStaticMarkup(<BeatmapTopMods mods={[]} />);
 

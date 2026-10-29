@@ -57,12 +57,15 @@ export default function BeatmapTopMods({
   mods,
   fixedWidth = false,
   showIcon = true,
+  maxBadges,
 }: {
   mods: NonNullable<BeatmapListItem['topMods']>;
   /** Reserve a fixed slot so mods line up across compact-layout rows. */
   fixedWidth?: boolean;
   /** Drop the leading glyph where a neighboring column already carries numbers. */
   showIcon?: boolean;
+  /** The most badges a pill draws; the rest fold into a "+N" count. */
+  maxBadges?: number;
 }) {
   if (mods.length === 0) {
     return (
@@ -104,6 +107,8 @@ export default function BeatmapTopMods({
         {displayedMods.map((topMod) => {
           const { label, acronyms, name } = describeTopMod(topMod);
           const share = formatModShare(topMod.percentage);
+          const shown = acronyms.slice(0, maxBadges);
+          const folded = acronyms.length - shown.length;
 
           return (
             <li
@@ -120,7 +125,7 @@ export default function BeatmapTopMods({
                     <span className="font-semibold">{label}</span>
                   ) : (
                     <span className="flex h-full gap-0.5">
-                      {acronyms.map((acronym, index) => (
+                      {shown.map((acronym, index) => (
                         <ModBadgeIcon
                           key={acronym}
                           acronym={acronym}
@@ -129,6 +134,9 @@ export default function BeatmapTopMods({
                         />
                       ))}
                     </span>
+                  )}
+                  {folded > 0 && (
+                    <span className="font-semibold">{`+${folded}`}</span>
                   )}
                   <span className="tabular-nums">{share}</span>
                 </span>
