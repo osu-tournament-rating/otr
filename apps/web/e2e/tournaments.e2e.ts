@@ -60,7 +60,7 @@ test.describe('Tournaments', () => {
       await expect(searchBox(page)).toBeVisible({ timeout: 10000 });
     });
 
-    test('marks admin notes without a hover-only preview or shifting rows', async ({
+    test('lists admin notes on hover without shifting rows', async ({
       page,
     }) => {
       await page.goto(ROUTES.tournaments);
@@ -101,15 +101,20 @@ test.describe('Tournaments', () => {
       );
 
       // The row is one link: its name says how many notes there are, and
-      // nothing inside it opens on hover alone.
-      await expect(row.getByRole('link')).toHaveAccessibleName(
-        /^View .+, \d+ admin notes?$/
+      // hovering the marker lists that many.
+      const link = row.getByRole('link');
+      await expect(link).toHaveAccessibleName(/^View .+, \d+ admin notes?$/);
+      const noteCount = Number(
+        (await link.getAttribute('aria-label'))!.match(
+          /, (\d+) admin notes?$/
+        )![1]
       );
       const rowBox = await row.boundingBox();
       await marker.hover();
-      // Longer than a tooltip's open delay, so a hover preview would show.
-      await page.waitForTimeout(800);
-      await expect(page.getByRole('tooltip')).toHaveCount(0);
+      await expect(page.locator('[data-slot="tooltip-content"]')).toBeVisible();
+      await expect(page.getByRole('tooltip').getByRole('listitem')).toHaveCount(
+        noteCount
+      );
       expect(await row.boundingBox()).toEqual(rowBox);
     });
 

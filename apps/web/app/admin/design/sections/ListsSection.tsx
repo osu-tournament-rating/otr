@@ -13,7 +13,6 @@ import {
   LEADERBOARD_RANGES,
   LEADERBOARD_TIER_LABELS,
 } from '@/app/leaderboard/list-params';
-import { rulesetsForAddress } from '@/app/tournaments/list-params';
 import { AuditSystemSwitch } from '@/components/audit/AuditSystemSwitch';
 import BeatmapCover from '@/components/beatmaps/BeatmapCover';
 import { Button } from '@/components/kit/controls/Button';
@@ -85,6 +84,7 @@ import {
   rangeParam,
   searchParam,
   sortParam,
+  valuesForAddress,
   type ListParams,
   type ListState,
 } from '@/lib/kit/lists/params';
@@ -442,7 +442,7 @@ function TournamentToolbarDemo() {
               value={state.ruleset ?? DEMO_BROWSING_RULESETS}
               onValueChange={(ruleset) =>
                 setState({
-                  ruleset: rulesetsForAddress(ruleset, DEMO_BROWSING_RULESETS),
+                  ruleset: valuesForAddress(ruleset, DEMO_BROWSING_RULESETS),
                 })
               }
             />
@@ -944,6 +944,7 @@ function BeatmapToolbarDemo() {
             value={layout}
             onValueChange={(next) => next && setLayout(next)}
             aria-label="Beatmap layout"
+            className="shadow-xs"
           >
             {[
               { value: 'cards', label: 'Card view', icon: LayoutGrid },
@@ -954,7 +955,7 @@ function BeatmapToolbarDemo() {
                 key={value}
                 value={value}
                 aria-label={label}
-                className="size-8 data-[state=off]:bg-background data-[state=on]:bg-primary/10 data-[state=on]:text-primary dark:data-[state=off]:bg-input/50 dark:data-[state=on]:bg-primary/20"
+                className="size-8 px-2 data-[state=off]:bg-background data-[state=on]:bg-primary/10 data-[state=on]:text-primary dark:data-[state=off]:bg-input/50 dark:data-[state=on]:bg-primary/20"
               >
                 <Icon aria-hidden="true" />
               </ToggleGroupItem>

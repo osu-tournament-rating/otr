@@ -1,9 +1,9 @@
 'use client';
 
-import * as NavigationMenuPrimitive from '@radix-ui/react-navigation-menu';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { NavigationMenu as NavigationMenuPrimitive } from 'radix-ui';
 
 import { Badge } from '@/components/kit/status/Badge';
 import { NotificationDot } from '@/components/kit/status/NotificationDot';

@@ -419,6 +419,7 @@ export default function TournamentBeatmapsAdminView({
                 placeholder="Enter beatmap IDs or URLs"
                 value={beatmapIdsToAdd}
                 onChange={(event) => setBeatmapIdsToAdd(event.target.value)}
+                className="field-sizing-fixed"
                 rows={5}
               />
               <ul className="list-inside list-disc text-xs text-muted-foreground">

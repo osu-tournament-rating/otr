@@ -276,6 +276,7 @@ export default function BeatmapListTable({
                   <BeatmapTopMods
                     mods={beatmap.topMods.slice(0, 1)}
                     showIcon={false}
+                    maxBadges={1}
                   />
                 )}
               </DataTableCell>

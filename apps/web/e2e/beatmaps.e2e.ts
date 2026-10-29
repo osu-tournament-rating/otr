@@ -370,7 +370,8 @@ test.describe('Beatmaps Listing Page', () => {
       const displayedModCount = await displayedMods.count();
       expect(displayedModCount).toBeGreaterThan(0);
       expect(displayedModCount).toBeLessThanOrEqual(2);
-      await expect(displayedMods.first()).toContainText(/%/);
+      await expect(displayedMods.first()).toContainText(/(?:\d+|<1|>99)%/);
+      await expect(displayedMods.first()).not.toContainText(/\.\d+%/);
       if (displayedModCount === 2) {
         const secondaryPercentage = Number.parseFloat(
           (await displayedMods.nth(1).textContent())?.match(
@@ -597,31 +598,50 @@ test.describe('Beatmaps Listing Page', () => {
               backgroundColor: pillStyle.backgroundColor,
               backgroundImage: pillStyle.backgroundImage,
               borderRadius: Number.parseFloat(pillStyle.borderRadius),
-              childColors: Array.from(pill.children).map(
-                (child) => getComputedStyle(child).color
-              ),
-              color: pillStyle.color,
               height: pill.getBoundingClientRect().height,
-              inlineBackgroundColor: (pill as HTMLElement).style
-                .backgroundColor,
             };
           })
         );
+      expect(modPresentations).toHaveLength(displayedModCount);
       for (const modPresentation of modPresentations) {
-        expect(modPresentation.inlineBackgroundColor).toMatch(
-          /^var\(--(?:mod|series)-/
-        );
         expect(modPresentation.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
         expect(modPresentation.backgroundImage).toBe('none');
         expect(modPresentation.height).toBe(24);
         expect(modPresentation.borderRadius).toBeGreaterThanOrEqual(
           modPresentation.height / 2
         );
-        expect(modPresentation.childColors).toEqual([
-          modPresentation.color,
-          modPresentation.color,
-        ]);
       }
+    });
+
+    test('hides a top mod that cannot fit whole instead of cutting it off', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.beatmaps);
+      const twoGroups = page
+        .getByRole('list', { name: 'Top mods by score usage' })
+        .filter({ has: page.locator('li + li') })
+        .first();
+      await expect(twoGroups).toBeVisible({ timeout: 10000 });
+
+      // Narrow the list so its first pill fits and its second can't.
+      const placement = await twoGroups.evaluate(async (list) => {
+        const [first, second] = list.children;
+        (list as HTMLElement).style.width =
+          `${first.getBoundingClientRect().width + 8}px`;
+        await new Promise(requestAnimationFrame);
+
+        const box = list.getBoundingClientRect();
+        const pill = (item: Element) => item.getBoundingClientRect();
+        return {
+          firstInside:
+            pill(first).left >= box.left - 0.5 &&
+            pill(first).right <= box.right + 0.5 &&
+            pill(first).bottom <= box.bottom + 0.5,
+          secondOutOfSight: pill(second).top >= box.bottom - 0.5,
+        };
+      });
+
+      expect(placement).toEqual({ firstInside: true, secondOutOfSight: true });
     });
 
     test('hides mod summaries for mania beatmaps', async ({ page }) => {

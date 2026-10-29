@@ -739,6 +739,7 @@ function IdField({
         onChange={(event) => onValueChange(event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
+        className="field-sizing-fixed"
         rows={8}
         aria-describedby={parsed ? `${id}-parsed` : undefined}
       />

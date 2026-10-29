@@ -170,7 +170,8 @@ export default function SearchCommandDialog() {
         // Pinned near the top rather than centred, so the field stays put
         // while results grow the list under it; 12px corners like every
         // dialog.
-        contentClassName="top-4 translate-y-0 rounded-xl sm:top-[10vh] md:max-w-[612px] [&>button:last-child]:hidden"
+        contentClassName="top-4 translate-y-0 rounded-xl sm:top-[10vh] md:max-w-[612px]"
+        showCloseButton={false}
       >
         <Command
           data-testid="search-dialog"

@@ -8,7 +8,6 @@ import {
   LOBBY_SIZES,
   getTournamentSortOptions,
   resolveTournamentSort,
-  rulesetsForAddress,
   type TournamentListState,
 } from '@/app/tournaments/list-params';
 import {
@@ -40,6 +39,7 @@ import {
   formatDayRangeFilterLabel,
   formatRangeFilterLabel,
 } from '@/lib/kit/lists/filters';
+import { valuesForAddress } from '@/lib/kit/lists/params';
 import { useListState } from '@/lib/kit/lists/use-list-state';
 import {
   VERIFICATION_STATUS_ORDER,
@@ -215,7 +215,7 @@ export default function TournamentListToolbar({
         <RulesetChips
           value={state.ruleset ?? defaultRulesets}
           onValueChange={(ruleset) =>
-            setState({ ruleset: rulesetsForAddress(ruleset, defaultRulesets) })
+            setState({ ruleset: valuesForAddress(ruleset, defaultRulesets) })
           }
         />
       }

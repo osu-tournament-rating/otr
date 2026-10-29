@@ -6,7 +6,10 @@ import { User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-interface OsuAvatarProps extends React.ComponentProps<typeof Avatar> {
+interface OsuAvatarProps extends Omit<
+  React.ComponentProps<typeof Avatar>,
+  'size'
+> {
   osuId: number;
   username?: string | null;
   size?: number;

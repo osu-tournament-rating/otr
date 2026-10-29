@@ -240,6 +240,7 @@ export default function MergeGameDialog({
               placeholder={TEXTAREA_PLACEHOLDER}
               value={gameIdsInput}
               onChange={(event) => setGameIdsInput(event.target.value)}
+              className="field-sizing-fixed"
               rows={3}
             />
             <Button

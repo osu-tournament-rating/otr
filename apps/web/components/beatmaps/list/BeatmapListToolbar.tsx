@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ruleset } from '@otr/core/osu';
 import { LayoutGrid, Rows3, Table2 } from 'lucide-react';
 
 import {
@@ -32,6 +33,7 @@ import {
   formatFilterNumber,
   formatRangeFilterLabel,
 } from '@/lib/kit/lists/filters';
+import { valuesForAddress } from '@/lib/kit/lists/params';
 import type { UseListStateResult } from '@/lib/kit/lists/use-list-state';
 import { formatDuration } from '@/lib/kit/format/date';
 
@@ -137,11 +139,18 @@ const RANGE_FIELDS: readonly RangeField[] = [
  */
 export default function BeatmapListToolbar({
   list,
+  defaultRulesets,
   layout,
   onLayoutChange,
   totalCount,
 }: {
   list: BeatmapList;
+  /**
+   * The visitor's browsing ruleset, which an address without a ruleset
+   * shows; empty for every ruleset. Choosing it leaves the ruleset out of
+   * the address.
+   */
+  defaultRulesets: readonly Ruleset[];
   layout: BeatmapLayout;
   onLayoutChange: (layout: BeatmapLayout) => void;
   totalCount: number;
@@ -209,8 +218,10 @@ export default function BeatmapListToolbar({
       rulesets={
         <RulesetChips
           data-testid="beatmap-ruleset-filters"
-          value={state.ruleset}
-          onValueChange={(ruleset) => setState({ ruleset })}
+          value={state.ruleset ?? defaultRulesets}
+          onValueChange={(ruleset) =>
+            setState({ ruleset: valuesForAddress(ruleset, defaultRulesets) })
+          }
         />
       }
       view={<LayoutToggle layout={layout} onLayoutChange={onLayoutChange} />}
@@ -246,6 +257,7 @@ function LayoutToggle({
       aria-label="Beatmap layout"
       data-testid="beatmap-layout-toggle"
       data-layout={layout}
+      className="shadow-xs"
     >
       {/* No tooltips: a TooltipTrigger's `data-state` replaces the item's `on`/`off` */}
       {BEATMAP_LAYOUTS.map((value) => {
@@ -259,7 +271,7 @@ function LayoutToggle({
             data-testid={`beatmap-layout-${value}`}
             // Radios: arrow-key focus has to select.
             onFocus={() => onLayoutChange(value)}
-            className="size-8 data-[state=off]:bg-background data-[state=on]:bg-primary/10 data-[state=on]:text-primary dark:data-[state=off]:bg-input/50 dark:data-[state=on]:bg-primary/20"
+            className="size-8 px-2 data-[state=off]:bg-background data-[state=on]:bg-primary/10 data-[state=on]:text-primary dark:data-[state=off]:bg-input/50 dark:data-[state=on]:bg-primary/20"
           >
             <Icon aria-hidden="true" />
           </ToggleGroupItem>

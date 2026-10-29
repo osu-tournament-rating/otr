@@ -55,15 +55,23 @@ function maskStyle(color: string, src: string): CSSProperties {
 function ModBadgeArt({
   acronym,
   badge: { type, glyph, color },
+  fillStart,
 }: {
   acronym: string;
   badge: ModBadge;
+  fillStart: boolean;
 }) {
   const fill = color ?? MOD_TYPE_COLORS[type];
   const glyphColor = getModGlyphColor(fill);
 
   return (
     <>
+      {fillStart && (
+        <span
+          className="absolute inset-y-0 left-0 w-1/2"
+          style={{ backgroundColor: fill }}
+        />
+      )}
       <span
         className="absolute inset-0"
         style={maskStyle(fill, '/icons/mods/blanks/mod-icon.svg')}
@@ -93,10 +101,16 @@ function ModBadgeArt({
 export function ModBadgeIcon({
   acronym,
   speed = null,
+  fillStart = false,
   className,
 }: {
   acronym: string;
   speed?: number | null;
+  /**
+   * Squares off the badge's left half, so it fills a container's rounded
+   * left end and only its right-hand points show.
+   */
+  fillStart?: boolean;
   className?: string;
 }) {
   return (
@@ -108,7 +122,11 @@ export function ModBadgeIcon({
         className
       )}
     >
-      <ModBadgeArt acronym={acronym} badge={getModBadge(acronym)} />
+      <ModBadgeArt
+        acronym={acronym}
+        badge={getModBadge(acronym)}
+        fillStart={fillStart}
+      />
     </div>
   );
 }

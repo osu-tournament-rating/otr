@@ -1,3 +1,4 @@
+import type { Ruleset } from '@otr/core/osu';
 import type { z } from 'zod';
 
 import { RATED_RULESETS } from '@/lib/kit/format/ruleset';
@@ -35,6 +36,10 @@ export const BEATMAP_LIST_PAGE_SIZE = 30;
  * list wrote before (`q`, `ruleset`, `minSr`…), and `descending=false` from
  * old links still reads as an ascending sort. Range domains follow the real
  * distribution, as the filter panel's sliders do.
+ *
+ * An address without a ruleset shows the visitor's browsing ruleset, which
+ * the page resolves (every ruleset when signed out), so every ruleset needs
+ * its own value: `ruleset=all`.
  */
 export const BEATMAP_LIST_PARAMS = defineListParams({
   q: searchParam(),
@@ -44,7 +49,7 @@ export const BEATMAP_LIST_PARAMS = defineListParams({
     { key: 'gameCount', direction: 'desc' },
     { legacyDescendingKey: 'descending' }
   ),
-  ruleset: arrayParam(RATED_RULESETS, { role: 'scope' }),
+  ruleset: arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' }),
   sr: rangeParam({ min: 0, max: 15 }),
   bpm: rangeParam({ min: 0, max: 600 }),
   length: rangeParam({ min: 0, max: 1800, integer: true }),
@@ -72,15 +77,21 @@ export type BeatmapListState = ListState<typeof BEATMAP_LIST_PARAMS>;
 export type BeatmapListRangeKey =
   'sr' | 'bpm' | 'length' | 'games' | 'tournaments' | 'cs' | 'ar' | 'od' | 'hp';
 
-/** The list procedure's input for a list state. */
+/**
+ * The list procedure's input for a list state, with `defaultRulesets`, the
+ * visitor's browsing ruleset (empty for every ruleset), standing in for a
+ * ruleset the address leaves out.
+ */
 export function toBeatmapListRequest(
-  state: BeatmapListState
+  state: BeatmapListState,
+  defaultRulesets: readonly Ruleset[]
 ): BeatmapListRequest {
+  const rulesets = state.ruleset ?? defaultRulesets;
   return {
     page: state.page,
     pageSize: BEATMAP_LIST_PAGE_SIZE,
     searchQuery: state.q || undefined,
-    rulesets: state.ruleset.length > 0 ? state.ruleset : undefined,
+    rulesets: rulesets.length > 0 ? [...rulesets] : undefined,
     minSr: state.sr.min,
     maxSr: state.sr.max,
     minBpm: state.bpm.min,

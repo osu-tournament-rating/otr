@@ -115,6 +115,8 @@ export const MOD_BADGES: Readonly<Record<string, ModBadge>> = {
   MU: { name: 'Muted', type: 'Fun', glyph: 'muted' },
   NC: { name: 'Nightcore', type: 'DifficultyIncrease', glyph: 'nightcore' },
   NF: { name: 'No Fail', type: 'DifficultyReduction', glyph: 'no-fail' },
+  // Not a mod: osu-web adds No Mod to its mod list for its badge alone.
+  NM: { name: 'No Mod', type: 'System', glyph: 'no-mod' },
   NR: { name: 'No Release', type: 'DifficultyReduction', glyph: 'no-release' },
   NS: { name: 'No Scope', type: 'Fun', glyph: 'no-scope' },
   PF: { name: 'Perfect', type: 'DifficultyIncrease', glyph: 'perfect' },
