@@ -17,7 +17,7 @@ import {
   leaderboardHref,
 } from '@/app/leaderboard/list-params';
 
-const INACTIVE_TOOLTIP = 'No verified match in the last year';
+const INACTIVE_TOOLTIP = 'No verified matches in the last year';
 
 /**
  * Says the player is inactive in the ruleset the profile shows, with the moon
