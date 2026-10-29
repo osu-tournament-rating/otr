@@ -80,7 +80,7 @@ import {
   type ModType,
 } from '@/lib/utils/mod-badges';
 import FittingModIconset from '@/components/icons/FittingModIconset';
-import ModIconset from '@/components/icons/ModIconset';
+import ModIconset, { ModBadgeIcon } from '@/components/icons/ModIconset';
 import {
   getStarRatingColor,
   getStarRatingForegroundColor,
@@ -130,6 +130,8 @@ const MOD_BADGE_SPECIMENS: readonly {
   label: string;
   mods: readonly Mods[];
   freemod?: boolean;
+  /** Leads with osu-web's No Mod badge, which no stored mod draws. */
+  noMod?: boolean;
   /** A fill other than the type's. */
   fill?: string;
 }[] = [
@@ -181,6 +183,7 @@ const MOD_BADGE_SPECIMENS: readonly {
     type: 'System',
     label: 'System',
     mods: [Mods.TouchDevice, Mods.ScoreV2],
+    noMod: true,
   },
   {
     type: 'System',
@@ -1217,35 +1220,38 @@ export default function ColorSection() {
         description="osu-web's mod badges and type colours, mirrored one to one. The ratio is the badge against the card."
       >
         <ul className="flex flex-col gap-3">
-          {MOD_BADGE_SPECIMENS.map(({ type, label, mods, freemod, fill }) => (
-            <li key={label} className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                {label},{' '}
-                <ThemeValue
-                  light={formatContrast(
-                    contrastRatio(
-                      fill ?? MOD_TYPE_COLORS[type],
-                      SURFACES.light.card
-                    )
+          {MOD_BADGE_SPECIMENS.map(
+            ({ type, label, mods, freemod, noMod, fill }) => (
+              <li key={label} className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">
+                  {label},{' '}
+                  <ThemeValue
+                    light={formatContrast(
+                      contrastRatio(
+                        fill ?? MOD_TYPE_COLORS[type],
+                        SURFACES.light.card
+                      )
+                    )}
+                    dark={formatContrast(
+                      contrastRatio(
+                        fill ?? MOD_TYPE_COLORS[type],
+                        SURFACES.dark.card
+                      )
+                    )}
+                  />
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {freemod && (
+                    <ModIconset mods={Mods.None} freemod className="flex h-6" />
                   )}
-                  dark={formatContrast(
-                    contrastRatio(
-                      fill ?? MOD_TYPE_COLORS[type],
-                      SURFACES.dark.card
-                    )
-                  )}
-                />
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {freemod && (
-                  <ModIconset mods={Mods.None} freemod className="flex h-6" />
-                )}
-                {mods.map((mod) => (
-                  <ModIconset key={mod} mods={mod} className="flex h-6" />
-                ))}
-              </div>
-            </li>
-          ))}
+                  {noMod && <ModBadgeIcon acronym="NM" className="h-6" />}
+                  {mods.map((mod) => (
+                    <ModIconset key={mod} mods={mod} className="flex h-6" />
+                  ))}
+                </div>
+              </li>
+            )
+          )}
         </ul>
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">

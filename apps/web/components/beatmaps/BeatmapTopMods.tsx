@@ -1,8 +1,7 @@
 import { Layers } from 'lucide-react';
 
-import ModIconset from '@/components/icons/ModIconset';
+import ModIconset, { ModBadgeIcon } from '@/components/icons/ModIconset';
 import { Badge } from '@/components/kit/status/Badge';
-import { NO_MOD_LABEL } from '@/lib/kit/format/mods';
 import { formatPercent } from '@/lib/kit/format/number';
 import type { BeatmapListItem } from '@/lib/orpc/schema/beatmapList';
 import { cn } from '@/lib/utils';
@@ -25,21 +24,28 @@ function formatModShare(percentage: number): string {
   return formatPercent(percentage / 100, { decimals: 0 });
 }
 
+/** osu-web's acronym for its No Mod badge. */
+const NO_MOD_ACRONYM = 'NM';
+
 /**
- * What a pill shows and its name: osu!'s mod badges, or a text label for
- * "Other" and No Mod, which have no badge.
+ * What a pill shows and its name: osu!'s mod badges, osu!'s No Mod badge
+ * when there are none, or a text label for "Other", which has no badge.
  */
 function describeTopMod({ mod, mods }: TopMod) {
   if (mod === BEATMAP_MOD_OTHER_LABEL) {
-    return { label: mod, name: 'Other mods' };
+    return { label: mod, noMod: false, name: 'Other mods' };
   }
 
   const acronyms = getModBadgeAcronyms(mods);
   if (acronyms.length === 0) {
-    return { label: NO_MOD_LABEL, name: 'No Mod' };
+    return { label: null, noMod: true, name: getModName(NO_MOD_ACRONYM) };
   }
 
-  return { label: null, name: acronyms.map(getModName).join(' + ') };
+  return {
+    label: null,
+    noMod: false,
+    name: acronyms.map(getModName).join(' + '),
+  };
 }
 
 /** The mod pills summarizing which mods a beatmap's scores were set under. */
@@ -90,7 +96,7 @@ export default function BeatmapTopMods({
         className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden"
       >
         {displayedMods.map((topMod) => {
-          const { label, name } = describeTopMod(topMod);
+          const { label, noMod, name } = describeTopMod(topMod);
           const share = formatModShare(topMod.percentage);
 
           return (
@@ -101,10 +107,12 @@ export default function BeatmapTopMods({
             >
               <Badge>
                 <span aria-hidden="true" className="flex items-center gap-1.5">
-                  {label === null ? (
-                    <ModIconset mods={topMod.mods} className="h-4" />
-                  ) : (
+                  {label !== null ? (
                     <span className="font-semibold">{label}</span>
+                  ) : noMod ? (
+                    <ModBadgeIcon acronym={NO_MOD_ACRONYM} className="h-4" />
+                  ) : (
+                    <ModIconset mods={topMod.mods} className="h-4" />
                   )}
                   <span className="tabular-nums">{share}</span>
                 </span>

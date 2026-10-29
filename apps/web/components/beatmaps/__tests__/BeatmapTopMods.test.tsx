@@ -55,13 +55,25 @@ describe('BeatmapTopMods', () => {
     ).toEqual(['Hidden 42%', 'Easy + Double Time 31%']);
   });
 
-  it('names No Mod and "Other", which have no osu! badge', () => {
+  it('names No Mod and "Other"', () => {
     expect(
       spokenItems([
         { mod: 'NM', mods: Mods.None, percentage: 55 },
         { mod: BEATMAP_MOD_OTHER_LABEL, mods: Mods.None, percentage: 45 },
       ])
     ).toEqual(['No Mod 55%', 'Other mods 45%']);
+  });
+
+  it("draws osu!'s No Mod badge, not NM text, for scores without mods", () => {
+    const html = renderToStaticMarkup(
+      <BeatmapTopMods
+        mods={[{ mod: 'NM', mods: Mods.None, percentage: 100 }]}
+      />
+    );
+
+    expect(html).toContain('aria-label="No Mod"');
+    expect(html).toContain('/icons/mods/mod-no-mod.svg');
+    expect(html).not.toContain('>NM<');
   });
 
   it('never rounds a share to 0% or 100% when it is neither', () => {
