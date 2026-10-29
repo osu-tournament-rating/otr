@@ -257,6 +257,7 @@ function LayoutToggle({
       aria-label="Beatmap layout"
       data-testid="beatmap-layout-toggle"
       data-layout={layout}
+      className="shadow-xs"
     >
       {/* No tooltips: a TooltipTrigger's `data-state` replaces the item's `on`/`off` */}
       {BEATMAP_LAYOUTS.map((value) => {
@@ -270,7 +271,7 @@ function LayoutToggle({
             data-testid={`beatmap-layout-${value}`}
             // Radios: arrow-key focus has to select.
             onFocus={() => onLayoutChange(value)}
-            className="size-8 data-[state=off]:bg-background data-[state=on]:bg-primary/10 data-[state=on]:text-primary dark:data-[state=off]:bg-input/50 dark:data-[state=on]:bg-primary/20"
+            className="size-8 px-2 data-[state=off]:bg-background data-[state=on]:bg-primary/10 data-[state=on]:text-primary dark:data-[state=off]:bg-input/50 dark:data-[state=on]:bg-primary/20"
           >
             <Icon aria-hidden="true" />
           </ToggleGroupItem>

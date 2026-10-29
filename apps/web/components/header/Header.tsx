@@ -98,7 +98,7 @@ export default function Header() {
           />
           <SheetContent
             overlay={false}
-            closeButton={false}
+            showCloseButton={false}
             className="top-(--header-height-px) h-auto max-h-[calc(100dvh-var(--header-height-px))] w-full gap-0 overflow-y-auto border-t border-t-muted border-l-muted bg-card p-4 sm:max-w-xs lg:hidden"
           >
             <SheetTitle className="sr-only">Navigation</SheetTitle>

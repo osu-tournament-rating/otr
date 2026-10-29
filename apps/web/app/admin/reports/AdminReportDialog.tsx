@@ -211,6 +211,7 @@ export function AdminReportDialog({
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
                 placeholder="Enter a comment"
+                className="field-sizing-fixed"
                 rows={3}
                 maxLength={MAX_COMMENT_LENGTH}
                 required

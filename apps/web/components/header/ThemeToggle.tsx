@@ -55,7 +55,11 @@ export default function ThemeToggle() {
           </p>
         </button>
       ),
-      { duration: 10_000, className: 'rounded-md border' }
+      {
+        duration: 10_000,
+        // A custom toast gets no surface from the Toaster.
+        className: 'rounded-md border bg-background text-foreground shadow-lg',
+      }
     );
   };
 

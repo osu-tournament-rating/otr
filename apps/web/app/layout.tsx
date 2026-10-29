@@ -78,7 +78,9 @@ export default async function RootLayout({
                   {children}
                 </main>
                 <Footer />
-                <Toaster richColors />
+                {/* Sonner sets its own system font on the toaster; toasts use
+                    Inter like the rest of the site. */}
+                <Toaster richColors toastOptions={{ className: 'font-sans' }} />
                 <SignInErrorToast />
                 <SiteUpdatedToast />
                 <AudioPlayerControls />

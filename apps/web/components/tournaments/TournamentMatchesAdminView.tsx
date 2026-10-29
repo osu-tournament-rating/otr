@@ -341,6 +341,7 @@ export default function TournamentMatchesAdminView({
                 placeholder="Enter match IDs or URLs"
                 value={matchIdsToAdd}
                 onChange={(event) => setMatchIdsToAdd(event.target.value)}
+                className="field-sizing-fixed"
                 rows={5}
               />
               <ul className="list-inside list-disc text-xs text-muted-foreground">

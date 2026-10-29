@@ -1262,7 +1262,7 @@ function FormLayoutDemo() {
                     </FormFieldLabel>
                     <FormControl>
                       <Textarea
-                        className="min-h-28"
+                        className="field-sizing-fixed min-h-28"
                         placeholder={MATCHES_PLACEHOLDER}
                         {...field}
                       />
@@ -1288,7 +1288,7 @@ function FormLayoutDemo() {
                     </FormFieldLabel>
                     <FormControl>
                       <Textarea
-                        className="min-h-28"
+                        className="field-sizing-fixed min-h-28"
                         placeholder={BEATMAPS_PLACEHOLDER}
                         {...field}
                       />
