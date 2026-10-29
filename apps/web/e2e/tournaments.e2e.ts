@@ -60,7 +60,7 @@ test.describe('Tournaments', () => {
       await expect(searchBox(page)).toBeVisible({ timeout: 10000 });
     });
 
-    test('marks admin notes without a hover-only preview or shifting rows', async ({
+    test('lists admin notes on hover without shifting rows', async ({
       page,
     }) => {
       await page.goto(ROUTES.tournaments);
@@ -101,15 +101,20 @@ test.describe('Tournaments', () => {
       );
 
       // The row is one link: its name says how many notes there are, and
-      // nothing inside it opens on hover alone.
-      await expect(row.getByRole('link')).toHaveAccessibleName(
-        /^View .+, \d+ admin notes?$/
+      // hovering the marker lists that many.
+      const link = row.getByRole('link');
+      await expect(link).toHaveAccessibleName(/^View .+, \d+ admin notes?$/);
+      const noteCount = Number(
+        (await link.getAttribute('aria-label'))!.match(
+          /, (\d+) admin notes?$/
+        )![1]
       );
       const rowBox = await row.boundingBox();
       await marker.hover();
-      // Longer than a tooltip's open delay, so a hover preview would show.
-      await page.waitForTimeout(800);
-      await expect(page.getByRole('tooltip')).toHaveCount(0);
+      await expect(page.locator('[data-slot="tooltip-content"]')).toBeVisible();
+      await expect(page.getByRole('tooltip').getByRole('listitem')).toHaveCount(
+        noteCount
+      );
       expect(await row.boundingBox()).toEqual(rowBox);
     });
 
@@ -488,6 +493,58 @@ test.describe('Tournaments', () => {
       await expect(
         page.getByRole('link', { name: 'View audit history' })
       ).toBeVisible();
+    });
+
+    test('the ruleset sits level with the other hero facts', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.tournament(TEST_PUBLIC_TOURNAMENT_ID));
+      await page.waitForLoadState('networkidle');
+
+      // The middle of each fact's text, not of its box: the box stays
+      // centered in the row while the text inside it rides up.
+      const textMiddle = (testId: string) =>
+        page.getByTestId(testId).evaluate((item) => {
+          const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+          let text: Node | null = null;
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (node.textContent?.trim()) text = node;
+          }
+          const range = document.createRange();
+          range.selectNodeContents(text!);
+          const box = range.getBoundingClientRect();
+          return box.top + box.height / 2;
+        });
+
+      await expect(page.getByTestId('tournament-ruleset')).toBeVisible({
+        timeout: 10000,
+      });
+      expect(await textMiddle('tournament-ruleset')).toBeCloseTo(
+        await textMiddle('tournament-lobby-size'),
+        0
+      );
+    });
+
+    test('an action tooltip closes as the pointer moves onto it', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.tournament(TEST_PUBLIC_TOURNAMENT_ID));
+      await page.waitForLoadState('networkidle');
+
+      const auditHistory = page.getByRole('link', {
+        name: 'View audit history',
+      });
+      await auditHistory.hover();
+      const tooltip = page.locator('[data-slot="tooltip-content"]');
+      await expect(tooltip).toBeVisible();
+
+      // Heading up from the button toward the Admin menu crosses the
+      // tooltip, which must not stay open over the menu.
+      const box = await tooltip.boundingBox();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2, {
+        steps: 10,
+      });
+      await expect(page.getByRole('tooltip')).toHaveCount(0);
     });
 
     test('four tabs fit a 360px phone and keep their counts in their names', async ({

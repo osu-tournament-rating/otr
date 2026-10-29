@@ -71,14 +71,8 @@ import {
   CATEGORICAL_PALETTE,
   seriesColor,
 } from '@/lib/kit/color/categorical';
-import { contrastRatio, formatContrast } from '@/lib/kit/color/contrast';
 import { GRADE_PALETTE } from '@/lib/kit/color/grades';
 import { MOD_FILL_FOREGROUND, MOD_PALETTE } from '@/lib/kit/color/mods';
-import {
-  FREEMOD_COLOR,
-  MOD_TYPE_COLORS,
-  type ModType,
-} from '@/lib/utils/mod-badges';
 import FittingModIconset from '@/components/icons/FittingModIconset';
 import ModIconset, { ModBadgeIcon } from '@/components/icons/ModIconset';
 import {
@@ -87,17 +81,10 @@ import {
   getStarRatingMarkColor,
 } from '@/lib/kit/color/star-rating';
 import {
-  SURFACES,
-  TEXT_COLORS,
-  type Surface,
-  type Theme,
-} from '@/lib/kit/color/surfaces';
-import {
   getTeamColor,
   getTeamTextColor,
   getTeamTintClass,
 } from '@/lib/kit/color/teams';
-import type { ThemeColor } from '@/lib/kit/color/theme-color';
 import { TIER_TEXT_CLASS, getTierColor } from '@/lib/kit/color/tiers';
 import {
   ACCENT_SURFACE_CLASSES,
@@ -126,22 +113,17 @@ const CHART_PARTS = `@/lib/kit/charts/{axis,ticks,format}, ${CHARTS}/ChartToolti
 
 /** The mods otr stores, by the type osu-web gives them. No stored mod is Fun. */
 const MOD_BADGE_SPECIMENS: readonly {
-  type: ModType;
   label: string;
   mods: readonly Mods[];
   freemod?: boolean;
   /** Leads with osu-web's No Mod badge, which no stored mod draws. */
   noMod?: boolean;
-  /** A fill other than the type's. */
-  fill?: string;
 }[] = [
   {
-    type: 'DifficultyReduction',
     label: 'Difficulty reduction',
     mods: [Mods.Easy, Mods.NoFail, Mods.HalfTime],
   },
   {
-    type: 'DifficultyIncrease',
     label: 'Difficulty increase',
     mods: [
       Mods.Hidden,
@@ -155,7 +137,6 @@ const MOD_BADGE_SPECIMENS: readonly {
     ],
   },
   {
-    type: 'Conversion',
     label: 'Conversion',
     mods: [
       Mods.Random,
@@ -175,64 +156,23 @@ const MOD_BADGE_SPECIMENS: readonly {
     ],
   },
   {
-    type: 'Automation',
     label: 'Automation',
     mods: [Mods.Relax, Mods.Relax2, Mods.Autoplay, Mods.SpunOut, Mods.Cinema],
   },
   {
-    type: 'System',
     label: 'System',
     mods: [Mods.TouchDevice, Mods.ScoreV2],
     noMod: true,
   },
   {
-    type: 'System',
     label: 'Freemod, not a mod type',
     mods: [],
     freemod: true,
-    fill: FREEMOD_COLOR,
   },
 ];
 
-/** Shows the light value inside light frames and the dark one inside dark frames. */
-function ThemeValue({
-  light,
-  dark,
-}: {
-  light: React.ReactNode;
-  dark: React.ReactNode;
-}) {
-  return (
-    <>
-      <span className="dark:hidden">{light}</span>
-      <span className="hidden dark:inline">{dark}</span>
-    </>
-  );
-}
-
-function contrastNote(
-  color: ThemeColor,
-  theme: Theme,
-  surface: Surface = 'card'
-): string {
-  const value = color[theme];
-  const ratio = formatContrast(contrastRatio(value, SURFACES[theme][surface]));
-  const on = surface === 'card' ? '' : ` on ${surface}`;
-
-  switch (color.role) {
-    case 'text':
-      return `${ratio} text${on}`;
-    case 'mark':
-      return `${ratio} mark${on}`;
-    case 'surface':
-      return `${formatContrast(contrastRatio(TEXT_COLORS[theme].muted, value))} muted text`;
-    default:
-      return 'border';
-  }
-}
-
 function TokenSwatch({ entry }: { entry: TokenEntry }) {
-  const { color, label, utility, surface } = entry;
+  const { color, label, utility } = entry;
 
   return (
     <li className="flex min-w-0 items-center gap-3 rounded-lg border bg-card px-3 py-2 dark:bg-muted/75">
@@ -245,17 +185,6 @@ function TokenSwatch({ entry }: { entry: TokenEntry }) {
         <p className="truncate text-sm font-medium">{label}</p>
         <p className="truncate text-xs text-muted-foreground">
           {utility ?? color.token}
-        </p>
-      </div>
-      <div className="shrink-0 text-right text-xs">
-        <p>
-          <ThemeValue light={color.light} dark={color.dark} />
-        </p>
-        <p className="text-muted-foreground">
-          <ThemeValue
-            light={contrastNote(color, 'light', surface)}
-            dark={contrastNote(color, 'dark', surface)}
-          />
         </p>
       </div>
     </li>
@@ -1052,7 +981,7 @@ export default function ColorSection() {
     <GallerySection
       id="color"
       title="Colour and charts"
-      description="Theme tokens, domain palettes and the shared chart parts. Ratios are measured against the panel surface of each theme unless the note names another: marks and icons need 3:1, text 4.5:1."
+      description="Theme tokens, domain palettes and the shared chart parts. Every color value lives in globals.css; marks and icons need 3:1 against the panel, text 4.5:1."
     >
       <Specimen
         id="color-text"
@@ -1177,7 +1106,7 @@ export default function ColorSection() {
         id="color-mods"
         name="Mod colours"
         importPath={`${COLOR_LIB}/mods`}
-        description="The mod colours the site has always used, each hue kept and only the lightness moved as far as contrast needs, so the light theme's are darker. Touch Device, which once shared Sudden Death's orange, is a greyer orange. Every mod clears 3:1 and takes black text as a solid pill. Rare combinations use the Other grey."
+        description="The mod colors the site has always used, each hue kept and only the lightness moved as far as contrast needs, so the light theme's are darker. Touch Device, which once shared Sudden Death's orange, is a grayer orange. Every mod takes black text as a solid pill. Rare combinations use the Other gray."
       >
         <div className="@container">
           <ul className="grid grid-cols-3 gap-2 @md:grid-cols-4 @xl:grid-cols-6">
@@ -1196,16 +1125,6 @@ export default function ColorSection() {
                   >
                     {color.label}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    <ThemeValue
-                      light={formatContrast(
-                        contrastRatio(color.light, SURFACES.light.card)
-                      )}
-                      dark={formatContrast(
-                        contrastRatio(color.dark, SURFACES.dark.card)
-                      )}
-                    />
-                  </span>
                 </li>
               )
             )}
@@ -1217,41 +1136,23 @@ export default function ColorSection() {
         id="color-mod-badges"
         name="Mod badges"
         importPath="@/components/icons/ModIconset"
-        description="osu-web's mod badges and type colours, mirrored one to one. The ratio is the badge against the card."
+        description="osu-web's mod badges and type colors, mirrored one to one."
       >
         <ul className="flex flex-col gap-3">
-          {MOD_BADGE_SPECIMENS.map(
-            ({ type, label, mods, freemod, noMod, fill }) => (
-              <li key={label} className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">
-                  {label},{' '}
-                  <ThemeValue
-                    light={formatContrast(
-                      contrastRatio(
-                        fill ?? MOD_TYPE_COLORS[type],
-                        SURFACES.light.card
-                      )
-                    )}
-                    dark={formatContrast(
-                      contrastRatio(
-                        fill ?? MOD_TYPE_COLORS[type],
-                        SURFACES.dark.card
-                      )
-                    )}
-                  />
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {freemod && (
-                    <ModIconset mods={Mods.None} freemod className="flex h-6" />
-                  )}
-                  {noMod && <ModBadgeIcon acronym="NM" className="h-6" />}
-                  {mods.map((mod) => (
-                    <ModIconset key={mod} mods={mod} className="flex h-6" />
-                  ))}
-                </div>
-              </li>
-            )
-          )}
+          {MOD_BADGE_SPECIMENS.map(({ label, mods, freemod, noMod }) => (
+            <li key={label} className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">{label}</span>
+              <div className="flex flex-wrap gap-1">
+                {freemod && (
+                  <ModIconset mods={Mods.None} freemod className="flex h-6" />
+                )}
+                {noMod && <ModBadgeIcon acronym="NM" className="h-6" />}
+                {mods.map((mod) => (
+                  <ModIconset key={mod} mods={mod} className="flex h-6" />
+                ))}
+              </div>
+            </li>
+          ))}
         </ul>
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">

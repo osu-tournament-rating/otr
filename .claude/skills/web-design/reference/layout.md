@@ -556,6 +556,7 @@ Do:
 
 - Link the entity's name with [EntityLink](tables.md#entitylink), so every name in a row reads and hovers the same. One link per destination: an avatar in `leading` stays unlinked; to make it open the entity too, pass it as EntityLink's `leading` instead.
 - Keep the hover tint only on rows that are clickable as a whole, and take it from `ROW_HOVER_TINT` rather than writing `hover:bg-muted/40` by hand.
+- Inside an `href` row, give an icon a hover-only tooltip (`SimpleTooltip`, or `tooltip="hover"` on a VerificationStatusIcon), since the row can hold no button. Keep what a tap or keyboard needs in `linkLabel` or on the page the row opens: the tournament list's admin note icon lists the notes on hover, its label counts them, and the tournament page shows them.
 
 Don't:
 

@@ -128,7 +128,7 @@ const { state, setState } = list;
     <RulesetChips
       value={state.ruleset ?? defaultRulesets}
       onValueChange={(ruleset) =>
-        setState({ ruleset: rulesetsForAddress(ruleset, defaultRulesets) })
+        setState({ ruleset: valuesForAddress(ruleset, defaultRulesets) })
       }
     />
   }
@@ -320,7 +320,7 @@ import { RulesetChips } from '@/components/kit/lists/RulesetChips';
 />;
 ```
 
-- `value`: the chosen rulesets; `[]` means all. Pair it with `arrayParam(RATED_RULESETS, { role: 'scope' })`, so "Clear all" leaves it alone. The tournament list, whose bare address shows the visitor's browsing ruleset, adds `allValue: 'all'` and passes `state.ruleset ?? defaultRulesets` ([A default that depends on the visitor](#a-default-that-depends-on-the-visitor)).
+- `value`: the chosen rulesets; `[]` means all. Pair it with `arrayParam(RATED_RULESETS, { role: 'scope' })`, so "Clear all" leaves it alone. The tournament and beatmap lists, whose bare address shows the visitor's browsing ruleset, add `allValue: 'all'` and pass `state.ruleset ?? defaultRulesets` ([A default that depends on the visitor](#a-default-that-depends-on-the-visitor)).
 - `rulesets`: which chips to offer, defaulting to `RATED_RULESETS` (no `mania (other)`).
 - `showAll`: hide the "All" chip.
 - `label`: the group's accessible name, "Filter by ruleset" by default.
@@ -694,7 +694,7 @@ const BEATMAP_PARAMS = defineListParams({
 
 Leave `shallow` off for a list the server filters, sorts or pages: its page must render again for the new state.
 
-A link that opens another list already filtered, such as the header search's "See all", builds the address from that list's spec, so it stays valid when the list's params change. The header search found tournaments of every ruleset, so its "See all" says so instead of opening on the visitor's browsing ruleset:
+A link that opens another list already filtered, such as the header search's "See all", builds the address from that list's spec, so it stays valid when the list's params change. The header search found tournaments and beatmaps of every ruleset, so their "See all" says so instead of opening on the visitor's browsing ruleset:
 
 ```ts
 listStateHref('/tournaments', TOURNAMENT_LIST_PARAMS, {
@@ -716,11 +716,11 @@ The tournament list lists a search's best matches first, ranked as the public AP
 
 ### A default that depends on the visitor
 
-A signed-in player can set the ruleset the leaderboard and the tournament list open in (Settings, "Leaderboard and tournaments"); without a setting it is the ruleset they have played most. Signed-out visitors keep the fixed defaults: osu! on the leaderboard, every ruleset on the tournament list. So does a player with no verified tournaments, or whose most played is `mania (other)`, which the lists leave out.
+A signed-in player can set the ruleset the leaderboard, the tournament list and the beatmap list open in (Settings, "Leaderboard, tournaments and beatmaps"); without a setting it is the ruleset they have played most. Signed-out visitors keep the fixed defaults: osu! on the leaderboard, every ruleset on the tournament and beatmap lists. So does a player with no verified tournaments, or whose most played is `mania (other)`, which the lists leave out.
 
-- The spec stays module-level and has no default for the param, so a bare address reads as `undefined`: `enumParam(RATED_RULESETS, { role: 'scope' })` on the leaderboard, `arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' })` on the tournament list, where every ruleset needs its own value.
-- The server page resolves the visitor's default with `getBrowsingRuleset(db, session?.dbPlayer?.id)` (`@/lib/db/ruleset-settings`), which is null when the fixed default applies, fetches with `state.ruleset ?? default`, and passes the default to the toolbar as a prop.
-- The toolbar shows `state.ruleset ?? default`, and writes `undefined` when the pick equals the default (`rulesetsForAddress` on the tournament list), so the visitor's own default never lands in the address and a shared link shows each visitor theirs.
+- The spec stays module-level and has no default for the param, so a bare address reads as `undefined`: `enumParam(RATED_RULESETS, { role: 'scope' })` on the leaderboard, `arrayParam(RATED_RULESETS, { role: 'scope', allValue: 'all' })` on the tournament and beatmap lists, where every ruleset needs its own value.
+- The server page resolves the visitor's default with `getBrowsingRuleset(db, session?.dbPlayer?.id)` (`@/lib/db/ruleset-settings`), which is null when the fixed default applies (`getBrowsingRulesets` on a multi-ruleset list, empty for every ruleset), fetches with `state.ruleset ?? default`, and passes the default to the toolbar as a prop.
+- The toolbar shows `state.ruleset ?? default`, and writes `undefined` when the pick equals the default (`valuesForAddress` from `@/lib/kit/lists/params` on the chip lists), so the visitor's own default never lands in the address and a shared link shows each visitor theirs.
 - Links the server builds (pages, Clear all, sort headers) keep the unresolved state. A link that means a ruleset names it, osu! included, as the profile's country link does.
 
 Do:

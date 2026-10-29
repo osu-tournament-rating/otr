@@ -173,21 +173,6 @@ export function resolveTournamentRulesets(
 }
 
 /**
- * The address's ruleset for chips set to `rulesets`: nothing when they are
- * the visitor's own `defaultRulesets`, so the visitor's default never lands
- * in a shared link, and otherwise the chips (empty writes `ruleset=all`).
- */
-export function rulesetsForAddress(
-  rulesets: readonly Ruleset[],
-  defaultRulesets: readonly Ruleset[]
-): Ruleset[] | undefined {
-  const same =
-    rulesets.length === defaultRulesets.length &&
-    rulesets.every((ruleset) => defaultRulesets.includes(ruleset));
-  return same ? undefined : [...rulesets];
-}
-
-/**
  * The procedure's input for a list state, with `defaultRulesets` standing in
  * for a ruleset the address leaves out.
  */

@@ -128,8 +128,11 @@ export function IconButton({
 
   if (tooltip === false) return button;
 
+  // The tooltip only names the button, so it closes as the pointer leaves.
+  // Kept open on hover, it would cover the next control the pointer heads
+  // for, such as the Admin menu above a hero's actions.
   return (
-    <Tooltip>
+    <Tooltip disableHoverableContent>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side={tooltipSide} sideOffset={6} collisionPadding={8}>
         {tooltip ?? label}

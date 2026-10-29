@@ -6,17 +6,8 @@ export interface CategoricalColor extends ThemeColor {
   name: string;
 }
 
-function slot(
-  index: number,
-  name: string,
-  light: string,
-  dark: string
-): CategoricalColor {
-  return {
-    ...themeColor(`--series-${index}`, light, dark, 'mark'),
-    slot: index,
-    name,
-  };
+function slot(index: number, name: string): CategoricalColor {
+  return { ...themeColor(`--series-${index}`), slot: index, name };
 }
 
 /**
@@ -26,23 +17,18 @@ function slot(
  * reorder or cycle them. Slot 1 is the brand blue a single series uses.
  */
 export const CATEGORICAL_PALETTE: readonly CategoricalColor[] = [
-  slot(1, 'Blue', '#4589f2', '#4e93fc'),
-  slot(2, 'Orange', '#e6632f', '#d95926'),
-  slot(3, 'Aqua', '#049e6d', '#199e70'),
-  slot(4, 'Yellow', '#bd7f03', '#c98500'),
-  slot(5, 'Magenta', '#d36992', '#d55181'),
-  slot(6, 'Green', '#008300', '#008300'),
-  slot(7, 'Violet', '#4a3aa7', '#9085e9'),
-  slot(8, 'Red', '#e34948', '#e66767'),
+  slot(1, 'Blue'),
+  slot(2, 'Orange'),
+  slot(3, 'Aqua'),
+  slot(4, 'Yellow'),
+  slot(5, 'Magenta'),
+  slot(6, 'Green'),
+  slot(7, 'Violet'),
+  slot(8, 'Red'),
 ];
 
 /** The neutral a series past the eighth folds into, labelled "Other". */
-export const CATEGORICAL_OTHER: ThemeColor = themeColor(
-  '--series-other',
-  '#7a7a7a',
-  '#929292',
-  'mark'
-);
+export const CATEGORICAL_OTHER: ThemeColor = themeColor('--series-other');
 
 /**
  * The colour of the series at `index` (0-based). Colour follows the series,

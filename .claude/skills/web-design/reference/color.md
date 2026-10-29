@@ -1,10 +1,10 @@
 # Colour and charts
 
 The colour tokens the library adds, the domain palettes (mods, tiers, grades, star rating, verification, teams), and the shared chart parts: one tick rule, axis formatters, Recharts axis props, one tooltip and one legend.
-Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its light and dark hex, in `@/lib/kit/color/` and unit-tested for contrast. Chart helpers are in `@/lib/kit/charts/`, chart components in `@/components/kit/charts/`.
+`apps/web/app/globals.css` is the only place color values live: each token has its light value in `:root` and its dark value in `.dark`. The modules in `@/lib/kit/color/` only map domain values (a tier, a mod, a team, a status, a series index) to a token by name, as `var(--…)` or a Tailwind class; they hold no values. Chart helpers are in `@/lib/kit/charts/`, chart components in `@/components/kit/charts/`.
 
 - [Rules at a glance](#rules-at-a-glance)
-- [Theme tokens](#theme-tokens): every token, its class, light and dark values
+- [Theme tokens](#theme-tokens): every token, its class and its use
 - [Theme text](#theme-text): text, muted text, red text, and muted text in tooltips
 - [Brand blue](#brand-blue): `primary`, `primary-solid` and `link`
 - [Accent rule](#accent-rule): what blue is for
@@ -17,7 +17,6 @@ Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its lig
 - [Mod colours](#mod-colours): `MOD_PALETTE`, `getModPaletteColor`
 - [Mod badges](#mod-badges): `ModIconset`, `MOD_TYPE_COLORS`
 - [Star rating colours](#star-rating-colours): `getStarRatingMarkColor`
-- [Contrast helpers](#contrast-helpers): `contrastRatio`, `colorDistance`
 - [Tick rule](#tick-rule): `getNiceTicks`, `getCategoryTicks`, `getTimeTicks`
 - [Axis formatters](#axis-formatters): `formatCountTick`, `formatYearTick` and friends
 - [Recharts axis props](#recharts-axis-props): `chartAxisProps`, `chartValueAxisProps`, `niceAxisProps`, and the row bar parts
@@ -29,65 +28,67 @@ Tokens live in `apps/web/app/globals.css`; every value is mirrored, with its lig
 ## Rules at a glance
 
 - Text is coloured only with semantic tokens: `text-foreground`, `text-muted-foreground`, the `*-foreground` status tokens, `text-callout-*-foreground`, `text-match-*-foreground` and `text-tier-*`. Never a palette class such as `text-orange-500`, never a hex value in a component.
-- A domain palette (mods, tiers, grades, star rating, verification, teams) is reached through its helper in `@/lib/kit/color/`, which returns `var(--…)`. Never copy a palette value into a component.
-- Marks and icons clear 3:1 against the card, text 4.5:1, in both themes. The tests in `apps/web/lib/kit/color/__tests__/` enforce it for every token; a new token goes into `globals.css` and the matching module together, or the tests fail.
+- A domain palette (mods, tiers, grades, star rating, verification, teams) is reached through its helper in `@/lib/kit/color/`, which returns `var(--…)`. Never copy a palette value into a component or a TypeScript module; values live only in `globals.css`.
+- Marks and icons clear 3:1 against the card, text 4.5:1, in both themes. Check a new or changed value against both themes' surfaces before it lands; no test does it for you.
 - Colour never carries meaning alone: a status has its glyph, a series has its legend or label, a mod has its name.
 - Neutral series take the categorical palette in order. Status colours only ever mean status.
 - Every chart sits in a Panel with a SectionHeader, inside `ChartContainer`, with the shared tick rule, axis props, formatters and `ChartTooltipContent`.
 
 ## Theme tokens
 
-Every token below has a light value in `:root` and a dark value in `.dark`; the modules named in the table hold the per-entry values. "Mark" means 3:1 against the card, "text" 4.5:1. The class column is the Tailwind colour name (`bg-…`, `text-…`, `border-…`, `fill-…`); tokens without a class are used through their helper.
+Every token below has a light value in `:root` and a dark value in `.dark` of `globals.css`; read the values there. "Mark" means 3:1 against the card, "text" 4.5:1. The class column is the Tailwind color name (`bg-…`, `text-…`, `border-…`, `fill-…`); tokens without a class are used through their helper.
 
-| Token                                  | Class                        | Light       | Dark        | Use                                      |
-| -------------------------------------- | ---------------------------- | ----------- | ----------- | ---------------------------------------- |
-| `--foreground`                         | `foreground`                 | `#000000`   | `#ffffff`   | Text                                     |
-| `--muted-foreground`                   | `muted-foreground`           | `#6c6c6c`   | `#9b9b9b`   | Muted text: labels, captions, headers    |
-| `--accent-muted-foreground`            | `accent-muted-foreground`    | `#636363`   | `#aeaeae`   | Muted text on `bg-accent` (tooltips)     |
-| `--destructive-foreground`             | `destructive-foreground`     | red-800     | red-400     | Red text                                 |
-| `--series-1` … `--series-8`            | `series-1` … `series-8`      | below       | below       | Categorical chart marks                  |
-| `--series-other`                       | `series-other`               | `#7a7a7a`   | `#929292`   | The "Other" series or bucket             |
-| `--verification-verified`              | `verification-verified`      | `#25984d`   | `#47c86e`   | Verified icon and chart fill             |
-| `--verification-neutral`               | `verification-neutral`       | `#7a7a7a`   | `#929292`   | Pending icon, "Not in ratings yet" fill  |
-| `--verification-rejected`              | `verification-rejected`      | `#d73431`   | `#f66d67`   | Rejected icon and chart fill             |
-| `--callout-info`                       | `callout-info`               | `#f0f6fc`   | `#1b2026`   | Info callout fill                        |
-| `--callout-info-border`                | `callout-info-border`        | `#c9daeb`   | `#344458`   | Info callout border                      |
-| `--callout-info-foreground`            | `callout-info-foreground`    | `#314968`   | `#bcd3f2`   | Info callout text and icon               |
-| `--callout-warning`                    | `callout-warning`            | `#fff6e1`   | `#2b1f0d`   | Warning callout fill                     |
-| `--callout-warning-border`             | `callout-warning-border`     | `#ebc573`   | `#724d0b`   | Warning callout border                   |
-| `--callout-warning-foreground`         | `callout-warning-foreground` | `#864900`   | `#f8cf68`   | Warning callout text and icon            |
-| `--callout-danger`                     | `callout-danger`             | `#fff1f1`   | `#301717`   | Danger callout fill                      |
-| `--callout-danger-border`              | `callout-danger-border`      | `#f9bcb9`   | `#893130`   | Danger callout border                    |
-| `--callout-danger-foreground`          | `callout-danger-foreground`  | `#b7191c`   | `#ff9e9b`   | Danger callout text and icon             |
-| `--match-red`                          | `match-red`                  | `#e34948`   | `#e66767`   | Red team edge, tint, swatch, chart line  |
-| `--match-red-foreground`               | `match-red-foreground`       | `#cc3135`   | `#f17070`   | Red team text                            |
-| `--match-blue`                         | `match-blue`                 | `#4589f2`   | `#4e93fc`   | Blue team edge, tint, swatch, chart line |
-| `--match-blue-foreground`              | `match-blue-foreground`      | `#276bd1`   | `#579dff`   | Blue team text                           |
-| `--match-no-team`                      | `match-no-team`              | `#747474`   | `#9e9e9e`   | Scores with no team                      |
-| `--game-frame`                         | `game-frame`                 | `#f4f4f4`   | `#141414`   | Recessed frame around a game's scores    |
-| `--score-card`                         | `score-card`                 | `#ffffff`   | `#242424`   | Score card inside the game frame         |
-| `--notification`                       | `notification`               | `#4589f2`   | `#4e93fc`   | The one notification dot                 |
-| `--support`                            | `support`                    | `#f6339a`   | `#f6339a`   | The header's support heart on hover      |
-| `--tier-<tier>`                        | `tier-<tier>`                | `tiers.ts`  | `tiers.ts`  | Tier names (text) and tier chart marks   |
-| `--score-grade-ss` … `--score-grade-d` | none                         | `grades.ts` | `grades.ts` | Grade chart marks                        |
-| `--mod-nm` … `--mod-key`               | none                         | `mods.ts`   | `mods.ts`   | Mod marks and solid mod pills            |
+| Token                                  | Class                        | Use                                      |
+| -------------------------------------- | ---------------------------- | ---------------------------------------- |
+| `--foreground`                         | `foreground`                 | Text                                     |
+| `--muted-foreground`                   | `muted-foreground`           | Muted text: labels, captions, headers    |
+| `--accent-muted-foreground`            | `accent-muted-foreground`    | Muted text on `bg-accent` (tooltips)     |
+| `--destructive-foreground`             | `destructive-foreground`     | Red text                                 |
+| `--series-1` … `--series-8`            | `series-1` … `series-8`      | Categorical chart marks                  |
+| `--series-other`                       | `series-other`               | The "Other" series or bucket             |
+| `--verification-verified`              | `verification-verified`      | Verified icon and chart fill             |
+| `--verification-neutral`               | `verification-neutral`       | Pending icon, "Not in ratings yet" fill  |
+| `--verification-rejected`              | `verification-rejected`      | Rejected icon and chart fill             |
+| `--callout-info`                       | `callout-info`               | Info callout fill                        |
+| `--callout-info-border`                | `callout-info-border`        | Info callout border                      |
+| `--callout-info-foreground`            | `callout-info-foreground`    | Info callout text and icon               |
+| `--callout-warning`                    | `callout-warning`            | Warning callout fill                     |
+| `--callout-warning-border`             | `callout-warning-border`     | Warning callout border                   |
+| `--callout-warning-foreground`         | `callout-warning-foreground` | Warning callout text and icon            |
+| `--callout-danger`                     | `callout-danger`             | Danger callout fill                      |
+| `--callout-danger-border`              | `callout-danger-border`      | Danger callout border                    |
+| `--callout-danger-foreground`          | `callout-danger-foreground`  | Danger callout text and icon             |
+| `--match-red`                          | `match-red`                  | Red team edge, tint, swatch, chart line  |
+| `--match-red-foreground`               | `match-red-foreground`       | Red team text                            |
+| `--match-blue`                         | `match-blue`                 | Blue team edge, tint, swatch, chart line |
+| `--match-blue-foreground`              | `match-blue-foreground`      | Blue team text                           |
+| `--match-no-team`                      | `match-no-team`              | Scores with no team                      |
+| `--game-frame`                         | `game-frame`                 | Recessed frame around a game's scores    |
+| `--score-card`                         | `score-card`                 | Score card inside the game frame         |
+| `--notification`                       | `notification`               | The one notification dot                 |
+| `--support`                            | `support`                    | The header's support heart on hover      |
+| `--tier-<tier>`                        | `tier-<tier>`                | Tier names (text) and tier chart marks   |
+| `--score-grade-ss` … `--score-grade-d` | none                         | Grade chart marks                        |
+| `--mod-nm` … `--mod-key`               | none                         | Mod marks and solid mod pills            |
 
-The brand blue (`primary`, `primary-solid`, `link`) has its own table under [Brand blue](#brand-blue). The shadcn base tokens (`background`, `card`, `popover`, `muted`, `accent`, `secondary`, `border`, `input`, `ring`, `success`, `warning`, `destructive`, `destructive-solid`) keep their values. The four text tokens at the top of the table are mirrored in `@/lib/kit/color/tokens` and tested like the library's own (see [Theme text](#theme-text)). There are no other palettes: the old long mod names, `--text-<tier>`, `--grade-*`, `--rank-range-*`, `--team-*`, `--color-status-*` and `--chart-*` are gone, so a colour that is not in this table or the brand blue's is not a token.
+The brand blue (`primary`, `primary-solid`, `link`) has its own table under [Brand blue](#brand-blue). The shadcn base tokens (`background`, `card`, `popover`, `muted`, `accent`, `secondary`, `border`, `input`, `ring`, `success`, `warning`, `destructive`, `destructive-solid`) keep their values. There are no other palettes: the old long mod names, `--text-<tier>`, `--grade-*`, `--rank-range-*`, `--team-*`, `--color-status-*` and `--chart-*` are gone, so a color that is not in this table or the brand blue's is not a token.
 
 A light subtree inside a dark page (`.theme-light`, the gallery only) gets the light values of every token above, and of `success` and `warning`.
+
+Adding a color token: add it to both blocks in `globals.css` (and to `@theme inline` if it needs a class), check its contrast in both themes, add a `themeColor('--…')` entry to its module (and to `TOKEN_GROUPS` in `@/lib/kit/color/tokens` so the gallery lists it), give it a usage note in `apps/web/design-system/tokens.ts`, and check the gallery.
 
 Gallery anchor: `/admin/design#color`
 
 ## Theme text
 
-Three text colours, each 4.5:1 or better on panels, tiles and popovers in both themes, plus one for muted text on the tooltip surface. Use their classes; the values live in `globals.css` and are mirrored in `@/lib/kit/color/tokens` (`FOREGROUND_COLOR`, `MUTED_TEXT_COLOR`, `DESTRUCTIVE_TEXT_COLOR`, `ACCENT_MUTED_TEXT_COLOR`).
+Three text colors, each 4.5:1 or better on panels, tiles and popovers in both themes, plus one for muted text on the tooltip surface. Use their classes; the values live in `globals.css`.
 
-| Text            | Class                         | Light                                | Dark                     | Hardest surface             |
-| --------------- | ----------------------------- | ------------------------------------ | ------------------------ | --------------------------- |
-| Text            | `text-foreground`             | black                                | white                    | every surface, 11:1 or more |
-| Muted text      | `text-muted-foreground`       | `oklch(0.53 0 0)`, 4.7:1 on popovers | `oklch(0.69 0 0)`, 5.9:1 | muted and popover           |
-| Red text        | `text-destructive-foreground` | red-800, 7.4:1                       | red-400, 5.6:1           | muted and popover           |
-| Muted (tooltip) | applied by the tooltip        | `oklch(0.5 0 0)`, 4.7:1 on accent    | `oklch(0.75 0 0)`, 5.1:1 | accent                      |
+| Text            | Class                         | Hardest surface   |
+| --------------- | ----------------------------- | ----------------- |
+| Text            | `text-foreground`             | every surface     |
+| Muted text      | `text-muted-foreground`       | muted and popover |
+| Red text        | `text-destructive-foreground` | muted and popover |
+| Muted (tooltip) | applied by the tooltip        | accent            |
 
 Tooltips (the shadcn `TooltipContent` and TapTooltip's popover) sit on `bg-accent`, where plain muted text is under 4.5:1 in both themes. Both apply `ACCENT_SURFACE_CLASSES` from `@/lib/kit/color/tokens`: the accent fill, its text colour, and `--muted-foreground` rescoped to `--accent-muted-foreground`. So `text-muted-foreground` inside a tooltip is legible with no extra class.
 
@@ -107,16 +108,15 @@ Gallery anchor: `/admin/design#color-text`
 
 Three tokens carry the brand blue, because one blue can't be both a fill behind white text and readable text in both themes.
 
-| Token             | Class                                 | Light     | Dark                     | Use for                                              |
-| ----------------- | ------------------------------------- | --------- | ------------------------ | ---------------------------------------------------- |
-| `--primary`       | `text-primary`, `border-primary`, ... | `#3a71e2` | `#4e93fc` (the original) | Icons, borders, the focus ring, selected tints       |
-| `--primary-solid` | `bg-primary-solid`                    | `#3a71e2` | `#3a71e2`                | Fills behind white text: buttons, solid badges, days |
-| `--link`          | `text-link`                           | `#356ad4` | `#4e93fc` (the original) | Blue text: links on hover, row titles on hover       |
+| Token             | Class                                 | Use for                                              |
+| ----------------- | ------------------------------------- | ---------------------------------------------------- |
+| `--primary`       | `text-primary`, `border-primary`, ... | Icons, borders, the focus ring, selected tints       |
+| `--primary-solid` | `bg-primary-solid`                    | Fills behind white text: buttons, solid badges, days |
+| `--link`          | `text-link`                           | Blue text: links on hover, row titles on hover       |
 
-- White text on `primary-solid` measures 4.5:1 in both themes. In light mode `#3a71e2` is the passing blue closest to the original `#4e93fc`, which only reached 3:1 with white text.
+- White text on `primary-solid` measures 4.5:1 in both themes. The original brand blue only reached 3:1 with white text, so the solid fill is a darker step of it.
 - `link` reaches 4.5:1 on the background, cards and grey panels in both themes. Light mode needs it a step darker than `primary` for that; dark mode keeps the original blue.
 - `primary` is a mark colour: 3:1 or better on every surface, in both themes.
-- The values are mirrored in `@/lib/kit/color/tokens` as `PRIMARY_COLOR`, `PRIMARY_SOLID_COLOR` and `LINK_COLOR` (with `NOTIFICATION_COLOR` for the dot), and tested with the other tokens (`TOKEN_GROUPS`, flattened as `ALL_TOKENS`).
 
 Do:
 
@@ -155,7 +155,7 @@ Gallery anchor: `/admin/design#color-accent-rule`
 
 ## Categorical palette
 
-Eight hues in a fixed order for neutral series: rank restriction buckets, teams (red and blue), rulesets, teammates and opponents, any "series 1, 2, 3". The order keeps neighbours apart for protanopia and deuteranopia (Machado 2009 simulation, adjacent OKLab ΔE ≥ 8) and for full colour vision (ΔE ≥ 15), in both themes; the tests check it.
+Eight hues in a fixed order for neutral series: rank restriction buckets, teams (red and blue), rulesets, teammates and opponents, any "series 1, 2, 3". The order keeps neighbors apart for protanopia and deuteranopia (Machado 2009 simulation, adjacent OKLab ΔE ≥ 8) and for full color vision (ΔE ≥ 15), in both themes; check a new value against both before it lands.
 
 ```tsx
 import {
@@ -167,19 +167,19 @@ import {
 <Bar dataKey="osu" fill={seriesColor(0)} />;
 ```
 
-| Slot | Name    | Light     | Dark      |
-| ---- | ------- | --------- | --------- |
-| 1    | Blue    | `#4589f2` | `#4e93fc` |
-| 2    | Orange  | `#e6632f` | `#d95926` |
-| 3    | Aqua    | `#049e6d` | `#199e70` |
-| 4    | Yellow  | `#bd7f03` | `#c98500` |
-| 5    | Magenta | `#d36992` | `#d55181` |
-| 6    | Green   | `#008300` | `#008300` |
-| 7    | Violet  | `#4a3aa7` | `#9085e9` |
-| 8    | Red     | `#e34948` | `#e66767` |
+| Slot | Name    | Token        |
+| ---- | ------- | ------------ |
+| 1    | Blue    | `--series-1` |
+| 2    | Orange  | `--series-2` |
+| 3    | Aqua    | `--series-3` |
+| 4    | Yellow  | `--series-4` |
+| 5    | Magenta | `--series-5` |
+| 6    | Green   | `--series-6` |
+| 7    | Violet  | `--series-7` |
+| 8    | Red     | `--series-8` |
 
 - `seriesColor(index)`: `var(--series-N)` for a 0-based index; past the eighth slot it returns the "Other" grey, never a repeat.
-- `CATEGORICAL_PALETTE`: the slots, each a `ThemeColor` (`token`, `css`, `light`, `dark` and its contrast `role`, from `@/lib/kit/color/theme-color`) with its `slot` and `name`. `CATEGORICAL_OTHER` is the grey for an "Other" bucket.
+- `CATEGORICAL_PALETTE`: the slots, each a `ThemeColor` (the token's name as `token` and `var(--…)` as `css`, from `@/lib/kit/color/theme-color`) with its `slot` and `name`. `CATEGORICAL_OTHER` is the gray for an "Other" bucket.
 - Assign by a stable index (the series' place in a fixed list), not by rank, so a filter that removes a series never repaints the others.
 - A single series is slot 1 and needs no legend. Two or more get a `ChartLegend`.
 - In scatter plots and small multiples any two colours can touch, so use at most three slots there and fold the rest into "Other".
@@ -220,7 +220,7 @@ import {
 - `getStatusHueColor(hue)`: `success`, `neutral` or `destructive` to its `var(--verification-…)`.
 - `getRatingsGroupColor(status)`: the chart fill for a status (neutral for the three undecided states).
 - `getVerificationStatusColor(status)`: the icon colour for a status. `VerificationStatusIcon` already uses the `text-verification-*` classes; reach for this only in SVG or chart code.
-- `VERIFICATION_COLORS`: the three `ThemeColor` entries.
+- `VERIFICATION_COLORS`: the three `ThemeColor` entries (token names, no values).
 
 Don't:
 
@@ -275,8 +275,8 @@ import {
 
 - `getTeamColor(team)`: the mark colour (`--match-red`, `--match-blue`, `--match-no-team`) for the edge, swatches and chart lines.
 - `getTeamTextColor(team)`: the text step; `var(--foreground)` for no team.
-- `getTeamTintClass(team)` / `MATCH_TEAM_TINT_CLASS`: the card tint, `bg-match-red/6` and so on. `MATCH_TEAM_TINT` (6%) is the strength the tests check.
-- Classes: `bg-match-red`, `text-match-red-foreground`, `bg-game-frame`, `bg-score-card`. `MATCH_SURFACES` holds the two surfaces' values for tests.
+- `getTeamTintClass(team)` / `MATCH_TEAM_TINT_CLASS`: the card tint at 6%, `bg-match-red/6` and so on.
+- Classes: `bg-match-red`, `text-match-red-foreground`, `bg-game-frame`, `bg-score-card`. `MATCH_SURFACES` names the two surfaces' tokens for the gallery.
 - Foreground, muted and team text clear 4.5:1 on the game frame, the score card and the tinted score card, in both themes.
 
 Do:
@@ -287,7 +287,7 @@ Do:
 Don't:
 
 - Don't hard-code the surfaces (`bg-white dark:bg-neutral-800`, `border-neutral-300`, `bg-secondary`); use `bg-game-frame` and `bg-score-card`.
-- Don't tint more than `MATCH_TEAM_TINT` (6%): at 10% muted text on the light card drops under 4.5:1.
+- Don't tint more than 6%: at 10% muted text on the light card drops under 4.5:1.
 - Don't use other reds and blues for the same teams (`bg-red-500/10 text-red-600`, `text-red-600 dark:text-red-400`); every team mark and text comes from these helpers.
 - Don't use a fixed grey such as `#333` for no team; `--match-no-team` follows the theme.
 
@@ -355,15 +355,15 @@ import { MOD_FILL_FOREGROUND, getModPaletteColor } from '@/lib/kit/color/mods';
 ```
 
 - `getModPaletteColor(mods)`: applies the display rules first (NF and SO dropped, NC shown as DT), then returns `var(--mod-…)` or the "Other" grey.
-- `getModPaletteEntry(mods)`: the entry with its `label`, `light` and `dark`, or undefined.
+- `getModPaletteEntry(mods)`: the entry with its `label`, `token` and `css`, or undefined.
 - `MOD_PALETTE`: labelled as the beatmap pages label them (`getBeatmapModLabel`): NM, HD, HR, DT, HT, EZ, FL, HDHR, EZHD, EZDT, HDFL, HDDT, SD, TD, RX (relax and autoplay), MR, RD and KEY (mania keys).
 - `MOD_FILL_FOREGROUND`: black, the text colour on every solid mod fill.
 - Mod labels and lists come from the format family (`formatMods`, `getBeatmapModLabel`).
 
 Don't:
 
-- Don't keep a mod colour table of your own; every mod chart uses this palette.
-- Don't swap a mod to a new hue to fix contrast or a clash. Players know these colours; move the lightness, or the chroma for a rare mod, as `mods.ts` does.
+- Don't keep a mod color table of your own; every mod chart uses this palette.
+- Don't swap a mod to a new hue to fix contrast or a clash. Players know these colors; move the lightness, or the chroma for a rare mod, in `globals.css`.
 
 Gallery anchor: `/admin/design#color-mods`
 
@@ -412,30 +412,13 @@ import {
 ```
 
 - `getStarRatingMarkColor(sr)` returns `light-dark(<light>, <dark>)`, which follows the theme's `color-scheme`. Use it in `style`, not in an SVG presentation attribute.
-- `getStarRatingMarkColors(sr)`: `{ light, dark }` hex, for code that knows its theme.
+- The spectrum is osu!'s, so it is the one set of color values kept in TypeScript (`@/lib/beatmaps/star-rating-color`). The mark versions are precomputed in `@/lib/kit/color/star-rating`: osu!'s stops and the points halfway between them, with only their OKLab lightness moved until each clears 3:1 on the muted surface of its theme, interpolated like the spectrum. Nothing measures contrast in the browser. If the muted surfaces change, recompute those stops.
 
 Don't:
 
 - Don't put the solid pill colour (`getStarRatingColor`) on an icon or text on a card; some steps drop under 3:1 there. Use `getStarRatingMarkColor`.
 
 Gallery anchor: `/admin/design#color-star-rating`
-
-## Contrast helpers
-
-Pure colour maths in `@/lib/kit/color/contrast` and `@/lib/kit/color/cvd`, for tests and for checking a new colour before it lands.
-
-```ts
-import { CONTRAST_MARK, contrastRatio } from '@/lib/kit/color/contrast';
-import { SURFACES } from '@/lib/kit/color/surfaces';
-
-contrastRatio('#4589f2', SURFACES.light.card) >= CONTRAST_MARK;
-```
-
-- `parseColor` reads hex, `rgb()`, `hsl()` and `oklch()`; `contrastRatio(fg, bg)` is WCAG 2 (a translucent foreground is painted over the background first); `formatContrast` rounds down. `CONTRAST_TEXT` (4.5) and `CONTRAST_MARK` (3) are the two thresholds. The steps behind them are exported too: `composite`, `relativeLuminance`, `toHex`, `rgbToOklab` and `oklabToRgb`.
-- `colorDistance(a, b, vision)`: OKLab ΔE ×100 for `normal`, `protan` or `deutan` readers; `worstAdjacentDistance` checks a palette's neighbours against `CVD_SEPARATION_TARGET` (8) and `NORMAL_SEPARATION_FLOOR` (15).
-- `SURFACES`: the light card (`--card`) and the dark panel (`--muted` at 75% over `--background`), plus each theme's muted, popover and accent (tooltip) surfaces. `TEXT_COLORS`: each theme's foreground and muted text, as hex. A test resolves both from `globals.css`.
-
-Adding a colour token: add it to both blocks in `globals.css` (and to `@theme inline` if it needs a class), add the `themeColor(...)` entry to its module and to `TOKEN_GROUPS` in `@/lib/kit/color/tokens`, run `bun test apps/web/lib/kit/color`, and check the gallery.
 
 ## Tick rule
 

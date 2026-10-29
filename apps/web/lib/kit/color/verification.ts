@@ -14,14 +14,9 @@ import { themeColor, type ThemeColor } from './theme-color';
  * glyph; it never carries the status alone.
  */
 export const VERIFICATION_COLORS: Readonly<Record<StatusHue, ThemeColor>> = {
-  success: themeColor('--verification-verified', '#25984d', '#47c86e', 'mark'),
-  neutral: themeColor('--verification-neutral', '#7a7a7a', '#929292', 'mark'),
-  destructive: themeColor(
-    '--verification-rejected',
-    '#d73431',
-    '#f66d67',
-    'mark'
-  ),
+  success: themeColor('--verification-verified'),
+  neutral: themeColor('--verification-neutral'),
+  destructive: themeColor('--verification-rejected'),
 };
 
 export function getStatusHueColor(hue: StatusHue): string {

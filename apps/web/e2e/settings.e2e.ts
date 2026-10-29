@@ -222,7 +222,11 @@ test.describe('Settings', () => {
     test('the browsing setting picks the ruleset the lists open in', async ({
       page,
     }) => {
-      await chooseSetting(page, 'Leaderboard and tournaments', 'catch');
+      await chooseSetting(
+        page,
+        'Leaderboard, tournaments and beatmaps',
+        'catch'
+      );
 
       // The leaderboard's first-visit dialog would hide the page behind it.
       await page.addInitScript(() => {
@@ -248,6 +252,14 @@ test.describe('Settings', () => {
       // Every ruleset differs from this visitor's default, so it is written.
       await rulesets.getByRole('button', { name: 'All', exact: true }).click();
       await page.waitForURL((url) => url.searchParams.get('ruleset') === 'all');
+
+      await page.goto(ROUTES.beatmaps);
+      await page.waitForLoadState('networkidle');
+      const beatmapRulesets = page.getByTestId('beatmap-ruleset-filters');
+      await expect(
+        beatmapRulesets.getByRole('button', { name: 'catch', exact: true })
+      ).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+      expect(new URL(page.url()).searchParams.has('ruleset')).toBe(false);
     });
   });
 });

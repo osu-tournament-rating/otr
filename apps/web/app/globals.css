@@ -188,7 +188,7 @@
   --destructive: var(--color-red-600);
   /* Solid fill behind white text, such as the final destructive confirm. */
   --destructive-solid: var(--color-red-600);
-  /* Red text. Tailwind's red-800, spelled out so lib/kit/color can test it. */
+  /* Red text: Tailwind's red-800. */
   --destructive-foreground: oklch(44.4% 0.177 26.899);
 
   --warning: var(--color-warning);
@@ -235,9 +235,10 @@
   --color-warning-foreground: var(--color-amber-800);
 
   /*
-   * Component library tokens (apps/web/lib/kit/color mirrors every value and
-   * its tests check them). Marks and icons clear 3:1 and text clears 4.5:1
-   * against the card and muted surfaces of their theme.
+   * Component library tokens. This file is the only place their values live;
+   * apps/web/lib/kit/color maps domain values to them by name. Marks and icons
+   * clear 3:1 and text clears 4.5:1 against the card and muted surfaces of
+   * their theme.
    */
 
   /* Categorical chart palette: neutral series, rank ranges and teams, in
@@ -344,7 +345,7 @@
   --destructive: var(--color-red-500);
   /* Red-500 under white text is about 3.8:1; red-600 clears 4.5:1. */
   --destructive-solid: var(--color-red-600);
-  /* Red text: Tailwind's red-400, spelled out so lib/kit/color can test it.
+  /* Red text: Tailwind's red-400.
      Red-500 fell under 4.5:1 on tiles and popovers. */
   --destructive-foreground: oklch(70.4% 0.191 22.216);
 

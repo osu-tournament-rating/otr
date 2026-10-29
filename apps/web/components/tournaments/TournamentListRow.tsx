@@ -12,6 +12,7 @@ import { RowListItem } from '@/components/kit/layout/RowList';
 import { Badge } from '@/components/kit/status/Badge';
 import { NotInRatings } from '@/components/kit/status/NotInRatings';
 import { VerificationStatusIcon } from '@/components/kit/status/VerificationStatusIcon';
+import SimpleTooltip from '@/components/simple-tooltip';
 import { formatDateRange } from '@/lib/kit/format/date';
 import { formatLobbySize, formatRankRange } from '@/lib/kit/format/fields';
 import { formatCountOf } from '@/lib/kit/format/number';
@@ -31,6 +32,13 @@ import { type TournamentListItem } from '@/lib/orpc/schema/tournament';
  */
 export const TOURNAMENT_ROW_COLUMNS =
   'md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-x-6 lg:grid-cols-[minmax(0,1fr)_18rem_230px] lg:gap-5';
+
+/**
+ * Every row keeps the note icon's 20px slot, so names and abbreviations line
+ * up whether a tournament has notes or not.
+ */
+const ADMIN_NOTE_SLOT =
+  'mt-0.5 inline-flex size-5 shrink-0 items-center justify-center lg:mt-0';
 
 /** The name cell spans the tablet grid's two columns. */
 export const TOURNAMENT_ROW_NAME_CELL = 'min-w-0 md:col-span-2 lg:col-span-1';
@@ -86,9 +94,9 @@ export function getTournamentRowLabel(
  * on hover; "Not in ratings yet" says the undecided states in words.
  *
  * A tournament with admin notes shows a note icon after its abbreviation,
- * and the link's name says how many. The row is one link, so it holds no
- * preview a tap or keyboard could open; the notes open from the tournament
- * page.
+ * and the link's name says how many. Hovering the icon lists the notes, as
+ * hovering the status icon explains it; the row is one link, so neither can
+ * be a button, and a tap or keyboard opens the notes on the tournament page.
  */
 export default function TournamentListRow({
   tournament,
@@ -138,18 +146,43 @@ export default function TournamentListRow({
             >
               {tournament.abbreviation}
             </span>
-            <span
-              data-testid="tournament-admin-note-slot"
-              className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center lg:mt-0"
-            >
-              {noteCount > 0 && (
-                <NotebookPen
-                  data-testid="tournament-admin-notes-marker"
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              )}
-            </span>
+            {noteCount > 0 ? (
+              <SimpleTooltip
+                side="top"
+                content={
+                  <ul className="max-h-64 max-w-xs space-y-1 overflow-y-auto text-xs">
+                    {tournament.adminNotes.map((note) => (
+                      <li
+                        key={note.id}
+                        className="wrap-anywhere whitespace-pre-wrap"
+                      >
+                        {note.note}
+                        <span className="text-muted-foreground">
+                          {' '}
+                          — {note.adminUser.player.username}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                }
+              >
+                <span
+                  data-testid="tournament-admin-note-slot"
+                  className={ADMIN_NOTE_SLOT}
+                >
+                  <NotebookPen
+                    data-testid="tournament-admin-notes-marker"
+                    className="size-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </span>
+              </SimpleTooltip>
+            ) : (
+              <span
+                data-testid="tournament-admin-note-slot"
+                className={ADMIN_NOTE_SLOT}
+              />
+            )}
           </div>
           {(notInRatings || tournament.isLazer) && (
             <div className="mt-1 flex flex-wrap items-center gap-2 pl-6">

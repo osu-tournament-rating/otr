@@ -13,7 +13,6 @@ import {
   LEADERBOARD_RANGES,
   LEADERBOARD_TIER_LABELS,
 } from '@/app/leaderboard/list-params';
-import { rulesetsForAddress } from '@/app/tournaments/list-params';
 import { AuditSystemSwitch } from '@/components/audit/AuditSystemSwitch';
 import BeatmapCover from '@/components/beatmaps/BeatmapCover';
 import { Button } from '@/components/kit/controls/Button';
@@ -85,6 +84,7 @@ import {
   rangeParam,
   searchParam,
   sortParam,
+  valuesForAddress,
   type ListParams,
   type ListState,
 } from '@/lib/kit/lists/params';
@@ -442,7 +442,7 @@ function TournamentToolbarDemo() {
               value={state.ruleset ?? DEMO_BROWSING_RULESETS}
               onValueChange={(ruleset) =>
                 setState({
-                  ruleset: rulesetsForAddress(ruleset, DEMO_BROWSING_RULESETS),
+                  ruleset: valuesForAddress(ruleset, DEMO_BROWSING_RULESETS),
                 })
               }
             />

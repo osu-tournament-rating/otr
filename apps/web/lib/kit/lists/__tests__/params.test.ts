@@ -29,6 +29,7 @@ import {
   serializeListState,
   sortParam,
   toSearchParams,
+  valuesForAddress,
 } from '../params';
 
 const STATUSES = [
@@ -529,6 +530,17 @@ describe('arrayParam with allValue', () => {
     ).toBeUndefined();
     expect(clearListFilters(spec, state).ruleset).toEqual([Ruleset.Taiko]);
     expect(countActiveFilters(spec, state)).toBe(0);
+  });
+
+  it('leaves the visitor’s own values out of the address', () => {
+    expect(valuesForAddress([Ruleset.Taiko], [Ruleset.Taiko])).toBeUndefined();
+    expect(valuesForAddress([], [])).toBeUndefined();
+    // Every ruleset over a visitor's default writes ruleset=all.
+    expect(valuesForAddress([], [Ruleset.Taiko])).toEqual([]);
+    expect(valuesForAddress([Ruleset.Osu], [])).toEqual([Ruleset.Osu]);
+    expect(
+      valuesForAddress([Ruleset.Osu, Ruleset.Taiko], [Ruleset.Taiko])
+    ).toEqual([Ruleset.Osu, Ruleset.Taiko]);
   });
 
   it('keeps the two-state behaviour without allValue', () => {

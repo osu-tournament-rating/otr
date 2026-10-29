@@ -337,6 +337,21 @@ export function arrayParam<T extends EnumValue>(
   };
 }
 
+/**
+ * What an `allValue` param writes for `values`, given the visitor's own
+ * `defaults`: nothing when they match, so the visitor's default never lands
+ * in a shared link, and otherwise the values (empty writes `allValue`).
+ */
+export function valuesForAddress<T extends EnumValue>(
+  values: readonly T[],
+  defaults: readonly T[]
+): T[] | undefined {
+  const same =
+    values.length === defaults.length &&
+    values.every((value) => defaults.includes(value));
+  return same ? undefined : [...values];
+}
+
 /** The flags set in `mask`, in the order of `flags`. Zero and unknown bits are dropped. */
 export function maskToFlags<T extends number>(
   mask: number,
