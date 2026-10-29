@@ -76,5 +76,5 @@ o!TR (osu! Tournament Rating) rates osu! tournament players. The site is a data 
 
 - Every control is reachable by keyboard and shows visible focus.
 - Status is never told by colour alone.
-- Text holds 4.5:1 and marks 3:1 in both themes; the site's own tests check every token pair.
+- Text holds 4.5:1 and marks 3:1 in both themes.
 - Tap icons keep at least 8px between them so each has a 24px target.

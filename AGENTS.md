@@ -9,6 +9,9 @@ in this monorepo, and a merge to `master` ships to production.
 Run commands from the repository root unless noted. `CLAUDE.md` is a symlink to
 this file.
 
+Write American English (color, behavior, gray) in code, comments, docs, and
+everything posted publicly.
+
 ## Repository map
 
 - `apps/web`: the Next.js site. It also serves the API: an internal oRPC
