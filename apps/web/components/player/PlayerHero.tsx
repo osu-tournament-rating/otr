@@ -1,11 +1,10 @@
 import type { Ruleset } from '@otr/core/osu';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Moon } from 'lucide-react';
 import Link from 'next/link';
 
 import { IconButton } from '@/components/kit/controls/IconButton';
 import { CountryName } from '@/components/kit/country/CountryFlag';
 import { DetailHero } from '@/components/kit/layout/DetailHero';
-import { Badge } from '@/components/kit/status/Badge';
 import TapTooltip from '@/components/tap-tooltip';
 import { OsuAvatar } from '@/components/ui/osu-avatar';
 import { getCountryName } from '@/lib/kit/format/country';
@@ -18,27 +17,26 @@ import {
   leaderboardHref,
 } from '@/app/leaderboard/list-params';
 
-const INACTIVE_TOOLTIP =
-  'No verified match in the last year. Rating decays weekly.';
+const INACTIVE_TOOLTIP = 'No verified match in the last year';
 
 /**
- * Says the player is inactive in the ruleset the profile shows. The tooltip
- * opens on hover, keyboard focus and tap.
+ * Says the player is inactive in the ruleset the profile shows, with the moon
+ * the leaderboard uses. The tooltip opens on hover, keyboard focus and tap.
  */
-function InactiveBadge() {
+function InactiveMark() {
   return (
     <TapTooltip
       content={INACTIVE_TOOLTIP}
       triggerAriaLabel={`Inactive: ${INACTIVE_TOOLTIP}`}
-      triggerClassName="inline-flex w-auto rounded-full align-middle"
+      triggerClassName="inline-flex w-auto align-middle text-muted-foreground"
     >
-      <Badge size="sm">Inactive</Badge>
+      <Moon aria-hidden className="size-4 sm:size-5" />
     </TapTooltip>
   );
 }
 
 /**
- * The top of a player's profile: avatar, name, an Inactive badge when the
+ * The top of a player's profile: avatar, name, an inactive mark when the
  * player has no verified match in the ruleset for a year, country (a link
  * to that country's leaderboard), the osu! profile link, and the ruleset the
  * page shows.
@@ -66,7 +64,7 @@ export default function PlayerHero({
         />
       }
       title={<span data-testid="player-username">{player.username}</span>}
-      titleSuffix={inactive ? <InactiveBadge /> : undefined}
+      titleSuffix={inactive ? <InactiveMark /> : undefined}
       meta={
         player.country ? (
           <Link
