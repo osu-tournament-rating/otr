@@ -1,7 +1,6 @@
 import { CATEGORICAL_OTHER, CATEGORICAL_PALETTE } from './categorical';
 import { GRADE_PALETTE } from './grades';
 import { MOD_PALETTE } from './mods';
-import type { Surface } from './surfaces';
 import { MATCH_SURFACES, MATCH_TEAM_COLORS } from './teams';
 import { themeColor, type ThemeColor } from './theme-color';
 import { TIER_PALETTE } from './tiers';
@@ -17,26 +16,11 @@ export interface CalloutColors {
   foreground: ThemeColor;
 }
 
-function callout(
-  tone: CalloutTone,
-  [fillLight, fillDark]: [string, string],
-  [borderLight, borderDark]: [string, string],
-  [textLight, textDark]: [string, string]
-): CalloutColors {
+function callout(tone: CalloutTone): CalloutColors {
   return {
-    fill: themeColor(`--callout-${tone}`, fillLight, fillDark, 'surface'),
-    border: themeColor(
-      `--callout-${tone}-border`,
-      borderLight,
-      borderDark,
-      'border'
-    ),
-    foreground: themeColor(
-      `--callout-${tone}-foreground`,
-      textLight,
-      textDark,
-      'text'
-    ),
+    fill: themeColor(`--callout-${tone}`),
+    border: themeColor(`--callout-${tone}-border`),
+    foreground: themeColor(`--callout-${tone}-foreground`),
   };
 }
 
@@ -45,104 +29,10 @@ function callout(
  * never reads as something to click.
  */
 export const CALLOUT_COLORS: Readonly<Record<CalloutTone, CalloutColors>> = {
-  info: callout(
-    'info',
-    ['#f0f6fc', '#1b2026'],
-    ['#c9daeb', '#344458'],
-    ['#314968', '#bcd3f2']
-  ),
-  warning: callout(
-    'warning',
-    ['#fff6e1', '#2b1f0d'],
-    ['#ebc573', '#724d0b'],
-    ['#864900', '#f8cf68']
-  ),
-  danger: callout(
-    'danger',
-    ['#fff1f1', '#301717'],
-    ['#f9bcb9', '#893130'],
-    ['#b7191c', '#ff9e9b']
-  ),
+  info: callout('info'),
+  warning: callout('warning'),
+  danger: callout('danger'),
 };
-
-/**
- * The brand blue. `--primary` colours icons, borders, rings and selection: in
- * light mode it is darkened so white text on it reaches 4.5:1, and in dark mode
- * it stays the original blue. `--primary-solid` is the fill behind white text
- * in both themes, and `--link` colours blue text.
- */
-export const PRIMARY_COLOR: ThemeColor = themeColor(
-  '--primary',
-  'oklch(0.575 0.182 262.51)',
-  'oklch(0.67 0.17 258.51)',
-  'mark'
-);
-
-/** Blue link text: 4.5:1 or better on every surface in both themes. */
-export const LINK_COLOR: ThemeColor = themeColor(
-  '--link',
-  'oklch(0.547 0.174 262.51)',
-  'oklch(0.67 0.17 258.51)',
-  'text'
-);
-
-export const PRIMARY_SOLID_COLOR: ThemeColor = themeColor(
-  '--primary-solid',
-  'oklch(0.575 0.182 262.51)',
-  'oklch(0.575 0.182 262.51)',
-  'mark'
-);
-
-/** The one colour for "something new" dots on menu items and avatars. */
-export const NOTIFICATION_COLOR: ThemeColor = themeColor(
-  '--notification',
-  '#4589f2',
-  '#4e93fc',
-  'mark'
-);
-
-/** The support heart in the header, on hover: the same pink in both themes. */
-export const SUPPORT_COLOR: ThemeColor = themeColor(
-  '--support',
-  'oklch(0.656 0.241 354.308)',
-  'oklch(0.656 0.241 354.308)',
-  'mark'
-);
-
-/** Body text. */
-export const FOREGROUND_COLOR: ThemeColor = themeColor(
-  '--foreground',
-  'oklch(0 0 0)',
-  'oklch(1 0 0)',
-  'text'
-);
-
-/** Secondary text: labels, captions, table headers. 4.5:1 on every surface but accent. */
-export const MUTED_TEXT_COLOR: ThemeColor = themeColor(
-  '--muted-foreground',
-  'oklch(0.53 0 0)',
-  'oklch(0.69 0 0)',
-  'text'
-);
-
-/**
- * Muted text on the accent surface, where `--muted-foreground` is under
- * 4.5:1. Tooltips apply it through `ACCENT_SURFACE_CLASSES`.
- */
-export const ACCENT_MUTED_TEXT_COLOR: ThemeColor = themeColor(
-  '--accent-muted-foreground',
-  'oklch(0.5 0 0)',
-  'oklch(0.75 0 0)',
-  'text'
-);
-
-/** Red text: errors, falls in rating, destructive menu items. Tailwind red-800 and red-400. */
-export const DESTRUCTIVE_TEXT_COLOR: ThemeColor = themeColor(
-  '--destructive-foreground',
-  'oklch(44.4% 0.177 26.899)',
-  'oklch(70.4% 0.191 22.216)',
-  'text'
-);
 
 /**
  * The tooltip surface: `bg-accent`, its text colour, and muted text scoped to
@@ -157,8 +47,6 @@ export interface TokenEntry {
   label: string;
   /** Tailwind class stem, such as `series-1`, when the token is registered. */
   utility?: string;
-  /** The surface its contrast is measured on, when it is not the panel. */
-  surface?: Surface;
 }
 
 export interface TokenGroup {
@@ -169,35 +57,28 @@ export interface TokenGroup {
 
 const utilityOf = (color: ThemeColor) => color.token.slice(2);
 
+/** Entries whose Tailwind class stem is the token's name. */
+const named = (entries: { token: string; label: string }[]): TokenEntry[] =>
+  entries.map(({ token, label }) => {
+    const color = themeColor(token);
+    return { color, label, utility: utilityOf(color) };
+  });
+
 /**
  * Every token the component library added to globals.css, and the theme text
- * colours it depends on, grouped as the gallery shows them.
+ * colors it depends on, grouped as the gallery shows them. Names only: the
+ * values live in globals.css.
  */
 export const TOKEN_GROUPS: readonly TokenGroup[] = [
   {
     id: 'text',
     title: 'Text',
-    entries: [
-      { color: FOREGROUND_COLOR, label: 'Text', utility: 'foreground' },
-      {
-        color: MUTED_TEXT_COLOR,
-        label: 'Muted text',
-        utility: 'muted-foreground',
-        surface: 'muted',
-      },
-      {
-        color: ACCENT_MUTED_TEXT_COLOR,
-        label: 'Muted text in a tooltip',
-        utility: 'accent-muted-foreground',
-        surface: 'accent',
-      },
-      {
-        color: DESTRUCTIVE_TEXT_COLOR,
-        label: 'Red text',
-        utility: 'destructive-foreground',
-        surface: 'muted',
-      },
-    ],
+    entries: named([
+      { token: '--foreground', label: 'Text' },
+      { token: '--muted-foreground', label: 'Muted text' },
+      { token: '--accent-muted-foreground', label: 'Muted text in a tooltip' },
+      { token: '--destructive-foreground', label: 'Red text' },
+    ]),
   },
   {
     id: 'categorical',
@@ -251,43 +132,26 @@ export const TOKEN_GROUPS: readonly TokenGroup[] = [
     ].map((entry) => ({ ...entry, utility: utilityOf(entry.color) })),
   },
   {
+    // `--primary` colors icons, borders, rings and selection, `--primary-solid`
+    // is the fill behind white text in both themes, and `--link` colors blue
+    // text.
     id: 'brand',
     title: 'Brand blue',
-    entries: [
-      {
-        color: PRIMARY_COLOR,
-        label: 'Blue icons, borders and selection',
-        utility: 'primary',
-      },
-      { color: LINK_COLOR, label: 'Blue link text', utility: 'link' },
-      {
-        color: PRIMARY_SOLID_COLOR,
-        label: 'Blue fill behind white text',
-        utility: 'primary-solid',
-      },
-    ],
+    entries: named([
+      { token: '--primary', label: 'Blue icons, borders and selection' },
+      { token: '--link', label: 'Blue link text' },
+      { token: '--primary-solid', label: 'Blue fill behind white text' },
+    ]),
   },
   {
     id: 'accent',
     title: 'Notification',
-    entries: [
-      {
-        color: NOTIFICATION_COLOR,
-        label: 'Notification dot',
-        utility: utilityOf(NOTIFICATION_COLOR),
-      },
-    ],
+    entries: named([{ token: '--notification', label: 'Notification dot' }]),
   },
   {
     id: 'support',
     title: 'Support',
-    entries: [
-      {
-        color: SUPPORT_COLOR,
-        label: 'Support heart on hover',
-        utility: 'support',
-      },
-    ],
+    entries: named([{ token: '--support', label: 'Support heart on hover' }]),
   },
   {
     id: 'tiers',
@@ -312,8 +176,3 @@ export const TOKEN_GROUPS: readonly TokenGroup[] = [
     entries: MOD_PALETTE.map((color) => ({ color, label: color.label })),
   },
 ];
-
-/** Every token above, flattened. */
-export const ALL_TOKENS: readonly ThemeColor[] = TOKEN_GROUPS.flatMap((group) =>
-  group.entries.map((entry) => entry.color)
-);

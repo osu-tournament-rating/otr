@@ -370,7 +370,7 @@ import {
 <RulesetName ruleset={Ruleset.Mania4k} showIcon={false} />
 ```
 
-- `RulesetName` is a label, not a control. `iconOnly` adds a tooltip that opens on hover, focus and tap, with the full name as its `aria-label`. The icon is muted.
+- `RulesetName` is a label, not a control. `iconOnly` adds a tooltip that opens on hover, focus and tap, with the full name as its `aria-label`. The icon is muted. The label sets the baseline, so the name lines up with the text beside it, such as the other HeroMetaItems in a hero.
 - `RATED_RULESETS` is the order for chips, tabs, legends and ruleset filters. It leaves out `Ruleset.ManiaOther` (`mania (other)`), as the tournament list, beatmap list, leaderboard and filter tool do. Only admin pickers offer it: the tournament, game and beatmap edit dialogs, and the submission form when an admin is signed in.
 - `isRuleset(value)` checks a value read from outside (an address, a payload) against every `Ruleset`, `mania (other)` included; a list param built on `RATED_RULESETS` (`enumParam`, `arrayParam`) already drops it. `isRatedRuleset(value)` accepts only `RATED_RULESETS`, for a ruleset a rated list must be able to open in, such as a player's most played.
 - `RULESET_NAMES[ruleset]` is `{ label, fullName }` (type `RulesetNameEntry`) for every `Ruleset`.

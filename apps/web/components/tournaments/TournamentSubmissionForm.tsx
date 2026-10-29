@@ -2,7 +2,7 @@
 
 import { TournamentRejectionReason } from '@otr/core/osu';
 import { Database, Trophy } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -69,7 +69,6 @@ const toLines = (value: unknown) =>
 
 export default function TournamentSubmissionForm() {
   const session = useSession();
-  const router = useRouter();
   const isAdmin = hasAdminScope(session?.scopes ?? []);
   const rejectId = useId();
   const reasonLabelId = useId();
@@ -147,9 +146,23 @@ export default function TournamentSubmissionForm() {
         toast.warning(warning);
       });
 
-      toast.success('Tournament submitted successfully');
-      // Its page shows the matches and beatmaps being fetched.
-      router.push(`/tournaments/${result.id}`);
+      // The visitor stays on the form to submit more; its page shows the
+      // matches and beatmaps being fetched.
+      const toastId = `tournament-submitted-${result.id}`;
+      toast.success('Tournament submitted successfully', {
+        id: toastId,
+        duration: 10_000,
+        action: (
+          <Button asChild size="sm" className="ml-auto">
+            <Link
+              href={`/tournaments/${result.id}`}
+              onClick={() => toast.dismiss(toastId)}
+            >
+              View
+            </Link>
+          </Button>
+        ),
+      });
     } catch (error) {
       toast.error(extractErrorMessage(error));
     } finally {

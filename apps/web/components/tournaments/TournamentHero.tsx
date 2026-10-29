@@ -128,10 +128,10 @@ export default function TournamentHero({
         }
         meta={
           <>
-            <HeroMetaItem>
+            <HeroMetaItem data-testid="tournament-ruleset">
               <RulesetName ruleset={tournament.ruleset} />
             </HeroMetaItem>
-            <HeroMetaItem icon={Users}>
+            <HeroMetaItem icon={Users} data-testid="tournament-lobby-size">
               {formatLobbySize(tournament.lobbySize)}
             </HeroMetaItem>
             <HeroMetaItem icon={Target} className="tabular-nums">

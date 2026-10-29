@@ -490,6 +490,58 @@ test.describe('Tournaments', () => {
       ).toBeVisible();
     });
 
+    test('the ruleset sits level with the other hero facts', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.tournament(TEST_PUBLIC_TOURNAMENT_ID));
+      await page.waitForLoadState('networkidle');
+
+      // The middle of each fact's text, not of its box: the box stays
+      // centered in the row while the text inside it rides up.
+      const textMiddle = (testId: string) =>
+        page.getByTestId(testId).evaluate((item) => {
+          const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+          let text: Node | null = null;
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (node.textContent?.trim()) text = node;
+          }
+          const range = document.createRange();
+          range.selectNodeContents(text!);
+          const box = range.getBoundingClientRect();
+          return box.top + box.height / 2;
+        });
+
+      await expect(page.getByTestId('tournament-ruleset')).toBeVisible({
+        timeout: 10000,
+      });
+      expect(await textMiddle('tournament-ruleset')).toBeCloseTo(
+        await textMiddle('tournament-lobby-size'),
+        0
+      );
+    });
+
+    test('an action tooltip closes as the pointer moves onto it', async ({
+      page,
+    }) => {
+      await page.goto(ROUTES.tournament(TEST_PUBLIC_TOURNAMENT_ID));
+      await page.waitForLoadState('networkidle');
+
+      const auditHistory = page.getByRole('link', {
+        name: 'View audit history',
+      });
+      await auditHistory.hover();
+      const tooltip = page.locator('[data-slot="tooltip-content"]');
+      await expect(tooltip).toBeVisible();
+
+      // Heading up from the button toward the Admin menu crosses the
+      // tooltip, which must not stay open over the menu.
+      const box = await tooltip.boundingBox();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2, {
+        steps: 10,
+      });
+      await expect(page.getByRole('tooltip')).toHaveCount(0);
+    });
+
     test('four tabs fit a 360px phone and keep their counts in their names', async ({
       page,
     }) => {
