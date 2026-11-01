@@ -317,7 +317,7 @@ function BeatmapEditDialog({
               {saveError ? (
                 <p
                   role="alert"
-                  className="text-sm font-medium text-destructive-foreground"
+                  className="text-sm font-medium text-destructive"
                 >
                   {saveError}
                 </p>

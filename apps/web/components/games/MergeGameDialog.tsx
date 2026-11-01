@@ -252,7 +252,7 @@ export default function MergeGameDialog({
               {isFetching ? 'Fetching…' : 'Fetch games'}
             </Button>
             {error ? (
-              <p role="alert" className="text-sm text-destructive-foreground">
+              <p role="alert" className="text-sm text-destructive">
                 {error}
               </p>
             ) : null}
@@ -300,7 +300,7 @@ function ChildGameRow({ game }: { game: GameAdminPreview }) {
         <dd
           className={
             game.scoresCount === 0
-              ? 'text-destructive-foreground tabular-nums'
+              ? 'text-destructive tabular-nums'
               : 'tabular-nums'
           }
         >

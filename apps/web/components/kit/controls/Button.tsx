@@ -15,8 +15,8 @@ import { cn } from '@/lib/utils';
  *   border, never filled; it opens a ConfirmDialog.
  * - `destructive-confirm`: the solid red button that carries out a
  *   destructive action, only as the final confirm in a dialog. It fills
- *   with `destructive-solid`, a red dark enough for white text in both
- *   themes.
+ *   with `destructive` behind white text, at 60% in dark mode, as stock
+ *   shadcn does.
  * - `overlay`: the dark pill on cover art, white in both themes.
  */
 export type ButtonVariant =
@@ -56,7 +56,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   outline: 'data-[state=open]:bg-accent',
   ghost: 'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
   destructive:
-    'border-destructive/40 text-destructive-foreground hover:bg-destructive/10 hover:text-destructive-foreground focus-visible:border-destructive focus-visible:ring-destructive/20 data-[state=open]:bg-destructive/10 dark:border-destructive/50 dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40',
+    'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive focus-visible:ring-destructive/20 data-[state=open]:bg-destructive/10 dark:border-destructive/50 dark:hover:bg-destructive/20 dark:focus-visible:ring-destructive/40',
   'destructive-confirm': '',
   overlay: ON_ART_CONTROL_CLASSES,
 };

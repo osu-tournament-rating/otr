@@ -98,17 +98,17 @@ const GRADE_GROUPS = [
   {
     label: 'SS',
     grades: [ScoreGrade.SSH, ScoreGrade.SS],
-    fill: GRADE_PALETTE.SS.css,
+    fill: GRADE_PALETTE.SS,
   },
   {
     label: 'S',
     grades: [ScoreGrade.SH, ScoreGrade.S],
-    fill: GRADE_PALETTE.S.css,
+    fill: GRADE_PALETTE.S,
   },
-  { label: 'A', grades: [ScoreGrade.A], fill: GRADE_PALETTE.A.css },
-  { label: 'B', grades: [ScoreGrade.B], fill: GRADE_PALETTE.B.css },
-  { label: 'C', grades: [ScoreGrade.C], fill: GRADE_PALETTE.C.css },
-  { label: 'D', grades: [ScoreGrade.D], fill: GRADE_PALETTE.D.css },
+  { label: 'A', grades: [ScoreGrade.A], fill: GRADE_PALETTE.A },
+  { label: 'B', grades: [ScoreGrade.B], fill: GRADE_PALETTE.B },
+  { label: 'C', grades: [ScoreGrade.C], fill: GRADE_PALETTE.C },
+  { label: 'D', grades: [ScoreGrade.D], fill: GRADE_PALETTE.D },
 ] as const;
 
 function buildGradeSegments(gradeDistribution: BeatmapGradeCount[]) {
@@ -275,20 +275,14 @@ interface RankRangeSlice {
   fill: string;
 }
 
-const TOOLTIP_MOD_ROW_CAP = 5;
-
-/** The readout for one rank restriction bucket: its pools, then its mods. */
+/**
+ * The readout for one rank restriction bucket: its pools, then its mods. The
+ * mods are at most the five chart mods and "Other", so every one gets a row.
+ */
 function rankBucketReadout(
   slice: RankRangeSlice,
   bucketMods?: { scoreCount: number; segments: ModSegment[] }
 ): React.ComponentProps<typeof ChartTooltipBody> {
-  const shown = bucketMods?.segments.slice(0, TOOLTIP_MOD_ROW_CAP) ?? [];
-  const rest = bucketMods?.segments.slice(TOOLTIP_MOD_ROW_CAP) ?? [];
-  const restShare = rest.reduce(
-    (total, segment) => total + segment.percentage,
-    0
-  );
-
   return {
     className: 'min-w-44',
     title: (
@@ -297,23 +291,12 @@ function rankBucketReadout(
         {`${slice.label} · ${formatCountOf(slice.count, 'pool')}`}
       </span>
     ),
-    rows: [
-      ...shown.map((segment) => ({
-        key: segment.label,
-        label: segment.label,
-        value: formatSegmentValue(segment),
-        color: segment.fill,
-      })),
-      ...(rest.length > 0
-        ? [
-            {
-              key: 'more',
-              label: `+${formatCount(rest.length)} more`,
-              value: formatPercent(restShare / 100),
-            },
-          ]
-        : []),
-    ],
+    rows: (bucketMods?.segments ?? []).map((segment) => ({
+      key: segment.label,
+      label: segment.label,
+      value: formatSegmentValue(segment),
+      color: segment.fill,
+    })),
     footer: bucketMods
       ? `Mods in ${formatCountOf(bucketMods.scoreCount, 'verified score')}`
       : 'No verified scores in this bracket',

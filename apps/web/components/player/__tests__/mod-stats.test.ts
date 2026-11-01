@@ -54,14 +54,41 @@ describe('groupModStats', () => {
     expect(hidden.averageScore).toBe(625_000);
   });
 
-  it('colours each group from the mod palette', () => {
+  it('colors each chart mod from the mod palette', () => {
     const [group] = groupModStats(
-      [{ mods: Mods.Hidden | Mods.HardRock, count: 4, averageScore: 1 }],
+      [{ mods: Mods.Hidden, count: 4, averageScore: 1 }],
       'count'
     );
 
-    expect(group.label).toBe('HDHR');
-    expect(group.fill).toBe(getModPaletteColor(Mods.Hidden | Mods.HardRock));
+    expect(group.label).toBe('HD');
+    expect(group.fill).toBe(getModPaletteColor(Mods.Hidden));
+  });
+
+  it('folds every other combination into one "Other" group, last', () => {
+    const groups = groupModStats(
+      [
+        {
+          mods: Mods.Hidden | Mods.HardRock,
+          count: 30,
+          averageScore: 1_166_000,
+        },
+        { mods: Mods.Easy, count: 10, averageScore: 400_000 },
+        { mods: Mods.None, count: 20, averageScore: 600_000 },
+      ],
+      'count'
+    );
+
+    expect(groups.map((group) => [group.label, group.count])).toEqual([
+      ['NM', 20],
+      ['Other', 40],
+    ]);
+    const other = groups[1];
+    expect(other.fill).toBe('var(--chart-other)');
+    // HDHR's 1,166,000 is 1,000,000 after HD's 1.06x and HR's 1.1x; EZ keeps
+    // its score. (1,000,000 × 30 + 400,000 × 10) / 40 = 850,000.
+    expect(other.averageScore).toBe(850_000);
+    // EZ stays visible to the Mod performance tooltip's note.
+    expect(other.mods & Mods.Easy).toBe(Mods.Easy);
   });
 
   it('drops groups under 1% of all games', () => {

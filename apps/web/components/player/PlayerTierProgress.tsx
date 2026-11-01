@@ -76,7 +76,7 @@ export default function PlayerTierProgress({
                   className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10"
                 >
                   <span
-                    className="block h-full rounded-full bg-series-1"
+                    className="block h-full rounded-full bg-chart-1"
                     style={{ width: `${segment * 100}%` }}
                   />
                 </span>

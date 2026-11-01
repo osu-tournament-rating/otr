@@ -301,7 +301,7 @@ import { RatingDelta } from '@/components/kit/format/RatingDelta';
 - `value`: the raw change. It is rounded to one decimal; anything that rounds to `0.0` is flat (`→ 0.0`, muted).
 - `lowerIsBetter`: colour a fall as good, for volatility. The arrow and sign still follow the number.
 - The sign (`+`, a true minus `−`, none for zero) and the arrow carry the direction; colour only reinforces it. The arrow is `aria-hidden`.
-- Colours are tokens: `text-success-foreground` up, `text-destructive-foreground` down, `text-muted-foreground` flat. `formatRatingDelta(value)` and `getDeltaDirection(value)` in `@/lib/kit/format/number` give the text and direction for non-React uses such as chart labels.
+- Colours are tokens: `text-success-foreground` up, `text-destructive` down, `text-muted-foreground` flat. `formatRatingDelta(value)` and `getDeltaDirection(value)` in `@/lib/kit/format/number` give the text and direction for non-React uses such as chart labels.
 - Line height: the number gives the box its baseline and the arrow is centred beside it, so in running text or a `dd` it sits on the line's baseline and keeps the line's height (a 20px line stays 20px). Don't add `align-middle` or a flex wrapper to level it.
 
 Contrast of the text (WCAG 2, 4.5:1 needed):

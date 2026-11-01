@@ -132,7 +132,7 @@ const EMPTY_VALUES: FilteringFormInput = {
 function RequiredMark() {
   return (
     <>
-      <span aria-hidden="true" className="text-destructive-foreground">
+      <span aria-hidden="true" className="text-destructive">
         *
       </span>
       <span className="sr-only"> (required)</span>

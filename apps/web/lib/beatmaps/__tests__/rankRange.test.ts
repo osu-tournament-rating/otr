@@ -59,11 +59,11 @@ describe('RANK_RANGE_BUCKETS', () => {
 describe('bucket colours', () => {
   test('take categorical slots 1 to 5 in bucket order', () => {
     expect(RANK_RANGE_BUCKETS.map((bucket) => bucket.color)).toEqual([
-      'var(--series-1)',
-      'var(--series-2)',
-      'var(--series-3)',
-      'var(--series-4)',
-      'var(--series-5)',
+      'var(--chart-1)',
+      'var(--chart-2)',
+      'var(--chart-3)',
+      'var(--chart-4)',
+      'var(--chart-5)',
     ]);
   });
 });

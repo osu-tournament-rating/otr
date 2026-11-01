@@ -65,8 +65,7 @@ const SOFT_CLASSES: Record<BadgeTone, string> = {
     'border-primary/30 bg-primary/10 text-foreground [&>svg]:text-primary',
   success: 'border-success/30 bg-success/10 text-success-foreground',
   warning: 'border-warning/30 bg-warning/10 text-warning-foreground',
-  destructive:
-    'border-destructive/30 bg-destructive/10 text-destructive-foreground',
+  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
 };
 
 const OUTLINE_CLASSES: Record<BadgeTone, string> = {
@@ -75,13 +74,12 @@ const OUTLINE_CLASSES: Record<BadgeTone, string> = {
     'border-primary/50 bg-transparent text-foreground [&>svg]:text-primary',
   success: 'border-success/50 bg-transparent text-success-foreground',
   warning: 'border-warning/50 bg-transparent text-warning-foreground',
-  destructive:
-    'border-destructive/50 bg-transparent text-destructive-foreground',
+  destructive: 'border-destructive/50 bg-transparent text-destructive',
 };
 
 const SOLID_CLASSES: Record<'neutral' | 'primary' | 'success', string> = {
   neutral: 'border-transparent bg-foreground text-background',
-  primary: 'border-transparent bg-primary-solid text-primary-foreground',
+  primary: 'border-transparent bg-primary text-primary-foreground',
   success: 'border-transparent bg-success text-green-950',
 };
 

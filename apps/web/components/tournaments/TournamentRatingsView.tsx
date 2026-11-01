@@ -96,7 +96,7 @@ function WinLoss({ won, lost }: { won: number; lost: number }) {
     <span className="tabular-nums">
       <span className="text-success-foreground">{formatCount(won)}</span>
       <span className="text-muted-foreground">–</span>
-      <span className="text-destructive-foreground">{formatCount(lost)}</span>
+      <span className="text-destructive">{formatCount(lost)}</span>
     </span>
   );
 }

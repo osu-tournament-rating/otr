@@ -127,7 +127,7 @@ export default function AudioPlayerControls() {
                 <p
                   className={cn(
                     'mt-0.5 truncate text-xs text-muted-foreground',
-                    state.error && 'text-destructive-foreground'
+                    state.error && 'text-destructive'
                   )}
                   role={state.error ? 'status' : undefined}
                 >

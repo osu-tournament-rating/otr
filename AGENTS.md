@@ -226,9 +226,9 @@ skill in `.claude/skills/testing/SKILL.md`.
   no `tracking-wide`. `text-xs` is the minimum size; fix smaller overrides when
   you find them.
 - Color text with semantic tokens, never palette classes like
-  `text-orange-500`. Status tokens (`success`, `warning`, `destructive`) are for
-  fills, borders, and icons. Their `*-foreground` tokens are for text.
-  `text-primary-foreground` goes only on `bg-primary-solid`, and blue text uses
+  `text-orange-500`. Red text is `text-destructive`. `success` and `warning`
+  are for fills, borders, and icons, and their `*-foreground` tokens are for
+  text. `text-primary-foreground` goes on `bg-primary`, and blue text uses
   `text-link`. On a solid `bg-success` fill, use `text-green-950`.
 - Never put a `z-*` class on shadcn overlay content (popover, dropdown,
   tooltip); it overrides the portal's stacking. Wrap a tooltip around

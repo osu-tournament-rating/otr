@@ -4,7 +4,8 @@
  * header strips wrap where the loaded ones do.
  */
 
-export const SCORE_DISTRIBUTION_INFO = 'Shows mods with 5+ scores';
+export const SCORE_DISTRIBUTION_INFO =
+  'Shows NM, HD, HR, DT and FL with 5+ scores';
 
 export const TIER_BREAKDOWN_INFO = 'Shows tiers with 5+ scores';
 

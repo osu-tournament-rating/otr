@@ -35,8 +35,17 @@ describe('buildTokens', () => {
   });
 
   it('turns a reference to another token into an alias', () => {
-    const warning = tokens.color.tokens.find((t) => t.name === 'warning');
-    expect(warning?.value).toMatchObject({ light: '{color-warning}' });
+    // globals.css has no alias of its own, so make one.
+    const aliased = globalsCss.replace(
+      /(:root,\s*\.theme-light\s*\{[^}]*--warning:)[^;]+;/,
+      '$1 var(--success);'
+    );
+    expect(aliased).not.toBe(globalsCss);
+
+    const warning = buildTokens(aliased, themeCss).color.tokens.find(
+      (t) => t.name === 'warning'
+    );
+    expect(warning?.value).toMatchObject({ light: '{success}' });
   });
 
   it('works out the radii and header height from their formulas', () => {

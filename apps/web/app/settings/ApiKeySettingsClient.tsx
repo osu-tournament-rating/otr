@@ -240,7 +240,7 @@ export default function ApiKeySettingsClient({
           <p
             id="api-key-error"
             role="alert"
-            className="-mt-2 text-sm text-destructive-foreground"
+            className="-mt-2 text-sm text-destructive"
           >
             {error}
           </p>
