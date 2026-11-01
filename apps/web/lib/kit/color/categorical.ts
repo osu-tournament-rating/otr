@@ -32,6 +32,12 @@ export const CATEGORICAL_PALETTE: readonly CategoricalColor[] = [
 export const CATEGORICAL_OTHER: ThemeColor = themeColor('--chart-other');
 
 /**
+ * The frequent opponents chart's coral, outside the palette. Frequent
+ * teammates take slot 1.
+ */
+export const OPPONENT_COLOR: ThemeColor = themeColor('--chart-opponent');
+
+/**
  * The colour of the series at `index` (0-based). Colour follows the series,
  * not its rank, so pass a stable index. Anything past the eighth slot gets
  * the "Other" neutral rather than a repeat.

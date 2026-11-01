@@ -50,7 +50,7 @@ import {
 } from '@/lib/kit/charts/ticks';
 import { formatCount, formatCountOf } from '@/lib/kit/format/number';
 import { cn } from '@/lib/utils';
-import { getBeatmapModLabel, isChartMods } from '@/lib/utils/mods';
+import { getBeatmapModLabel } from '@/lib/utils/mods';
 
 interface BeatmapScoreDistributionCardProps {
   distribution: BeatmapModScoreDistribution[];
@@ -188,18 +188,11 @@ function PercentileCurve({
 }
 
 export default function BeatmapScoreDistributionCard({
-  distribution: allGroups,
+  distribution,
   percentiles,
   totalScoreCount,
   className,
 }: BeatmapScoreDistributionCardProps) {
-  // Only the chart mods get a box. Quartiles can't be pooled from the
-  // groups' own quartiles, and a box over EZ, HDHR and the rest together
-  // would mix scores on different scales.
-  const distribution = React.useMemo(
-    () => allGroups.filter((group) => isChartMods(group.mods)),
-    [allGroups]
-  );
   const hasBoxData = distribution.length > 0;
   const hasCurveData = percentiles.length > 0;
   const hasData = hasBoxData || hasCurveData;

@@ -1013,7 +1013,7 @@ export default function ColorSection() {
         id="color-categorical-palette"
         name="Categorical palette"
         importPath={`${COLOR_LIB}/categorical`}
-        description="Eight hues in a fixed order for neutral series, rank restriction buckets, match teams. Assign slots in order and never cycle; a single series uses slot 1."
+        description="Eight hues in a fixed order for neutral series, rank restriction buckets, match teams. Assign slots in order and never cycle; a single series uses slot 1. Frequent opponents keep their own coral, chart-opponent, beside teammates' slot 1."
       >
         <div className="flex flex-col gap-3">
           <div className="flex h-8 gap-0.5 overflow-hidden rounded-md">
@@ -1026,6 +1026,7 @@ export default function ColorSection() {
             ))}
           </div>
           <TokenList groupId="categorical" />
+          <TokenList groupId="opponents" />
         </div>
       </Specimen>
 
@@ -1128,7 +1129,7 @@ export default function ColorSection() {
         id="color-mods"
         name="Mod colours"
         importPath={`${COLOR_LIB}/mods`}
-        description="NM, HD, HR, DT and FL take mod-nm to mod-fl. Every other mod or combination is one Other group in chart-other, in the data as well as the color, and comes last. Box plots leave Other out. Each takes black text as a solid pill."
+        description="The mod colors the site has always used, one chart-* token per mod or tournament combination, such as chart-hd and chart-hdhr. NM reuses chart-1. The light theme's are darker. Every mod takes black text as a solid pill. Rare combinations use the Other gray."
       >
         <div className="@container flex flex-col gap-3">
           <ul className="grid grid-cols-3 gap-2 @md:grid-cols-4 @xl:grid-cols-6">

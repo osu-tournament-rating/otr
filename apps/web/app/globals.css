@@ -103,11 +103,6 @@
   --color-chart-7: var(--chart-7);
   --color-chart-8: var(--chart-8);
   --color-chart-other: var(--chart-other);
-  --color-mod-nm: var(--mod-nm);
-  --color-mod-hd: var(--mod-hd);
-  --color-mod-hr: var(--mod-hr);
-  --color-mod-dt: var(--mod-dt);
-  --color-mod-fl: var(--mod-fl);
   --color-verification-verified: var(--verification-verified);
   --color-verification-rejected: var(--verification-rejected);
   --color-verification-neutral: var(--verification-neutral);
@@ -247,14 +242,31 @@
   --chart-8: #e34948;
   --chart-other: #7a7a7a;
 
-  /* Mod chart marks: the hues the site has always used for NM, HD, HR, DT and
-     FL, as Tailwind colors. Each clears 3:1 on the card; every other mod is
-     chart-other. */
-  --mod-nm: var(--color-blue-500);
-  --mod-hd: var(--color-yellow-700);
-  --mod-hr: var(--color-red-500);
-  --mod-dt: var(--color-purple-500);
-  --mod-fl: var(--color-indigo-500);
+  /* The frequent opponents chart: the coral it had before the categorical
+     palette, the same in both themes. Teammates take chart-1. */
+  --chart-opponent: oklch(0.69 0.2 23.91);
+
+  /* Mod chart marks and solid mod pills, one per display combination. Every
+     value takes black text on its solid fill; NM reuses chart-1. Rare
+     combinations fall back to chart-other. */
+  --chart-nm: var(--chart-1);
+  --chart-hd: #a18902;
+  --chart-hr: #db675e;
+  --chart-dt: #8971f4;
+  --chart-ht: #029f54;
+  --chart-ez: #1aa101;
+  --chart-fl: #6970b7;
+  --chart-hdhr: #ff3381;
+  --chart-ezhd: #b87f04;
+  --chart-ezdt: #049a9b;
+  --chart-hdfl: #4a7d91;
+  --chart-hddt: #b568e9;
+  --chart-sd: #d56f01;
+  --chart-td: #a4846f;
+  --chart-rx: #0394ce;
+  --chart-mr: #778cab;
+  --chart-rd: #5a986c;
+  --chart-key: #5590be;
 
   /* Verification status, for icons, badges and chart fills. Icons take the
      outcome's hue (Pre-verified green, Pre-rejected red, with a dashed
@@ -366,13 +378,26 @@
   --chart-8: #e66767;
   --chart-other: #929292;
 
-  /* Mod marks, dark values: more saturated than the old pastels, and still
-     3:1 or more on the card and popover. */
-  --mod-nm: var(--color-blue-400);
-  --mod-hd: var(--color-yellow-400);
-  --mod-hr: var(--color-red-500);
-  --mod-dt: var(--color-purple-500);
-  --mod-fl: var(--color-indigo-500);
+  --chart-opponent: oklch(0.69 0.2 23.91);
+
+  --chart-nm: var(--chart-1);
+  --chart-hd: #f4dc71;
+  --chart-hr: #f27c71;
+  --chart-dt: #8971f4;
+  --chart-ht: #3cd77d;
+  --chart-ez: #7af46c;
+  --chart-fl: #6970b7;
+  --chart-hdhr: #ff3381;
+  --chart-ezhd: #ffc365;
+  --chart-ezdt: #32c3c3;
+  --chart-hdfl: #4a7d91;
+  --chart-hddt: #bf72f3;
+  --chart-sd: #ff9238;
+  --chart-td: #cbaa94;
+  --chart-rx: #11a8e8;
+  --chart-mr: #bad1f3;
+  --chart-rd: #83c395;
+  --chart-key: #84c0f0;
 
   --verification-verified: #47c86e;
   --verification-rejected: #f66d67;

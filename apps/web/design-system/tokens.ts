@@ -78,12 +78,45 @@ export const COLOR_USAGE: Record<string, string> = {
   'chart-8':
     'Categorical chart series 8. A ninth series folds into chart-other.',
   'chart-other':
-    'The "Other" series or bucket, including every mod but NM, HD, HR, DT and FL.',
-  'mod-nm': 'NM mod chart mark and solid mod pill, the brand blue.',
-  'mod-hd': 'HD mod chart mark and solid mod pill, yellow.',
-  'mod-hr': 'HR mod chart mark and solid mod pill, red.',
-  'mod-dt': 'DT mod chart mark and solid mod pill, purple.',
-  'mod-fl': 'FL mod chart mark and solid mod pill, indigo.',
+    'The "Other" series or bucket, including mod combinations without a chart color.',
+  'chart-opponent':
+    'Frequent opponents chart bars, the coral they had before the categorical palette. Teammates take chart-1.',
+  'chart-nm':
+    'No mod (NM). Reuses chart-1, the categorical blue. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-hd':
+    'Hidden (HD). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-hr':
+    'Hard Rock (HR). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-dt':
+    'Double Time (DT). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-ht':
+    'Half Time (HT). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-ez':
+    'Easy (EZ). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-fl':
+    'Flashlight (FL). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-hdhr':
+    'HD + HR. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-ezhd':
+    'EZ + HD. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-ezdt':
+    'EZ + DT. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-hdfl':
+    'HD + FL. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-hddt':
+    'HD + DT. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-sd':
+    'Sudden Death (SD). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-td':
+    'Touch Device (TD). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-rx':
+    'Relax (RX), Autopilot and Autoplay. Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-mr':
+    'Mirror (MR). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-rd':
+    'Random (RD). Mod chart mark and solid mod pill; black text on the solid fill.',
+  'chart-key':
+    'Key-count mods (1K to 9K). Mod chart mark and solid mod pill; black text on the solid fill.',
   'match-red': 'Red team edge, tint, swatch and chart line.',
   'match-red-foreground': 'Red team text.',
   'match-blue': 'Blue team edge, tint, swatch and chart line.',

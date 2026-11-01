@@ -1,44 +1,76 @@
-import type { Mods } from '@otr/core/osu';
+import { Mods } from '@otr/core/osu';
 
-import {
-  CHART_MODS,
-  getBeatmapModLabel,
-  normalizeBeatmapDisplayMods,
-} from '@/lib/utils/mods';
+import { normalizeBeatmapDisplayMods } from '@/lib/utils/mods';
 
 import { CATEGORICAL_OTHER } from './categorical';
 import { themeColor, type ThemeColor } from './theme-color';
 
 export interface ModColor extends ThemeColor {
-  /** The display label, such as `HD`. */
+  /** The display label, such as `HDHR`. */
   label: string;
-  /** The display combination this color stands for. */
-  mods: Mods;
+  /** The display combinations this color stands for. */
+  mods: readonly Mods[];
 }
 
+function mod(label: string, mods: readonly Mods[]): ModColor {
+  return { ...themeColor(`--chart-${label.toLowerCase()}`), label, mods };
+}
+
+const KEY_MODS = [
+  Mods.Key1,
+  Mods.Key2,
+  Mods.Key3,
+  Mods.Key4,
+  Mods.Key5,
+  Mods.Key6,
+  Mods.Key7,
+  Mods.Key8,
+  Mods.Key9,
+] as const;
+
 /**
- * The five mods charts color on their own, NM, HD, HR, DT and FL, each take
- * their own `--mod-*` token. Every other mod or combination is one "Other"
- * group in `--chart-other` (`CATEGORICAL_OTHER`).
+ * Mod colors for chart marks, swatches and solid mod pills, one `--chart-*`
+ * token in globals.css per entry, such as `--chart-hdhr`. `--chart-nm`
+ * reuses `--chart-1`, the brand blue. Each takes black text as a solid fill
+ * (`MOD_FILL_FOREGROUND`).
  */
-export const MOD_PALETTE: readonly ModColor[] = CHART_MODS.map((mods) => {
-  const label = getBeatmapModLabel(mods);
-  return { ...themeColor(`--mod-${label.toLowerCase()}`), label, mods };
-});
+export const MOD_PALETTE: readonly ModColor[] = [
+  mod('NM', [Mods.None]),
+  mod('HD', [Mods.Hidden]),
+  mod('HR', [Mods.HardRock]),
+  mod('DT', [Mods.DoubleTime]),
+  mod('HT', [Mods.HalfTime]),
+  mod('EZ', [Mods.Easy]),
+  mod('FL', [Mods.Flashlight]),
+  mod('HDHR', [Mods.Hidden | Mods.HardRock]),
+  mod('EZHD', [Mods.Easy | Mods.Hidden]),
+  mod('EZDT', [Mods.Easy | Mods.DoubleTime]),
+  mod('HDFL', [Mods.Hidden | Mods.Flashlight]),
+  mod('HDDT', [Mods.Hidden | Mods.DoubleTime]),
+  mod('SD', [Mods.SuddenDeath]),
+  mod('TD', [Mods.TouchDevice]),
+  mod('RX', [Mods.Relax, Mods.Autoplay, Mods.Relax2]),
+  mod('MR', [Mods.Mirror]),
+  mod('RD', [Mods.Random]),
+  mod('KEY', KEY_MODS),
+];
 
 /** Text on a solid mod fill. */
 export const MOD_FILL_FOREGROUND = '#000000';
 
+const MOD_COLOR_BY_MODS = new Map<number, ModColor>(
+  MOD_PALETTE.flatMap((entry) => entry.mods.map((mods) => [mods, entry]))
+);
+
 /**
  * The palette entry for a combination, after the display rules (NF and SO
- * dropped, NC shown as DT). Undefined for anything in "Other".
+ * dropped, NC shown as DT). Undefined for combinations without a color.
  */
 export function getModPaletteEntry(mods: number): ModColor | undefined {
-  const display = normalizeBeatmapDisplayMods(mods);
-  return MOD_PALETTE.find((entry) => entry.mods === display);
+  return MOD_COLOR_BY_MODS.get(normalizeBeatmapDisplayMods(mods));
 }
 
-/** CSS color for a mod combination; anything in "Other" gets its neutral. */
+/** CSS color for a mod combination; rare combinations get the "Other" neutral. */
 export function getModPaletteColor(mods: number): string {
   return (getModPaletteEntry(mods) ?? CATEGORICAL_OTHER).css;
 }

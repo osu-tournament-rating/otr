@@ -3,7 +3,7 @@ import { Mods, ScoreGrade, Team, VerificationStatus } from '@otr/core/osu';
 
 import { CATEGORICAL_PALETTE, seriesColor } from '@/lib/kit/color/categorical';
 import { GRADE_PALETTE, getGradeColor } from '@/lib/kit/color/grades';
-import { getModPaletteColor } from '@/lib/kit/color/mods';
+import { MOD_PALETTE, getModPaletteColor } from '@/lib/kit/color/mods';
 import {
   getTeamColor,
   getTeamTextColor,
@@ -19,6 +19,7 @@ import {
   getRatingsGroupColor,
   getVerificationStatusColor,
 } from '@/lib/kit/color/verification';
+import { getBeatmapModLabel } from '@/lib/utils/mods';
 import { tierNames } from '@/lib/utils/tierData';
 
 describe('theme text', () => {
@@ -122,34 +123,28 @@ describe('grades', () => {
 });
 
 describe('mods', () => {
-  it('colors NM, HD, HR, DT and FL with their own mod tokens', () => {
-    expect(
-      [
-        Mods.None,
-        Mods.Hidden,
-        Mods.HardRock,
-        Mods.DoubleTime,
-        Mods.Flashlight,
-      ].map(getModPaletteColor)
-    ).toEqual(['nm', 'hd', 'hr', 'dt', 'fl'].map((mod) => `var(--mod-${mod})`));
+  it('gives No Mod its own token, the categorical blue, not the link blue', () => {
+    expect(getModPaletteColor(Mods.None)).toBe('var(--chart-nm)');
+    expect(getModPaletteColor(Mods.None)).not.toBe('var(--primary)');
+  });
+
+  it('labels each color as the beatmap pages label its mods', () => {
+    for (const entry of MOD_PALETTE) {
+      if (entry.label === 'RX' || entry.label === 'KEY') continue;
+      expect(entry.mods.map(getBeatmapModLabel)).toEqual([entry.label]);
+    }
   });
 
   it('follows the display rules', () => {
-    expect(getModPaletteColor(Mods.Nightcore)).toBe('var(--mod-dt)');
-    expect(getModPaletteColor(Mods.Hidden | Mods.NoFail)).toBe('var(--mod-hd)');
-  });
-
-  it('gives every other mod or combination the "Other" color', () => {
-    for (const mods of [
-      Mods.Hidden | Mods.HardRock,
-      Mods.Easy,
-      Mods.HalfTime,
-      Mods.Relax2,
-      Mods.Key7,
-      Mods.Hidden | Mods.HardRock | Mods.Flashlight,
-    ]) {
-      expect(getModPaletteColor(mods)).toBe('var(--chart-other)');
-    }
+    expect(getModPaletteColor(Mods.Nightcore)).toBe('var(--chart-dt)');
+    expect(getModPaletteColor(Mods.Hidden | Mods.NoFail)).toBe(
+      'var(--chart-hd)'
+    );
+    expect(getModPaletteColor(Mods.Relax2)).toBe('var(--chart-rx)');
+    expect(getModPaletteColor(Mods.Key7)).toBe('var(--chart-key)');
+    expect(
+      getModPaletteColor(Mods.Hidden | Mods.HardRock | Mods.Flashlight)
+    ).toBe('var(--chart-other)');
   });
 });
 

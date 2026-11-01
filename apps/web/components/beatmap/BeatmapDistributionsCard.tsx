@@ -275,14 +275,20 @@ interface RankRangeSlice {
   fill: string;
 }
 
-/**
- * The readout for one rank restriction bucket: its pools, then its mods. The
- * mods are at most the five chart mods and "Other", so every one gets a row.
- */
+const TOOLTIP_MOD_ROW_CAP = 5;
+
+/** The readout for one rank restriction bucket: its pools, then its mods. */
 function rankBucketReadout(
   slice: RankRangeSlice,
   bucketMods?: { scoreCount: number; segments: ModSegment[] }
 ): React.ComponentProps<typeof ChartTooltipBody> {
+  const shown = bucketMods?.segments.slice(0, TOOLTIP_MOD_ROW_CAP) ?? [];
+  const rest = bucketMods?.segments.slice(TOOLTIP_MOD_ROW_CAP) ?? [];
+  const restShare = rest.reduce(
+    (total, segment) => total + segment.percentage,
+    0
+  );
+
   return {
     className: 'min-w-44',
     title: (
@@ -291,12 +297,23 @@ function rankBucketReadout(
         {`${slice.label} · ${formatCountOf(slice.count, 'pool')}`}
       </span>
     ),
-    rows: (bucketMods?.segments ?? []).map((segment) => ({
-      key: segment.label,
-      label: segment.label,
-      value: formatSegmentValue(segment),
-      color: segment.fill,
-    })),
+    rows: [
+      ...shown.map((segment) => ({
+        key: segment.label,
+        label: segment.label,
+        value: formatSegmentValue(segment),
+        color: segment.fill,
+      })),
+      ...(rest.length > 0
+        ? [
+            {
+              key: 'more',
+              label: `+${formatCount(rest.length)} more`,
+              value: formatPercent(restShare / 100),
+            },
+          ]
+        : []),
+    ],
     footer: bucketMods
       ? `Mods in ${formatCountOf(bucketMods.scoreCount, 'verified score')}`
       : 'No verified scores in this bracket',

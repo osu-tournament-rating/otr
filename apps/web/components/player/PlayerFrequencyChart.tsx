@@ -52,8 +52,8 @@ interface ChartDataEntry {
 /**
  * The players someone meets most, as bars with each player's avatar under
  * theirs, linking to that profile in the ruleset the page shows. Teammates
- * and opponents are neutral series: they take the first two categorical
- * slots, never a good or bad colour.
+ * and opponents are neutral series, never a good or bad color: teammates
+ * take the first categorical slot and opponents `OPPONENT_COLOR`.
  */
 export default function PlayerFrequencyChart({
   className,
@@ -69,7 +69,7 @@ export default function PlayerFrequencyChart({
   title: string;
   icon: KitIcon;
   emptyTitle: string;
-  /** The series colour, from `seriesColor`. */
+  /** The series color, `seriesColor(0)` or `OPPONENT_COLOR`. */
   color: string;
   /**
    * The ruleset the profile shows, so a player's link opens the same one
