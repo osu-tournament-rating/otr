@@ -1013,7 +1013,7 @@ export default function ColorSection() {
         id="color-categorical-palette"
         name="Categorical palette"
         importPath={`${COLOR_LIB}/categorical`}
-        description="Eight hues in a fixed order for neutral series, rank restriction buckets, match teams and the five chart mods. Assign slots in order and never cycle; a single series uses slot 1."
+        description="Eight hues in a fixed order for neutral series, rank restriction buckets, match teams. Assign slots in order and never cycle; a single series uses slot 1."
       >
         <div className="flex flex-col gap-3">
           <div className="flex h-8 gap-0.5 overflow-hidden rounded-md">
@@ -1128,7 +1128,7 @@ export default function ColorSection() {
         id="color-mods"
         name="Mod colours"
         importPath={`${COLOR_LIB}/mods`}
-        description="NM, HD, HR, DT and FL take chart-1 to chart-5. Every other mod or combination is one Other group in chart-other, in the data as well as the color, and comes last. Box plots leave Other out. Each takes black text as a solid pill."
+        description="NM, HD, HR, DT and FL take mod-nm to mod-fl. Every other mod or combination is one Other group in chart-other, in the data as well as the color, and comes last. Box plots leave Other out. Each takes black text as a solid pill."
       >
         <div className="@container flex flex-col gap-3">
           <ul className="grid grid-cols-3 gap-2 @md:grid-cols-4 @xl:grid-cols-6">

@@ -122,7 +122,7 @@ describe('grades', () => {
 });
 
 describe('mods', () => {
-  it('colors NM, HD, HR, DT and FL with the first five chart colors', () => {
+  it('colors NM, HD, HR, DT and FL with their own mod tokens', () => {
     expect(
       [
         Mods.None,
@@ -131,14 +131,12 @@ describe('mods', () => {
         Mods.DoubleTime,
         Mods.Flashlight,
       ].map(getModPaletteColor)
-    ).toEqual([1, 2, 3, 4, 5].map((slot) => `var(--chart-${slot})`));
+    ).toEqual(['nm', 'hd', 'hr', 'dt', 'fl'].map((mod) => `var(--mod-${mod})`));
   });
 
   it('follows the display rules', () => {
-    expect(getModPaletteColor(Mods.Nightcore)).toBe('var(--chart-4)');
-    expect(getModPaletteColor(Mods.Hidden | Mods.NoFail)).toBe(
-      'var(--chart-2)'
-    );
+    expect(getModPaletteColor(Mods.Nightcore)).toBe('var(--mod-dt)');
+    expect(getModPaletteColor(Mods.Hidden | Mods.NoFail)).toBe('var(--mod-hd)');
   });
 
   it('gives every other mod or combination the "Other" color', () => {

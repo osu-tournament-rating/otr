@@ -17,17 +17,14 @@ export interface ModColor extends ThemeColor {
 }
 
 /**
- * The five mods charts color on their own, NM, HD, HR, DT and FL, take
- * `--chart-1` to `--chart-5` in that order. Every other mod or combination is
- * one "Other" group in `--chart-other` (`CATEGORICAL_OTHER`).
+ * The five mods charts color on their own, NM, HD, HR, DT and FL, each take
+ * their own `--mod-*` token. Every other mod or combination is one "Other"
+ * group in `--chart-other` (`CATEGORICAL_OTHER`).
  */
-export const MOD_PALETTE: readonly ModColor[] = CHART_MODS.map(
-  (mods, index) => ({
-    ...themeColor(`--chart-${index + 1}`),
-    label: getBeatmapModLabel(mods),
-    mods,
-  })
-);
+export const MOD_PALETTE: readonly ModColor[] = CHART_MODS.map((mods) => {
+  const label = getBeatmapModLabel(mods);
+  return { ...themeColor(`--mod-${label.toLowerCase()}`), label, mods };
+});
 
 /** Text on a solid mod fill. */
 export const MOD_FILL_FOREGROUND = '#000000';

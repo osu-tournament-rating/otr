@@ -103,6 +103,11 @@
   --color-chart-7: var(--chart-7);
   --color-chart-8: var(--chart-8);
   --color-chart-other: var(--chart-other);
+  --color-mod-nm: var(--mod-nm);
+  --color-mod-hd: var(--mod-hd);
+  --color-mod-hr: var(--mod-hr);
+  --color-mod-dt: var(--mod-dt);
+  --color-mod-fl: var(--mod-fl);
   --color-verification-verified: var(--verification-verified);
   --color-verification-rejected: var(--verification-rejected);
   --color-verification-neutral: var(--verification-neutral);
@@ -230,7 +235,7 @@
    * their theme.
    */
 
-  /* Categorical chart palette: neutral series, rank ranges, teams and mods, in
+  /* Categorical chart palette: neutral series, rank ranges and teams, in
      this fixed order. Never cycle it; a ninth series folds into "other". */
   --chart-1: #4589f2;
   --chart-2: #e6632f;
@@ -241,6 +246,15 @@
   --chart-7: #4a3aa7;
   --chart-8: #e34948;
   --chart-other: #7a7a7a;
+
+  /* Mod chart marks: the hues the site has always used for NM, HD, HR, DT and
+     FL, as Tailwind colors. Each clears 3:1 on the card; every other mod is
+     chart-other. */
+  --mod-nm: var(--color-blue-500);
+  --mod-hd: var(--color-yellow-700);
+  --mod-hr: var(--color-red-500);
+  --mod-dt: var(--color-purple-500);
+  --mod-fl: var(--color-indigo-500);
 
   /* Verification status, for icons, badges and chart fills. Icons take the
      outcome's hue (Pre-verified green, Pre-rejected red, with a dashed
@@ -351,6 +365,14 @@
   --chart-7: #9085e9;
   --chart-8: #e66767;
   --chart-other: #929292;
+
+  /* Mod marks, dark values: more saturated than the old pastels, and still
+     3:1 or more on the card and popover. */
+  --mod-nm: var(--color-blue-400);
+  --mod-hd: var(--color-yellow-400);
+  --mod-hr: var(--color-red-500);
+  --mod-dt: var(--color-purple-500);
+  --mod-fl: var(--color-indigo-500);
 
   --verification-verified: #47c86e;
   --verification-rejected: #f66d67;

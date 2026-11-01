@@ -12,7 +12,7 @@ function slot(index: number, name: string): CategoricalColor {
 
 /**
  * The fixed categorical palette (`--chart-1` to `--chart-8`) for neutral
- * series, rank restriction buckets, teams and the five chart mods. The
+ * series, rank restriction buckets and teams. The
  * order keeps neighbours apart for red-green colour blindness (checked with
  * the dataviz palette validator), so assign slots in order and never reorder
  * or cycle them. Slot 1 is the brand blue a single series uses.

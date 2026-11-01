@@ -47,7 +47,7 @@ Every token below has a light value in `:root` and a dark value in `.dark` of `g
 | `--destructive`                     | `destructive`                   | Red text, icons, borders, the red fill   |
 | `--success`, `--success-foreground` | `success`, `success-foreground` | Success fill and icon; success text      |
 | `--warning`, `--warning-foreground` | `warning`, `warning-foreground` | Warning fill and icon; warning text      |
-| `--chart-1` … `--chart-8`           | `chart-1` … `chart-8`           | Categorical chart marks; mods NM to FL   |
+| `--chart-1` … `--chart-8`           | `chart-1` … `chart-8`           | Categorical chart marks                  |
 | `--chart-other`                     | `chart-other`                   | The "Other" series, bucket or mod group  |
 | `--verification-verified`           | `verification-verified`         | Verified icon and chart fill             |
 | `--verification-neutral`            | `verification-neutral`          | Pending icon, "Not in ratings yet" fill  |
@@ -71,6 +71,7 @@ Every token below has a light value in `:root` and a dark value in `.dark` of `g
 | `--notification`                    | `notification`                  | The one notification dot                 |
 | `--support`                         | `support`                       | The header's support heart on hover      |
 | `--tier-<tier>`                     | `tier-<tier>`                   | Tier names (text) and tier chart marks   |
+| `--mod-nm` … `--mod-fl`             | `mod-nm` … `mod-fl`             | NM, HD, HR, DT and FL marks and pills    |
 
 The brand blue (`primary`, `link`) has its own table under [Brand blue](#brand-blue). The other shadcn base tokens (`background`, `card`, `popover`, `muted`, `accent`, `secondary`, `border`, `input`, `ring`) follow shadcn/ui's conventions: a surface token and its `*-foreground` text. There are no other palettes, so a color that is not in this table or the brand blue's is not a token. Grades have no tokens: their ramp is mixed from `--chart-1` (see [Grade colours](#grade-colours)).
 
@@ -178,7 +179,7 @@ Gallery anchor: `/admin/design#color-accent-rule`
 
 ## Categorical palette
 
-Eight hues in a fixed order for neutral series: rank restriction buckets, teams (red and blue), rulesets, teammates and opponents, the five chart mods, any "series 1, 2, 3". They are shadcn/ui's `--chart-*` tokens. The order keeps neighbors apart for protanopia and deuteranopia (Machado 2009 simulation, adjacent OKLab ΔE ≥ 8) and for full color vision (ΔE ≥ 15), in both themes; check a new value against both before it lands.
+Eight hues in a fixed order for neutral series: rank restriction buckets, teams (red and blue), rulesets, teammates and opponents, any "series 1, 2, 3". They are shadcn/ui's `--chart-*` tokens. The order keeps neighbors apart for protanopia and deuteranopia (Machado 2009 simulation, adjacent OKLab ΔE ≥ 8) and for full color vision (ΔE ≥ 15), in both themes; check a new value against both before it lands.
 
 ```tsx
 import {
@@ -363,7 +364,7 @@ Gallery anchor: `/admin/design#color-grades`
 
 ## Mod colours
 
-Mod charts color five mods, and only five: NM, HD, HR, DT and FL take `--chart-1` to `--chart-5`, in that order. Every other mod or combination (HDHR, EZ, HT, key mods, and the rest) is one "Other" group in `--chart-other`. The group is in the data too, not only the color: its counts merge into one entry, placed last. Every mod colour clears 3:1 on both cards and takes black text as a solid pill.
+Mod charts color five mods, and only five: NM, HD, HR, DT and FL, each with its own token (`--mod-nm`, `--mod-hd`, `--mod-hr`, `--mod-dt`, `--mod-fl`). They keep the blue, yellow, red, purple and indigo the site has always used, as Tailwind colors, a step more saturated in dark mode than the old pastels. Every other mod or combination (HDHR, EZ, HT, key mods, and the rest) is one "Other" group in `--chart-other`. The group is in the data too, not only the color: its counts merge into one entry, placed last. Every mod color clears 3:1 on both cards. Black text on a solid pill clears 4.5:1, except light HD (yellow-700, 4.3:1).
 
 ```tsx
 import { MOD_FILL_FOREGROUND, getModPaletteColor } from '@/lib/kit/color/mods';
