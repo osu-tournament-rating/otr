@@ -3,7 +3,7 @@
 import type { Ruleset } from '@otr/core/osu';
 import { Swords } from 'lucide-react';
 
-import { seriesColor } from '@/lib/kit/color/categorical';
+import { OPPONENT_COLOR } from '@/lib/kit/color/categorical';
 import type { PlayerFrequency } from '@/lib/orpc/schema/playerStats';
 
 import PlayerFrequencyChart from './PlayerFrequencyChart';
@@ -26,7 +26,7 @@ export default function PlayerOpponentsChart({
       icon={Swords}
       emptyTitle="No opponent data"
       ruleset={ruleset}
-      color={seriesColor(1)}
+      color={OPPONENT_COLOR.css}
     />
   );
 }

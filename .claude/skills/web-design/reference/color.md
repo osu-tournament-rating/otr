@@ -49,6 +49,7 @@ Every token below has a light value in `:root` and a dark value in `.dark` of `g
 | `--warning`, `--warning-foreground` | `warning`, `warning-foreground` | Warning fill and icon; warning text      |
 | `--chart-1` … `--chart-8`           | `chart-1` … `chart-8`           | Categorical chart marks                  |
 | `--chart-other`                     | `chart-other`                   | The "Other" series, bucket or mod group  |
+| `--chart-opponent`                  |                                 | Frequent opponents chart bars            |
 | `--verification-verified`           | `verification-verified`         | Verified icon and chart fill             |
 | `--verification-neutral`            | `verification-neutral`          | Pending icon, "Not in ratings yet" fill  |
 | `--verification-rejected`           | `verification-rejected`         | Rejected icon and chart fill             |
@@ -71,7 +72,7 @@ Every token below has a light value in `:root` and a dark value in `.dark` of `g
 | `--notification`                    | `notification`                  | The one notification dot                 |
 | `--support`                         | `support`                       | The header's support heart on hover      |
 | `--tier-<tier>`                     | `tier-<tier>`                   | Tier names (text) and tier chart marks   |
-| `--mod-nm` … `--mod-fl`             | `mod-nm` … `mod-fl`             | NM, HD, HR, DT and FL marks and pills    |
+| `--chart-nm`, `--chart-hd`, …       |                                 | Mod marks and pills (`MOD_PALETTE`)      |
 
 The brand blue (`primary`, `link`) has its own table under [Brand blue](#brand-blue). The other shadcn base tokens (`background`, `card`, `popover`, `muted`, `accent`, `secondary`, `border`, `input`, `ring`) follow shadcn/ui's conventions: a surface token and its `*-foreground` text. There are no other palettes, so a color that is not in this table or the brand blue's is not a token. Grades have no tokens: their ramp is mixed from `--chart-1` (see [Grade colours](#grade-colours)).
 
@@ -179,7 +180,7 @@ Gallery anchor: `/admin/design#color-accent-rule`
 
 ## Categorical palette
 
-Eight hues in a fixed order for neutral series: rank restriction buckets, teams (red and blue), rulesets, teammates and opponents, any "series 1, 2, 3". They are shadcn/ui's `--chart-*` tokens. The order keeps neighbors apart for protanopia and deuteranopia (Machado 2009 simulation, adjacent OKLab ΔE ≥ 8) and for full color vision (ΔE ≥ 15), in both themes; check a new value against both before it lands.
+Eight hues in a fixed order for neutral series: rank restriction buckets, teams (red and blue), rulesets, frequent teammates, any "series 1, 2, 3". They are shadcn/ui's `--chart-*` tokens. The order keeps neighbors apart for protanopia and deuteranopia (Machado 2009 simulation, adjacent OKLab ΔE ≥ 8) and for full color vision (ΔE ≥ 15), in both themes; check a new value against both before it lands.
 
 ```tsx
 import {
@@ -212,11 +213,11 @@ import {
 Do:
 
 - Rank restriction buckets take slots 1 to 5 in bucket order (Open, <1k, 1k+, 10k+, 100k+).
-- Teammates and opponents take slots 1 and 2.
+- Frequent teammates take slot 1. Frequent opponents keep the coral they had before this palette, `OPPONENT_COLOR` (`--chart-opponent`).
 
 Don't:
 
-- Don't give neutral data a judgement colour, such as red for opponents; teammates and opponents are `seriesColor(0)` and `seriesColor(1)`, as the profile's teammates and opponents charts have them.
+- Don't give neutral data a judgement colour, such as green for teammates. Opponents' coral is their long-standing color, not a verdict.
 - Don't invent series colours (a hex such as `#3b82f6`, or a token of your own for one chart).
 - Don't reuse a status colour for a series, or a series colour for a status.
 
@@ -364,7 +365,7 @@ Gallery anchor: `/admin/design#color-grades`
 
 ## Mod colours
 
-Mod charts color five mods, and only five: NM, HD, HR, DT and FL, each with its own token (`--mod-nm`, `--mod-hd`, `--mod-hr`, `--mod-dt`, `--mod-fl`). They keep the blue, yellow, red, purple and indigo the site has always used, as Tailwind colors, a step more saturated in dark mode than the old pastels. Every other mod or combination (HDHR, EZ, HT, key mods, and the rest) is one "Other" group in `--chart-other`. The group is in the data too, not only the color: its counts merge into one entry, placed last. Every mod color clears 3:1 on both cards. Black text on a solid pill clears 4.5:1, except light HD (yellow-700, 4.3:1).
+The mod colors the site has always used, one `--chart-*` token per mod or tournament combination, such as `--chart-hd`, `--chart-hr` and `--chart-hdhr`. Each hue is kept and only the lightness moved as far as contrast needs, so the light theme's are darker. No Mod's `--chart-nm` reuses `--chart-1`, the categorical blue. Touch Device, which once shared Sudden Death's orange, is a grayer orange. Every mod takes black text as a solid pill. Rare combinations get the "Other" gray, `--chart-other`.
 
 ```tsx
 import { MOD_FILL_FOREGROUND, getModPaletteColor } from '@/lib/kit/color/mods';
@@ -380,19 +381,18 @@ import { MOD_FILL_FOREGROUND, getModPaletteColor } from '@/lib/kit/color/mods';
 </span>;
 ```
 
-- `getModPaletteColor(mods)`: applies the display rules first (NF and SO dropped, NC shown as DT), then returns `var(--chart-1)` to `var(--chart-5)`, or `var(--chart-other)`.
-- `getModPaletteEntry(mods)`: the entry with its `label`, `mods`, `token` and `css`, or undefined for anything in "Other".
-- `MOD_PALETTE`: the five entries, in order.
-- `CHART_MODS` and `isChartMods(mods)` in `@/lib/utils/mods`: the five display combinations, for grouping data. `collapseBeatmapModDistribution` folds everything else (and anything under 1%) into a trailing "Other" slice; the player mod charts' `groupModStats` does the same, with a games-weighted average score.
-- Box plots (the beatmap score distribution) show only the five mods. Quartiles can't be pooled from each combination's own quartiles, and one box over EZ, HDHR and the rest together would mix scores on different scales.
-- `MOD_FILL_FOREGROUND`: black, the text colour on every solid mod fill.
+- `getModPaletteColor(mods)`: applies the display rules first (NF and SO dropped, NC shown as DT), then returns `var(--chart-<mod>)`, such as `var(--chart-hdhr)`, or `var(--chart-other)`.
+- `getModPaletteEntry(mods)`: the entry with its `label`, `mods`, `token` and `css`, or undefined.
+- `MOD_PALETTE`: labeled as the beatmap pages label them (`getBeatmapModLabel`): NM, HD, HR, DT, HT, EZ, FL, HDHR, EZHD, EZDT, HDFL, HDDT, SD, TD, RX (relax, autopilot and autoplay), MR, RD and KEY (mania keys).
+- `collapseBeatmapModDistribution` folds combinations under 1% into a trailing "Other" slice.
+- `MOD_FILL_FOREGROUND`: black, the text color on every solid mod fill.
 - Mod labels and lists come from the format family (`formatMods`, `getBeatmapModLabel`).
 
 Don't:
 
-- Don't keep a mod color table of your own, or give a sixth mod a color; every mod chart uses this palette.
+- Don't keep a mod color table of your own; every mod chart uses this palette.
 - Don't swap a mod to a new hue to fix contrast or a clash. Players know these colors; move the lightness, or the chroma for a rare mod, in `globals.css`.
-- Don't color "Other" segments one by one; merge their data first.
+- Don't fold the mods with their own color into "Other"; only combinations without one, or under the display threshold, go there.
 
 Gallery anchor: `/admin/design#color-mods`
 

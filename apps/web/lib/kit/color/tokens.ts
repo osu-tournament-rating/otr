@@ -1,4 +1,8 @@
-import { CATEGORICAL_OTHER, CATEGORICAL_PALETTE } from './categorical';
+import {
+  CATEGORICAL_OTHER,
+  CATEGORICAL_PALETTE,
+  OPPONENT_COLOR,
+} from './categorical';
 import { MOD_PALETTE } from './mods';
 import { MATCH_SURFACES, MATCH_TEAM_COLORS } from './teams';
 import { themeColor, type ThemeColor } from './theme-color';
@@ -94,6 +98,11 @@ export const TOKEN_GROUPS: readonly TokenGroup[] = [
         utility: utilityOf(CATEGORICAL_OTHER),
       },
     ],
+  },
+  {
+    id: 'opponents',
+    title: 'Frequent opponents',
+    entries: [{ color: OPPONENT_COLOR, label: 'Opponents' }],
   },
   {
     id: 'verification',

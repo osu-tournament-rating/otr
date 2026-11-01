@@ -62,9 +62,10 @@ it in `apps/web` from the kit, never from the mockup's markup.
   Colour only reinforces. Pending, Pre-verified and Pre-rejected are "Not in
   ratings yet" everywhere, including charts.
 - **Charts.** A fixed categorical palette (`chart-1` to `chart-8`) for
-  neutral series, rank ranges and teams. Mods keep the site's own hues:
-  NM, HD, HR, DT and FL each have a `mod-*` token, and every other mod is
-  one "Other" group. Grades are a ramp of `chart-1`. Tiers, verification
+  neutral series, rank ranges and teams. Mods keep the site's own hues,
+  one `chart-*` token per mod or combination (`chart-hd`, `chart-hdhr`).
+  Frequent opponents keep their coral, `chart-opponent`. Grades are a ramp
+  of `chart-1`. Tiers, verification
   status and star rating keep their own palettes. One tick rule, at most six ticks. Counts get thousands
   separators; years and IDs never do.
 - **Lists.** One toolbar inside the list's panel. Every control that changes
