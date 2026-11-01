@@ -35,7 +35,8 @@ describe('buildTokens', () => {
   });
 
   it('turns a reference to another token into an alias', () => {
-    // globals.css has no alias of its own, so make one.
+    // Make an alias, so the test doesn't depend on which tokens globals.css
+    // aliases today.
     const aliased = globalsCss.replace(
       /(:root,\s*\.theme-light\s*\{[^}]*--warning:)[^;]+;/,
       '$1 var(--success);'
