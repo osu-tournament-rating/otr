@@ -1094,7 +1094,7 @@ function FormLayoutDemo() {
       <PageHeader
         icon={Upload}
         title="Tournament submission"
-        description="Use this form to submit a new tournament for verification and tracking."
+        description="Use this form to submit a new tournament for verification and tracking. Make sure that the tournament has fully concluded first!"
         actions={
           <Button asChild variant="outline" icon={ExternalLink}>
             <a

@@ -452,7 +452,7 @@ import { Form } from '@/components/ui/form';
   <PageHeader
     icon={Upload}
     title="Tournament submission"
-    description="Use this form to submit a new tournament for verification and tracking."
+    description="Use this form to submit a new tournament for verification and tracking. Make sure that the tournament has fully concluded first!"
   />
   <Form {...form}>
     <FormPanel onSubmit={form.handleSubmit(submit)} data-testid="tournament-submission-form">
