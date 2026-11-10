@@ -14,6 +14,7 @@ In order for a tournament to be accepted into the o!TR system for rating calcula
 > Badge eligibility is **not** a requirement for acceptance, and conversely, not all badged tournaments meet the criteria below.
 
 1. Feature a bracket size of at least Round of 8 double elimination.
+1. Fully complete all tournament matches.
 1. Publicly document all match links to an acceptable standard, such as through a public Google sheet.
 1. Not have significant lapses in data, such as missing a full round of matches or a large amount of forfeits.
     - Exceptions are made for older tournaments for the sake of preservation.
